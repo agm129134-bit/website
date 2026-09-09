@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<title>隨機迷宮 + DFS + 玩家移動</title>
+
+<style>
+  body { font-family: Arial; background:#f4f6f8; display:flex; flex-direction:column; align-items:center; padding:20px; }
+  #controls { margin:10px 0; display:flex; gap:8px; align-items:center; }
+  button { padding:6px 10px; }
+  canvas { border:1px solid #333; background:#fff; }
+</style>
+</head>
+<body>
+<h2>隨機迷宮（DFS + 玩家模式）</h2>
+
+<canvas id="c" width="500" height="500"></canvas>
+
+<div id="controls">
+  <button id="startBtn">Auto DFS</button>
+  <button id="stopBtn" disabled>Stop</button>
+  <button id="stepBtn">Step</button>
+  <button id="resetBtn">Reset DFS</button>
+  <button id="regenBtn">ReGen Maze</button>
+  <label>速度 <input id="speed" type="range" min="50" max="1000" step="50" value="250"></label>
+</div>
+
+<div id="status">狀態：尚未開始</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let ROWS = 51, COLS = 51;
+let cellSize = canvas.width / COLS;
+
+let MAZE;
+let START, END;
+
+let stack, visited, parent, current, route, found;
+let timer = null;
+
+let player = null;  // 玩家位置
+
+//-------------------------------------------------------
+// 工具
+//-------------------------------------------------------
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+}
+
+function posKey(r,c){ return r + "," + c; }
+
+//-------------------------------------------------------
+// 隨機找可走的起點 / 終點
+//-------------------------------------------------------
+function randomWalkableCell() {
+  let r,c;
+  do {
+    r = Math.floor(Math.random()*ROWS);
+    c = Math.floor(Math.random()*COLS);
+  } while (MAZE[r][c] !== 0);
+  return {r,c};
+}
+
+//-------------------------------------------------------
+// 迷宮生成（Recursive DFS）
+//-------------------------------------------------------
+function genMaze(){
+  MAZE = Array.from({length:ROWS},()=>Array(COLS).fill(1));
+
+  function carve(r,c){
+    const dirs=[[ -2,0 ],[ 2,0 ],[ 0,-2 ],[ 0,2 ]];
+    shuffle(dirs);
+    MAZE[r][c]=0;
+    for(const [dr,dc] of dirs){
+      let nr=r+dr, nc=c+dc;
+      if(nr>0 && nr<ROWS-1 && nc>0 && nc<COLS-1 && MAZE[nr][nc]===1){
+        MAZE[r+dr/2][c+dc/2]=0;
+        carve(nr,nc);
+      }
+    }
+  }
+
+  carve(1,1);
+
+  // 生成新的起點與終點
+  START = randomWalkableCell();
+  END   = randomWalkableCell();
+
+  // 避免兩個太靠近
+  while (Math.abs(START.r-END.r) + Math.abs(START.c-END.c) < 20) {
+    END = randomWalkableCell();
+  }
+
+  // 玩家位置=起點
+  player = {...START};
+}
+
+//-------------------------------------------------------
+// DFS 初始化
+//-------------------------------------------------------
+function resetSearch(){
+  stack = [];
+  visited = new Set();
+  parent = {};
+  route = [];
+  found = false;
+  current = null;
+  stack.push({...START});
+}
+
+//-------------------------------------------------------
+// DFS 单步
+//-------------------------------------------------------
+function dfsStep(){
+  if(found) return;
+
+  if(stack.length===0){
+    status.textContent="無解";
+    return;
+  }
+
+  let node = stack.pop();
+  let key  = posKey(node.r,node.c);
+
+  if(MAZE[node.r][node.c]===1) return;
+  if(visited.has(key)) return;
+
+  visited.add(key);
+  current = node;
+
+  if(node.r===END.r && node.c===END.c){
+    found=true;
+    reconstruct(node);
+    return;
+  }
+
+  let dirs=[[ -1,0 ],[ 1,0 ],[ 0,-1 ],[ 0,1 ]];
+  shuffle(dirs);
+
+  for(const [dr,dc] of dirs){
+    const nr=node.r+dr, nc=node.c+dc;
+    if(nr<0||nr>=ROWS||nc<0||nc>=COLS) continue;
+    if(MAZE[nr][nc]===1) continue;
+
+    const k=posKey(nr,nc);
+    if(!visited.has(k)){
+      stack.push({r:nr,c:nc});
+      if(parent[k]===undefined) parent[k] = key;
+    }
+  }
+}
+
+//-------------------------------------------------------
+// 重建 DFS 路徑
+//-------------------------------------------------------
+function reconstruct(node){
+  let k = posKey(node.r,node.c);
+  route = [];
+  while(k !== undefined){
+    let [r,c] = k.split(',').map(Number);
+    route.push({r,c});
+    if(k === posKey(START.r,START.c)) break;
+    k = parent[k];
+  }
+  route.reverse();
+}
+
+//-------------------------------------------------------
+// 玩家移動
+//-------------------------------------------------------
+function movePlayer(dr, dc) {
+  let nr = player.r + dr;
+  let nc = player.c + dc;
+  if (nr<0 || nr>=ROWS || nc<0 || nc>=COLS) return;
+  if (MAZE[nr][nc] === 1) return;  // 撞牆
+
+  player.r = nr;
+  player.c = nc;
+
+  if (player.r === END.r && player.c === END.c) {
+    status.textContent = "玩家抵達終點！";
+  }
+
+  draw();
+}
+
+// 鍵盤控制
+document.addEventListener("keydown", e=>{
+  if (["ArrowUp","w","W"].includes(e.key))    movePlayer(-1,0);
+  if (["ArrowDown","s","S"].includes(e.key))  movePlayer(1,0);
+  if (["ArrowLeft","a","A"].includes(e.key))  movePlayer(0,-1);
+  if (["ArrowRight","d","D"].includes(e.key)) movePlayer(0,1);
+});
+
+//-------------------------------------------------------
+// 渲染迷宮
+//-------------------------------------------------------
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // 1.迷宮背景
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      ctx.fillStyle = MAZE[r][c]===1 ? "#000" : "#f0f0f0";
+      ctx.fillRect(c*cellSize, r*cellSize, cellSize, cellSize);
+    }
+  }
+
+  // 2. DFS visited
+  for(const k of visited){
+    let [r,c]=k.split(',').map(Number);
+    ctx.fillStyle="#d0d0d0";
+    ctx.fillRect(c*cellSize,r*cellSize,cellSize,cellSize);
+  }
+
+  // 3. 當前 DFS 位點
+  if(current){
+    ctx.fillStyle="#ff5555"; 
+    ctx.fillRect(current.c*cellSize,current.r*cellSize,cellSize,cellSize);
+  }
+
+  // 4. DFS 最終路徑
+  for(const p of route){
+    ctx.fillStyle="#ffe066";
+    ctx.fillRect(p.c*cellSize,p.r*cellSize,cellSize,cellSize);
+  }
+
+  // 5. 玩家
+  ctx.fillStyle = "#aa33ff";
+  ctx.fillRect(player.c*cellSize, player.r*cellSize, cellSize, cellSize);
+
+  // 6. 起點終點
+  ctx.fillStyle = "#4caf50";
+  ctx.fillRect(START.c*cellSize,START.r*cellSize,cellSize,cellSize);
+  ctx.fillStyle = "#0277bd";
+  ctx.fillRect(END.c*cellSize,END.r*cellSize,cellSize,cellSize);
+}
+
+//-------------------------------------------------------
+// 動畫控制
+//-------------------------------------------------------
+function startAuto(){
+  if(timer) return;
+  timer=setInterval(()=>{ dfsStep(); draw(); }, speed.value);
+  status.textContent="DFS 自動搜尋中...";
+}
+function stopAuto(){
+  clearInterval(timer);
+  timer=null;
+  status.textContent="已停止";
+}
+
+//-------------------------------------------------------
+// UI 控制
+//-------------------------------------------------------
+startBtn.onclick = ()=> startAuto();
+stopBtn.onclick  = ()=> stopAuto();
+stepBtn.onclick  = ()=> { dfsStep(); draw(); };
+resetBtn.onclick = ()=> { stopAuto(); resetSearch(); draw(); };
+regenBtn.onclick = ()=> { stopAuto(); genMaze(); resetSearch(); draw(); };
+
+speed.oninput = ()=>{
+  if(timer){ stopAuto(); startAuto(); }
+};
+
+// 初始化
+genMaze();
+resetSearch();
+draw();
+</script>
+</body>
+</html>
