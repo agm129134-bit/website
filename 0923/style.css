@@ -1,15 +1,28 @@
-#logo{
-    color: #ffffff;
+/* 全域設定 */
+body {
     font-family: Arial, Helvetica, sans-serif;
-    font-weight: bold;
-    font-size: 20px;
+    margin: 0;
+    padding: 0;
+    background-color: #f0f0f0;
 }
 
-#header{
+#main {
+    width: 900px;
+    margin: 0 auto; /* 讓版面置中 */
+    background-color: #ffffff;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+/* Header */
+#header {
     background-color: #6e6e6e;
-    padding: 20px;
-    text-align: center;
-    height: 100px;
+    /* 如果你有海浪的圖片，可以把下面這行取消註解並替換圖片路徑 */
+    /* background-image: url('wave-bg.jpg'); background-size: cover; */
+    padding: 20px 40px;
+    text-align: left;
+    height: 120px;
+    display: flex;
+    align-items: center;
 }
 
 #logo h1 {
@@ -22,36 +35,26 @@
     text-decoration: none;
 }
 
-#black{
-    color: black;
-    font-family: Arial, Helvetica, sans-serif;
-
+#black {
+    color: #333333;
 }
 
-#white{
-    color: white;
-    font-family: Arial, Helvetica, sans-serif;
-
-}
-
-#logo h2 {
-    margin: 0;
-    font-size: 14px;
-    font-weight: normal;
-}
-
-#metamorph{
+#white {
     color: #ffffff;
-    font-family: Arial, Helvetica, sans-serif;
-    font-weight: bold;
-    font-size: 14px;
 }
 
-#menu{
+#metamorph {
+    margin: 5px 0 0 0;
+    color: #ffffff;
+    font-weight: normal;
+    font-size: 16px;
+}
+
+/* Menu */
+#menu {
     background: linear-gradient(to bottom, #444, #000);
     border-top: 2px solid #777;
     border-bottom: 2px solid #222;
-
 }
 
 #menu ul {
@@ -69,13 +72,168 @@
 
 #menu a {
     display: block;
-    padding: 10px 30px;
-    color: rgb(255, 255, 255);
+    padding: 12px 30px;
+    color: #ffffff;
     text-decoration: none;
     font-weight: bold;
     font-size: 14px;
 }
 
-#menu a:hover {
-    background-color: #333;
+#menu a:hover, #menu li.active a {
+    background: linear-gradient(to bottom, #666, #222);
+}
+
+/* 內容區塊 */
+#content {
+    display: flex;
+    padding: 20px;
+}
+
+/* 左側邊欄 */
+#sidebar {
+    width: 250px;
+    padding-right: 20px;
+}
+
+.sidebar-box {
+    margin-bottom: 30px;
+}
+
+.sidebar-box h3 {
+    background: linear-gradient(to bottom, #666, #000);
+    color: white;
+    margin: 0 0 15px 0;
+    padding: 10px 15px;
+    border-radius: 15px;
+    font-size: 16px;
+    text-shadow: 1px 1px 2px black;
+    border: 2px solid #ccc;
+}
+
+.sidebar-box form {
+    padding: 0 10px;
+}
+
+.sidebar-box label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+}
+
+.sidebar-box input[type="text"],
+.sidebar-box input[type="password"] {
+    width: 100%;
+    padding: 5px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+}
+
+.sidebar-box button {
+    padding: 3px 15px;
+    border: 1px solid #999;
+    background-color: #eee;
+    cursor: pointer;
+}
+
+.sidebar-box .forgot {
+    display: block;
+    margin-top: 10px;
+    font-size: 12px;
+    color: #333;
+    text-decoration: none;
+}
+
+.news-item {
+    margin-bottom: 15px;
+    padding: 0 10px;
+}
+
+.news-item strong {
+    display: block;
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.news-item p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.news-item p a {
+    color: #333;
+    text-decoration: underline;
+}
+
+/* 右側主要內容 */
+#main-content {
+    flex: 1;
+    padding-left: 10px;
+}
+
+#main-content h2 {
+    margin-top: 0;
+    font-size: 28px;
+    color: #000;
+}
+
+#main-content h4 {
+    margin: 5px 0 15px 0;
+    font-size: 14px;
+    color: #333;
+    text-transform: uppercase;
+}
+
+#main-content h3 {
+    font-size: 18px;
+    color: #333;
+    margin-top: 20px;
+}
+
+#main-content p {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+.comments {
+    text-align: right;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.comments a {
+    color: #666;
+    text-decoration: none;
+}
+
+hr {
+    border: 0;
+    border-top: 1px dashed #ccc;
+    margin: 20px 0;
+}
+
+/* 頁尾 Footer */
+#footer {
+    background: linear-gradient(to bottom, #222, #000);
+    color: #ccc;
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+#footer a {
+    color: #ccc;
+    text-decoration: none;
+}
+
+#footer a:hover {
+    text-decoration: underline;
 }
