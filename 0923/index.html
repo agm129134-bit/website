@@ -3,33 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Black & White</title>
+    <!-- 引入外部 CSS 檔案 -->
     <link rel="stylesheet" href="style.css">
-
 </head>
-
 <body>
-        <div id="main">
+    <div id="main">
         <!-- header begins -->
         <div id="header">
             <div id="logo">
-                <h1><a id="black">BLACK</a> &amp; <a id="white">WHITE</a></h1>
-                <h2><a id="metamorph">Company Slogan Goes Here</a></h2>
-            </div>	
+                <h1><a href="#" id="black">BLACK</a> &amp; <a href="#" id="white">WHITE</a></h1>
+                <h2 id="metamorph">Company Slogan Goes Here</h2>
+            </div>
         </div>
         <!-- header ends -->
 
         <!-- menu begins -->
         <div id="menu">
-                <ul>
-                    <li><a href="#" title="">Home</a></li>
-                    <li><a href="#" title="">Blog</a></li>
-                    <li><a href="#" title="">Gallery</a></li>
-                    <li><a href="#" title="">About</a></li>
-                    <li><a href="#" title="">Contact</a></li>
-                </ul>
+            <ul>
+                <li class="active"><a href="#" title="">Home</a></li>
+                <li><a href="#" title="">Blog</a></li>
+                <li><a href="#" title="">Gallery</a></li>
+                <li><a href="#" title="">About</a></li>
+                <li><a href="#" title="">Contact</a></li>
+            </ul>
         </div>
         <!-- menu ends -->
-        
+
+        <!-- content begins -->
+        <div id="content">
+            <!-- sidebar begins -->
+            <div id="sidebar">
+                <div class="sidebar-box">
+                    <h3>Customer Login</h3>
+                    <form>
+                        <label>Login Name:</label>
+                        <input type="text">
+                        <label>Password:</label>
+                        <input type="password">
+                        <button type="button">Login</button>
+                        <a href="#" class="forgot">Forgot your password?</a>
+                    </form>
+                </div>
+                
+                <div class="sidebar-box">
+                    <h3>Company News</h3>
+                    <div class="news-item">
+                        <strong>June 23, 2011</strong>
+                        <p><a href="#">Tempus in, lacus. Duis tempor posuere diam. Suspendisse vel tellus quis nunc malesuada porta. ...</a></p>
+                    </div>
+                    <div class="news-item">
+                        <strong>March 4, 2011</strong>
+                        <p><a href="#">Nulla id magna sed dolor sollicitudin laoreet. tempus in. lacus. Duis tempor posuere diam...</a></p>
+                    </div>
+                    <div class="news-item">
+                        <strong>February 18, 2011</strong>
+                        <p><a href="#">Lorem ipsum dolor sit amet, consectetuer adipiscing elit. ...</a></p>
+                    </div>
+                </div>
+            </div>
+            <!-- sidebar ends -->
+
+            <!-- main content begins -->
+            <div id="main-content">
+                <h2>Welcome to Our Website!</h2>
+                <h4>METAMORPHOSIS DESIGN</h4>
+                <p>Dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat.<br>
+                Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat. Ut wisi enim ad minim veniam, quis nostrud exerci tation ullamcorper suscipit lobortis nisl ut aliquip ex ea commodo consequat.<br>
+                Duis autem vel eum iriure dolor in hendrerit in vulputate velit esse molestie consequat...</p>
+                <div class="comments"><a href="#">Comments(2)</a> 21.02.</div>
+
+                <hr>
+
+                <h3>FREE WEBSITE TEMPLATES</h3>
+                <p>Sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat.</p>
+                <p>Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat. Ut wisi enim ad minim veniam, quis nostrud exerci tation ullamcorper suscipit lobortis nisl ut aliquip ex ea commodo consequat.</p>
+                <div class="comments"><a href="#">Comments(8)</a> 13.46.</div>
+            </div>
+            <!-- main content ends -->
+        </div>
+        <!-- content ends -->
+
+        <!-- footer begins -->
+        <div id="footer">
+            <p>Copyright &copy; 2011. <a href="#">Flash Templates</a><br>
+            <a href="#">Privacy Policy</a> | <a href="#">Terms of Use</a> | <a href="#">XHTML</a> | <a href="#">CSS</a></p>
+        </div>
+        <!-- footer ends -->
+    </div>
 </body>
 </html>
