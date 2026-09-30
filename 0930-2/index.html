@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Red Lantern design</title>
+    <!-- 1. 引入 Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- 2. 您原本的 CSS -->
+    <link rel="stylesheet" href="/css/style.css" type="text/css">
+</head>
+
+<body>
+    <!-- 導覽列 -->
+    <header class="navbar navbar-expand-lg navbar-light bg-light shadow-sm" id="masthead">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <img src="../image/rl_logo.png" alt="Red Lantern Logo" height="40">
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav" aria-controls="nav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="nav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link active" title="Red Lantan Logo" href="index.html">home</a></li>
+                    <li class="nav-item"><a class="nav-link" title="design services" href="services.html">services</a></li>
+                    <li class="nav-item"><a class="nav-link" title="Our work" href="portfolio.html">portfolio</a></li>
+                    <li class="nav-item"><a class="nav-link" title="contact Red Lantern" href="contact.html">contact</a></li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要內容區塊 -->
+    <article class="container my-5" id="mainContent">
+        
+        <section id="titleBar" class="text-center mb-5">
+            <img src="../image/tokyo.jpg" alt="tokyo building" class="img-fluid rounded mb-4 w-100" style="max-height: 400px; object-fit: cover;">
+            <h1 class="display-5 fw-bold">Red Lantern builds unique interface <span class="text-danger">&amp;</span> user experiment</h1>
+        </section>
+
+        <!-- 網格系統：強制使用 Bootstrap 的排列 -->
+        <div class="row g-5">
+            
+            <!-- 左側主要內容 (電腦版佔據 8 格) -->
+            <section id="content" class="col-lg-8">
+                <h2 class="mb-3">welcome to the new Red Lantern design</h2>
+                <p class="lead">Red Lantern is a design studio that builds .</p>
+                <p>We work with clients of all sizes, from startupsness objectives through effective design and development.</p>
+                
+                <ul id="link-list" class="mt-4">
+                    <li> <a title="view " href="#">view</a></li>
+                    <li><a title="view " href="#">contact</a></li>
+                </ul>
+            </section>
+
+            <!-- 右側側邊欄 (電腦版佔據 4 格) -->
+            <section id="sidebar" class="col-lg-4">
+                <h2 class="mb-3">Our work</h2>
+                <!-- 恢復為原本的 ul 與 li，並加上 list-unstyled 移除預設黑點 -->
+                <ul id="port" class="list-unstyled row g-3">
+                    <li class="col-6 col-lg-12"><img src="../image/markinjapan.jpg" alt="comp0" class="img-fluid rounded shadow-sm"></li>
+                    <li class="col-6 col-lg-12"><img src="../image/a2g.jpg" alt="comp1" class="img-fluid rounded shadow-sm"></li>
+                    <li class="col-6 col-lg-12"><img src="../image/foobar.jpg" alt="comp2" class="img-fluid rounded shadow-sm"></li>
+                    <li class="col-6 col-lg-12"><img src="../image/rpm.jpg" alt="comp3" class="img-fluid rounded shadow-sm"></li>
+                </ul>
+            </section>
+            
+        </div>
+    </article>
+
+    <footer id="footer" class="bg-dark text-white text-center py-4 mt-5">
+        <div class="container">
+            <p class="mb-0">copyright &copy; Red Lantern design</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
