@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FTDBLUEMOOD</title>
+    <!-- 引入 Bootstrap 5 -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- 引入自訂 CSS -->
+    <link rel="stylesheet" href="css/style.css" type="text/css" />
+  </head>
+  <body>
+    <!-- 網站最上方的 Logo 與標語 -->
+    <div class="container mt-4">
+      <div class="site-logo">FTDBLUEMOOD</div>
+      <div class="site-slogan">SMALL COMPANY SLOGAN GOES HERE</div>
+    </div>
+
+    <!-- 主要白色內容區塊 -->
+    <div class="container main-container">
+      
+     <!-- 原本的單張圖片改為 Bootstrap 5 Carousel 輪播圖 -->
+     <div id="heroCarousel" class="carousel slide" data-bs-ride="carousel">
+        <!-- 輪播指示點 -->
+        <div class="carousel-indicators">
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1" aria-label="Slide 2"></button>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="2" aria-label="Slide 3"></button>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="3" aria-label="Slide 4"></button>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="4" aria-label="Slide 5"></button>                    
+        </div>
+
+        <!-- 輪播圖片內容 -->
+        <div class="carousel-inner">
+            <div class="carousel-item active">
+                <img src="images/header.jpg" class="d-block w-100" alt="tokyo buildings">
+            </div>
+            <div class="carousel-item">
+                <!-- 請替換為您的第二張圖片路徑 -->
+                <img src="images/header2.jpg" class="d-block w-100" alt="mark in japan">
+            </div>
+            <div class="carousel-item">
+                <!-- 請替換為您的第三張圖片路徑 -->
+                <img src="images/header3.jpg" class="d-block w-100" alt="a2g">
+            </div>
+            <div class="carousel-item">
+                <!-- 請替換為您的第四張圖片路徑 -->
+                <img src="images/header4.jpg" class="d-block w-100" alt="mark in japan">
+            </div>
+        </div>
+        <!-- 左右切換按鈕 -->
+        <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Previous</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Next</span>
+        </button>
+    </div>
+
+      <!-- 漸層導覽列 -->
+      <nav class="gradient-nav d-flex justify-content-center gap-5 mt-1 mb-4">
+        <a href="#">Home</a>
+        <a href="#">Blog</a>
+        <a href="#">Gallery</a>
+        <a href="#">About</a>
+        <a href="#">Contact</a>
+      </nav>
+
+      <!-- 第一區塊：三個圖文並茂的欄位 -->
+      <section class="row mb-5">
+        <div class="col-md-4">
+          <h3 class="section-title">Your Options</h3>
+          <div class="d-flex align-items-start mt-3">
+            <img src="https://placehold.co/60x80/eee/999?text=Icon" alt="icon" class="me-3">
+            <div>
+              <a href="#" class="text-link">Cras hendrerit est nec libero ornare sagittis.</a>
+              <p class="small-text mt-1">Donec interdum dignissim risus et vestibulum.</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <h3 class="section-title">Company News</h3>
+          <div class="d-flex align-items-start mt-3">
+            <img src="https://placehold.co/60x60/eee/999?text=Clock" alt="icon" class="me-3 rounded-circle">
+            <div>
+              <a href="#" class="text-link">Donec interdum dignissim risus et vestibulum.</a>
+              <p class="small-text mt-1">Donec eget nisi id magna tempor laoreet. Etiam egesa</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <h3 class="section-title">Have a Question?</h3>
+          <div class="d-flex align-items-start mt-3">
+            <img src="https://placehold.co/60x60/eee/999?text=?" alt="icon" class="me-3 rounded-circle">
+            <div>
+              <a href="#" class="text-link">Cras hendrerit est nec libero ornare sagittis.</a>
+              <p class="small-text mt-1">Donec interdum dignissim risus et vestibulum.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 第二區塊：淺藍色區塊 (雙欄排版) -->
+      <section class="row mb-5 align-items-stretch">
+        <!-- 左側淺藍區塊 -->
+        <div class="col-md-8">
+          <div class="light-blue-box">
+            <h3 class="section-title mb-4">Etiam felis ipsum</h3>
+            <div class="row">
+              <div class="col-md-6 d-flex mb-4">
+                <img src="https://placehold.co/80x80" alt="avatar" class="me-3 border border-2 border-white shadow-sm">
+                <p class="small-text mb-0">Vivamus ut risus sit amet ante tempor dapibus eget at quam. In blandit ante at massa faucibus.</p>
+              </div>
+              <div class="col-md-6 d-flex mb-4">
+                <img src="https://placehold.co/80x50" alt="img" class="me-3 border border-2 border-white shadow-sm">
+                <p class="small-text mb-0">In in dui eget nibh viverra mollis eget eget lacus. In non velit augue. Quisque dolor elit.</p>
+              </div>
+              <div class="col-md-6 d-flex mb-4">
+                <img src="https://placehold.co/80x80" alt="avatar" class="me-3 border border-2 border-white shadow-sm">
+                <p class="small-text mb-0">Koreet aliquam leo tellus. dolor dapibumeQuisque nulla. Vestibulum libero nisl, porta vel.</p>
+              </div>
+              <div class="col-md-6 d-flex mb-4">
+                <img src="https://placehold.co/80x80" alt="avatar" class="me-3 border border-2 border-white shadow-sm">
+                <p class="small-text mb-0">Nullam vehicula odio in tellus venenatis a facilisis metus mollis. Fusce tempus dolor.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 右側淺藍區塊 (清單) -->
+        <div class="col-md-4">
+          <div class="light-blue-box">
+            <h3 class="section-title mb-3">Duis blandit ultrices</h3>
+            <ul class="custom-list">
+              <li><a href="#">DONEC TINCIDUNT PURUS VITAE</a></li>
+              <li><a href="#">DONEC NON EGESTAS LECTUS LACUS</a></li>
+              <li><a href="#">CRAS PORTTITOR HENDRERIT EUISMOD</a></li>
+              <li><a href="#">CUM SOCIIS NATOQUE PENATIBUS</a></li>
+              <li><a href="#">QUISQUE MAURIS LIGULA, COMMODO</a></li>
+              <li><a href="#">CURABITUR DIGNISSIM COMMODO</a></li>
+              <li><a href="#">DONEC NON EGESTAS LECTUS LACUS</a></li>
+              <li><a href="#">CRAS PORTTITOR HENDRERIT EUISMOD</a></li>
+            </ul>
+            <a href="#" class="read-more mt-2 d-inline-block">• READ MORE</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- 第三區塊：底部文章區 -->
+      <section class="row mb-4">
+        <div class="col-md-8 text-content">
+          <h3 class="section-title">Nullam consectetur</h3>
+          <p class="fw-bold text-dark mb-1">Phasellus porta. Fusce suscipit varius mi.etus. Nulla facilisi. Aenean nec eros. Vestibulum ante ipsum primis in faucibu.</p>
+          <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec et quam magna. Morbi sed elit erat. Proin sodales interdum erat, at mollis ante tempor sed. Donec venenatis dui ac turpis interdum a ornare risus scelerisque. Quisque condimentum, enim non posuere blandit, metus mi dictum risus, nec rutrum ligula eros id eros. In eget ante diam.</p>
+          <p>Suspendisse sit amet nunc non augue posuere adipiscing. Vivamus ut risus sit amet ante tempor dapibus eget at quam. In blandit ante at massa faucibus malesuada. Vivamus eros augue, volutpat in tincidunt nec, mattis ullamcorper tortor. Nunc semper nisl vitae ante.</p>
+          <a href="#" class="read-more">• READ MORE</a>
+        </div>
+        <div class="col-md-4 text-content">
+          <h3 class="section-title">In semper massa</h3>
+          <img src="https://placehold.co/350x120/0f4f7a/fff?text=Abstract+Image" alt="abstract" class="img-fluid w-100 mb-2 border border-2 border-white shadow-sm">
+          <p>Praesent vestibulum molestie lacus. Aenean Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Nulla dui. Fusce feugiat malesuada odio.</p>
+          <a href="#" class="read-more">• READ MORE</a>
+        </div>
+      </section>
+
+      <!-- 漸層頁尾 -->
+      <footer class="gradient-footer text-center pb-3 pt-4 mt-3">
+        <p class="mb-0 text-white" style="font-size: 0.75rem;">
+          Copyright 2011. Designed by Free Web Templates, coded Free Flash Templates<br>
+          <a href="#" class="text-white text-decoration-none">Privacy Policy</a> | 
+          <a href="#" class="text-white text-decoration-none">Terms of Use</a> | 
+          <a href="#" class="text-white">XHTML</a> | 
+          <a href="#" class="text-white">CSS</a>
+        </p>
+      </footer>
+      
+    </div>
+  </body>
+</html>

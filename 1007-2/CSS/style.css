@@ -1,0 +1,138 @@
+#masthead {
+    background-color: var(--dark-red);
+    align-items: center
+}
+
+/* 全域字體與背景設定 */
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    color: #555;
+    /* 藍色斜線網格背景 */
+    background-color: #1b8cd2;
+    background-image: repeating-linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.05) 0,
+        rgba(255, 255, 255, 0.05) 2px,
+        transparent 2px,
+        transparent 8px
+    );
+}
+
+/* 網站最上方的 Logo 標題與標語 */
+.site-logo {
+    color: #ffffff;
+    font-size: 2.2rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    margin-bottom: -5px;
+}
+.site-slogan {
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: bold;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* 主要置中的白色容器 */
+.main-container {
+    background-color: #ffffff;
+    padding: 20px 20px 0 20px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+    margin-bottom: 40px;
+}
+
+/* 標題共用顏色 (Cyan 青色) */
+.section-title {
+    color: #00b4cc;
+    font-weight: normal;
+    font-size: 1.6rem;
+    margin-bottom: 10px;
+}
+
+/* 漸層導覽列與頁尾 */
+.gradient-nav, .gradient-footer {
+    background: linear-gradient(to bottom, #00d2ff 0%, #007bb5 100%);
+}
+
+.gradient-nav {
+    padding: 12px 0;
+}
+.gradient-nav a {
+    color: #ffffff;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+.gradient-nav a:hover {
+    text-decoration: underline;
+}
+
+/* 第一區塊：連結文字與內文 */
+.text-link {
+    color: #00b4cc;
+    font-size: 0.85rem;
+    text-decoration: underline;
+}
+.text-link:hover {
+    color: #008a9e;
+}
+.small-text {
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: #666;
+}
+
+/* 第二區塊：淺藍色區塊設定 */
+.light-blue-box {
+    background-color: #e6f9fc;
+    border: 1px solid #bcecf5;
+    padding: 25px;
+    height: 100%; /* 讓左右兩個區塊等高 */
+}
+
+/* 自訂清單樣式 (右側選單) */
+.custom-list {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 15px;
+}
+.custom-list li {
+    border-bottom: 1px solid #333;
+    padding: 6px 0;
+}
+.custom-list li::before {
+    content: "> ";
+    color: #333;
+    font-weight: bold;
+}
+.custom-list li a {
+    color: #333;
+    text-decoration: none;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+.custom-list li a:hover {
+    color: #00b4cc;
+    text-decoration: underline;
+}
+
+/* "READ MORE" 連結 */
+.read-more {
+    color: #00b4cc;
+    font-weight: bold;
+    font-size: 0.85rem;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+.read-more:hover {
+    text-decoration: underline;
+}
+
+/* 第三區塊內文微調 */
+.text-content p {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
