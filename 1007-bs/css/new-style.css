@@ -1,0 +1,135 @@
+/* =========================================
+   Red Lantern Design - 完美還原版
+========================================= */
+
+:root {
+    --dark-red: #5a0c0c;  /* 網頁最外圍的深紅色背景 */
+    --tan-bg: #e6e2b5;    /* 橫幅文字區塊的米黃色背景 */
+    --light-gray: #f5f5f5;
+}
+
+/* 將整個 body 設為深紅色 */
+body.bg-dark-red {
+    background-color: var(--dark-red);
+}
+
+/* 白色主容器：在電腦版時會有最大寬度並置中，營造出外框效果 */
+.main-wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+    overflow: hidden;
+}
+
+/* 導覽列 (深紅底色) */
+#masthead {
+    background-color: var(--dark-red);
+}
+
+/* 調整 Logo 文字的行高 */
+.navbar-brand span {
+    line-height: 1.1;
+    font-family: 'Arial', sans-serif;
+}
+
+/* 導覽列連結微調 */
+.nav-link {
+    font-size: 15px;
+}
+.nav-link:hover {
+    opacity: 0.8;
+}
+
+/* Hero Section 的圖片灰階處理 (如果原圖是有顏色的) */
+.grayscale-img {
+    filter: grayscale(100%);
+}
+
+/* 米黃色橫幅區塊 */
+.bg-tan {
+    background-color: var(--tan-bg);
+    border: 1px solid #d4cf9e;
+}
+
+#titleBar h2 {
+    color: #4a4a4a;
+    font-family: 'Arial', sans-serif;
+}
+
+/* 作品集 2x2 圖片特效 */
+#port img {
+    width: 100%;
+    height: auto;
+    transition: transform 0.2s ease;
+}
+
+#port img:hover {
+    transform: scale(1.05); /* 滑鼠懸停時微幅放大 */
+}
+
+/* 文章內容的字體調整 */
+#content p {
+    font-family: 'Arial', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+/* 下方純文字連結 */
+#link-list a:hover {
+    color: var(--dark-red) !important;
+}
+
+/* 頁尾 */
+#footer {
+    background-color: var(--light-gray) !important;
+}
+
+/* 強制整個網頁的背景為深紅色，這會在最上方與最下方露出來 */
+body {
+    background-color: #5a0c0c !important; 
+}
+
+/* 白色主容器：設定上下 margin，讓底部能露出紅底 */
+.main-wrapper {
+    max-width: 900px;
+    margin: 40px auto !important; /* 上下留 40px 空白，左右置中 */
+    background-color: #ffffff;
+    box-shadow: 0 0 15px rgba(0,0,0,0.5); /* 加上陰影 */
+}
+
+/* 導覽列深紅底色 */
+#masthead {
+    background-color: #5a0c0c !important;
+}
+
+/* 新增：米黃色橫幅區塊 (還原第二張圖的設計) */
+.bg-tan {
+    background-color: #e8ddb5 !important;
+    border-top: 1px solid #d4cf9e;
+    border-bottom: 1px solid #d4cf9e;
+    padding: 15px 0;
+    margin-top: 15px;
+    margin-bottom: 25px;
+}
+
+/* 頁尾淺灰色 */
+#footer {
+    background-color: #f1f1f1 !important;
+    border-top: 1px solid #ddd;
+    padding: 15px 0;
+}
+
+/* 作品集圖片間距與效果 */
+#port img {
+    width: 100%;
+    height: auto;
+    border: 1px solid #ccc;
+    padding: 2px;
+}
+
+/* 確保左側作品集標題樣式 */
+#sidebar h2 {
+    font-size: 1.2rem;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
