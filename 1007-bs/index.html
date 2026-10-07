@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Red Lantern Design</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="css/style.css" type="text/css" />
+</head>
+
+<body>
+    <header id="masthead" class="container">
+        <h1><img alt="Red Lantern logo" src="image/rl_logo.png" /></h1>
+        <nav class="navbar navbar-expand-md">
+            <!-- Debug 1: 將 data-toggle / data-target 改為 data-bs-toggle / data-bs-target -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar">
+                <!-- Debug 2: navbar-toggler-icon 本身就有背景圖，不需要在裡面寫 === -->
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="collapsibleNavbar">
+                <ul id="nav" class="navbar-nav">
+                    <li class="nav-item"><a class="nav-link active" title="Red Lantern home" href="index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" title="Design services" href="services.html">Services</a></li>
+                    <li class="nav-item"><a class="nav-link" title="Our work" href="portfolio.html">Portfolio</a></li>
+                    <li class="nav-item"><a class="nav-link" title="Contact Red Lantern" href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+    <article id="mainContent" class="container">
+        <section id="titleBar">
+            <!-- 原本的單張圖片改為 Bootstrap 5 Carousel 輪播圖 -->
+            <div id="heroCarousel" class="carousel slide" data-bs-ride="carousel">
+                <!-- 輪播指示點 -->
+                <div class="carousel-indicators">
+                    <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
+                    <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1" aria-label="Slide 2"></button>
+                    <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="2" aria-label="Slide 3"></button>
+                    <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="3" aria-label="Slide 4"></button>
+                    <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="4" aria-label="Slide 5"></button>                    
+                </div>
+                <!-- 輪播圖片內容 -->
+                <div class="carousel-inner">
+                    <div class="carousel-item active">
+                        <img src="image/tokyo.jpg" class="d-block w-100" alt="tokyo buildings">
+                    </div>
+                    <div class="carousel-item">
+                        <!-- 請替換為您的第二張圖片路徑 -->
+                        <img src="image/header.jpg" class="d-block w-100" alt="mark in japan">
+                    </div>
+                    <div class="carousel-item">
+                        <!-- 請替換為您的第三張圖片路徑 -->
+                        <img src="image/header2.jpg" class="d-block w-100" alt="a2g">
+                    </div>
+                    <div class="carousel-item">
+                        <!-- 請替換為您的第四張圖片路徑 -->
+                        <img src="image/header3.jpg" class="d-block w-100" alt="mark in japan">
+                    </div>
+                    <div class="carousel-item">
+                        <!-- 請替換為您的第二張圖片路徑 -->
+                        <img src="image/header4.jpg" class="d-block w-100" alt="mark in japan">
+                    </div>
+                </div>
+                <!-- 左右切換按鈕 -->
+                <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+            </div>
+
+            <h1>Red Lantern builds unique interfaces <span class="amp">&amp;</span> user experiences for the web.</h1>
+        </section>
+        <div class="row" id="firstRow">
+            <section id="content" class="col-md-6 col-12">
+                <h2>Welcome to the New Red Lantern Design</h2>
+                <p>Red Lantern is a small web design and consulting firm specializing in standards-based web design and
+                    development.
+                    Our goal is to build simple, beautiful webpages that make your information easy to find and your
+                    users happy.</p>
+                <p>If you or your company is interested in working with us, please check out our portfolio of design
+                    and branding
+                    work and contact us with your project details. We look forward to hearing from you and making your
+                    presence
+                    on the web a little simpler and easier to find.</p>
+                <ul id="link-list">
+                    <!-- Debug 3: 將 data-toggle / data-target 改為 data-bs-toggle / data-bs-target -->
+                    <li><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#myModal">View our full
+                            portfolio</button></li>
+                    <li><a title="Contact Red Lantern" href="#">Contact Red Lantern</a></li>
+                </ul>
+            </section>
+            <section id="sidebar" class="col-md-6 col-12">
+                <h2>Our Work</h2>
+                <div id="port" class="row">
+                    <!-- Debug 4: 為所有圖片加上 class="img-fluid" 確保在小螢幕時能正確縮放，不會破版 -->
+                    <div class="col-12 col-md-6"><img class="img-fluid" alt="comp0" src="image/markinjapan.jpg" /></div>
+                    <div class="col-12 col-md-6"><img class="img-fluid" alt="comp1" src="image/a2g.jpg" /></div>
+                    <div class="col-12 col-md-6"><img class="img-fluid" alt="comp2" src="image/foobar.jpg" /></div>
+                    <div class="col-12 col-md-6"><img class="img-fluid" alt="comp3" src="image/rpm.jpg" /></div>
+                </div>
+            </section>
+        </div>
+        <div class="modal fade" id="myModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+
+                    <!-- Modal Header -->
+                    <div class="modal-header">
+                        <h4 class="modal-title">Modal Heading</h4>
+                        <!-- Debug 5: BS5 的關閉按鈕寫法已更改。將 class 改為 btn-close，屬性改為 data-bs-dismiss="modal"，並移除裡面的 &times; -->
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                    <!-- Modal body -->
+                    <div class="modal-body">
+                        Modal body..
+                    </div>
+
+                    <!-- Modal footer -->
+                    <div class="modal-footer">
+                        <!-- Debug 6: 將 data-dismiss 改為 data-bs-dismiss -->
+                        <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </article>
+
+    <footer id="footer">
+        <p>Copyright &copy; Red Lantern Design, all rights reserved.</p>
+    </footer>
+</body>
+
+</html>
