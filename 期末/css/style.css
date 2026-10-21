@@ -1,0 +1,608 @@
+/* ============================================================
+   Web Library — 極簡沉穩風格 (Qwen 3.8 27B 設計，Antigravity 審查與修復)
+   設計語言：Notion / Linear / GitHub
+   低飽和、微陰影、1px 細邊框、克制圓角、拒絕花俏 AI 漸層
+   ============================================================ */
+
+/* ---------- 1. 設計變數 ---------- */
+:root {
+  /* 畫布與背景色 */
+  --bg-page: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f1f5f9;
+  --bg-hover: #f1f5f9;
+
+  /* 邊框系統 (1px 精緻感) */
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --border-focus: #94a3b8;
+
+  /* 文字階層 */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+
+  /* 低飽和度分類色調 */
+  --cat-web-bg: #f0f7ff;
+  --cat-web-text: #1d4ed8;
+  --cat-web-border: #bfdbfe;
+
+  --cat-video-bg: #fff1f2;
+  --cat-video-text: #be123c;
+  --cat-video-border: #fecdd3;
+
+  --cat-res-bg: #f0fdf4;
+  --cat-res-text: #15803d;
+  --cat-res-border: #bbf7d0;
+
+  /* 精緻微陰影 */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 6px 16px -2px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+
+  /* 幾何圓角 */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* 動畫時間 */
+  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---------- 2. 基礎全域排版 ---------- */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  line-height: 1.6;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 工具字級 */
+.fs-xs {
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+.max-w-lg {
+  max-width: 520px;
+}
+
+/* ---------- 3. 導覽列 (Navbar) ---------- */
+.navbar {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid var(--border);
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary) !important;
+  letter-spacing: -0.01em;
+}
+
+.navbar-brand .brand-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+/* 簡約搜尋框 */
+.search-input-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.search-input-group:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.15);
+}
+
+.search-input-group input {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+}
+
+.search-input-group input:focus {
+  box-shadow: none;
+  background: transparent;
+}
+
+/* ---------- 4. 頂部統計指標卡片 (去除鮮豔漸層，改為極簡邊框) ---------- */
+.stat-card {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs) !important;
+  transition: var(--transition);
+}
+
+.stat-card:hover {
+  border-color: var(--border-strong) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+/* 覆蓋先前的漸層 Class，維持低調質感 */
+.bg-gradient-web,
+.bg-gradient-video,
+.bg-gradient-res {
+  background: var(--bg-surface) !important;
+}
+
+.stat-card span.fw-semibold {
+  color: var(--text-secondary) !important;
+  font-size: 0.8rem;
+}
+
+.stat-card h3 {
+  color: var(--text-primary) !important;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  background: var(--bg-subtle) !important;
+  border: 1px solid var(--border);
+  box-shadow: none !important;
+}
+
+.bg-gradient-web .stat-icon { color: var(--cat-web-text) !important; }
+.bg-gradient-video .stat-icon { color: var(--cat-video-text) !important; }
+.bg-gradient-res .stat-icon { color: var(--cat-res-text) !important; }
+
+/* ---------- 5. 分類導航與標籤 Chips ---------- */
+.category-pills .nav-link {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 0.86rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  border: 1px solid transparent;
+  transition: var(--transition);
+}
+
+.category-pills .nav-link:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.category-pills .nav-link.active {
+  background-color: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+  box-shadow: var(--shadow-xs);
+}
+
+.category-pills .nav-link.active .badge {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+
+/* 標籤 Chips */
+.tag-chip {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+.tag-chip:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.tag-chip.active {
+  background-color: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+  box-shadow: none;
+}
+
+.btn-xs {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* ---------- 6. 收藏卡片 (Cards) ---------- */
+.bookmark-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  transition: var(--transition);
+  display: flex;
+  flex-direction: column;
+}
+
+.bookmark-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md) !important;
+  transform: translateY(-2px);
+}
+
+/* 封面圖 */
+.card-cover-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background-color: var(--bg-subtle);
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.bookmark-card:hover .card-cover-img {
+  transform: scale(1.02);
+}
+
+/* 置頂標籤 */
+.pin-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  color: #fef08a;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+/* 分類徽章 (低對比極簡風) */
+.category-floating-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  padding: 0.2rem 0.55rem;
+  backdrop-filter: blur(6px);
+}
+
+.badge-cat-web {
+  background: var(--cat-web-bg);
+  color: var(--cat-web-text);
+  border: 1px solid var(--cat-web-border);
+}
+
+.badge-cat-video {
+  background: var(--cat-video-bg);
+  color: var(--cat-video-text);
+  border: 1px solid var(--cat-video-border);
+}
+
+.badge-cat-resource {
+  background: var(--cat-res-bg);
+  color: var(--cat-res-text);
+  border: 1px solid var(--cat-res-border);
+}
+
+/* 卡片主體文字排版 */
+.card-content-body {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.card-site-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  margin-bottom: 0.4rem;
+}
+
+.site-favicon {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  object-fit: contain;
+}
+
+.card-title-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--text-primary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 0.45rem;
+}
+
+.card-desc-text {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+  flex-grow: 1;
+}
+
+/* 標籤微標記 */
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.85rem;
+}
+
+.tag-badge {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  font-size: 0.7rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-sm);
+  font-weight: 400;
+}
+
+/* 卡片操作欄 */
+.card-actions-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--border);
+}
+
+.action-jump-btn {
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.32rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--text-primary);
+  border-color: var(--text-primary);
+}
+
+.action-jump-btn:hover {
+  background-color: #334155;
+  border-color: #334155;
+}
+
+.click-counter-badge {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* ---------- 7. 清單檢視模式 (List View) ---------- */
+.list-view-mode .bookmark-col {
+  width: 100% !important;
+}
+
+.list-view-mode .bookmark-card {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.list-view-mode .card-cover-wrapper {
+  width: 170px;
+  min-width: 170px;
+  height: auto;
+  aspect-ratio: auto;
+  border-bottom: none;
+  border-right: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+  .list-view-mode .bookmark-card {
+    flex-direction: column;
+  }
+  .list-view-mode .card-cover-wrapper {
+    width: 100%;
+    aspect-ratio: 16/9;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+/* ============================================================
+   ACG 專用樣式 (Kazumi 劇院 / Tachimanga 條漫 / Legado 小說)
+   ============================================================ */
+
+/* 1. Kazumi 彈幕動畫 */
+@keyframes danmakuFly {
+  0% { transform: translateX(1000px); }
+  100% { transform: translateX(-1500px); }
+}
+
+.danmaku-bullet {
+  position: absolute;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: #ffffff;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9), 0 0 4px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  animation: danmakuFly 8s linear forwards;
+  will-change: transform;
+}
+
+.ep-btn {
+  min-width: 76px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+}
+
+/* 2. Tachimanga 條漫樣式 */
+.manga-page-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto 6px auto;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  border-radius: 2px;
+}
+
+/* 3. Legado 小說三種主題 */
+.novel-theme-sepia {
+  background-color: #f6f1e7 !important;
+  color: #382f2d !important;
+}
+
+.novel-theme-sepia .modal-header,
+.novel-theme-sepia .border-top,
+.novel-theme-sepia .border-bottom {
+  border-color: #e5dac9 !important;
+}
+
+.novel-theme-white {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+}
+
+.novel-theme-white .modal-header,
+.novel-theme-white .border-top,
+.novel-theme-white .border-bottom {
+  border-color: #e2e8f0 !important;
+}
+
+.novel-theme-dark {
+  background-color: #18181b !important;
+  color: #e4e4e7 !important;
+}
+
+.novel-theme-dark .modal-header,
+.novel-theme-dark .border-top,
+.novel-theme-dark .border-bottom {
+  border-color: #27272a !important;
+}
+
+/* 4. Bangumi 新番時間表卡片 */
+.bgm-anime-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: var(--transition);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.bgm-anime-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md) !important;
+}
+
+.bgm-anime-cover-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  background-color: var(--bg-subtle);
+  overflow: hidden;
+}
+
+.bgm-anime-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bgm-rating-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #fbbf24;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(4px);
+}
+
+/* ==========================================
+   8. 批量管理 (Batch Edit Mode) 樣式
+   ========================================== */
+.batch-action-bar {
+  z-index: 1045;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.3);
+  animation: batchSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes batchSlideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.bookmark-card.batch-selected {
+  outline: 2px solid #2563eb !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.18) !important;
+  background-color: #f8faff !important;
+}
+
+.bookmark-batch-checkbox {
+  z-index: 5;
+  cursor: pointer;
+}
+
+.bookmark-batch-checkbox .form-check-input {
+  width: 1.35rem;
+  height: 1.35rem;
+  cursor: pointer;
+  border: 2px solid rgba(0, 0, 0, 0.25);
+}
+
+.bookmark-batch-checkbox .form-check-input:checked {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+
+
