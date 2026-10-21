@@ -5,7 +5,7 @@
 ## 📁 目錄結構
 
 ```text
-F:\網站系統設計\website\期未\
+F:\網站系統設計\website\期末\
 ├── index.html                  # 收藏圖書館主頁面 (Bootstrap 5.3 + 響應式佈局)
 ├── css/
 │   └── style.css               # 自訂現代化樣式 (卡片陰影、微動畫、分類標籤色彩)

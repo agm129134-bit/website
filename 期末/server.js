@@ -1,5 +1,5 @@
 /**
- * Web Library - Node.js 本地靜態伺服器
+ * Web Library - 期末專案專屬本地伺服器
  * 採用 Node.js 原生模組 (http, fs, path, child_process)，零依賴、免裝 npm 套件！
  */
 const http = require('http');
@@ -7,7 +7,8 @@ const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 
-const PORT = process.env.PORT || 8080;
+// 期末專案使用 8000 端口（避開 Open WebUI 的 3000 與課堂的 8080）
+let currentPort = process.env.PORT || 8000;
 const ROOT_DIR = __dirname;
 
 // 常用 MIME 類型對照表
@@ -68,16 +69,33 @@ const server = http.createServer((req, res) => {
     });
 });
 
-server.listen(PORT, () => {
-    const localUrl = `http://localhost:${PORT}`;
-    console.log(`\n======================================================`);
-    console.log(` 🚀 Web Library 個人圖書館本地伺服器已成功啟動！`);
-    console.log(` 📡 訪問網址: ${localUrl}`);
-    console.log(` 🌐 ACG 專頁: ${localUrl}/acg.html`);
-    console.log(` ⌨️  關閉方式: 在終端機按下 Ctrl + C`);
-    console.log(`======================================================\n`);
+// 啟動伺服器函數
+function startServer(port) {
+    server.listen(port, () => {
+        const localUrl = `http://localhost:${port}`;
+        console.log(`\n======================================================`);
+        console.log(` 🚀 【期末專案】Web Library 個人圖書館已成功啟動！`);
+        console.log(` 📡 訪問網址: ${localUrl}`);
+        console.log(` 🎬 ACG 專區: ${localUrl}/acg.html`);
+        console.log(` ⌨️  關閉方式: 在終端機按下 Ctrl + C`);
+        console.log(`======================================================\n`);
 
-    // 自動開啟預設瀏覽器 (支援 Windows / macOS / Linux)
-    const openCommand = process.platform === 'win32' ? `start ${localUrl}` : (process.platform === 'darwin' ? `open ${localUrl}` : `xdg-open ${localUrl}`);
-    exec(openCommand, () => {});
+        // 自動開啟預設瀏覽器 (支援 Windows / macOS / Linux)
+        const openCommand = process.platform === 'win32' ? `start ${localUrl}` : (process.platform === 'darwin' ? `open ${localUrl}` : `xdg-open ${localUrl}`);
+        exec(openCommand, () => {});
+    });
+}
+
+// 端口被佔用時自動順延偵測 (防 EADDRINUSE 崩潰)
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.log(`⚠️ 端口 ${currentPort} 已被其他程式佔用，自動嘗試切換至 ${Number(currentPort) + 1}...`);
+        currentPort = Number(currentPort) + 1;
+        startServer(currentPort);
+    } else {
+        console.error('伺服器發生異常:', err);
+    }
 });
+
+// 啟動執行
+startServer(currentPort);
