@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>網頁收藏圖書館 | Web Library</title>
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Google Fonts: Inter & Noto Sans TC -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-light">
+
+    <!-- 頂部導航列 (Navbar - 簡約白色背景 + 1px 底邊框) -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top py-2">
+        <div class="container-fluid px-lg-4">
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-semibold" href="#">
+                <span class="brand-icon"><i class="bi bi-bookmark-fill"></i></span>
+                <span>Web Library</span>
+                <span class="badge bg-light text-secondary border fs-xs">期末專題</span>
+            </a>
+
+            <!-- 漢堡選單按鈕 (手機版) -->
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="切換導航列">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarContent">
+                <!-- 搜尋框 -->
+                <div class="mx-auto my-2 my-lg-0 w-100 max-w-lg">
+                    <div class="input-group search-input-group">
+                        <span class="input-group-text bg-white border-0 text-muted ps-3">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="search" id="searchInput" class="form-control border-0 ps-1" placeholder="搜尋標題、網址或標籤 (按 / 快速聚焦)..." aria-label="搜尋收藏">
+                        <button class="btn btn-link text-muted border-0 d-none" id="clearSearchBtn" type="button">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 右側操作區 -->
+                <div class="d-flex align-items-center gap-2 mt-2 mt-lg-0 ms-lg-3">
+                    <button class="btn btn-dark d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#bookmarkModal" id="openAddModalBtn">
+                        <i class="bi bi-plus-lg"></i>
+                        <span>新增收藏</span>
+                    </button>
+
+                    <button class="btn btn-outline-secondary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#tampermonkeyModal" title="篡改猴插件設定">
+                        <i class="bi bi-puzzle"></i>
+                        <span class="d-none d-md-inline">篡改猴插件</span>
+                    </button>
+
+                    <!-- 使用者帳號選單 -->
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary d-flex align-items-center gap-2 dropdown-toggle" type="button" id="userMenuBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle fs-6"></i>
+                            <span id="navUsername">訪客使用者</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="userMenuBtn">
+                            <li><h6 class="dropdown-header">個人設定</h6></li>
+                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-bs-toggle="modal" data-bs-target="#tampermonkeyModal"><i class="bi bi-key text-muted"></i> 查看 API Token</a></li>
+                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" id="exportDataBtn"><i class="bi bi-download text-muted"></i> 匯出書籤 (JSON)</a></li>
+                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" id="resetDemoBtn"><i class="bi bi-arrow-counterclockwise text-muted"></i> 重置清空資料</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item d-flex align-items-center gap-2 text-dark" href="#" data-bs-toggle="modal" data-bs-target="#authModal" id="openAuthModalBtn"><i class="bi bi-box-arrow-in-right"></i> 切換 / 登入帳號</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要內容區 -->
+    <main class="container-fluid px-lg-4 py-4">
+        
+        <!-- 頂部資訊與統計面板 (極簡邊框微質感) -->
+        <header class="row g-3 mb-4">
+            <div class="col-12 col-md-4">
+                <div class="card stat-card bg-gradient-web">
+                    <div class="card-body d-flex align-items-center justify-content-between p-3">
+                        <div>
+                            <span class="small fw-semibold">開源與一般網頁</span>
+                            <h3 class="mb-0 mt-1" id="statWebCount">0</h3>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-globe"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card stat-card bg-gradient-video">
+                    <div class="card-body d-flex align-items-center justify-content-between p-3">
+                        <div>
+                            <span class="small fw-semibold">影片與影音串流</span>
+                            <h3 class="mb-0 mt-1" id="statVideoCount">0</h3>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-play-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card stat-card bg-gradient-res">
+                    <div class="card-body d-flex align-items-center justify-content-between p-3">
+                        <div>
+                            <span class="small fw-semibold">動漫與資源索引</span>
+                            <h3 class="mb-0 mt-1" id="statResCount">0</h3>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-folder2-open"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ACG 影音漫讀體驗專區 (原分頁切換，只留單一按鈕) -->
+        <div class="card border-0 shadow-sm rounded-3 mb-4 bg-white border">
+            <div class="card-body p-3">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-dark text-white px-2 py-1 fs-xs">ACG 專區</span>
+                        <span class="fw-semibold small text-secondary">獨立影音漫讀中心：</span>
+                    </div>
+                    <div>
+                        <a href="acg.html" class="btn btn-sm btn-dark d-flex align-items-center gap-2 rounded-pill px-3 shadow-sm">
+                            <i class="bi bi-play-circle-fill text-danger"></i>
+                            <span>進入 ACG 影音專區 (每日新番輪播圖 / 劇院 / 條漫 / 小說)</span>
+                            <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分類切換標籤 & 視圖工具列 -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-3">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    
+                    <!-- 分類 Pills -->
+                    <ul class="nav nav-pills category-pills gap-2" id="categoryNav">
+                        <li class="nav-item">
+                            <button class="nav-link active rounded-pill d-flex align-items-center gap-1" data-category="all">
+                                <i class="bi bi-grid-fill"></i>
+                                <span>全部收藏</span>
+                                <span class="badge bg-secondary-subtle text-secondary rounded-pill ms-1" id="badgeAllCount">0</span>
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link rounded-pill d-flex align-items-center gap-1" data-category="web">
+                                <i class="bi bi-github"></i>
+                                <span>一般網頁</span>
+                                <span class="badge bg-primary-subtle text-primary rounded-pill ms-1" id="badgeWebCount">0</span>
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link rounded-pill d-flex align-items-center gap-1" data-category="video">
+                                <i class="bi bi-camera-reels-fill text-danger"></i>
+                                <span>影片 (B站/YT)</span>
+                                <span class="badge bg-danger-subtle text-danger rounded-pill ms-1" id="badgeVideoCount">0</span>
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link rounded-pill d-flex align-items-center gap-1" data-category="resource">
+                                <i class="bi bi-gem text-success"></i>
+                                <span>動漫與資源</span>
+                                <span class="badge bg-success-subtle text-success rounded-pill ms-1" id="badgeResCount">0</span>
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- 右側排序、視圖切換與批量管理 -->
+                    <div class="d-flex align-items-center gap-2 ms-auto flex-wrap">
+                        <!-- 批量管理切換按鈕 -->
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill d-flex align-items-center gap-1 px-3" id="batchModeBtn" onclick="toggleBatchMode()">
+                            <i class="bi bi-check2-square"></i> <span id="batchBtnText">批量管理</span>
+                        </button>
+
+                        <!-- 同步 Bangumi 追番 -->
+                        <button class="btn btn-sm btn-outline-success rounded-pill d-flex align-items-center gap-1 px-3" data-bs-toggle="modal" data-bs-target="#bangumiSyncModal">
+                            <i class="bi bi-arrow-repeat"></i> <span>同步 Bangumi</span>
+                        </button>
+
+                        <!-- 排序選項 -->
+                        <div class="input-group input-group-sm" style="width: auto;">
+                            <label class="input-group-text bg-transparent border-0 text-muted" for="sortSelect">
+                                <i class="bi bi-sort-down"></i> 排序：
+                            </label>
+                            <select class="form-select form-select-sm rounded-pill" id="sortSelect" aria-label="排序收藏">
+                                <option value="newest" selected>最新收藏</option>
+                                <option value="clicks">最多跳轉 (人氣)</option>
+                                <option value="title">標題名稱 (A-Z)</option>
+                                <option value="pinned">置頂優先</option>
+                            </select>
+                        </div>
+
+                        <!-- 檢視模式切換 (卡片 / 清單) -->
+                        <div class="btn-group btn-group-sm" role="group" aria-label="檢視切換">
+                            <button type="button" class="btn btn-outline-secondary active" id="viewGridBtn" title="卡片網格檢視">
+                                <i class="bi bi-grid-3x3-gap-fill"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="viewListBtn" title="緊湊清單檢視">
+                                <i class="bi bi-list-ul"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 快速熱門標籤區 (Chips) -->
+                <div class="d-flex align-items-center gap-2 mt-3 pt-2 border-top flex-wrap" id="tagFiltersContainer">
+                    <span class="small text-muted d-flex align-items-center gap-1">
+                        <i class="bi bi-tags-fill"></i> 標籤篩選：
+                    </span>
+                    <button class="btn btn-xs rounded-pill tag-chip active" data-tag="all">全部標籤</button>
+                    <!-- 動態產生的標籤會放在這裡 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 收藏卡片展示區 (Cards Grid) -->
+        <section aria-label="收藏列表">
+            <div class="row g-4" id="bookmarkContainer">
+                <!-- JS 動態渲染卡片放置於此 -->
+            </div>
+
+            <!-- 無資料時的空狀態展示 -->
+            <div id="emptyState" class="text-center py-5 d-none">
+                <div class="empty-icon text-muted mb-3">
+                    <i class="bi bi-inbox fs-1"></i>
+                </div>
+                <h5 class="fw-bold text-secondary">找不到符合的收藏網頁</h5>
+                <p class="text-muted small">嘗試更換搜尋關鍵字、標籤分類，或者點擊上方按鈕新增第一篇收藏！</p>
+                <button class="btn btn-outline-primary btn-sm rounded-pill mt-2" data-bs-toggle="modal" data-bs-target="#bookmarkModal">
+                    <i class="bi bi-plus-lg"></i> 立即新增收藏
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ==================== 模態框區 (Modals) ==================== -->
+
+    <!-- 1. 新增 / 編輯收藏 Modal -->
+    <div class="modal fade" id="bookmarkModal" tabindex="-1" aria-labelledby="bookmarkModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="bookmarkModalLabel">
+                        <i class="bi bi-bookmark-plus-fill text-primary"></i>
+                        <span>新增網頁收藏</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <form id="bookmarkForm">
+                    <div class="modal-body">
+                        <input type="hidden" id="editBookmarkId">
+
+                        <!-- 網址輸入與自動解析建議 -->
+                        <div class="mb-3">
+                            <label for="bmUrl" class="form-label fw-semibold">網頁網址 (URL) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-link-45deg"></i></span>
+                                <input type="url" class="form-control" id="bmUrl" placeholder="https://example.com" required>
+                                <button class="btn btn-outline-primary" type="button" id="autoDetectBtn" title="根據網址智慧填入標題與分類">
+                                    <i class="bi bi-magic"></i> 智慧辨識
+                                </button>
+                            </div>
+                            <div class="form-text">支援輸入 YouTube、B站、GitHub、動漫站或任意網址。</div>
+                        </div>
+
+                        <!-- 標題輸入 -->
+                        <div class="mb-3">
+                            <label for="bmTitle" class="form-label fw-semibold">收藏標題 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="bmTitle" placeholder="例如：React 官方文件、咒術迴戰最新一集..." required>
+                        </div>
+
+                        <!-- 分類選擇 -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="bmCategory" class="form-label fw-semibold">主要分類 <span class="text-danger">*</span></label>
+                                <select class="form-select" id="bmCategory" required>
+                                    <option value="web">💻 一般網頁 (GitHub / 開源 / 工具)</option>
+                                    <option value="video">🎬 影音影片 (Bilibili / YouTube / 動畫)</option>
+                                    <option value="resource">📦 動漫與資源 (漫畫 / 載點 / ACG 資源)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="bmTags" class="form-label fw-semibold">標籤 (以逗號分隔)</label>
+                                <input type="text" class="form-control" id="bmTags" placeholder="開源, 前端, 教學, 1080P">
+                            </div>
+                        </div>
+
+                        <!-- 封面預覽圖與簡介 -->
+                        <div class="mb-3">
+                            <label for="bmCover" class="form-label fw-semibold">自訂封面預覽圖網址 (選填)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-image"></i></span>
+                                <input type="url" class="form-control" id="bmCover" placeholder="https://... 留空則自動使用預設漂亮封面">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="bmDesc" class="form-label fw-semibold">備註 / 簡介描述 (選填)</label>
+                            <textarea class="form-control" id="bmDesc" rows="3" placeholder="記錄此網頁的重要資訊、解壓密碼、章節進度或推薦原因..."></textarea>
+                        </div>
+
+                        <!-- 是否置頂 -->
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="bmPinned">
+                            <label class="form-check-label fw-semibold" for="bmPinned">
+                                <i class="bi bi-pin-angle-fill text-warning"></i> 將此網頁置頂顯示
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top-0 pt-0">
+                        <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4" id="saveBookmarkBtn">儲存收藏</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 篡改猴 (Tampermonkey) 腳本導引 Modal -->
+    <div class="modal fade" id="tampermonkeyModal" tabindex="-1" aria-labelledby="tmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header bg-dark text-white rounded-top-4">
+                    <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="tmModalLabel">
+                        <i class="bi bi-browser-chrome text-warning"></i>
+                        <span>篡改猴 (Tampermonkey) 一鍵收藏腳本安裝指南</span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-info border-0 rounded-3 d-flex align-items-center gap-3">
+                        <i class="bi bi-info-circle-fill fs-3 text-info"></i>
+                        <div>
+                            <strong>什麼是篡改猴插件？</strong><br>
+                            安裝本專屬腳本後，你在逛 YouTube、B站、GitHub 或任意動漫網站時，按下快捷鍵 <kbd>Alt + B</kbd> 就能**一秒直接把當前頁面收藏到這個圖書館**！
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold mt-4 mb-2"><i class="bi bi-1-circle-fill text-primary"></i> 步驟一：獲取你的個人 API 權杖 (Token)</h6>
+                    <p class="text-muted small">此 Token 用於讓篡改猴腳本驗證你的身分，將收藏寫入你的帳號：</p>
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control font-monospace bg-light" id="userApiTokenInput" value="usr_tok_8f92ab3c71e041d8b991a" readonly>
+                        <button class="btn btn-outline-secondary" type="button" id="copyTokenBtn">
+                            <i class="bi bi-clipboard"></i> 複製 Token
+                        </button>
+                    </div>
+
+                    <h6 class="fw-bold mt-4 mb-2"><i class="bi bi-2-circle-fill text-primary"></i> 步驟二：安裝篡改猴擴充功能</h6>
+                    <p class="text-muted small">若瀏覽器尚未安裝篡改猴，請先至官方市集安裝擴充套件：</p>
+                    <div class="d-flex gap-2 mb-3">
+                        <a href="https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank" class="btn btn-sm btn-outline-dark">
+                            <i class="bi bi-google"></i> Chrome / Edge 線上應用程式商店
+                        </a>
+                        <a href="https://addons.mozilla.org/zh-TW/firefox/addon/tampermonkey/" target="_blank" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-browser-firefox"></i> Firefox 附加元件
+                        </a>
+                    </div>
+
+                    <h6 class="fw-bold mt-4 mb-2"><i class="bi bi-3-circle-fill text-primary"></i> 步驟三：安裝專案專屬採集腳本</h6>
+                    <div class="p-3 bg-light rounded-3 border mb-3">
+                        <p class="mb-2 fw-semibold">腳本檔案位於本專案目錄：<code>tampermonkey/web-library.user.js</code></p>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success btn-sm d-flex align-items-center gap-2" id="downloadUserscriptBtn">
+                                <i class="bi bi-file-earmark-code"></i> 檢視 / 下載 Userscript 腳本代碼
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm" id="testScriptSimBtn">
+                                <i class="bi bi-play-circle"></i> 模擬篡改猴採集效果
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">我知道了</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 會員身分切換 / 登入 Modal -->
+    <div class="modal fade" id="authModal" tabindex="-1" aria-labelledby="authModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-bottom-0">
+                    <h5 class="modal-title fw-bold" id="authModalLabel">
+                        <i class="bi bi-person-badge-fill text-primary"></i> 會員帳號
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-pills nav-justified mb-3" id="authTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active rounded-pill" id="tab-login" data-bs-toggle="pill" data-bs-target="#pills-login" type="button" role="tab">登入</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link rounded-pill" id="tab-register" data-bs-toggle="pill" data-bs-target="#pills-register" type="button" role="tab">註冊新帳號</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="authTabContent">
+                        <!-- 登入 Form -->
+                        <div class="tab-pane fade show active" id="pills-login" role="tabpanel">
+                            <form id="loginForm">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">使用者名稱</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                        <input type="text" class="form-control" id="loginUsername" value="期末展示學生" required>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">密碼</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+                                        <input type="password" class="form-control" id="loginPassword" value="123456" required>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100 rounded-pill py-2">登入系統</button>
+                            </form>
+                        </div>
+
+                        <!-- 註冊 Form -->
+                        <div class="tab-pane fade" id="pills-register" role="tabpanel">
+                            <form id="registerForm">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">自訂使用者名稱</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-person-plus"></i></span>
+                                        <input type="text" class="form-control" id="regUsername" placeholder="請輸入帳號" required>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">設定密碼</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                        <input type="password" class="form-control" id="regPassword" placeholder="請輸入密碼" required>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-success w-100 rounded-pill py-2">建立帳號並登入</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ACG 專用模態框 (Bangumi Sync / Calendar / Kazumi / Tachimanga / Legado) ==================== -->
+
+    <!-- -1. Bangumi 帳號追番一鍵同步 Modal -->
+    <div class="modal fade" id="bangumiSyncModal" tabindex="-1" aria-labelledby="bgmSyncLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="bgmSyncLabel">
+                        <i class="bi bi-arrow-repeat text-success"></i>
+                        <span>同步 Bangumi 追番清單</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">輸入你在 Bangumi (番組計畫) 的使用者名稱或數字 ID，系統將透過官方 API 自動將你「在看（正在追）」的動畫一次性同步導入你的圖書館！</p>
+                    
+                    <div class="mb-3">
+                        <label for="bgmUsernameInput" class="form-label fw-semibold">Bangumi 使用者名稱 / ID <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
+                            <input type="text" class="form-control" id="bgmUsernameInput" placeholder="例如：sai 或你的數字UID" value="sai">
+                        </div>
+                        <div class="form-text">提示：若不知道用戶名，可查看你在 bangumi.tv 個人主頁網址結尾。</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">同步範圍</label>
+                        <select class="form-select" id="bgmSyncType">
+                            <option value="3" selected>僅同步「在看 (正在追番)」(推薦)</option>
+                            <option value="1">僅同步「想看」</option>
+                            <option value="2">僅同步「看過」</option>
+                        </select>
+                    </div>
+
+                    <div id="bgmSyncResultAlert" class="alert alert-info py-2 small d-none"></div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-success rounded-pill px-4" id="startBgmSyncBtn" onclick="triggerBangumiUserSync()">
+                        <i class="bi bi-cloud-arrow-down-fill"></i> 開始同步匯入
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 0. Bangumi 官方每日新番時刻表 Modal -->
+    <div class="modal fade" id="bangumiCalendarModal" tabindex="-1" aria-labelledby="bgmCalModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-bottom py-3 px-4 bg-light">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-warning text-dark"><i class="bi bi-broadcast"></i> Bangumi API</span>
+                        <h5 class="modal-title fw-bold mb-0" id="bgmCalModalLabel">📅 本季新番每週放送時間表</h5>
+                        <span class="text-muted small ms-2 d-none d-md-inline">官方即時放送數據</span>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <!-- 週一到週日切換按鈕 Pills -->
+                    <ul class="nav nav-pills gap-2 mb-4 justify-content-center" id="bangumiWeekdayTabs">
+                        <li class="nav-item"><button class="nav-link rounded-pill" onclick="switchCalendarWeekday(1, this)" data-day="1">週一</button></li>
+                        <li class="nav-item"><button class="nav-link rounded-pill" onclick="switchCalendarWeekday(2, this)" data-day="2">週二</button></li>
+                        <li class="nav-item"><button class="nav-link rounded-pill" onclick="switchCalendarWeekday(3, this)" data-day="3">週三</button></li>
+                        <li class="nav-item"><button class="nav-link rounded-pill" onclick="switchCalendarWeekday(4, this)" data-day="4">週四</button></li>
+                        <li class="nav-item"><button class="nav-link rounded-pill" onclick="switchCalendarWeekday(5, this)" data-day="5">週五</button></li>
+                        <li class="nav-item"><button class="nav-link rounded-pill" onclick="switchCalendarWeekday(6, this)" data-day="6">週六</button></li>
+                        <li class="nav-item"><button class="nav-link rounded-pill" onclick="switchCalendarWeekday(7, this)" data-day="7">週日</button></li>
+                    </ul>
+
+                    <!-- 載入中動畫 -->
+                    <div id="bgmCalLoading" class="text-center py-5 d-none">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="text-muted small mt-2">連線 Bangumi 番組計畫獲取本季新番中...</p>
+                    </div>
+
+                    <!-- 當天新番卡片網格 -->
+                    <div class="row g-3" id="bangumiAnimeGrid">
+                        <!-- JS 動態插入當天新番卡片 -->
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 bg-light py-2 px-4 d-flex justify-content-between">
+                    <span class="text-muted small"><i class="bi bi-info-circle"></i> 數據源自 Bangumi.tv 開放 API，點擊「一鍵收藏」可將喜愛新番存入個人圖書館。</span>
+                    <button type="button" class="btn btn-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. Kazumi 動漫串流播放器 Modal -->
+    <div class="modal fade" id="animePlayerModal" tabindex="-1" aria-labelledby="animeModalLabel" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content bg-dark text-white border-secondary rounded-4 shadow-lg overflow-hidden">
+                <div class="modal-header border-bottom border-secondary py-2 px-3 bg-black">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-danger">Kazumi Engine</span>
+                        <h6 class="modal-title fw-bold mb-0" id="animePlayerTitle">動漫劇院播放器</h6>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="danmakuToggleBtn" title="切換彈幕開關">
+                            <i class="bi bi-chat-square-dots-fill text-warning"></i> 彈幕: 開
+                        </button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="關閉" onclick="closeAnimePlayer()"></button>
+                    </div>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="row g-0">
+                        <!-- 左側播放器主畫面 (支援 HTML5 串流、B站內嵌與 YouTube 內嵌) -->
+                        <div class="col-lg-9 bg-black position-relative d-flex align-items-center justify-content-center" style="min-height: 480px;" id="kazumiScreenContainer">
+                            <video id="kazumiVideoPlayer" controls playsinline style="width: 100%; height: 100%; max-height: 540px; background: #000;">
+                                <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+                                您的瀏覽器不支援 HTML5 影片播放。
+                            </video>
+                            <iframe id="kazumiIframePlayer" style="width: 100%; height: 500px; border: none; display: none;" allowfullscreen="true" allow="autoplay; fullscreen"></iframe>
+                            <!-- 彈幕渲染層 -->
+                            <div id="danmakuOverlay" class="position-absolute top-0 start-0 w-100 h-100 pointer-events-none overflow-hidden" style="pointer-events: none;"></div>
+                        </div>
+
+                        <!-- 右側選集與彈幕輸入 -->
+                        <div class="col-lg-3 d-flex flex-direction-column border-start border-secondary p-3 bg-dark">
+                            <h6 class="fw-semibold small text-muted mb-2"><i class="bi bi-list-ol"></i> 選集列表 (Episodes)</h6>
+                            <div class="d-flex flex-wrap gap-2 mb-3 episode-list-container" style="max-height: 320px; overflow-y: auto;">
+                                <button class="btn btn-sm btn-primary active ep-btn" onclick="switchEpisode(1, this)">第 01 話</button>
+                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(2, this)">第 02 話</button>
+                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(3, this)">第 03 話</button>
+                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(4, this)">第 04 話</button>
+                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(5, this)">第 05 話</button>
+                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(6, this)">第 06 話</button>
+                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(7, this)">第 07 話</button>
+                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(8, this)">第 08 話</button>
+                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(9, this)">第 09 話</button>
+                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(10, this)">第 10 話</button>
+                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(11, this)">第 11 話</button>
+                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(12, this)">第 12 話 (完)</button>
+                            </div>
+
+                            <hr class="border-secondary my-2">
+
+                            <!-- 發送彈幕 -->
+                            <div class="mt-auto">
+                                <label class="form-label small text-muted"><i class="bi bi-send-fill"></i> 即時發送彈幕</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" id="danmakuInput" class="form-control bg-black text-white border-secondary" placeholder="發送一條彈幕...">
+                                    <button class="btn btn-primary" type="button" id="sendDanmakuBtn">發送</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Tachimanga 條漫閱覽器 Modal -->
+    <div class="modal fade" id="mangaReaderModal" tabindex="-1" aria-labelledby="mangaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content bg-black text-white border-0">
+                <!-- 頂部懸浮控制列 -->
+                <div class="modal-header border-0 bg-dark bg-opacity-75 py-2 px-3 sticky-top">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary">Tachimanga Reader</span>
+                        <span class="fw-bold" id="mangaModalTitle">漫畫線上閱覽</span>
+                        <span class="badge bg-secondary-subtle text-secondary small" id="mangaPageIndicator">第 1 頁 / 共 5 頁</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-outline-light" onclick="zoomManga(0.1)" title="放大"><i class="bi bi-zoom-in"></i></button>
+                        <button class="btn btn-sm btn-outline-light" onclick="zoomManga(-0.1)" title="縮小"><i class="bi bi-zoom-out"></i></button>
+                        <button class="btn btn-sm btn-outline-light" onclick="resetZoomManga()" title="適應寬度"><i class="bi bi-arrows-angle-contract"></i></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="關閉"></button>
+                    </div>
+                </div>
+                <!-- 漫畫條漫捲軸主容器 -->
+                <div class="modal-body p-0 overflow-auto d-flex justify-content-center" id="mangaScrollContainer" style="background: #111;">
+                    <div class="manga-page-list text-center py-3" id="mangaPageWrapper" style="max-width: 820px; width: 100%; transition: transform 0.2s ease;">
+                        <!-- JS 動態插入漫畫圖片頁面 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Legado 沉浸小說閱讀器 Modal -->
+    <div class="modal fade" id="novelReaderModal" tabindex="-1" aria-labelledby="novelModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content border-0 novel-theme-sepia" id="novelContentContainer">
+                <!-- 頂部小說控制列 -->
+                <div class="modal-header border-bottom py-2 px-4 shadow-sm">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="badge bg-success">Legado Reader</span>
+                        <h6 class="modal-title fw-bold mb-0" id="novelBookTitle">沉浸小說閱讀</h6>
+                        <span class="text-muted small" id="novelChapterTitle">第 01 章</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <!-- 主題切換 -->
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary active" onclick="setNovelTheme('sepia')" title="羊皮紙護眼黃">📜 羊皮紙</button>
+                            <button class="btn btn-outline-secondary" onclick="setNovelTheme('white')" title="純淨白">☀️ 純白</button>
+                            <button class="btn btn-outline-secondary" onclick="setNovelTheme('dark')" title="夜間深黑">🌙 暗黑</button>
+                        </div>
+
+                        <!-- 字級大小 -->
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="adjustNovelFontSize(-2)" title="縮小字體">A-</button>
+                            <button class="btn btn-outline-secondary" onclick="adjustNovelFontSize(2)" title="放大字體">A+</button>
+                        </div>
+
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                    </div>
+                </div>
+
+                <!-- 小說閱讀正文主容器 -->
+                <div class="modal-body p-4 p-md-5 overflow-auto" id="novelBodyWrapper">
+                    <div class="novel-article-box mx-auto" style="max-width: 760px; line-height: 2.1; font-size: 18px;" id="novelArticleContent">
+                        <!-- JS 動態插入小說段落 -->
+                    </div>
+
+                    <!-- 章節切換底部按鈕 -->
+                    <div class="d-flex justify-content-between align-items-center mt-5 pt-4 border-top mx-auto" style="max-width: 760px;">
+                        <button class="btn btn-outline-secondary" onclick="switchNovelChapter(-1)"><i class="bi bi-chevron-left"></i> 上一章</button>
+                        <span class="text-muted small">閱讀完畢 · 自動保存進度</span>
+                        <button class="btn btn-outline-secondary" onclick="switchNovelChapter(1)">下一章 <i class="bi bi-chevron-right"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量管理懸浮操作列 (Fixed Bottom) -->
+    <div id="batchActionBar" class="batch-action-bar fixed-bottom bg-dark text-white py-3 px-3 px-md-4 shadow-lg border-top border-secondary d-none">
+        <div class="container-fluid d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div class="d-flex align-items-center gap-3">
+                <span class="fw-semibold d-flex align-items-center gap-1">
+                    <i class="bi bi-check2-circle text-primary fs-5"></i>
+                    <span>已選取 <span id="batchCountBadge" class="badge bg-primary fs-6 px-2">0</span> 項收藏</span>
+                </span>
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-light" onclick="batchSelectAll(true)">
+                        <i class="bi bi-check-all"></i> 全選
+                    </button>
+                    <button type="button" class="btn btn-outline-light" onclick="batchSelectAll(false)">
+                        <i class="bi bi-dash-square"></i> 取消全選
+                    </button>
+                </div>
+            </div>
+            
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <!-- 批量變更分類 -->
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-light dropdown-toggle rounded-pill px-3" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-folder-symlink"></i> 變更分類
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-dark shadow">
+                        <li><a class="dropdown-item" href="#" onclick="batchChangeCategory('web')"><i class="bi bi-github me-2"></i> 一般網頁</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="batchChangeCategory('video')"><i class="bi bi-camera-reels me-2 text-danger"></i> 影片 (B站/YT)</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="batchChangeCategory('resource')"><i class="bi bi-gem me-2 text-success"></i> 動漫與資源</a></li>
+                    </ul>
+                </div>
+
+                <!-- 批量新增標籤 -->
+                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" onclick="openBatchTagsModal()">
+                    <i class="bi bi-tags"></i> 批量加標籤
+                </button>
+
+                <!-- 批量置頂 -->
+                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" onclick="batchTogglePin()">
+                    <i class="bi bi-pin-angle"></i> 批量置頂/取消
+                </button>
+
+                <!-- 批量刪除 -->
+                <button type="button" class="btn btn-sm btn-danger rounded-pill px-3" onclick="batchDeleteBookmarks()">
+                    <i class="bi bi-trash3"></i> 批量刪除
+                </button>
+
+                <!-- 退出批量模式 -->
+                <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3 ms-2" onclick="toggleBatchMode(false)">
+                    <i class="bi bi-x-lg"></i> 退出批量
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量標籤管理 Modal -->
+    <div class="modal fade" id="batchTagsModal" tabindex="-1" aria-labelledby="batchTagsLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="batchTagsLabel">
+                        <i class="bi bi-tags-fill text-primary"></i> 批量新增標籤
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">為選取的 <span id="batchTagCountText" class="fw-bold text-dark">0</span> 項收藏附加標籤：</p>
+                    <div class="mb-3">
+                        <label for="batchNewTagInput" class="form-label fw-semibold">輸入新標籤 (多個標籤請用逗號隔開)</label>
+                        <input type="text" class="form-control" id="batchNewTagInput" placeholder="例如：2026新番, 推薦, 已看完">
+                        <div class="form-text">系統會將輸入的標籤追加至所選的每筆收藏中，重複標籤會自動去重。</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary rounded-pill px-4" onclick="applyBatchTags()">
+                        <i class="bi bi-check-lg"></i> 確認套用
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. 浮動 Toast 提示通知 -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1090;">
+        <div id="actionToast" class="toast align-items-center text-white bg-dark border-0 rounded-4 shadow" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body d-flex align-items-center gap-2" id="toastMessage">
+                    <i class="bi bi-check-circle-fill text-success fs-5"></i> 操作成功！
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5.3 Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- App Logic JS -->
+    <script src="js/app.js"></script>
+</body>
+</html>
