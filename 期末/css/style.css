@@ -303,6 +303,13 @@ body {
   border: 1px solid var(--cat-web-border);
 }
 
+.badge-cat-anime {
+  background: rgba(220, 38, 38, 0.9);
+  color: #ffffff;
+  border: 1px solid rgba(185, 28, 28, 0.8);
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.35);
+}
+
 .badge-cat-video {
   background: var(--cat-video-bg);
   color: var(--cat-video-text);

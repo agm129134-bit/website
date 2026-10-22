@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>網頁收藏圖書館 | Web Library</title>
+    <!-- 身分認證守衛：未登入者強制導向登入頁 (第一頁) -->
+    <script>
+        (function authGuard() {
+            const user = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+            if (!user) {
+                window.location.replace('login.html');
+            }
+        })();
+    </script>
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -61,7 +70,7 @@
                     <div class="dropdown">
                         <button class="btn btn-outline-secondary d-flex align-items-center gap-2 dropdown-toggle" type="button" id="userMenuBtn" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-person-circle fs-6"></i>
-                            <span id="navUsername">訪客使用者</span>
+                            <span id="navUsername">已登入使用者</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="userMenuBtn">
                             <li><h6 class="dropdown-header">個人設定</h6></li>
@@ -69,9 +78,15 @@
                             <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" id="exportDataBtn"><i class="bi bi-download text-muted"></i> 匯出書籤 (JSON)</a></li>
                             <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" id="resetDemoBtn"><i class="bi bi-arrow-counterclockwise text-muted"></i> 重置清空資料</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item d-flex align-items-center gap-2 text-dark" href="#" data-bs-toggle="modal" data-bs-target="#authModal" id="openAuthModalBtn"><i class="bi bi-box-arrow-in-right"></i> 切換 / 登入帳號</a></li>
+                            <li><a class="dropdown-item d-flex align-items-center gap-2 text-danger fw-semibold" href="#" onclick="logoutUser()"><i class="bi bi-box-arrow-right"></i> 登出帳號 (Logout)</a></li>
                         </ul>
                     </div>
+
+                    <!-- 頂部直接登出按鈕 -->
+                    <button class="btn btn-outline-danger btn-sm d-flex align-items-center gap-1" onclick="logoutUser()" title="登出當前帳號">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span class="d-none d-sm-inline">登出</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -154,6 +169,13 @@
                                 <i class="bi bi-grid-fill"></i>
                                 <span>全部收藏</span>
                                 <span class="badge bg-secondary-subtle text-secondary rounded-pill ms-1" id="badgeAllCount">0</span>
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link rounded-pill d-flex align-items-center gap-1" data-category="anime">
+                                <i class="bi bi-broadcast text-danger"></i>
+                                <span>動畫</span>
+                                <span class="badge bg-danger-subtle text-danger rounded-pill ms-1" id="badgeAnimeCount">0</span>
                             </button>
                         </li>
                         <li class="nav-item">
@@ -290,8 +312,9 @@
                             <div class="col-md-6">
                                 <label for="bmCategory" class="form-label fw-semibold">主要分類 <span class="text-danger">*</span></label>
                                 <select class="form-select" id="bmCategory" required>
-                                    <option value="web">💻 一般網頁 (GitHub / 開源 / 工具)</option>
-                                    <option value="video">🎬 影音影片 (Bilibili / YouTube / 動畫)</option>
+                                    <option value="anime">📺 動畫 (番劇 / 新番 / Kazumi 播放)</option>
+                                    <option value="web" selected>💻 一般網頁 (GitHub / 開源 / 工具)</option>
+                                    <option value="video">🎬 影音影片 (Bilibili / YouTube / 影視)</option>
                                     <option value="resource">📦 動漫與資源 (漫畫 / 載點 / ACG 資源)</option>
                                 </select>
                             </div>
@@ -549,6 +572,44 @@
         </div>
     </div>
 
+    <!-- 0. Kazumi 播放來源 Modal (仿 Kazumi 原生播放來源抽屜) -->
+    <div class="modal fade" id="kazumiSourceModal" tabindex="-1" aria-labelledby="kazumiSourceModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-dark text-white border-secondary rounded-4 shadow-lg overflow-hidden">
+                <div class="modal-header border-bottom border-secondary py-3 px-4 bg-black">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-danger">Kazumi Engine</span>
+                        <h5 class="modal-title fw-bold mb-0" id="kazumiSourceModalLabel">播放來源</h5>
+                    </div>
+                    <!-- 關閉按鈕置於最右上角 -->
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body p-4 bg-dark">
+                    <!-- 動畫標題與封面資訊 -->
+                    <div class="d-flex align-items-center gap-3 p-3 bg-black bg-opacity-50 rounded-3 border border-secondary mb-3">
+                        <img id="kazumiSourceCover" src="https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=700&q=80" alt="封面" class="rounded-2 shadow-sm" style="width: 72px; height: 96px; object-fit: cover;">
+                        <div class="overflow-hidden flex-grow-1">
+                            <h5 id="kazumiSourceTitle" class="fw-bold text-white mb-1 text-truncate">動漫片名</h5>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-secondary-subtle text-light" id="kazumiSourceSummary">2 個來源 · 正在檢索...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 搜尋微調列 -->
+                    <div class="input-group input-group-sm mb-3">
+                        <span class="input-group-text bg-black border-secondary text-secondary"><i class="bi bi-search"></i></span>
+                        <input type="text" id="kazumiModalKeywordInput" class="form-control bg-black border-secondary text-white" placeholder="搜尋或微調番劇關鍵字..." onkeydown="if(event.key==='Enter') searchKazumiFromModal(this.value)">
+                        <button class="btn btn-outline-danger" type="button" onclick="searchKazumiFromModal(document.getElementById('kazumiModalKeywordInput').value)">重新檢索</button>
+                    </div>
+                    <!-- 規則來源清單 -->
+                    <div id="kazumiSourceList" class="d-flex flex-column gap-2">
+                        <!-- 動態由 JavaScript 注入來源晶片與選集 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 1. Kazumi 動漫串流播放器 Modal -->
     <div class="modal fade" id="animePlayerModal" tabindex="-1" aria-labelledby="animeModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered modal-xl">
@@ -556,24 +617,42 @@
                 <div class="modal-header border-bottom border-secondary py-2 px-3 bg-black">
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge bg-danger">Kazumi Engine</span>
-                        <h6 class="modal-title fw-bold mb-0" id="animePlayerTitle">動漫劇院播放器</h6>
+                        <h6 class="modal-title fw-bold mb-0 text-truncate" id="animePlayerTitle" style="max-width: 220px;">動漫劇院播放器</h6>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
+                    <!-- 控制組居右，支援劇院內快速搜尋，關閉 X 置於最右上角 -->
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        <div class="input-group input-group-sm d-none d-sm-flex" style="width: 190px;">
+                            <input type="text" id="theaterHeaderSearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋番劇..." onkeydown="if(event.key==='Enter') searchAnimeFromTheater(this.value)">
+                            <button class="btn btn-outline-danger" type="button" onclick="searchAnimeFromTheater(document.getElementById('theaterHeaderSearchInput').value)" title="搜尋動漫來源">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
                         <button type="button" class="btn btn-sm btn-outline-secondary" id="danmakuToggleBtn" title="切換彈幕開關">
                             <i class="bi bi-chat-square-dots-fill text-warning"></i> 彈幕: 開
                         </button>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="關閉" onclick="closeAnimePlayer()"></button>
+                        <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal" aria-label="關閉" onclick="closeAnimePlayer()"></button>
                     </div>
                 </div>
                 <div class="modal-body p-0">
                     <div class="row g-0">
                         <!-- 左側播放器主畫面 (支援 HTML5 串流、B站內嵌與 YouTube 內嵌) -->
                         <div class="col-lg-9 bg-black position-relative d-flex align-items-center justify-content-center" style="min-height: 480px;" id="kazumiScreenContainer">
-                            <video id="kazumiVideoPlayer" controls playsinline style="width: 100%; height: 100%; max-height: 540px; background: #000;">
-                                <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
-                                您的瀏覽器不支援 HTML5 影片播放。
-                            </video>
+                            <video id="kazumiVideoPlayer" controls playsinline style="width: 100%; height: 100%; max-height: 540px; background: #000; display: none;"></video>
                             <iframe id="kazumiIframePlayer" style="width: 100%; height: 500px; border: none; display: none;" allowfullscreen="true" allow="autoplay; fullscreen"></iframe>
+                            <!-- 純淨待命提示畫面 (內建搜尋列) -->
+                            <div id="kazumiTheaterPlaceholder" class="position-absolute top-50 start-50 translate-middle text-center text-secondary px-3" style="max-width: 480px; width: 100%;">
+                                <i class="bi bi-film fs-1 d-block mb-2 text-danger opacity-75"></i>
+                                <h5 class="fw-bold text-white mb-1">動漫劇院（待命狀態）</h5>
+                                <p class="small text-secondary mb-3">輸入片名即可全網檢索播放來源並開播</p>
+                                
+                                <div class="input-group input-group-sm shadow-sm">
+                                    <span class="input-group-text bg-dark text-secondary border-secondary"><i class="bi bi-search"></i></span>
+                                    <input type="text" id="theaterStandbySearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋動漫片名 (例: 芙莉蓮、藥屋少女、光之美少女)..." onkeydown="if(event.key==='Enter') searchAnimeFromTheater()">
+                                    <button class="btn btn-danger px-3 fw-semibold" type="button" onclick="searchAnimeFromTheater()">
+                                        搜尋來源
+                                    </button>
+                                </div>
+                            </div>
                             <!-- 彈幕渲染層 -->
                             <div id="danmakuOverlay" class="position-absolute top-0 start-0 w-100 h-100 pointer-events-none overflow-hidden" style="pointer-events: none;"></div>
                         </div>
@@ -582,18 +661,7 @@
                         <div class="col-lg-3 d-flex flex-direction-column border-start border-secondary p-3 bg-dark">
                             <h6 class="fw-semibold small text-muted mb-2"><i class="bi bi-list-ol"></i> 選集列表 (Episodes)</h6>
                             <div class="d-flex flex-wrap gap-2 mb-3 episode-list-container" style="max-height: 320px; overflow-y: auto;">
-                                <button class="btn btn-sm btn-primary active ep-btn" onclick="switchEpisode(1, this)">第 01 話</button>
-                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(2, this)">第 02 話</button>
-                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(3, this)">第 03 話</button>
-                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(4, this)">第 04 話</button>
-                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(5, this)">第 05 話</button>
-                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(6, this)">第 06 話</button>
-                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(7, this)">第 07 話</button>
-                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(8, this)">第 08 話</button>
-                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(9, this)">第 09 話</button>
-                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(10, this)">第 10 話</button>
-                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(11, this)">第 11 話</button>
-                                <button class="btn btn-sm btn-outline-secondary ep-btn" onclick="switchEpisode(12, this)">第 12 話 (完)</button>
+                                <div class="text-secondary small p-3 text-center w-100" id="kazumiEpisodePlaceholder">請先由來源清單選擇集數開播</div>
                             </div>
 
                             <hr class="border-secondary my-2">
@@ -621,20 +689,25 @@
                 <div class="modal-header border-0 bg-dark bg-opacity-75 py-2 px-3 sticky-top">
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge bg-primary">Tachimanga Reader</span>
-                        <span class="fw-bold" id="mangaModalTitle">漫畫線上閱覽</span>
-                        <span class="badge bg-secondary-subtle text-secondary small" id="mangaPageIndicator">第 1 頁 / 共 5 頁</span>
+                        <span class="fw-bold" id="mangaModalTitle">漫畫閱覽器</span>
+                        <span class="badge bg-secondary-subtle text-secondary small" id="mangaPageIndicator"></span>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
+                    <!-- 控制組居右，關閉 X 置於最右上角 -->
+                    <div class="d-flex align-items-center gap-2 ms-auto">
                         <button class="btn btn-sm btn-outline-light" onclick="zoomManga(0.1)" title="放大"><i class="bi bi-zoom-in"></i></button>
                         <button class="btn btn-sm btn-outline-light" onclick="zoomManga(-0.1)" title="縮小"><i class="bi bi-zoom-out"></i></button>
                         <button class="btn btn-sm btn-outline-light" onclick="resetZoomManga()" title="適應寬度"><i class="bi bi-arrows-angle-contract"></i></button>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="關閉"></button>
+                        <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal" aria-label="關閉"></button>
                     </div>
                 </div>
-                <!-- 漫畫條漫捲軸主容器 -->
+                <!-- 漫畫條漫捲軸主容器 (預設純淨空白) -->
                 <div class="modal-body p-0 overflow-auto d-flex justify-content-center" id="mangaScrollContainer" style="background: #111;">
                     <div class="manga-page-list text-center py-3" id="mangaPageWrapper" style="max-width: 820px; width: 100%; transition: transform 0.2s ease;">
-                        <!-- JS 動態插入漫畫圖片頁面 -->
+                        <div class="text-center text-secondary py-5 my-5" id="tachimangaPlaceholder">
+                            <i class="bi bi-book fs-1 d-block mb-3 opacity-50"></i>
+                            <p class="fs-5 fw-semibold mb-1 text-light">漫畫閱覽器（待命狀態）</p>
+                            <span class="small opacity-75">尚未載入漫畫內容，請先選擇作品章節</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -650,9 +723,10 @@
                     <div class="d-flex align-items-center gap-3">
                         <span class="badge bg-success">Legado Reader</span>
                         <h6 class="modal-title fw-bold mb-0" id="novelBookTitle">沉浸小說閱讀</h6>
-                        <span class="text-muted small" id="novelChapterTitle">第 01 章</span>
+                        <span class="text-muted small" id="novelChapterTitle"></span>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
+                    <!-- 控制組居右，關閉 X 置於最右上角 -->
+                    <div class="d-flex align-items-center gap-2 ms-auto">
                         <!-- 主題切換 -->
                         <div class="btn-group btn-group-sm">
                             <button class="btn btn-outline-secondary active" onclick="setNovelTheme('sepia')" title="羊皮紙護眼黃">📜 羊皮紙</button>
@@ -666,14 +740,18 @@
                             <button class="btn btn-outline-secondary" onclick="adjustNovelFontSize(2)" title="放大字體">A+</button>
                         </div>
 
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                        <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="關閉"></button>
                     </div>
                 </div>
 
-                <!-- 小說閱讀正文主容器 -->
+                <!-- 小說閱讀正文主容器 (預設純淨空白) -->
                 <div class="modal-body p-4 p-md-5 overflow-auto" id="novelBodyWrapper">
                     <div class="novel-article-box mx-auto" style="max-width: 760px; line-height: 2.1; font-size: 18px;" id="novelArticleContent">
-                        <!-- JS 動態插入小說段落 -->
+                        <div class="text-center text-secondary py-5 my-5" id="legadoPlaceholder">
+                            <i class="bi bi-journal-text fs-1 d-block mb-3 opacity-50"></i>
+                            <p class="fs-5 fw-semibold mb-1 text-dark">小說閱讀器（待命狀態）</p>
+                            <span class="small opacity-75">尚未載入小說內容，請先選擇章節開始閱讀</span>
+                        </div>
                     </div>
 
                     <!-- 章節切換底部按鈕 -->
@@ -712,6 +790,7 @@
                         <i class="bi bi-folder-symlink"></i> 變更分類
                     </button>
                     <ul class="dropdown-menu dropdown-menu-dark shadow">
+                        <li><a class="dropdown-item" href="#" onclick="batchChangeCategory('anime')"><i class="bi bi-broadcast me-2 text-danger"></i> 動畫 (Kazumi)</a></li>
                         <li><a class="dropdown-item" href="#" onclick="batchChangeCategory('web')"><i class="bi bi-github me-2"></i> 一般網頁</a></li>
                         <li><a class="dropdown-item" href="#" onclick="batchChangeCategory('video')"><i class="bi bi-camera-reels me-2 text-danger"></i> 影片 (B站/YT)</a></li>
                         <li><a class="dropdown-item" href="#" onclick="batchChangeCategory('resource')"><i class="bi bi-gem me-2 text-success"></i> 動漫與資源</a></li>

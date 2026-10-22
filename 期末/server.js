@@ -6,6 +6,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const { handleKazumiRoute } = require('./api/kazumi');
 
 // 期末專案使用 8000 端口（避開 Open WebUI 的 3000 與課堂的 8080）
 let currentPort = process.env.PORT || 8000;
@@ -29,13 +30,18 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
+    // 優先攔截 /api/kazumi 動漫後端模組路由
+    if (req.url.startsWith('/api/kazumi')) {
+        return handleKazumiRoute(req, res);
+    }
+
     // 取得乾淨路徑並防止目錄穿越漏洞
     let reqUrl = decodeURI(req.url.split('?')[0]);
     let safePath = path.normalize(reqUrl).replace(/^(\.\.[\/\\])+/, '');
     
-    // 首頁預設導向 index.html
+    // 首頁預設導向 login.html（第一頁：必須先登入才能進主頁）
     if (safePath === '/' || safePath === '\\') {
-        safePath = '/index.html';
+        safePath = '/login.html';
     }
 
     const filePath = path.join(ROOT_DIR, safePath);
