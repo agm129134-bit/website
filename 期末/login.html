@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登入 - Web Library 個人化網頁收藏圖書館</title>
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+        body {
+            background-color: #f8fafc;
+            color: #0f172a;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 16px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 440px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+            padding: 36px 32px;
+        }
+
+        .brand-icon {
+            width: 44px;
+            height: 44px;
+            background-color: #0f172a;
+            color: #ffffff;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-bottom: 12px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #334155;
+            margin-bottom: 6px;
+        }
+
+        .form-control {
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #0f172a !important;
+            font-size: 0.95rem;
+            padding: 10px 14px;
+            border-radius: 8px;
+            transition: all 0.15s ease-in-out;
+        }
+
+        .form-control:focus {
+            background-color: #ffffff;
+            border-color: #0f172a;
+            box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+            color: #0f172a !important;
+        }
+
+        .form-control::placeholder {
+            color: #94a3b8;
+        }
+
+        .input-group-text {
+            background-color: #f8fafc;
+            border: 1px solid #cbd5e1;
+            color: #64748b;
+            border-radius: 8px;
+        }
+
+        .btn-login {
+            background-color: #0f172a;
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 11px;
+            border-radius: 8px;
+            border: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-login:hover {
+            background-color: #1e293b;
+            color: #ffffff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        .demo-chip {
+            background-color: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            color: #334155;
+            font-size: 0.8rem;
+            font-weight: 500;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .demo-chip:hover {
+            background-color: #e2e8f0;
+            color: #0f172a;
+            border-color: #cbd5e1;
+        }
+
+        .demo-chip.active-chip {
+            background-color: #0f172a;
+            color: #ffffff;
+            border-color: #0f172a;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <!-- 品牌與標題 -->
+        <div class="text-center mb-4">
+            <div class="brand-icon">
+                <i class="bi bi-bookmark-fill"></i>
+            </div>
+            <h4 class="fw-bold mb-1 text-dark">Web Library</h4>
+            <p class="text-secondary small mb-0">個人化網頁收藏圖書館 · 期末專案</p>
+        </div>
+
+        <!-- 一鍵填入展示帳號 -->
+        <div class="mb-3 p-2 bg-light rounded-2 border">
+            <div class="text-secondary small mb-2 fw-semibold d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-person-badge"></i> 評分展示帳號：</span>
+                <span class="text-muted" style="font-size: 0.75rem;">點擊自動帶入</span>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn demo-chip flex-fill text-center" onclick="fillAccount('admin', '123456')">
+                    <i class="bi bi-shield-check text-primary"></i> 管理員 (admin)
+                </button>
+                <button type="button" class="btn demo-chip flex-fill text-center" onclick="fillAccount('student', 'web2026')">
+                    <i class="bi bi-mortarboard text-success"></i> 學生 (student)
+                </button>
+            </div>
+        </div>
+
+        <!-- 錯誤提示 -->
+        <div id="loginAlertBox" class="alert alert-danger py-2 px-3 small d-none rounded-2 mb-3">
+            <i class="bi bi-exclamation-circle-fill me-1"></i> <span id="loginAlertText">請填寫完整的帳號與密碼</span>
+        </div>
+
+        <!-- 登入表單 -->
+        <form id="loginForm" novalidate>
+            <!-- 帳號 -->
+            <div class="mb-3">
+                <label for="usernameInput" class="form-label">使用者帳號</label>
+                <input type="text" class="form-control" id="usernameInput" placeholder="請輸入帳號 (例如: admin)" required autofocus autocomplete="username">
+            </div>
+
+            <!-- 密碼 -->
+            <div class="mb-3">
+                <label for="passwordInput" class="form-label">登入密碼</label>
+                <div class="input-group">
+                    <input type="password" class="form-control border-end-0" id="passwordInput" placeholder="請輸入密碼 (例如: 123456)" required autocomplete="current-password">
+                    <button class="btn btn-outline-secondary border-start-0 bg-white" type="button" id="togglePasswordBtn" title="顯示或隱藏密碼" style="border-color: #cbd5e1;">
+                        <i class="bi bi-eye-slash text-secondary" id="togglePasswordIcon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 記住我 -->
+            <div class="mb-4 d-flex justify-content-between align-items-center">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="rememberMeCheckbox" checked>
+                    <label class="form-check-label text-secondary small" for="rememberMeCheckbox">
+                        記住登入狀態 (30 天內免重複登入)
+                    </label>
+                </div>
+            </div>
+
+            <!-- 登入按鈕 -->
+            <button type="submit" class="btn btn-login w-100 d-flex align-items-center justify-content-center gap-2" id="submitLoginBtn">
+                <span id="submitSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                <span id="submitBtnText"><i class="bi bi-box-arrow-in-right"></i> 立即登入</span>
+            </button>
+
+            <!-- 訪客體驗 -->
+            <div class="text-center mt-3 pt-2 border-top">
+                <button type="button" class="btn btn-link text-secondary text-decoration-none small p-0" onclick="guestLogin()">
+                    訪客快速體驗通道 →
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Toast 提示容器 -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1090;">
+        <div id="loginToast" class="toast align-items-center text-bg-dark border-0 rounded-3 shadow" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body d-flex align-items-center gap-2" id="toastMessage">
+                    <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                    <span>登入成功！正在進入圖書館...</span>
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5.3 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // 1. 若已經登入，自動跳轉進入首頁
+        (function checkAlreadyLoggedIn() {
+            const current = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+            if (current) {
+                try {
+                    const userObj = JSON.parse(current);
+                    if (userObj && userObj.username) {
+                        window.location.replace('index.html');
+                    }
+                } catch (e) {
+                    localStorage.removeItem('currentUser');
+                    sessionStorage.removeItem('currentUser');
+                }
+            }
+        })();
+
+        // 2. 密碼切換顯示
+        const toggleBtn = document.getElementById('togglePasswordBtn');
+        const pwdInput = document.getElementById('passwordInput');
+        const eyeIcon = document.getElementById('togglePasswordIcon');
+        
+        toggleBtn.addEventListener('click', () => {
+            const isPassword = pwdInput.type === 'password';
+            pwdInput.type = isPassword ? 'text' : 'password';
+            eyeIcon.className = isPassword ? 'bi bi-eye text-primary' : 'bi bi-eye-slash text-secondary';
+        });
+
+        // 3. 一鍵填入展示帳號
+        function fillAccount(username, password) {
+            document.getElementById('usernameInput').value = username;
+            document.getElementById('passwordInput').value = password;
+            hideAlert();
+            showToast(`已自動帶入帳號密碼 (${username})`, "bi-check-circle text-success");
+            pwdInput.focus();
+        }
+
+        // 4. 錯誤提示與 Toast
+        function showAlert(msg) {
+            const alertBox = document.getElementById('loginAlertBox');
+            const alertText = document.getElementById('loginAlertText');
+            alertText.textContent = msg;
+            alertBox.classList.remove('d-none');
+        }
+
+        function hideAlert() {
+            const alertBox = document.getElementById('loginAlertBox');
+            alertBox.classList.add('d-none');
+        }
+
+        function showToast(message, iconClass = "bi-check-circle-fill text-success") {
+            const toastEl = document.getElementById('loginToast');
+            const toastMsg = document.getElementById('toastMessage');
+            toastMsg.innerHTML = `<i class="bi ${iconClass} fs-5"></i> <span>${message}</span>`;
+            const toast = new bootstrap.Toast(toastEl, { delay: 2500 });
+            toast.show();
+        }
+
+        // 5. 訪客快速通道
+        function guestLogin() {
+            const guestUser = {
+                username: "guest",
+                name: "訪客使用者",
+                role: "訪客",
+                loginTime: new Date().toISOString()
+            };
+            sessionStorage.setItem('currentUser', JSON.stringify(guestUser));
+            showToast("以訪客身分登入，正在跳轉...", "bi-person-check text-info");
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 500);
+        }
+
+        // 6. 表單送出
+        const loginForm = document.getElementById('loginForm');
+        loginForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            hideAlert();
+
+            const username = document.getElementById('usernameInput').value.trim();
+            const password = document.getElementById('passwordInput').value.trim();
+            const rememberMe = document.getElementById('rememberMeCheckbox').checked;
+
+            if (!username) {
+                showAlert('請輸入使用者帳號');
+                document.getElementById('usernameInput').focus();
+                return;
+            }
+
+            if (!password) {
+                showAlert('請輸入登入密碼');
+                document.getElementById('passwordInput').focus();
+                return;
+            }
+
+            if (password.length < 4) {
+                showAlert('密碼長度不得少於 4 碼');
+                document.getElementById('passwordInput').focus();
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitLoginBtn');
+            const spinner = document.getElementById('submitSpinner');
+            const btnText = document.getElementById('submitBtnText');
+            submitBtn.disabled = true;
+            spinner.classList.remove('d-none');
+            btnText.textContent = "驗證中...";
+
+            setTimeout(() => {
+                let role = "一般會員";
+                let displayName = username;
+
+                if (username.toLowerCase() === 'admin') {
+                    role = "系統管理員";
+                    displayName = "管理員 (Admin)";
+                } else if (username.toLowerCase() === 'student') {
+                    role = "學生研究員";
+                    displayName = "學生 (Student)";
+                }
+
+                const userInfo = {
+                    username: username,
+                    name: displayName,
+                    role: role,
+                    rememberMe: rememberMe,
+                    loginTime: new Date().toISOString()
+                };
+
+                if (rememberMe) {
+                    localStorage.setItem('currentUser', JSON.stringify(userInfo));
+                    sessionStorage.removeItem('currentUser');
+                } else {
+                    sessionStorage.setItem('currentUser', JSON.stringify(userInfo));
+                    localStorage.removeItem('currentUser');
+                }
+
+                showToast(`歡迎回來，${displayName}！`, "bi-check-circle-fill text-success");
+
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 500);
+            }, 400);
+        });
+    </script>
+</body>
+</html>

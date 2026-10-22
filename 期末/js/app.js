@@ -57,12 +57,35 @@ function loadFromStorage() {
         saveToStorage();
     }
 
-    const savedUser = localStorage.getItem("web_library_user");
-    if (savedUser) state.currentUser = savedUser;
+    // 優先讀取登入驗證身分 (currentUser)
+    const authUserStr = localStorage.getItem("currentUser") || sessionStorage.getItem("currentUser");
+    if (authUserStr) {
+        try {
+            const authUser = JSON.parse(authUserStr);
+            if (authUser && (authUser.name || authUser.username)) {
+                state.currentUser = authUser.name || authUser.username;
+            }
+        } catch (e) {}
+    } else {
+        const savedUser = localStorage.getItem("web_library_user");
+        if (savedUser) state.currentUser = savedUser;
+    }
 
     const savedToken = localStorage.getItem("web_library_token");
     if (savedToken) state.apiToken = savedToken;
 }
+
+// 帳號登出函數
+window.logoutUser = function() {
+    if (confirm("確定要登出個人圖書館帳號嗎？")) {
+        localStorage.removeItem("currentUser");
+        sessionStorage.removeItem("currentUser");
+        showToast("已成功登出帳號，正在返回登入頁面...", "bi-box-arrow-right text-warning");
+        setTimeout(() => {
+            window.location.replace("login.html");
+        }, 500);
+    }
+};
 
 function saveToStorage() {
     localStorage.setItem("web_library_bookmarks", JSON.stringify(state.bookmarks));
@@ -84,24 +107,37 @@ function updateUI() {
     if (userApiTokenInput) userApiTokenInput.value = state.apiToken;
 }
 
+// 動畫項目判定 (由 Qwen 27B 設計之多重條件比對)
+function isAnimeItem(item) {
+    if (!item) return false;
+    if (item.category === "anime") return true;
+    const tags = Array.isArray(item.tags) ? item.tags.join(" ") : (item.tags || "");
+    if (/動漫|動畫|Bangumi同步|本季新番/i.test(tags)) return true;
+    if (/bgm\.tv/i.test(item.url || "")) return true;
+    return false;
+}
+
 // 統計數量更新
 function updateStats() {
     const statWeb = document.getElementById("statWebCount");
     if (!statWeb) return;
 
-    const webCount = state.bookmarks.filter(b => b.category === "web").length;
-    const videoCount = state.bookmarks.filter(b => b.category === "video").length;
-    const resCount = state.bookmarks.filter(b => b.category === "resource").length;
+    const animeCount = state.bookmarks.filter(isAnimeItem).length;
+    const webCount = state.bookmarks.filter(b => b.category === "web" && !isAnimeItem(b)).length;
+    const videoCount = state.bookmarks.filter(b => b.category === "video" && !isAnimeItem(b)).length;
+    const resCount = state.bookmarks.filter(b => (b.category === "resource" || !b.category) && !isAnimeItem(b)).length;
     const totalCount = state.bookmarks.length;
 
     statWeb.textContent = webCount;
     const statVideo = document.getElementById("statVideoCount");
     if (statVideo) statVideo.textContent = videoCount;
     const statRes = document.getElementById("statResCount");
-    if (statRes) statRes.textContent = resCount;
+    if (statRes) statRes.textContent = animeCount + resCount;
 
     const bAll = document.getElementById("badgeAllCount");
     if (bAll) bAll.textContent = totalCount;
+    const bAnime = document.getElementById("badgeAnimeCount");
+    if (bAnime) bAnime.textContent = animeCount;
     const bWeb = document.getElementById("badgeWebCount");
     if (bWeb) bWeb.textContent = webCount;
     const bVideo = document.getElementById("badgeVideoCount");
@@ -157,7 +193,13 @@ function getFilteredAndSortedBookmarks() {
 
     // 1. 分類過濾
     if (state.activeCategory !== "all") {
-        result = result.filter(b => b.category === state.activeCategory);
+        if (state.activeCategory === "anime") {
+            result = result.filter(isAnimeItem);
+        } else if (state.activeCategory === "resource") {
+            result = result.filter(b => b.category === "resource" && !isAnimeItem(b));
+        } else {
+            result = result.filter(b => b.category === state.activeCategory && !isAnimeItem(b));
+        }
     }
 
     // 2. 標籤過濾
@@ -222,7 +264,12 @@ function renderBookmarks() {
         let catBadgeClass = "badge-cat-web";
         let catLabel = "一般網頁";
         let catIcon = "bi-globe2";
-        if (item.category === "video") {
+        if (isAnimeItem(item)) {
+            catBadgeClass = "badge-cat-anime";
+            const tags = Array.isArray(item.tags) ? item.tags.join(" ") : (item.tags || "");
+            catLabel = /新番/i.test(tags) ? "動畫新番" : "動畫";
+            catIcon = "bi-broadcast";
+        } else if (item.category === "video") {
             catBadgeClass = "badge-cat-video";
             catLabel = "影片影音";
             catIcon = "bi-play-btn-fill";
@@ -301,16 +348,20 @@ function renderBookmarks() {
 
                     <!-- 底部操作列 -->
                     <div class="card-actions-footer" onclick="event.stopPropagation()">
-                        <div class="d-flex align-items-center gap-1">
+                        <div class="d-flex align-items-center gap-1 flex-wrap">
                             <button class="btn btn-dark btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="jumpToBookmark('${item.id}')">
                                 <i class="bi bi-box-arrow-up-right"></i> 前往
                             </button>
-                            ${item.category === 'video' || (item.url && (item.url.includes('bilibili.com') || item.url.includes('youtube.com') || item.url.includes('youtu.be'))) ? `
-                            <button class="btn btn-outline-danger btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="openKazumiPlayer('${escapeHtml(item.title)}', '${escapeHtml(item.url)}')">
+                            ${isAnimeItem(item) ? `
+                            <button class="btn btn-outline-danger btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="playAnimeBookmark('${item.id}')" title="透過 Kazumi 全網檢索並開播">
+                                <i class="bi bi-play-circle-fill"></i> Kazumi 播放
+                            </button>` : ''}
+                            ${(item.category === 'video' || (item.url && (item.url.includes('bilibili.com') || item.url.includes('youtube.com') || item.url.includes('youtu.be')))) && !isAnimeItem(item) ? `
+                            <button class="btn btn-outline-danger btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="playVideoBookmark('${item.id}')">
                                 <i class="bi bi-play-circle-fill"></i> 播放
                             </button>` : ''}
                             ${Array.isArray(item.tags) && item.tags.some(t => t.includes('漫畫') || t.includes('条漫')) ? `
-                            <button class="btn btn-outline-primary btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="openTachimangaReader('${escapeHtml(item.title)}')">
+                            <button class="btn btn-outline-primary btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="readMangaBookmark('${item.id}')">
                                 <i class="bi bi-journal-richtext"></i> 漫畫
                             </button>` : ''}
                             ${Array.isArray(item.tags) && item.tags.some(t => t.includes('小說') || t.includes('文庫')) ? `
@@ -639,10 +690,14 @@ function autoDetectUrl(url) {
                 guessedTitle = `${parts[0]} / ${parts[1]} - 開源專案`;
                 guessedCover = `https://opengraph.githubassets.com/1/${parts[0]}/${parts[1]}`;
             }
-        } else if (host.includes("ani.gamer.com.tw") || host.includes("bangumi.tv") || host.includes("dm5.com") || host.includes("copymanga")) {
+        } else if (host.includes("ani.gamer.com.tw") || host.includes("bangumi.tv") || host.includes("bgm.tv") || host.includes("agefans") || host.includes("7sefun") || host.includes("bimi")) {
+            guessedCategory = "anime";
+            defaultTags = ["動畫", "新番", "Kazumi播放"];
+            guessedTitle = "動畫新番番劇";
+        } else if (host.includes("dm5.com") || host.includes("copymanga")) {
             guessedCategory = "resource";
-            defaultTags = ["動漫", "漫畫", "ACG資源"];
-            guessedTitle = "ACG 動漫資源網站";
+            defaultTags = ["漫畫", "ACG資源"];
+            guessedTitle = "漫畫閱讀資源";
         }
 
         document.getElementById("bmCategory").value = guessedCategory;
@@ -656,7 +711,8 @@ function autoDetectUrl(url) {
             document.getElementById("bmCover").value = guessedCover;
         }
 
-        showToast(`已辨識網站來源：自動切換至「${guessedCategory === 'video' ? '影片' : guessedCategory === 'resource' ? '資源' : '一般網頁'}」分類！`, "bi-magic text-primary");
+        const catNames = { anime: '動畫', video: '影片', resource: '資源', web: '一般網頁' };
+        showToast(`已辨識網站來源：自動切換至「${catNames[guessedCategory] || '一般網頁'}」分類！`, "bi-magic text-primary");
     } catch (e) {
         showToast("請輸入有效的完整網址 (例如 https://...)", "bi-exclamation-circle text-danger");
     }
@@ -732,14 +788,468 @@ function showToast(message, iconClass = "bi-check-circle-fill text-success") {
 // 7. ACG 專用模組邏輯 (Kazumi / Tachimanga / Legado)
 // ==========================================
 
+// --- 0. Kazumi 播放來源規則引擎 (仿 Kazumi 原生播放來源抽屜) ---
+const KAZUMI_SOURCES = [
+    { id: 'AGE', name: 'AGE動漫', desc: '光之美少女特化全收錄 · 全網動漫庫' },
+    { id: '7sefun', name: '7sefun動漫', desc: '備用高畫質動漫源' }
+];
+
+let kazumiState = {
+    title: '',
+    cover: '',
+    sources: new Map(), // id -> { status: 'loading'|'done'|'empty'|'error', results: [], expanded: false, episodes: {} }
+    currentEpisode: null
+};
+
+// 安全開啟動畫播放來源 (透過 bookmark ID 查詢物件，徹底解決 title 內含撇號/引號破壞 HTML onclick 的問題)
+window.playAnimeBookmark = function(id) {
+    const item = state.bookmarks.find(b => b.id === id);
+    if (!item) {
+        showToast("找不到該動畫收藏資訊", "bi-exclamation-circle text-warning");
+        return;
+    }
+    openKazumiSourceModal(item.title, item.cover || "");
+};
+
+// 安全開啟影片播放 (透過 ID)
+window.playVideoBookmark = function(id) {
+    const item = state.bookmarks.find(b => b.id === id);
+    if (!item) return;
+    openKazumiPlayer(item.title, item.url);
+};
+
+// 安全開啟漫畫閱讀 (透過 ID)
+window.readMangaBookmark = function(id) {
+    const item = state.bookmarks.find(b => b.id === id);
+    if (!item) return;
+    openTachimangaReader(item.title);
+};
+
+// 從 DOM 元素安全讀取屬性開啟 Kazumi 來源
+window.openKazumiFromElement = function(el) {
+    const title = el.getAttribute('data-title') || '';
+    const cover = el.getAttribute('data-cover') || '';
+    openKazumiSourceModal(title, cover);
+};
+
+// 從 DOM 元素安全讀取屬性收藏 Bangumi
+window.collectBangumiFromElement = function(el) {
+    const title = el.getAttribute('data-title') || '';
+    const url = el.getAttribute('data-url') || '';
+    const cover = el.getAttribute('data-cover') || '';
+    collectBangumiAnime(title, url, cover);
+};
+
+// 從 DOM 元素安全啟動觀看
+window.watchKazumiFromElement = function(el) {
+    const title = el.getAttribute('data-title') || '';
+    const detailUrl = el.getAttribute('data-url') || '';
+    const source = el.getAttribute('data-source') || '';
+    watchKazumiAnime(title, detailUrl, source);
+};
+
+// 從來源 Modal 重新檢索番劇
+window.searchKazumiFromModal = function(q) {
+    if (!q || !q.trim()) return;
+    openKazumiSourceModal(q.trim(), kazumiState.cover);
+};
+
+window.openKazumiSourceModal = function(animeTitle = "光之美少女", animeCover = "") {
+    if (!animeTitle || animeTitle.trim() === "") animeTitle = "光之美少女";
+    kazumiState.title = animeTitle.trim();
+    kazumiState.cover = animeCover || "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=700&q=80";
+    kazumiState.sources = new Map(KAZUMI_SOURCES.map(s => [s.id, { status: 'loading', results: [], expanded: false, episodes: {} }]));
+
+    const titleEl = document.getElementById('kazumiSourceTitle');
+    const coverEl = document.getElementById('kazumiSourceCover');
+    const summaryEl = document.getElementById('kazumiSourceSummary');
+    const kwInput = document.getElementById('kazumiModalKeywordInput');
+
+    if (titleEl) titleEl.textContent = kazumiState.title;
+    if (coverEl) coverEl.src = kazumiState.cover;
+    if (kwInput) kwInput.value = kazumiState.title;
+    if (summaryEl) summaryEl.textContent = `${KAZUMI_SOURCES.length} 個來源 · 正在檢索...`;
+
+    renderSourceList();
+
+    // 同步並發向後端請求各來源
+    KAZUMI_SOURCES.forEach(s => fetchRuleSearch(s.id, kazumiState.title));
+
+    const modalEl = document.getElementById('kazumiSourceModal');
+    if (modalEl) {
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+};
+
+async function fetchRuleSearch(sourceId, title) {
+    const state = kazumiState.sources.get(sourceId);
+    if (!state) return;
+    state.status = 'loading';
+    renderSourceList();
+
+    try {
+        const res = await fetch(`/api/kazumi/rule-search?q=${encodeURIComponent(title)}&source=${sourceId}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const results = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
+        state.results = results;
+        state.status = results.length > 0 ? 'done' : 'empty';
+        if (results.length > 0) {
+            state.expanded = true; // 預設展開有結果的來源
+        }
+    } catch (err) {
+        console.error(`來源 ${sourceId} 檢索失敗：`, err);
+        state.status = 'error';
+        state.results = [];
+    }
+
+    renderSourceList();
+    updateSourceSummary();
+}
+
+function updateSourceSummary() {
+    const summaryEl = document.getElementById('kazumiSourceSummary');
+    if (!summaryEl) return;
+    const total = KAZUMI_SOURCES.length;
+    const loading = [...kazumiState.sources.values()].some(s => s.status === 'loading');
+    const found = [...kazumiState.sources.values()].filter(s => s.status === 'done').reduce((sum, s) => sum + s.results.length, 0);
+    let text = `${total} 個來源 · `;
+    if (loading) text += '正在檢索...';
+    else if (found > 0) text += `找到 ${found} 個作品`;
+    else text += '無符合結果';
+    summaryEl.textContent = text;
+}
+
+function renderSourceList() {
+    const list = document.getElementById('kazumiSourceList');
+    if (!list) return;
+    list.innerHTML = '';
+
+    KAZUMI_SOURCES.forEach(source => {
+        const state = kazumiState.sources.get(source.id) || { status: 'loading', results: [], expanded: false };
+        const card = document.createElement('div');
+        card.className = 'border border-secondary rounded-3 bg-black bg-opacity-40 p-3 mb-2';
+
+        // 來源頂部摘要列
+        const header = document.createElement('div');
+        header.className = 'd-flex align-items-center justify-content-between flex-wrap gap-2';
+        header.style.cursor = state.status === 'done' ? 'pointer' : 'default';
+
+        const badgeHtml = getStatusBadge(state.status, state.results.length);
+        header.innerHTML = `
+            <div class="d-flex align-items-center gap-2">
+                <span class="fw-bold text-light">${escapeHtml(source.name)}</span>
+                <small class="text-secondary opacity-75">${escapeHtml(source.desc)}</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                ${badgeHtml}
+                ${state.status === 'done' ? `<i class="bi bi-chevron-${state.expanded ? 'up' : 'down'} text-secondary"></i>` : ''}
+            </div>
+        `;
+
+        if (state.status === 'done') {
+            header.onclick = () => {
+                state.expanded = !state.expanded;
+                renderSourceList();
+            };
+        }
+
+        card.appendChild(header);
+
+        // 展開搜尋結果列表
+        if (state.expanded && state.status === 'done') {
+            const resultsBox = document.createElement('div');
+            resultsBox.className = 'mt-3 pt-3 border-top border-secondary d-flex flex-column gap-2';
+
+            state.results.forEach((item, rIdx) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'p-2 rounded-2 bg-dark bg-opacity-50 border border-secondary';
+
+                const itemHeader = document.createElement('div');
+                itemHeader.className = 'd-flex align-items-center justify-content-between flex-wrap gap-2 mb-2';
+                itemHeader.innerHTML = `
+                    <div class="d-flex align-items-center gap-2 text-truncate" style="max-width: 70%;">
+                        <span class="badge bg-danger-subtle text-danger px-1">#${rIdx + 1}</span>
+                        <span class="fw-semibold text-white small text-truncate" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</span>
+                    </div>
+                    <button class="btn btn-xs btn-outline-danger" id="epBtn_${source.id}_${rIdx}">
+                        <i class="bi bi-list-ul"></i> 取得選集
+                    </button>
+                `;
+
+                const epContainer = document.createElement('div');
+                epContainer.id = `episodes_${source.id}_${rIdx}`;
+                epContainer.className = 'd-flex flex-wrap gap-1 mt-2';
+
+                const fetchEpisodesBtn = itemHeader.querySelector(`#epBtn_${source.id}_${rIdx}`);
+                fetchEpisodesBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    loadEpisodesForSource(source.id, rIdx, item, epContainer, fetchEpisodesBtn);
+                };
+
+                // 自動為第一個搜尋結果載入選集，體驗極佳！
+                if (rIdx === 0 && (!state.episodes || !state.episodes[rIdx])) {
+                    setTimeout(() => {
+                        loadEpisodesForSource(source.id, rIdx, item, epContainer, fetchEpisodesBtn);
+                    }, 50);
+                } else if (state.episodes && state.episodes[rIdx]) {
+                    renderEpisodeButtons(source.id, item, state.episodes[rIdx], epContainer);
+                    fetchEpisodesBtn.innerHTML = `<i class="bi bi-check-circle"></i> 共 ${state.episodes[rIdx].length} 集`;
+                }
+
+                itemDiv.appendChild(itemHeader);
+                itemDiv.appendChild(epContainer);
+                resultsBox.appendChild(itemDiv);
+            });
+
+            card.appendChild(resultsBox);
+        }
+
+        list.appendChild(card);
+    });
+}
+
+function getStatusBadge(status, count) {
+    switch(status) {
+        case 'loading':
+            return `<span class="badge bg-secondary"><span class="spinner-border spinner-border-sm me-1" style="width:0.75rem;height:0.75rem;"></span>檢索中...</span>`;
+        case 'done':
+            return `<span class="badge bg-success">找到 ${count} 個作品</span>`;
+        case 'empty':
+            return `<span class="badge bg-secondary-subtle text-muted">無符合結果</span>`;
+        case 'error':
+            return `<span class="badge bg-danger">來源連線異常</span>`;
+        default:
+            return '';
+    }
+}
+
+async function loadEpisodesForSource(sourceId, rIdx, item, epContainer, btn) {
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>解析劇集...`;
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`/api/kazumi/rule-episodes?detailUrl=${encodeURIComponent(item.detailUrl)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const eps = Array.isArray(data.episodes) ? data.episodes : [];
+
+        const state = kazumiState.sources.get(sourceId);
+        if (state) {
+            if (!state.episodes) state.episodes = {};
+            state.episodes[rIdx] = eps;
+        }
+
+        renderEpisodeButtons(sourceId, item, eps, epContainer);
+        btn.innerHTML = `<i class="bi bi-check-circle"></i> 共 ${eps.length} 集`;
+    } catch (err) {
+        console.error('載入劇集失敗：', err);
+        epContainer.innerHTML = `<div class="text-danger small p-2"><i class="bi bi-exclamation-triangle"></i> 解析選集失敗，請重試</div>`;
+        btn.disabled = false;
+        btn.innerHTML = `<i class="bi bi-arrow-repeat"></i> 重試`;
+    }
+}
+
+function renderEpisodeButtons(sourceId, animeItem, episodes, container) {
+    container.innerHTML = '';
+    if (!episodes || episodes.length === 0) {
+        container.innerHTML = `<div class="text-secondary small p-2">暫無可用選集</div>`;
+        return;
+    }
+
+    // 前端防護：依集數名稱去重，避免多線路重複顯示
+    const seenTitles = new Set();
+    const uniqueEpisodes = [];
+    episodes.forEach(ep => {
+        const key = (ep.title || '').trim();
+        if (!seenTitles.has(key)) {
+            seenTitles.add(key);
+            uniqueEpisodes.push(ep);
+        }
+    });
+
+    const displayEps = uniqueEpisodes.slice(0, 48);
+    displayEps.forEach((ep, idx) => {
+        const epBtn = document.createElement('button');
+        epBtn.className = 'btn btn-xs btn-outline-light text-truncate';
+        epBtn.style.minWidth = '68px';
+        epBtn.textContent = ep.title || `第${idx + 1}話`;
+        epBtn.title = ep.title;
+        epBtn.onclick = () => playRuleEpisode(sourceId, animeItem, ep, uniqueEpisodes);
+        container.appendChild(epBtn);
+    });
+
+    if (uniqueEpisodes.length > 48) {
+        const moreSpan = document.createElement('span');
+        moreSpan.className = 'badge bg-secondary-subtle text-muted align-self-center small';
+        moreSpan.textContent = `+ 尚有 ${uniqueEpisodes.length - 48} 集`;
+        container.appendChild(moreSpan);
+    }
+}
+
+async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
+    showToast(`正在透過 Kazumi Rules 解析「${animeItem.title} - ${episode.title}」...`, "bi-broadcast text-danger");
+
+    try {
+        const res = await fetch(`/api/kazumi/rule-play?playUrl=${encodeURIComponent(episode.playUrl)}`);
+        const data = await res.json();
+
+        if (data.success && data.playerUrl) {
+            const sourceModal = bootstrap.Modal.getInstance(document.getElementById('kazumiSourceModal'));
+            if (sourceModal) sourceModal.hide();
+
+            openTheaterWithUrl(animeItem.title, episode.title, data.playerUrl, allEpisodes, episode);
+        } else {
+            throw new Error(data.error || '解析播放器網址失敗');
+        }
+    } catch (err) {
+        console.error('播放失敗：', err);
+        showToast(`解析「${episode.title}」失敗：${err.message}`, "bi-exclamation-octagon text-danger");
+    }
+}
+
+function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], currentEp = null) {
+    const modalTitle = document.getElementById("animePlayerTitle");
+    if (modalTitle) modalTitle.textContent = `${animeTitle} - ${epTitle}`;
+
+    const video = document.getElementById("kazumiVideoPlayer");
+    const iframe = document.getElementById("kazumiIframePlayer");
+    const placeholder = document.getElementById("kazumiTheaterPlaceholder");
+
+    if (placeholder) placeholder.style.display = "none";
+
+    // 判斷是否為 direct mp4 / m3u8 還是 web/iframe 解析器
+    if (playerUrl.endsWith('.mp4') || playerUrl.endsWith('.m3u8')) {
+        if (iframe) { iframe.src = ""; iframe.style.display = "none"; }
+        if (video) {
+            video.style.display = "block";
+            video.src = playerUrl;
+            video.currentTime = 0;
+            video.play().catch(() => {});
+        }
+    } else {
+        if (video) { video.pause(); video.style.display = "none"; }
+        if (iframe) {
+            iframe.style.display = "block";
+            iframe.src = playerUrl;
+        }
+    }
+
+    // 注入動漫劇院右側選集抽屜 (進行集數防重保護)
+    const listContainer = document.querySelector(".episode-list-container");
+    if (listContainer && allEpisodes.length > 0) {
+        listContainer.innerHTML = "";
+        const seen = new Set();
+        const uniqueEps = [];
+        allEpisodes.forEach(ep => {
+            const key = (ep.title || '').trim();
+            if (!seen.has(key)) {
+                seen.add(key);
+                uniqueEps.push(ep);
+            }
+        });
+
+        uniqueEps.forEach((ep) => {
+            const isActive = currentEp && currentEp.playUrl === ep.playUrl;
+            const btn = document.createElement("button");
+            btn.className = `btn btn-sm ${isActive ? 'btn-primary active' : 'btn-outline-secondary'} ep-btn text-truncate text-start`;
+            btn.style.maxWidth = "100%";
+            btn.title = ep.title;
+            btn.innerHTML = `<i class="bi bi-play-fill"></i> ${escapeHtml(ep.title)}`;
+            btn.onclick = () => {
+                playRuleEpisode('', { title: animeTitle }, ep, uniqueEps);
+            };
+            listContainer.appendChild(btn);
+        });
+    }
+
+    // 清空彈幕層
+    clearInterval(danmakuInterval);
+    const overlay = document.getElementById("danmakuOverlay");
+    if (overlay) overlay.innerHTML = "";
+
+    const theaterModal = bootstrap.Modal.getOrCreateInstance(document.getElementById("animePlayerModal"));
+    theaterModal.show();
+}
+
+// 劇院內一鍵搜尋番劇（支援待命畫面與 Header 搜尋）
+window.searchAnimeFromTheater = function(keyword) {
+    let term = keyword;
+    if (!term || typeof term !== 'string') {
+        const standbyInput = document.getElementById('theaterStandbySearchInput');
+        const headerInput = document.getElementById('theaterHeaderSearchInput');
+        term = (standbyInput && standbyInput.value.trim()) || (headerInput && headerInput.value.trim()) || '';
+    }
+    term = term.trim();
+    if (!term) {
+        showToast('請輸入動漫片名進行搜尋！', 'bi-info-circle text-info');
+        return;
+    }
+
+    // 關閉目前劇院視窗，開啟播放來源抽屜
+    const theaterModal = bootstrap.Modal.getInstance(document.getElementById('animePlayerModal'));
+    if (theaterModal) theaterModal.hide();
+
+    // 開啟播放來源搜尋
+    openKazumiSourceModal(term);
+};
+
+// 重置動漫劇院為純淨黑底空白待命狀態
+window.resetKazumiTheater = function() {
+    const video = document.getElementById("kazumiVideoPlayer");
+    const iframe = document.getElementById("kazumiIframePlayer");
+    const placeholder = document.getElementById("kazumiTheaterPlaceholder");
+    const titleEl = document.getElementById("animePlayerTitle");
+    const listContainer = document.querySelector(".episode-list-container");
+
+    const standbyInput = document.getElementById("theaterStandbySearchInput");
+    const headerInput = document.getElementById("theaterHeaderSearchInput");
+    if (standbyInput) standbyInput.value = "";
+    if (headerInput) headerInput.value = "";
+
+    if (video) {
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+        video.style.display = "none";
+    }
+    if (iframe) {
+        iframe.src = "";
+        iframe.style.display = "none";
+    }
+    if (placeholder) {
+        placeholder.style.display = "block";
+    }
+    if (titleEl) {
+        titleEl.textContent = "動漫劇院播放器（待命狀態）";
+    }
+    if (listContainer) {
+        listContainer.innerHTML = '<div class="text-secondary small p-3 text-center w-100" id="kazumiEpisodePlaceholder">請先由來源清單選擇集數開播</div>';
+    }
+};
+
 // --- A. Kazumi 動漫劇院播放器 ---
 let danmakuInterval = null;
 let danmakuEnabled = true;
 
-window.openKazumiPlayer = function(title = "【動漫播放】葬送的芙莉蓮 第 01 話", src = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4") {
+window.openKazumiPlayer = function(title = "", src = "") {
+    // 若無提供直接串流/外嵌網址，一律跳出播放來源檢索抽屜
+    if (!src || src === "" || src.includes("bgm.tv") || (!src.includes("bilibili") && !src.includes("youtube") && !src.includes("youtu.be") && !src.includes(".mp4") && !src.includes(".m3u8"))) {
+        if (title && title.trim()) {
+            return openKazumiSourceModal(title);
+        }
+        // 純空白待命狀態開啟
+        resetKazumiTheater();
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("animePlayerModal"));
+        modal.show();
+        return;
+    }
+
     document.getElementById("animePlayerTitle").textContent = title;
     const video = document.getElementById("kazumiVideoPlayer");
     const iframe = document.getElementById("kazumiIframePlayer");
+    const placeholder = document.getElementById("kazumiTheaterPlaceholder");
+    if (placeholder) placeholder.style.display = "none";
 
     // 辨識是否為 Bilibili 影片
     const biliMatch = src.match(/bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/i) || src.match(/(BV[a-zA-Z0-9]{10})/i);
@@ -754,6 +1264,19 @@ window.openKazumiPlayer = function(title = "【動漫播放】葬送的芙莉蓮
         iframe.style.display = "block";
         iframe.src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&as_wide=1&danmaku=1`;
         showToast("已載入 Bilibili 官方無廣告內嵌播放器！", "bi-play-btn-fill text-danger");
+
+        // 呼叫後端 Kazumi 模組解析真實分P選集與 CID
+        fetch(`/api/kazumi/resolve?bvid=${bvid}`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && res.data && Array.isArray(res.data.episodes) && res.data.episodes.length > 0) {
+                    renderKazumiEpisodes(bvid, res.data.episodes);
+                    if (res.data.episodes[0].cid) {
+                        startDanmakuStream(title, res.data.episodes[0].cid);
+                    }
+                }
+            })
+            .catch(() => {});
     } else if (ytMatch) {
         // YouTube 官方內嵌播放器
         const ytId = ytMatch[1];
@@ -763,7 +1286,7 @@ window.openKazumiPlayer = function(title = "【動漫播放】葬送的芙莉蓮
         iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1`;
         showToast("已載入 YouTube 官方內嵌劇院！", "bi-youtube text-danger");
     } else {
-        // 原生 HTML5 影片 / m3u8 動漫串流
+        // 原生 HTML5 影片 / 代理串流
         iframe.src = "";
         iframe.style.display = "none";
         video.style.display = "block";
@@ -772,12 +1295,45 @@ window.openKazumiPlayer = function(title = "【動漫播放】葬送的芙莉蓮
         video.play().catch(() => {});
     }
 
-    const modal = new bootstrap.Modal(document.getElementById("animePlayerModal"));
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("animePlayerModal"));
     modal.show();
 
-    // 啟動環境彈幕流
-    startSampleDanmaku();
+    // 清空彈幕覆蓋層（無預設彈幕）
+    clearInterval(danmakuInterval);
+    const overlay = document.getElementById("danmakuOverlay");
+    if (overlay) overlay.innerHTML = "";
 };
+
+// 動態渲染分P選集按鈕
+function renderKazumiEpisodes(bvid, episodes) {
+    const container = document.querySelector(".episode-list-container");
+    if (!container) return;
+    container.innerHTML = "";
+    episodes.forEach((ep, idx) => {
+        const btn = document.createElement("button");
+        btn.className = `btn btn-sm ${idx === 0 ? 'btn-primary active' : 'btn-outline-secondary'} ep-btn text-truncate text-start`;
+        btn.style.maxWidth = "100%";
+        btn.title = ep.part;
+        btn.innerHTML = `<i class="bi bi-play-fill"></i> P${ep.page}: ${escapeHtml(ep.part)}`;
+        btn.onclick = () => {
+            document.querySelectorAll(".ep-btn").forEach(b => {
+                b.classList.remove("btn-primary", "active");
+                b.classList.add("btn-outline-secondary");
+            });
+            btn.classList.remove("btn-outline-secondary");
+            btn.classList.add("btn-primary", "active");
+            
+            const iframe = document.getElementById("kazumiIframePlayer");
+            iframe.src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=${ep.page}&high_quality=1&as_wide=1&danmaku=1`;
+            showToast(`Kazumi: 已切換至 P${ep.page}「${ep.part}」！`, "bi-play-circle-fill text-danger");
+            createBulletDanmaku(`--- 切換至 P${ep.page}「${ep.part}」 ---`, "#f59e0b");
+            if (ep.cid) {
+                startDanmakuStream(ep.part, ep.cid);
+            }
+        };
+        container.appendChild(btn);
+    });
+}
 
 window.closeAnimePlayer = function() {
     const video = document.getElementById("kazumiVideoPlayer");
@@ -800,8 +1356,6 @@ window.switchEpisode = function(epNum, btn) {
     video.currentTime = 0;
     video.play().catch(() => {});
     showToast(`Kazumi: 已切換至 第 ${String(epNum).padStart(2, '0')} 話，串流載入中...`, "bi-play-circle-fill text-danger");
-    
-    createBulletDanmaku(`--- 切換到第 ${epNum} 話 ---`, "#f59e0b");
 };
 
 // 彈幕發送與飄字動畫
@@ -820,20 +1374,41 @@ function createBulletDanmaku(text, color = "#ffffff") {
     setTimeout(() => bullet.remove(), 8500);
 }
 
-function startSampleDanmaku() {
+// 串接 Kazumi 後端彈幕流 (僅在取得真實 CID 彈幕時播放，絕不產生任何預設假彈幕)
+async function startDanmakuStream(animeTitle, cid = null) {
     clearInterval(danmakuInterval);
-    const sampleBarrages = [
-        "前方高能預警！！！", "完結撒花！", "這經費真的太爆炸了",
-        "太感動了 QQ", "2026 年最強霸權番無誤", "這首神 ED 聽了無數遍",
-        "神作打卡！", "這波分鏡真的神", "吹爆這部！"
-    ];
-    // 預先發射幾條
-    createBulletDanmaku("歡迎來到 Kazumi 網頁動漫劇院！", "#38bdf8");
+    const overlay = document.getElementById("danmakuOverlay");
+    if (overlay) overlay.innerHTML = "";
+
+    // 若無真實 CID 則完全不播放預設假彈幕
+    if (!cid) return;
+
+    let danmakuQueue = [];
+    try {
+        const res = await fetch(`/api/kazumi/danmaku?cid=${cid}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && Array.isArray(data.danmaku) && data.danmaku.length > 0) {
+                danmakuQueue = data.danmaku;
+            }
+        }
+    } catch (e) {
+        console.warn('Real danmaku fetch error:', e);
+    }
+
+    if (danmakuQueue.length === 0) return;
+
+    let queueIdx = 0;
     danmakuInterval = setInterval(() => {
-        if (!danmakuEnabled) return;
-        const msg = sampleBarrages[Math.floor(Math.random() * sampleBarrages.length)];
-        createBulletDanmaku(msg);
-    }, 2800);
+        if (!danmakuEnabled || danmakuQueue.length === 0) return;
+        const item = danmakuQueue[queueIdx % danmakuQueue.length];
+        createBulletDanmaku(item.content, item.color || "#ffffff");
+        queueIdx++;
+        // 播放完畢即停止，不重複洗版
+        if (queueIdx >= danmakuQueue.length) {
+            clearInterval(danmakuInterval);
+        }
+    }, 2000);
 }
 
 // 彈幕按鈕事件綁定
@@ -871,111 +1446,125 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // --- B. Tachimanga 條漫閱讀器 ---
 let currentMangaZoom = 1.0;
-const SAMPLE_MANGA_PAGES = [
-    "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1000&q=80",
-    "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1000&q=80",
-    "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1000&q=80",
-    "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1000&q=80",
-    "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=1000&q=80"
-];
+const SAMPLE_MANGA_PAGES = [];
 
-window.openTachimangaReader = function(title = "【漫畫閱覽】間諜家家酒 第 01 話", pages = SAMPLE_MANGA_PAGES) {
-    document.getElementById("mangaModalTitle").textContent = title;
+window.openTachimangaReader = function(title = "漫畫閱覽器", pages = SAMPLE_MANGA_PAGES) {
+    const titleEl = document.getElementById("mangaModalTitle");
+    const indicatorEl = document.getElementById("mangaPageIndicator");
     const wrapper = document.getElementById("mangaPageWrapper");
-    wrapper.innerHTML = "";
+
+    if (titleEl) titleEl.textContent = title;
     currentMangaZoom = 1.0;
-    wrapper.style.transform = `scale(${currentMangaZoom})`;
+    if (wrapper) {
+        wrapper.innerHTML = "";
+        wrapper.style.transform = `scale(${currentMangaZoom})`;
+    }
 
-    pages.forEach((src, idx) => {
-        const img = document.createElement("img");
-        img.className = "manga-page-img";
-        img.src = src;
-        img.alt = `Page ${idx + 1}`;
-        img.setAttribute("referrerpolicy", "no-referrer"); // 繞過多數防盜鏈
-        img.loading = "lazy";
-        wrapper.appendChild(img);
-    });
+    if (!pages || pages.length === 0) {
+        if (indicatorEl) indicatorEl.textContent = "";
+        if (wrapper) {
+            wrapper.innerHTML = `
+                <div class="text-center text-secondary py-5 my-5" id="tachimangaPlaceholder">
+                    <i class="bi bi-book fs-1 d-block mb-3 opacity-50"></i>
+                    <p class="fs-5 fw-semibold mb-1 text-light">漫畫閱覽器（待命狀態）</p>
+                    <span class="small opacity-75">尚未載入漫畫內容，請先選擇作品章節</span>
+                </div>
+            `;
+        }
+    } else {
+        pages.forEach((src, idx) => {
+            const img = document.createElement("img");
+            img.className = "manga-page-img";
+            img.src = src;
+            img.alt = `Page ${idx + 1}`;
+            img.setAttribute("referrerpolicy", "no-referrer"); // 繞過多數防盜鏈
+            img.loading = "lazy";
+            wrapper.appendChild(img);
+        });
 
-    document.getElementById("mangaPageIndicator").textContent = `第 1 頁 / 共 ${pages.length} 頁`;
+        if (indicatorEl) indicatorEl.textContent = `第 1 頁 / 共 ${pages.length} 頁`;
 
-    const modal = new bootstrap.Modal(document.getElementById("mangaReaderModal"));
+        const scrollBox = document.getElementById("mangaScrollContainer");
+        if (scrollBox) {
+            scrollBox.scrollTop = 0;
+            scrollBox.onscroll = () => {
+                const pageHeight = 500;
+                const currentP = Math.min(pages.length, Math.floor(scrollBox.scrollTop / pageHeight) + 1);
+                if (indicatorEl) indicatorEl.textContent = `第 ${currentP} 頁 / 共 ${pages.length} 頁`;
+            };
+        }
+    }
+
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("mangaReaderModal"));
     modal.show();
-
-    // 捲動計算當前頁數
-    const scrollBox = document.getElementById("mangaScrollContainer");
-    scrollBox.scrollTop = 0;
-    scrollBox.onscroll = () => {
-        const pageHeight = 500;
-        const currentP = Math.min(pages.length, Math.floor(scrollBox.scrollTop / pageHeight) + 1);
-        document.getElementById("mangaPageIndicator").textContent = `第 ${currentP} 頁 / 共 ${pages.length} 頁`;
-    };
 };
 
 window.zoomManga = function(delta) {
     currentMangaZoom = Math.min(1.8, Math.max(0.6, currentMangaZoom + delta));
     const wrapper = document.getElementById("mangaPageWrapper");
-    wrapper.style.transform = `scale(${currentMangaZoom})`;
+    if (wrapper) wrapper.style.transform = `scale(${currentMangaZoom})`;
 };
 
 window.resetZoomManga = function() {
     currentMangaZoom = 1.0;
     const wrapper = document.getElementById("mangaPageWrapper");
-    wrapper.style.transform = `scale(1.0)`;
+    if (wrapper) wrapper.style.transform = `scale(1.0)`;
 };
 
 
 // --- C. Legado 沉浸小說閱讀器 ---
-const SAMPLE_NOVEL_CHAPTERS = [
-    {
-        book: "無職轉生 ～到了異世界就拿出真本事～",
-        chapter: "第一卷 第 01 章：初來乍到與初次詠唱",
-        content: [
-            "在我三十四歲那年，因為一場突如其來的車禍意外，人生劃下了句點。",
-            "然而，當我再度睜開眼睛的時候，映入眼簾的卻不是刺眼的醫院天花板，也不是冰冷的地獄油鍋，而是一個由粗糙原木搭建而成的純樸天花板。",
-            "「……嗚哇啊？」",
-            "發出的聲音竟然宛如剛出生的嬰兒一般尖細嬌弱。我想要抬起雙手，看到的卻是一對白白胖胖、完全沒有厚重老繭的幼嫩小手。",
-            "一位金髮碧眼、容貌美麗柔和的少婦正溫柔地抱著我，嘴角帶著幸福的微笑。她的身旁站著一名身穿皮甲、腰間懸著一把短劍的俊朗男子。",
-            "「親愛的，這孩子哭得真有活力呢。就給他取名叫魯迪烏斯吧——魯迪烏斯·格雷拉特。」",
-            "那一刻我終於明白了。我轉生了。在名為劍與魔法的全新異世界裡，獲得了名為人生的第二次機會。這一次，我下定決心——一定要堂堂正正、拼盡全力地活下去！"
-        ]
-    },
-    {
-        book: "無職轉生 ～到了異世界就拿出真本事～",
-        chapter: "第一卷 第 02 章：家庭教師洛琪希的到來",
-        content: [
-            "自從三歲發現自己具備無詠唱魔法的天賦後，父親保羅便開始為我四處尋覓家庭教師。",
-            "直到這一天早晨，門外傳來了有節奏的敲門聲。",
-            "推開大門走進客廳的，是一位身材嬌小、留著深藍色雙馬尾的少女。她頭戴寬大的魔道士尖頂帽，身穿略顯寬鬆的法師長袍，手持一把雕刻著水系魔晶石的法杖。",
-            "「初次見面，我是受聘前來的魔法教師洛琪希·米格路迪亞。」",
-            "她微微欠身，雖然面容沉穩嚴肅，然而眼神中卻閃爍著屬於頂尖水王級魔術師的深邃光芒。",
-            "這是我人生中最重要的相遇之一。從這一天開始，這座平凡的小鄉村即將開啟通往大世界的壯麗篇章。"
-        ]
-    }
-];
+const SAMPLE_NOVEL_CHAPTERS = [];
 
 let currentNovelIndex = 0;
 let currentNovelFontSize = 18;
 
 window.openLegadoReader = function(chapIdx = 0) {
+    const bookTitleEl = document.getElementById("novelBookTitle");
+    const chapTitleEl = document.getElementById("novelChapterTitle");
+    const articleBox = document.getElementById("novelArticleContent");
+
+    if (!SAMPLE_NOVEL_CHAPTERS || SAMPLE_NOVEL_CHAPTERS.length === 0) {
+        if (bookTitleEl) bookTitleEl.textContent = "沉浸小說閱讀";
+        if (chapTitleEl) chapTitleEl.textContent = "";
+        if (articleBox) {
+            articleBox.innerHTML = `
+                <div class="text-center text-secondary py-5 my-5" id="legadoPlaceholder">
+                    <i class="bi bi-journal-text fs-1 d-block mb-3 opacity-50"></i>
+                    <p class="fs-5 fw-semibold mb-1 text-dark">小說閱讀器（待命狀態）</p>
+                    <span class="small opacity-75">尚未載入小說內容，請先選擇章節開始閱讀</span>
+                </div>
+            `;
+        }
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("novelReaderModal"));
+        modal.show();
+        return;
+    }
+
     currentNovelIndex = Math.max(0, Math.min(SAMPLE_NOVEL_CHAPTERS.length - 1, chapIdx));
     const data = SAMPLE_NOVEL_CHAPTERS[currentNovelIndex];
 
-    document.getElementById("novelBookTitle").textContent = data.book;
-    document.getElementById("novelChapterTitle").textContent = data.chapter;
+    if (bookTitleEl) bookTitleEl.textContent = data.book || "沉浸小說閱讀";
+    if (chapTitleEl) chapTitleEl.textContent = data.chapter || "";
 
-    const articleBox = document.getElementById("novelArticleContent");
-    articleBox.innerHTML = `
-        <h3 class="fw-bold mb-4 pb-3 border-bottom">${escapeHtml(data.chapter)}</h3>
-        ${data.content.map(p => `<p class="mb-4" style="text-indent: 2em;">${escapeHtml(p)}</p>`).join("")}
-    `;
+    if (articleBox) {
+        articleBox.innerHTML = `
+            <h3 class="fw-bold mb-4 pb-3 border-bottom">${escapeHtml(data.chapter)}</h3>
+            ${Array.isArray(data.content) ? data.content.map(p => `<p class="mb-4" style="text-indent: 2em;">${escapeHtml(p)}</p>`).join("") : `<p class="mb-4">${escapeHtml(data.content)}</p>`}
+        `;
+    }
 
-    document.getElementById("novelBodyWrapper").scrollTop = 0;
+    const bodyWrapper = document.getElementById("novelBodyWrapper");
+    if (bodyWrapper) bodyWrapper.scrollTop = 0;
 
-    const modal = new bootstrap.Modal(document.getElementById("novelReaderModal"));
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("novelReaderModal"));
     modal.show();
 };
 
 window.switchNovelChapter = function(delta) {
+    if (!SAMPLE_NOVEL_CHAPTERS || SAMPLE_NOVEL_CHAPTERS.length === 0) {
+        showToast("尚未載入小說章節", "bi-info-circle text-info");
+        return;
+    }
     const nextIdx = currentNovelIndex + delta;
     if (nextIdx < 0) {
         showToast("已經是第一章囉！", "bi-info-circle text-info");
@@ -1081,18 +1670,18 @@ function renderCalendarDayAnime(dayId) {
 
         col.innerHTML = `
             <div class="card bgm-anime-card shadow-sm">
-                <div class="bgm-anime-cover-box">
+                <div class="bgm-anime-cover-box" style="cursor: pointer;" data-title="${escapeHtml(title)}" data-cover="${escapeHtml(cover)}" onclick="openKazumiFromElement(this)">
                     <img src="${escapeHtml(cover)}" class="bgm-anime-cover-img" alt="${escapeHtml(title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=700&q=80'">
                     <div class="bgm-rating-badge">${score}</div>
                 </div>
                 <div class="p-2 d-flex flex-column flex-grow-1">
-                    <h6 class="small fw-bold text-truncate mb-2" title="${escapeHtml(title)}">${escapeHtml(title)}</h6>
+                    <h6 class="small fw-bold text-truncate mb-2" title="${escapeHtml(title)}" style="cursor: pointer;" data-title="${escapeHtml(title)}" data-cover="${escapeHtml(cover)}" onclick="openKazumiFromElement(this)">${escapeHtml(title)}</h6>
                     <div class="mt-auto d-flex flex-column gap-1">
-                        <button class="btn btn-outline-primary btn-xs w-100" onclick="collectBangumiAnime('${escapeHtml(title)}', '${escapeHtml(bgmUrl)}', '${escapeHtml(cover)}')">
+                        <button class="btn btn-outline-primary btn-xs w-100" data-title="${escapeHtml(title)}" data-url="${escapeHtml(bgmUrl)}" data-cover="${escapeHtml(cover)}" onclick="collectBangumiFromElement(this)">
                             <i class="bi bi-bookmark-plus"></i> 一鍵收藏
                         </button>
-                        <button class="btn btn-outline-danger btn-xs w-100" onclick="openKazumiPlayer('${escapeHtml(title)}')">
-                            <i class="bi bi-play-circle"></i> 劇院播放
+                        <button class="btn btn-outline-danger btn-xs w-100" data-title="${escapeHtml(title)}" data-cover="${escapeHtml(cover)}" onclick="openKazumiFromElement(this)">
+                            <i class="bi bi-broadcast"></i> 播放來源與觀看
                         </button>
                     </div>
                 </div>
@@ -1108,10 +1697,10 @@ window.collectBangumiAnime = function(title, url, cover) {
         id: "bm_" + Date.now(),
         title: title,
         url: url,
-        category: "resource",
-        tags: ["本季新番", "Bangumi同步", "動漫"],
+        category: "anime",
+        tags: ["本季新番", "Bangumi同步", "動畫"],
         cover: cover,
-        desc: "由 Bangumi 官方每日新番時刻表一鍵同步收錄至個人圖書館。",
+        desc: "由 Bangumi 官方每日新番時刻表一鍵同步收錄至個人圖書館，支援 Kazumi 全網多源高速播放。",
         pinned: false,
         clicks: 0,
         createdAt: new Date().toISOString()
@@ -1120,7 +1709,7 @@ window.collectBangumiAnime = function(title, url, cover) {
     state.bookmarks.unshift(newBookmark);
     saveToStorage();
     updateUI();
-    showToast(`🎉 已成功收藏《${title}》至個人圖書館！`, "bi-check-circle-fill text-success");
+    showToast(`🎉 已成功收藏《${title}》至個人圖書館【動畫】分類！`, "bi-check-circle-fill text-success");
 };
 
 // ==========================================
@@ -1201,14 +1790,18 @@ window.triggerBangumiUserSync = async function() {
             const desc = `Bangumi 追番進度：[${currentEp}/${totalEps} 集] ${scoreStr} · ${subject.short_summary || ""}`.trim();
 
             // 檢查圖書館中是否已存在同一個番劇 (以網址或 ID 比對)
-            const existingIdx = state.bookmarks.findIndex(b => b.url === bgmUrl || (b.title === title && b.category === "resource"));
+            const existingIdx = state.bookmarks.findIndex(b => b.url === bgmUrl || (b.title === title && (b.category === "anime" || b.category === "resource")));
 
             if (existingIdx !== -1) {
                 // 更新進度與封面
                 state.bookmarks[existingIdx].cover = cover;
                 state.bookmarks[existingIdx].desc = desc;
+                state.bookmarks[existingIdx].category = "anime";
                 if (!state.bookmarks[existingIdx].tags.includes(currentTypeName)) {
                     state.bookmarks[existingIdx].tags.push(currentTypeName);
+                }
+                if (!state.bookmarks[existingIdx].tags.includes("動畫")) {
+                    state.bookmarks[existingIdx].tags.push("動畫");
                 }
                 updatedCount++;
             } else {
@@ -1216,8 +1809,8 @@ window.triggerBangumiUserSync = async function() {
                     id: "bm_bgm_" + subjectId + "_" + Date.now(),
                     title: title,
                     url: bgmUrl,
-                    category: "resource",
-                    tags: ["Bangumi同步", currentTypeName, "動漫"],
+                    category: "anime",
+                    tags: ["Bangumi同步", currentTypeName, "動畫"],
                     cover: cover,
                     desc: desc,
                     pinned: false,
@@ -1332,7 +1925,7 @@ window.batchChangeCategory = function(newCategory) {
         showToast("請先勾選欲修改的書籤項目！", "bi-exclamation-circle text-warning");
         return;
     }
-    const catNames = { web: "一般網頁", video: "影片影音", resource: "動漫資源" };
+    const catNames = { anime: "動畫 (Kazumi)", web: "一般網頁", video: "影片影音", resource: "動漫資源" };
     let count = 0;
     state.bookmarks.forEach(b => {
         if (state.selectedBookmarkIds.has(b.id)) {
@@ -1439,6 +2032,164 @@ function escapeHtml(str) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+
+// ==========================================
+// 8. KazumiRules 前端即時搜尋與播放
+// ==========================================
+window.searchKazumiAnime = async function(keyword = null) {
+    const input = document.getElementById("kazumiSearchInput");
+    const q = keyword || (input ? input.value.trim() : "光之美少女");
+    if (!q) {
+        showToast("請輸入動漫片名！", "bi-exclamation-circle text-warning");
+        return;
+    }
+    if (input) input.value = q;
+
+    const sourceSelect = document.getElementById("kazumiSourceSelect");
+    const source = sourceSelect ? sourceSelect.value : "AGE";
+
+    const loading = document.getElementById("kazumiSearchLoading");
+    const grid = document.getElementById("kazumiResultsGrid");
+    if (!grid) return;
+
+    if (loading) loading.classList.remove("d-none");
+    grid.innerHTML = "";
+
+    try {
+        const res = await fetch(`/api/kazumi/rule-search?q=${encodeURIComponent(q)}&source=${source}`);
+        const data = await res.json();
+        if (loading) loading.classList.add("d-none");
+
+        if (data.success && Array.isArray(data.results) && data.results.length > 0) {
+            data.results.forEach(item => {
+                const col = document.createElement("div");
+                col.className = "col";
+                const cover = item.cover || "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80";
+                col.innerHTML = `
+                    <div class="card bgm-anime-card shadow-sm h-100">
+                        <div class="bgm-anime-cover-box">
+                            <img src="${escapeHtml(cover)}" class="bgm-anime-cover-img" alt="${escapeHtml(item.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'">
+                            <div class="bgm-rating-badge bg-danger text-white border-0">${data.source} 源</div>
+                        </div>
+                        <div class="p-2 d-flex flex-column flex-grow-1">
+                            <h6 class="small fw-bold text-truncate mb-2" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</h6>
+                            <div class="mt-auto">
+                                <button class="btn btn-danger btn-xs w-100 d-flex align-items-center justify-content-center gap-1" data-title="${escapeHtml(item.title)}" data-url="${escapeHtml(item.detailUrl)}" data-source="${escapeHtml(data.source)}" onclick="watchKazumiFromElement(this)">
+                                    <i class="bi bi-play-circle-fill"></i> 在線觀看全集
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(col);
+            });
+            showToast(`已透過 ${data.source} 規則搜獲 ${data.results.length} 部「${q}」系列番劇！`, "bi-check-circle-fill text-success");
+        } else {
+            grid.innerHTML = `
+                <div class="col-12 text-center py-4 text-muted">
+                    <i class="bi bi-search fs-3 d-block mb-2"></i>
+                    <span>未搜到「${escapeHtml(q)}」相關番劇，可嘗試切換備用規則源。</span>
+                </div>
+            `;
+        }
+    } catch (e) {
+        if (loading) loading.classList.add("d-none");
+        grid.innerHTML = `<div class="col-12 text-danger text-center py-3">搜尋失敗：${e.message}</div>`;
+    }
+};
+
+window.quickKazumiSearch = function(keyword) {
+    searchKazumiAnime(keyword);
+};
+
+// 點擊「在線觀看全集」
+window.watchKazumiAnime = async function(title, detailUrl, source = "AGE") {
+    showToast(`正在解析《${title}》選集清單...`, "bi-hourglass-split text-info");
+    
+    // 1. 打開 Modal
+    document.getElementById("animePlayerTitle").textContent = `【Kazumi 在線】${title}`;
+    const video = document.getElementById("kazumiVideoPlayer");
+    const iframe = document.getElementById("kazumiIframePlayer");
+    video.pause();
+    video.style.display = "none";
+    iframe.style.display = "block";
+    iframe.src = "";
+
+    const modal = new bootstrap.Modal(document.getElementById("animePlayerModal"));
+    modal.show();
+
+    // 2. 請求後端解析劇集
+    try {
+        const epRes = await fetch(`/api/kazumi/rule-episodes?detailUrl=${encodeURIComponent(detailUrl)}&source=${source}`);
+        const epData = await epRes.json();
+        
+        if (epData.success && Array.isArray(epData.episodes) && epData.episodes.length > 0) {
+            renderKazumiRuleEpisodes(title, epData.episodes, source);
+            // 自動開播第 1 集
+            playKazumiRuleEpisode(epData.episodes[0].playUrl, epData.episodes[0].title, source);
+        } else {
+            showToast("此動畫暫無可用選集或被站方隱藏", "bi-exclamation-triangle text-warning");
+        }
+    } catch (e) {
+        showToast("解析劇集失敗：" + e.message, "bi-x-circle text-danger");
+    }
+};
+
+function renderKazumiRuleEpisodes(animeTitle, episodes, source) {
+    const container = document.querySelector(".episode-list-container");
+    if (!container) return;
+    container.innerHTML = "";
+    episodes.forEach((ep, idx) => {
+        const btn = document.createElement("button");
+        btn.className = `btn btn-sm ${idx === 0 ? 'btn-primary active' : 'btn-outline-secondary'} ep-btn text-truncate text-start`;
+        btn.style.maxWidth = "100%";
+        btn.title = ep.title;
+        btn.innerHTML = `<i class="bi bi-play-fill"></i> ${escapeHtml(ep.title)}`;
+        btn.onclick = () => {
+            document.querySelectorAll(".ep-btn").forEach(b => {
+                b.classList.remove("btn-primary", "active");
+                b.classList.add("btn-outline-secondary");
+            });
+            btn.classList.remove("btn-outline-secondary");
+            btn.classList.add("btn-primary", "active");
+            playKazumiRuleEpisode(ep.playUrl, ep.title, source);
+        };
+        container.appendChild(btn);
+    });
+}
+
+async function playKazumiRuleEpisode(playUrl, epTitle, source) {
+    showToast(`正在載入 ${epTitle}...`, "bi-play-circle-fill text-danger");
+    try {
+        const res = await fetch(`/api/kazumi/rule-play?playUrl=${encodeURIComponent(playUrl)}&source=${source}`);
+        const data = await res.json();
+        if (data.success && data.playerUrl) {
+            const iframe = document.getElementById("kazumiIframePlayer");
+            iframe.src = data.playerUrl;
+            showToast(`已載入 ${epTitle}，即刻開播！`, "bi-check-circle-fill text-success");
+        } else {
+            showToast("此集暫無播放器資源", "bi-exclamation-triangle text-warning");
+        }
+    } catch (e) {
+        showToast("載入播放器失敗", "bi-x-circle text-danger");
+    }
+}
+
+// 若在 ACG 頁面，綁定 Enter 鍵與預設觸發
+document.addEventListener("DOMContentLoaded", () => {
+    const searchInput = document.getElementById("kazumiSearchInput");
+    if (searchInput) {
+        searchInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") searchKazumiAnime();
+        });
+        // 延遲 400ms 自動搜尋光之美少女展示成果
+        setTimeout(() => {
+            if (document.getElementById("kazumiResultsGrid")) {
+                searchKazumiAnime("光之美少女");
+            }
+        }, 400);
+    }
+});
 
 // 啟動應用
 document.addEventListener("DOMContentLoaded", initApp);

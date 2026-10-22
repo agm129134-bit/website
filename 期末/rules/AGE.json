@@ -1,0 +1,14 @@
+{
+  "api": "1",
+  "type": "anime",
+  "name": "AGE動漫",
+  "version": "1.5",
+  "description": "經典老牌動漫站，資源最齊全（長篇番劇、新番焦點）",
+  "baseURL": "https://www.agedm.io/",
+  "searchURL": "https://www.agedm.io/search?query=@keyword",
+  "searchList": "//div[2]/div/section/div/div/div/div",
+  "searchName": "//div/div[2]/h5/a",
+  "searchResult": "//div/div[2]/h5/a",
+  "chapterRoads": "//div[2]/div/section/div/div[2]/div[2]/div[2]/div",
+  "chapterResult": "//ul/li/a"
+}
