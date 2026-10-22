@@ -59,7 +59,7 @@ function normalizeAnimeQuery(str) {
 // KazumiRules 爬蟲引擎 (AGE動漫 & 7sefun)
 // ==========================================
 
-// 1. AGE動漫搜尋 (光之美少女全系列收錄)
+// 1. AGE動漫搜尋
 async function crawlAgeSearch(keyword) {
     const searchTerms = [keyword];
     const norm = normalizeAnimeQuery(keyword);
@@ -552,7 +552,7 @@ async function handleKazumiRoute(req, res) {
             return sendJson(res, 200, {
                 success: true,
                 rules: [
-                    { id: 'AGE', name: 'AGE動漫 (光之美少女特化全收錄 · 資源最多)', baseURL: 'https://www.agedm.io/', version: '1.5' },
+                    { id: 'AGE', name: 'AGE動漫 (全網動漫資源庫 · 資源最多)', baseURL: 'https://www.agedm.io/', version: '1.5' },
                     { id: '7sefun', name: '7sefun動漫 (備用源)', baseURL: 'https://www.7sefun.top/', version: '1.3' }
                 ]
             });

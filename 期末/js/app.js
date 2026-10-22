@@ -790,7 +790,7 @@ function showToast(message, iconClass = "bi-check-circle-fill text-success") {
 
 // --- 0. Kazumi 播放來源規則引擎 (仿 Kazumi 原生播放來源抽屜) ---
 const KAZUMI_SOURCES = [
-    { id: 'AGE', name: 'AGE動漫', desc: '光之美少女特化全收錄 · 全網動漫庫' },
+    { id: 'AGE', name: 'AGE動漫', desc: '全網熱門番劇與經典動漫庫' },
     { id: '7sefun', name: '7sefun動漫', desc: '備用高畫質動漫源' }
 ];
 
@@ -854,8 +854,8 @@ window.searchKazumiFromModal = function(q) {
     openKazumiSourceModal(q.trim(), kazumiState.cover);
 };
 
-window.openKazumiSourceModal = function(animeTitle = "光之美少女", animeCover = "") {
-    if (!animeTitle || animeTitle.trim() === "") animeTitle = "光之美少女";
+window.openKazumiSourceModal = function(animeTitle = "葬送的芙莉蓮", animeCover = "") {
+    if (!animeTitle || animeTitle.trim() === "") animeTitle = "葬送的芙莉蓮";
     kazumiState.title = animeTitle.trim();
     kazumiState.cover = animeCover || "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=700&q=80";
     kazumiState.sources = new Map(KAZUMI_SOURCES.map(s => [s.id, { status: 'loading', results: [], expanded: false, episodes: {} }]));
@@ -2038,9 +2038,9 @@ function escapeHtml(str) {
 // ==========================================
 window.searchKazumiAnime = async function(keyword = null) {
     const input = document.getElementById("kazumiSearchInput");
-    const q = keyword || (input ? input.value.trim() : "光之美少女");
+    const q = (keyword !== null ? keyword : (input ? input.value : "")).trim();
     if (!q) {
-        showToast("請輸入動漫片名！", "bi-exclamation-circle text-warning");
+        showToast("請輸入欲搜尋的動漫片名！", "bi-exclamation-circle text-warning");
         return;
     }
     if (input) input.value = q;
@@ -2175,19 +2175,13 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
     }
 }
 
-// 若在 ACG 頁面，綁定 Enter 鍵與預設觸發
+// 若在 ACG 頁面，綁定 Enter 鍵快速搜尋 (保持初始乾淨空白待命)
 document.addEventListener("DOMContentLoaded", () => {
     const searchInput = document.getElementById("kazumiSearchInput");
     if (searchInput) {
         searchInput.addEventListener("keydown", (e) => {
             if (e.key === "Enter") searchKazumiAnime();
         });
-        // 延遲 400ms 自動搜尋光之美少女展示成果
-        setTimeout(() => {
-            if (document.getElementById("kazumiResultsGrid")) {
-                searchKazumiAnime("光之美少女");
-            }
-        }, 400);
     }
 });
 
