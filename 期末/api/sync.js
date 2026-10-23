@@ -59,6 +59,23 @@ function getUserFilePath(username) {
     return path.join(DATA_DIR, `bookmarks_${safeUser}.json`);
 }
 
+// 取得當前伺服器中已存在的活躍使用者（供 Tampermonkey 快捷收藏自動歸屬）
+function getDefaultActiveUser() {
+    try {
+        if (fs.existsSync(DATA_DIR)) {
+            const files = fs.readdirSync(DATA_DIR);
+            const userFiles = files.filter(f => f.startsWith('bookmarks_') && f.endsWith('.json'));
+            if (userFiles.length > 0) {
+                // 優先使用非 default 的實體帳號（如 jyun）
+                const nonDefault = userFiles.find(f => !f.includes('default'));
+                const chosen = nonDefault || userFiles[0];
+                return chosen.replace('bookmarks_', '').replace('.json', '');
+            }
+        }
+    } catch (e) {}
+    return 'default';
+}
+
 // 轉發請求至 Bangumi 官方 API (避開瀏覽器 CORS 限制)
 function forwardToBangumi(apiPath, method, token, bodyData = null) {
     return new Promise((resolve, reject) => {
@@ -124,12 +141,12 @@ async function handleSyncRoute(req, res) {
 
     try {
         // ==========================================
-        // 1. 跨電腦書籤收藏同步端點 /api/user/bookmarks
+        // 1. 跨電腦書籤收藏同步端點 /api/user/bookmarks 與 Tampermonkey 收藏端點 /api/bookmarks
         // ==========================================
-        if (pathname === '/api/user/bookmarks') {
+        if (pathname === '/api/user/bookmarks' || pathname === '/api/bookmarks') {
             // GET: 從伺服器拉取該帳號最新收藏
             if (req.method === 'GET') {
-                const username = query.user || 'default';
+                const username = query.user || getDefaultActiveUser();
                 const filePath = getUserFilePath(username);
 
                 if (!fs.existsSync(filePath)) {
@@ -159,31 +176,64 @@ async function handleSyncRoute(req, res) {
                 }
             }
 
-            // POST: 將客戶端收藏寫入伺服器端檔案
+            // POST: 將客戶端收藏寫入伺服器端檔案 (支援整包覆蓋與 Tampermonkey 單筆快速插入)
             else if (req.method === 'POST') {
                 const body = await parseRequestBody(req);
-                const username = body.user || query.user || 'default';
-                const bookmarks = body.bookmarks;
+                const username = body.user || query.user || getDefaultActiveUser();
+                const filePath = getUserFilePath(username);
 
-                if (!Array.isArray(bookmarks)) {
-                    return sendJson(res, 400, { success: false, error: '請提供有效的 bookmarks 陣列' });
+                let currentData = { user: sanitizeUsername(username), count: 0, bookmarks: [] };
+                if (fs.existsSync(filePath)) {
+                    try {
+                        const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                        currentData.bookmarks = Array.isArray(parsed) ? parsed : (parsed.bookmarks || []);
+                    } catch (e) {}
                 }
 
-                const filePath = getUserFilePath(username);
-                const record = {
-                    user: sanitizeUsername(username),
-                    count: bookmarks.length,
-                    updatedAt: new Date().toISOString(),
-                    bookmarks: bookmarks
-                };
+                if (Array.isArray(body.bookmarks)) {
+                    // 情境 A: 前端整批雙向同步或覆蓋更新
+                    currentData.bookmarks = body.bookmarks;
+                } else {
+                    // 情境 B: 篡改猴插件 (Tampermonkey) 單筆快速收藏
+                    const bm = body.bookmark || body;
+                    if (!bm.url && !bm.title) {
+                        return sendJson(res, 400, { success: false, error: '請提供有效的書籤資料 (缺少 url 或 title)' });
+                    }
 
-                fs.writeFileSync(filePath, JSON.stringify(record, null, 2), 'utf-8');
+                    const newBm = {
+                        id: bm.id || ('bm_' + Date.now()),
+                        title: (bm.title || '未命名網頁').trim(),
+                        url: (bm.url || '').trim(),
+                        category: bm.category || 'web',
+                        tags: Array.isArray(bm.tags) ? bm.tags : (bm.tags ? [bm.tags] : []),
+                        cover: bm.cover || bm.coverUrl || '',
+                        desc: bm.desc || bm.description || '',
+                        pinned: !!bm.pinned,
+                        clicks: 0,
+                        createdAt: bm.createdAt || new Date().toISOString()
+                    };
+
+                    // 若已存在相同網址則更新，否則插在最前 (unshift)
+                    const existIdx = currentData.bookmarks.findIndex(b => b.url === newBm.url);
+                    if (existIdx >= 0) {
+                        currentData.bookmarks[existIdx] = { ...currentData.bookmarks[existIdx], ...newBm };
+                    } else {
+                        currentData.bookmarks.unshift(newBm);
+                    }
+                }
+
+                currentData.count = currentData.bookmarks.length;
+                currentData.updatedAt = new Date().toISOString();
+                currentData.user = sanitizeUsername(username);
+
+                fs.writeFileSync(filePath, JSON.stringify(currentData, null, 2), 'utf-8');
 
                 return sendJson(res, 200, {
                     success: true,
-                    user: sanitizeUsername(username),
-                    count: bookmarks.length,
-                    savedAt: record.updatedAt
+                    user: currentData.user,
+                    count: currentData.count,
+                    savedAt: currentData.updatedAt,
+                    message: '書籤已成功儲存並同步至 Web Library！'
                 });
             }
         }

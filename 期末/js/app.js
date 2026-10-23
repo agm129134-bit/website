@@ -55,6 +55,13 @@ function initApp() {
     if (state.currentUser && state.currentUser !== "訪客") {
         syncFromServer(state.currentUser);
     }
+
+    // 當使用者自其他分頁使用篡改猴 (Alt+B) 收藏後切回本網頁時，自動即時拉取最新書籤 (無須手動重整)
+    window.addEventListener("focus", () => {
+        if (state.currentUser && state.currentUser !== "訪客") {
+            syncFromServer(state.currentUser, true);
+        }
+    });
 }
 
 function loadFromStorage() {
@@ -2011,16 +2018,69 @@ function startDanmakuLoop() {
     danmakuInterval = setInterval(syncDanmakuWithVideoTime, 200);
 }
 
-// 彈幕播放/暫停快捷切換
-window.toggleDanmakuPlayPause = function() {
-    if (isDanmakuPaused) {
-        window.resumeDanmaku();
-        showToast("▶️ 已繼續彈幕飄動", "bi-play-fill text-success");
+// 廣播跨域與通用播放器指令給 iframe 內嵌播放器 (相容 Bilibili, YouTube Iframe API, DPlayer, ArtPlayer 等)
+function sendIframePlaybackCommand(cmd, time = 0) {
+    const iframe = document.getElementById("kazumiIframePlayer");
+    if (!iframe || !iframe.contentWindow) return;
+
+    try {
+        if (cmd === 'pause') {
+            // YouTube
+            iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+            // DPlayer / ArtPlayer / Bilibili / HTML5 PostMessage
+            iframe.contentWindow.postMessage({ type: 'pause' }, '*');
+            iframe.contentWindow.postMessage({ event: 'pause' }, '*');
+            iframe.contentWindow.postMessage({ action: 'pause' }, '*');
+        } else if (cmd === 'play') {
+            // YouTube
+            iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+            iframe.contentWindow.postMessage({ type: 'play' }, '*');
+            iframe.contentWindow.postMessage({ event: 'play' }, '*');
+            iframe.contentWindow.postMessage({ action: 'play' }, '*');
+        } else if (cmd === 'seek') {
+            const targetSec = Math.max(0, Math.floor(time));
+            // YouTube
+            iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [targetSec, true] }), '*');
+            // DPlayer / ArtPlayer / Bilibili
+            iframe.contentWindow.postMessage({ type: 'seek', time: targetSec }, '*');
+            iframe.contentWindow.postMessage({ type: 'setCurrentTime', value: targetSec }, '*');
+            iframe.contentWindow.postMessage({ action: 'seek', time: targetSec }, '*');
+        }
+    } catch (e) {}
+}
+
+// 核心主控播放與暫停協調器：徹底實現「按下暫停/空白鍵時，影片與彈幕 100% 同時凍結/恢復」
+window.toggleMasterPlayPause = function() {
+    const video = document.getElementById("kazumiVideoPlayer");
+    const iframe = document.getElementById("kazumiIframePlayer");
+    const isVideoMode = video && video.style.display !== "none";
+    const isIframeMode = iframe && iframe.style.display !== "none";
+
+    if (isVideoMode) {
+        if (video.paused) {
+            video.play().catch(() => {});
+        } else {
+            video.pause();
+        }
+    } else if (isIframeMode) {
+        if (isDanmakuPaused) {
+            window.resumeDanmaku();
+            sendIframePlaybackCommand('play');
+            showToast("▶️ 已繼續播放影片與彈幕", "bi-play-fill text-success");
+        } else {
+            window.pauseDanmaku();
+            sendIframePlaybackCommand('pause');
+            showToast("⏸️ 已暫停影片與凍結彈幕", "bi-pause-fill text-warning");
+        }
     } else {
-        window.pauseDanmaku();
-        showToast("⏸️ 已凍結畫面彈幕", "bi-pause-fill text-warning");
+        if (isDanmakuPaused) {
+            window.resumeDanmaku();
+        } else {
+            window.pauseDanmaku();
+        }
     }
 };
+window.toggleDanmakuPlayPause = window.toggleMasterPlayPause;
 
 // 影片暫停時立即凍結動畫與停止發射 (徹底解決影片暫停彈幕仍一直播出的問題)
 window.pauseDanmaku = function() {
@@ -2120,62 +2180,71 @@ function updateDanmakuTimeDisplay(currentSec, totalSec = null) {
     }
 }
 
-// 核心跳轉函式：徹底解決跳轉時間點彈幕不同步問題 (清空螢幕、標記前後狀態、重設時間)
-window.seekDanmaku = function(targetSec = null) {
+// 核心跳轉協調器：徹底實現跳轉時間點「影片（HTML5 / iframe）與彈幕 100% 同步」
+window.seekMasterTimeline = function(targetSec) {
+    const sec = Math.max(0, parseFloat(targetSec) || 0);
     clearDanmakuScreen();
-    const video = document.getElementById("kazumiVideoPlayer");
-    const isVideoMode = video && video.style.display !== "none";
 
-    let currentSec = 0;
-    if (targetSec !== null && !isNaN(targetSec)) {
-        currentSec = Math.max(0, parseFloat(targetSec));
-        virtualDanmakuTime = currentSec;
-        if (isVideoMode) {
-            try { video.currentTime = currentSec; } catch (e) {}
-        }
-    } else if (isVideoMode) {
-        currentSec = (video.currentTime || 0) + (danmakuConfig.timeOffset || 0);
-        virtualDanmakuTime = video.currentTime || 0;
-    } else {
-        currentSec = virtualDanmakuTime + (danmakuConfig.timeOffset || 0);
+    const video = document.getElementById("kazumiVideoPlayer");
+    const iframe = document.getElementById("kazumiIframePlayer");
+    const isVideoMode = video && video.style.display !== "none";
+    const isIframeMode = iframe && iframe.style.display !== "none";
+
+    virtualDanmakuTime = sec;
+    lastSyncVideoTime = sec;
+
+    if (isVideoMode) {
+        try { video.currentTime = sec; } catch (e) {}
+    } else if (isIframeMode) {
+        sendIframePlaybackCommand('seek', sec);
     }
 
     if (currentDanmakuQueue && currentDanmakuQueue.length > 0) {
         currentDanmakuQueue.forEach(item => {
             // 跳轉時間點之前的彈幕標記為已發(_fired = true)，該時間點之後的彈幕標記為未發(_fired = false)
-            item._fired = (item.numericTime < currentSec);
+            item._fired = (item.numericTime < sec);
         });
     }
 
-    updateDanmakuTimeDisplay(currentSec);
-    lastSyncVideoTime = currentSec;
+    updateDanmakuTimeDisplay(sec);
 };
 
-// 點擊側邊欄彈幕時間戳記直接跳轉
-window.jumpToDanmakuTime = function(sec) {
-    window.seekDanmaku(sec);
-    if (isDanmakuPaused) {
-        window.resumeDanmaku();
+window.seekDanmaku = function(targetSec = null) {
+    if (targetSec !== null && !isNaN(targetSec)) {
+        window.seekMasterTimeline(targetSec);
+    } else {
+        const video = document.getElementById("kazumiVideoPlayer");
+        const isVideoMode = video && video.style.display !== "none";
+        const cur = isVideoMode ? (video.currentTime || 0) : virtualDanmakuTime;
+        window.seekMasterTimeline(cur);
     }
-    showToast(`⏱️ 彈幕時間軸已同步至 ${formatDanmakuMinSec(sec)}！`, "bi-clock-history text-info");
 };
 
-// 點擊百分比快捷按鈕跳轉 (0%, 25%, 50%, 75%)
+// 點擊側邊欄彈幕時間戳記直接跳轉 (影片與彈幕同步)
+window.jumpToDanmakuTime = function(sec) {
+    window.seekMasterTimeline(sec);
+    if (isDanmakuPaused) {
+        window.toggleMasterPlayPause();
+    }
+    showToast(`⏱️ 影片與彈幕已跳轉至 ${formatDanmakuMinSec(sec)}！`, "bi-clock-history text-info");
+};
+
+// 點擊百分比快捷按鈕跳轉 (0%, 25%, 50%, 75%) (影片與彈幕同步)
 window.jumpToDanmakuPercent = function(pct) {
     const maxSec = getDanmakuMaxDuration();
     const target = (maxSec * pct) / 100;
-    window.seekDanmaku(target);
+    window.seekMasterTimeline(target);
     if (isDanmakuPaused) {
-        window.resumeDanmaku();
+        window.toggleMasterPlayPause();
     }
-    showToast(`🚀 彈幕已跳轉至 ${pct}% (${formatDanmakuMinSec(target)})`, "bi-fast-forward-fill text-warning");
+    showToast(`🚀 影片與彈幕已跳轉至 ${pct}% (${formatDanmakuMinSec(target)})`, "bi-fast-forward-fill text-warning");
 };
 
-// 相對快進/快退秒數 (+10s, -10s)
+// 相對快進/快退秒數 (+10s, -10s) (影片與彈幕同步)
 window.jumpDanmakuRelative = function(deltaSec) {
     const target = Math.max(0, virtualDanmakuTime + deltaSec);
-    window.seekDanmaku(target);
-    showToast(`⏱️ 彈幕時間 ${deltaSec > 0 ? '+' : ''}${deltaSec}s (${formatDanmakuMinSec(target)})`, "bi-arrow-left-right text-info");
+    window.seekMasterTimeline(target);
+    showToast(`⏱️ 影片與彈幕 ${deltaSec > 0 ? '+' : ''}${deltaSec}s (${formatDanmakuMinSec(target)})`, "bi-arrow-left-right text-info");
 };
 
 // 滑桿拖動時即時反饋
@@ -2187,14 +2256,14 @@ window.onDanmakuTimelineSliderInput = function(val) {
     }
 };
 
-// 滑桿放開時正式跳轉同步
+// 滑桿放開時正式跳轉同步 (影片與彈幕同步)
 window.onDanmakuTimelineSliderChange = function(val) {
     const sec = parseFloat(val) || 0;
-    window.seekDanmaku(sec);
+    window.seekMasterTimeline(sec);
     if (isDanmakuPaused) {
-        window.resumeDanmaku();
+        window.toggleMasterPlayPause();
     }
-    showToast(`⏱️ 彈幕已對齊至 ${formatDanmakuMinSec(sec)}`, "bi-sliders text-success");
+    showToast(`⏱️ 影片與彈幕已對齊至 ${formatDanmakuMinSec(sec)}`, "bi-sliders text-success");
 };
 
 // ==========================================
@@ -2557,11 +2626,16 @@ document.addEventListener("DOMContentLoaded", () => {
         kazumiVideo.addEventListener("play", () => {
             window.resumeDanmaku();
         });
+        kazumiVideo.addEventListener("timeupdate", () => {
+            if (!kazumiVideo.paused && !kazumiVideo.seeking) {
+                updateDanmakuTimeDisplay(kazumiVideo.currentTime, kazumiVideo.duration || getDanmakuMaxDuration());
+            }
+        });
         kazumiVideo.addEventListener("seeking", () => {
-            window.seekDanmaku();
+            window.seekMasterTimeline(kazumiVideo.currentTime);
         });
         kazumiVideo.addEventListener("seeked", () => {
-            window.seekDanmaku();
+            window.seekMasterTimeline(kazumiVideo.currentTime);
             if (!kazumiVideo.paused) {
                 window.resumeDanmaku();
             }
@@ -2574,19 +2648,25 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 支援 iframe 播放器透過 postMessage 進行暫停/播放通知
+    // 支援 iframe 播放器透過 postMessage 進行暫停/播放/時間軸雙向通知
     window.addEventListener("message", (event) => {
         try {
             const data = event.data;
-            if (data === "pause" || data?.event === "pause" || data?.type === "pause") {
+            if (data === "pause" || data?.event === "pause" || data?.type === "pause" || data?.action === "pause") {
                 window.pauseDanmaku();
-            } else if (data === "play" || data?.event === "play" || data?.type === "play") {
+            } else if (data === "play" || data?.event === "play" || data?.type === "play" || data?.action === "play") {
                 window.resumeDanmaku();
+            } else if (data?.type === "timeupdate" || data?.event === "timeupdate") {
+                const curTime = typeof data.time === 'number' ? data.time : parseFloat(data.currentTime);
+                if (!isNaN(curTime)) {
+                    updateDanmakuTimeDisplay(curTime);
+                    virtualDanmakuTime = curTime;
+                }
             }
         } catch (e) {}
     });
 
-    // 支援劇院快速鍵 (空白鍵暫停/繼續彈幕、左右鍵快退/快進 5 秒)
+    // 支援劇院快速鍵 (空白鍵暫停/繼續影片與彈幕、左右鍵快退/快進 5 秒)
     document.addEventListener("keydown", (e) => {
         const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : "";
         if (tag === "input" || tag === "textarea") return;
@@ -2597,8 +2677,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (e.code === "Space" || e.key === " ") {
             e.preventDefault();
-            if (typeof window.toggleDanmakuPlayPause === 'function') {
-                window.toggleDanmakuPlayPause();
+            if (typeof window.toggleMasterPlayPause === 'function') {
+                window.toggleMasterPlayPause();
             }
         } else if (e.code === "ArrowLeft") {
             e.preventDefault();
