@@ -453,6 +453,9 @@
                         <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-2" id="danmakuPlayPauseBtn" onclick="toggleMasterPlayPause()" title="暫停/繼續影片與彈幕 (快捷鍵: 空白鍵 Space)">
                             <i class="bi bi-pause-fill"></i> <span id="danmakuPlayPauseBtnText">暫停</span>
                         </button>
+                        <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-2" id="openExternalPlayerBtn" onclick="openCurrentInNewTab()" title="在新分頁另開此播放器頁面 (解決站方禁止內嵌限制)">
+                            <i class="bi bi-box-arrow-up-right"></i> 新分頁播放
+                        </button>
                         <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="closeCurrentAnime()" title="關閉當前動畫回到待命">
                             <i class="bi bi-stop-circle"></i> 關閉當前動畫
                         </button>
@@ -462,6 +465,36 @@
                 <div class="modal-body p-0">
                     <div class="row g-0">
                         <div class="col-lg-9 bg-black position-relative d-flex flex-column align-items-center justify-content-center" style="min-height: 480px;" id="kazumiScreenContainer">
+                            <!-- 頂部懸浮控制列 (全螢幕專用，滑鼠閒置 3 秒自動淡出隱藏) -->
+                            <div id="kazumiFsTopBar" class="kazumi-fs-bar kazumi-fs-top position-absolute top-0 start-0 w-100 d-none align-items-center justify-content-between px-3 py-2" style="z-index: 70 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-danger shadow-sm">Kazumi</span>
+                                    <h6 class="modal-title fw-bold mb-0 text-truncate text-white" id="kazumiFsTitle" style="max-width: 450px;">動漫劇院播放中</h6>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button type="button" class="btn btn-xs btn-outline-light rounded-pill px-2" onclick="toggleDanmaku()" id="kazumiFsDanmakuToggleBtn" title="切換彈幕顯示/隱藏">
+                                        <i class="bi bi-chat-square-dots"></i> <span id="kazumiFsDanmakuStatusText">彈幕: 開</span>
+                                    </button>
+                                    <button type="button" class="btn btn-xs btn-outline-warning rounded-pill px-2" onclick="toggleFullscreenEpisodesDrawer()" title="開啟快速選集抽屜">
+                                        <i class="bi bi-list-ol"></i> 選集列表
+                                    </button>
+                                    <button type="button" class="btn btn-xs btn-outline-danger rounded-pill px-2" onclick="toggleKazumiFullscreen()" title="退出全螢幕 (ESC / F)">
+                                        <i class="bi bi-fullscreen-exit"></i> 退出全螢幕
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 側邊浮動快速選集抽屜 (全螢幕專用) -->
+                            <div id="kazumiFsEpisodeDrawer" class="kazumi-fs-drawer position-absolute top-0 end-0 h-100 p-3 bg-dark bg-opacity-95 text-white border-start border-secondary shadow-lg d-none" style="width: 280px; z-index: 85 !important; overflow-y: auto;">
+                                <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary">
+                                    <h6 class="mb-0 fw-bold small"><i class="bi bi-list-ol text-warning"></i> 快速切換選集</h6>
+                                    <button type="button" class="btn-close btn-close-white btn-sm" onclick="toggleFullscreenEpisodesDrawer(false)"></button>
+                                </div>
+                                <div id="kazumiFsEpisodeList" class="d-flex flex-column gap-2">
+                                    <!-- 選集按鈕將動態同步 -->
+                                </div>
+                            </div>
+
                             <!-- 影片播放器：預設無假影片，純淨黑底待命 -->
                             <video id="kazumiVideoPlayer" controls playsinline style="width: 100%; height: 100%; max-height: 500px; background: #000; display: none;"></video>
                             <iframe id="kazumiIframePlayer" style="width: 100%; height: 490px; border: none; display: none;" allowfullscreen="true" allow="autoplay; fullscreen"></iframe>
@@ -494,15 +527,21 @@
                                 <div class="flex-grow-1 mx-3 d-flex align-items-center">
                                     <input type="range" class="form-range" id="danmakuTimelineSlider" min="0" max="1440" step="1" value="0" style="cursor: pointer;" oninput="onDanmakuTimelineSliderInput(this.value)" onchange="onDanmakuTimelineSliderChange(this.value)">
                                 </div>
-                                <!-- 快速百分比跳轉 -->
-                                <div class="d-none d-md-flex align-items-center gap-1 flex-shrink-0">
-                                    <span class="text-white-50 me-1" style="font-size: 0.72rem;">同步到:</span>
-                                    <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 text-white" onclick="jumpToDanmakuPercent(0)" title="跳轉到開頭 0%">0%</button>
-                                    <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 text-white" onclick="jumpToDanmakuPercent(25)" title="跳轉到 25% (約 6 分鐘)">25%</button>
-                                    <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 text-white" onclick="jumpToDanmakuPercent(50)" title="跳轉到 50% (約 12 分鐘)">50%</button>
-                                    <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 text-white" onclick="jumpToDanmakuPercent(75)" title="跳轉到 75% (約 18 分鐘)">75%</button>
+                                <!-- 全螢幕專用即時發送彈幕輸入列 (預設隱藏，全螢幕時展開) -->
+                                <div id="kazumiFsDanmakuBar" class="d-none align-items-center gap-1 mx-2 flex-grow-1" style="max-width: 280px;">
+                                    <input type="text" id="kazumiFsDanmakuInput" class="form-control form-control-sm bg-dark text-white border-secondary rounded-pill px-3 py-0" style="font-size: 0.75rem; height: 26px;" placeholder="全螢幕發送彈幕 (Enter)..." onkeydown="if(event.key==='Enter') sendFsDanmaku()">
+                                    <button class="btn btn-xs btn-danger rounded-pill px-2 flex-shrink-0" onclick="sendFsDanmaku()">發送</button>
+                                </div>
+                                <!-- 快速百分比跳轉與全螢幕切換按鍵群 -->
+                                <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                    <span class="text-white-50 me-1 d-none d-md-inline" style="font-size: 0.72rem;">同步:</span>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 text-white d-none d-md-inline" onclick="jumpToDanmakuPercent(0)" title="跳轉到開頭 0%">0%</button>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 text-white d-none d-md-inline" onclick="jumpToDanmakuPercent(50)" title="跳轉到 50% (約 12 分鐘)">50%</button>
                                     <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2" onclick="jumpDanmakuRelative(-10)" title="快退 10 秒"><i class="bi bi-arrow-counterclockwise"></i> -10s</button>
                                     <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2" onclick="jumpDanmakuRelative(10)" title="快進 10 秒"><i class="bi bi-arrow-clockwise"></i> +10s</button>
+                                    <button type="button" class="btn btn-xs btn-outline-info rounded-pill px-2 d-none d-sm-inline" onclick="openCurrentInNewTab()" title="在新分頁開啟播放頁面"><i class="bi bi-box-arrow-up-right"></i> 新分頁</button>
+                                    <button type="button" class="btn btn-xs btn-outline-warning rounded-pill px-2 d-none" id="kazumiFsDrawerBtn" onclick="toggleFullscreenEpisodesDrawer()" title="選集清單"><i class="bi bi-list-ol"></i> 選集</button>
+                                    <button type="button" class="btn btn-xs btn-outline-light rounded-pill px-2 ms-1" onclick="toggleKazumiFullscreen()" id="kazumiFullscreenBtn" title="容器級全螢幕播放 (快捷鍵: F)"><i class="bi bi-fullscreen" id="kazumiFsIcon"></i> <span id="kazumiFsBtnText">全螢幕</span></button>
                                 </div>
                             </div>
                         </div>
@@ -980,7 +1019,7 @@
 
                     <!-- 獨立檢索列：無寬度限制、直覺、防文字截斷 -->
                     <div class="input-group mb-3">
-                        <input type="text" id="novelDrawerKeywordInput" class="form-control bg-black border-secondary text-white py-2" placeholder="輸入輕小說名稱或作者（如：果然我的青春、詭秘之主、芙莉蓮）..." onkeydown="if(event.key==='Enter') searchNovelFromDrawer(this.value)">
+                        <input type="text" id="novelDrawerKeywordInput" class="form-control bg-black border-secondary text-white py-2" placeholder="輸入輕小說名稱或作者..." onkeydown="if(event.key==='Enter') searchNovelFromDrawer(this.value)">
                         <button class="btn btn-success px-4 fw-semibold" type="button" onclick="searchNovelFromDrawer(document.getElementById('novelDrawerKeywordInput').value)">
                             <i class="bi bi-search me-1"></i> 檢索小說
                         </button>

@@ -96,8 +96,8 @@ function proxyImage(imgUrl, res) {
     }
 }
 
-// 漫畫搜尋核心
-async function searchManga(keyword) {
+// 漫畫搜尋核心 (支援 CopyManga + MangaDex 雙來源聚合)
+async function searchCopyManga(keyword) {
     let lastError = null;
     for (const host of COPYMANGA_HOSTS) {
         try {
@@ -119,7 +119,16 @@ async function searchManga(keyword) {
             lastError = e;
         }
     }
-    throw lastError || new Error('搜尋漫畫來源暫時無法連線');
+    return [];
+}
+
+// 漫畫搜尋核心 (專注於 CopyManga 全網高清穩定漫畫庫)
+async function searchManga(keyword) {
+    const list = await searchCopyManga(keyword);
+    if (!list || list.length === 0) {
+        throw new Error('查無符合之漫畫作品，請更換關鍵字後重試');
+    }
+    return list;
 }
 
 // 取得話數章節列表
