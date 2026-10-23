@@ -17,7 +17,7 @@ const state = {
     activeTag: "all",
     searchQuery: "",
     sortMode: "newest",
-    viewMode: "grid", // 'grid' | 'list'
+    viewMode: localStorage.getItem("web_library_view_mode") || "grid", // 'grid' | 'list' (持久化視圖偏好)
     currentUser: localStorage.getItem("web_library_user") || "jyun",
     apiToken: "usr_tok_8f92ab3c71e041d8b991a",
     isBatchMode: false,
@@ -768,23 +768,38 @@ function setupEventListeners() {
         renderBookmarks();
     });
 
-    // 4. 視圖切換 (卡片 / 清單)
+    // 4. 視圖切換 (卡片 / 清單，支援 localStorage 持久化儲存與重整自動還原)
     const gridBtn = document.getElementById("viewGridBtn");
     const listBtn = document.getElementById("viewListBtn");
-    gridBtn.addEventListener("click", () => {
-        state.viewMode = "grid";
-        gridBtn.classList.add("active");
-        listBtn.classList.remove("active");
-        document.body.classList.remove("list-view-mode");
-        renderBookmarks();
-    });
-    listBtn.addEventListener("click", () => {
-        state.viewMode = "list";
-        listBtn.classList.add("active");
-        gridBtn.classList.remove("active");
-        document.body.classList.add("list-view-mode");
-        renderBookmarks();
-    });
+    if (gridBtn && listBtn) {
+        // 依照持久化狀態初始化按鈕外觀與 body class
+        if (state.viewMode === "list") {
+            listBtn.classList.add("active");
+            gridBtn.classList.remove("active");
+            document.body.classList.add("list-view-mode");
+        } else {
+            gridBtn.classList.add("active");
+            listBtn.classList.remove("active");
+            document.body.classList.remove("list-view-mode");
+        }
+
+        gridBtn.addEventListener("click", () => {
+            state.viewMode = "grid";
+            localStorage.setItem("web_library_view_mode", "grid");
+            gridBtn.classList.add("active");
+            listBtn.classList.remove("active");
+            document.body.classList.remove("list-view-mode");
+            renderBookmarks();
+        });
+        listBtn.addEventListener("click", () => {
+            state.viewMode = "list";
+            localStorage.setItem("web_library_view_mode", "list");
+            listBtn.classList.add("active");
+            gridBtn.classList.remove("active");
+            document.body.classList.add("list-view-mode");
+            renderBookmarks();
+        });
+    }
 
     // 5. 新增 / 編輯表單送出
     const bookmarkForm = document.getElementById("bookmarkForm");
@@ -1131,8 +1146,9 @@ function showToast(message, iconClass = "bi-check-circle-fill text-success") {
 
 // --- 0. Kazumi 播放來源規則引擎 (仿 Kazumi 原生播放來源抽屜) ---
 const KAZUMI_SOURCES = [
-    { id: 'AGE', name: 'AGE動漫', desc: '全網熱門番劇與經典動漫庫' },
-    { id: '7sefun', name: '7sefun動漫', desc: '備用高畫質動漫源' }
+    { id: 'AGE', name: 'AGE動漫', desc: '全網熱門番劇（第三方解析器直出）' },
+    { id: 'Giri', name: 'Girigirilove (ani.girigiri)', desc: 'BT 磁力與番劇發布索引庫' },
+    { id: '7sefun', name: '7sefun動漫 (外鏈)', desc: '備用源 · 受站方防護限制需另開新分頁' }
 ];
 
 let kazumiState = {
@@ -1483,6 +1499,10 @@ async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
 }
 
 function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], currentEp = null) {
+    window.currentKazumiPlayingUrl = playerUrl;
+    if (playerUrl && playerUrl.includes('lmm85.com')) {
+        showToast("💡 此集來源因站方安全保護無法內嵌，請點擊【新分頁播放】即可開播！", "bi-info-circle-fill text-warning");
+    }
     const modalTitle = document.getElementById("animePlayerTitle");
     const isDirectVideo = /\.(mp4|m3u8)(\?.*)?$/i.test(playerUrl) || playerUrl.includes('.mp4') || playerUrl.includes('.m3u8');
     
@@ -2634,22 +2654,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (toggleBtn) {
         toggleBtn.addEventListener("click", () => {
-            danmakuEnabled = !danmakuEnabled;
-            toggleBtn.innerHTML = danmakuEnabled 
-                ? `<i class="bi bi-chat-square-dots-fill text-warning"></i> 彈幕: 開` 
-                : `<i class="bi bi-chat-square-dots text-muted"></i> 彈幕: 關`;
-            const overlay = document.getElementById("danmakuOverlay");
-            if (overlay) overlay.style.display = danmakuEnabled ? "block" : "none";
-
-            if (danmakuEnabled) {
-                if (currentDanmakuQueue && currentDanmakuQueue.length > 0) {
-                    startDanmakuLoop();
-                } else if (window.currentPlayingAnime) {
-                    startDanmakuStream(window.currentPlayingAnime.title, window.currentPlayingAnime.cid, window.currentPlayingAnime.ep);
-                }
-            }
+            window.toggleDanmaku();
         });
     }
+
+    // 全螢幕狀態變化監聽
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
 
     const animeModalEl = document.getElementById("animePlayerModal");
     if (animeModalEl) {
@@ -2760,9 +2773,218 @@ document.addEventListener("DOMContentLoaded", () => {
             if (typeof window.jumpDanmakuRelative === 'function') {
                 window.jumpDanmakuRelative(5);
             }
+        } else if (e.code === "KeyF" || e.key === "f" || e.key === "F") {
+            e.preventDefault();
+            if (typeof window.toggleKazumiFullscreen === 'function') {
+                window.toggleKazumiFullscreen();
+            }
         }
     });
 });
+
+// ==========================================
+// Kazumi 彈幕開關與全域控制
+// ==========================================
+window.toggleDanmaku = function() {
+    danmakuEnabled = !danmakuEnabled;
+    const toggleBtn = document.getElementById("danmakuToggleBtn");
+    const fsToggleBtn = document.getElementById("kazumiFsDanmakuToggleBtn");
+    const fsStatusText = document.getElementById("kazumiFsDanmakuStatusText");
+
+    if (toggleBtn) {
+        toggleBtn.innerHTML = danmakuEnabled 
+            ? `<i class="bi bi-chat-square-dots-fill text-warning"></i> 彈幕: 開` 
+            : `<i class="bi bi-chat-square-dots text-muted"></i> 彈幕: 關`;
+    }
+    if (fsStatusText) {
+        fsStatusText.textContent = danmakuEnabled ? "彈幕: 開" : "彈幕: 關";
+    }
+    if (fsToggleBtn) {
+        if (danmakuEnabled) {
+            fsToggleBtn.classList.remove("btn-outline-secondary");
+            fsToggleBtn.classList.add("btn-outline-light");
+        } else {
+            fsToggleBtn.classList.remove("btn-outline-light");
+            fsToggleBtn.classList.add("btn-outline-secondary");
+        }
+    }
+
+    const overlay = document.getElementById("danmakuOverlay");
+    if (overlay) overlay.style.display = danmakuEnabled ? "block" : "none";
+
+    if (danmakuEnabled) {
+        if (currentDanmakuQueue && currentDanmakuQueue.length > 0) {
+            startDanmakuLoop();
+        } else if (window.currentPlayingAnime) {
+            startDanmakuStream(window.currentPlayingAnime.title, window.currentPlayingAnime.cid, window.currentPlayingAnime.ep);
+        }
+        showToast("已開啟彈幕顯示", "bi-chat-dots-fill text-warning");
+    } else {
+        showToast("已關閉彈幕顯示", "bi-chat-dots text-secondary");
+    }
+};
+
+// ==========================================
+// Kazumi 全螢幕與沈浸式浮動控制核心
+// ==========================================
+let fsHideTimer = null;
+
+window.toggleKazumiFullscreen = function() {
+    const container = document.getElementById("kazumiScreenContainer");
+    if (!container) return;
+
+    const isFs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+    if (isFs) {
+        if (document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        }
+    } else {
+        if (container.requestFullscreen) {
+            container.requestFullscreen().catch(() => {});
+        } else if (container.webkitRequestFullscreen) {
+            container.webkitRequestFullscreen();
+        } else if (container.mozRequestFullScreen) {
+            container.mozRequestFullScreen();
+        } else if (container.msRequestFullscreen) {
+            container.msRequestFullscreen();
+        }
+    }
+};
+
+function handleFullscreenChange() {
+    const container = document.getElementById("kazumiScreenContainer");
+    if (!container) return;
+
+    const isFs = !!(document.fullscreenElement === container || document.webkitFullscreenElement === container);
+    const topBar = document.getElementById("kazumiFsTopBar");
+    const danmakuBar = document.getElementById("kazumiFsDanmakuBar");
+    const drawerBtn = document.getElementById("kazumiFsDrawerBtn");
+    const icon = document.getElementById("kazumiFsIcon");
+    const btnText = document.getElementById("kazumiFsBtnText");
+    const titleEl = document.getElementById("kazumiFsTitle");
+    const drawer = document.getElementById("kazumiFsEpisodeDrawer");
+
+    if (isFs) {
+        container.classList.add("is-fullscreen");
+        if (topBar) {
+            topBar.classList.remove("d-none");
+            topBar.classList.add("d-flex");
+        }
+        if (danmakuBar) {
+            danmakuBar.classList.remove("d-none");
+            danmakuBar.classList.add("d-flex");
+        }
+        if (drawerBtn) drawerBtn.classList.remove("d-none");
+        if (icon) icon.className = "bi bi-fullscreen-exit";
+        if (btnText) btnText.textContent = "退出";
+
+        const theaterTitle = document.getElementById("animePlayerTitle");
+        if (titleEl && theaterTitle) {
+            titleEl.textContent = theaterTitle.textContent || "動漫劇院播放中";
+        }
+
+        window.syncFullscreenEpisodeDrawer();
+
+        container.addEventListener("mousemove", onFullscreenMouseMove);
+        startFsIdleTimer();
+    } else {
+        container.classList.remove("is-fullscreen", "fs-controls-hidden");
+        if (topBar) {
+            topBar.classList.add("d-none");
+            topBar.classList.remove("d-flex");
+        }
+        if (danmakuBar) {
+            danmakuBar.classList.add("d-none");
+            danmakuBar.classList.remove("d-flex");
+        }
+        if (drawer) drawer.classList.add("d-none");
+        if (drawerBtn) drawerBtn.classList.add("d-none");
+        if (icon) icon.className = "bi bi-fullscreen";
+        if (btnText) btnText.textContent = "全螢幕";
+
+        container.removeEventListener("mousemove", onFullscreenMouseMove);
+        if (fsHideTimer) {
+            clearTimeout(fsHideTimer);
+            fsHideTimer = null;
+        }
+    }
+}
+
+function onFullscreenMouseMove() {
+    const container = document.getElementById("kazumiScreenContainer");
+    if (!container) return;
+    container.classList.remove("fs-controls-hidden");
+    startFsIdleTimer();
+}
+
+function startFsIdleTimer() {
+    const container = document.getElementById("kazumiScreenContainer");
+    if (!container) return;
+    if (fsHideTimer) clearTimeout(fsHideTimer);
+    fsHideTimer = setTimeout(() => {
+        const isFs = !!(document.fullscreenElement === container || document.webkitFullscreenElement === container);
+        const drawer = document.getElementById("kazumiFsEpisodeDrawer");
+        const drawerOpen = drawer && !drawer.classList.contains("d-none");
+        if (isFs && !drawerOpen) {
+            container.classList.add("fs-controls-hidden");
+        }
+    }, 3000);
+}
+
+// 快速選集抽屜切換
+window.toggleFullscreenEpisodesDrawer = function(force) {
+    const drawer = document.getElementById("kazumiFsEpisodeDrawer");
+    if (!drawer) return;
+    const shouldOpen = force !== undefined ? !!force : drawer.classList.contains("d-none");
+    if (shouldOpen) {
+        drawer.classList.remove("d-none");
+        window.syncFullscreenEpisodeDrawer();
+        const container = document.getElementById("kazumiScreenContainer");
+        if (container) container.classList.remove("fs-controls-hidden");
+    } else {
+        drawer.classList.add("d-none");
+        startFsIdleTimer();
+    }
+};
+
+// 同步選集清單至全螢幕快速抽屜
+window.syncFullscreenEpisodeDrawer = function() {
+    const targetList = document.getElementById("kazumiFsEpisodeList");
+    if (!targetList) return;
+    targetList.innerHTML = "";
+
+    const originButtons = document.querySelectorAll(".episode-list-container .ep-btn");
+    if (originButtons.length === 0) {
+        targetList.innerHTML = `<div class="text-white-50 small p-3 text-center">暫無選集清單</div>`;
+        return;
+    }
+
+    originButtons.forEach(btn => {
+        const itemBtn = document.createElement("button");
+        const isActive = btn.classList.contains("active") || btn.classList.contains("btn-primary");
+        itemBtn.className = `btn btn-sm text-start text-truncate ${isActive ? 'btn-primary active' : 'btn-outline-secondary text-white'}`;
+        itemBtn.innerHTML = btn.innerHTML;
+        itemBtn.title = btn.title || btn.textContent.trim();
+        itemBtn.onclick = () => {
+            btn.click();
+            window.syncFullscreenEpisodeDrawer();
+        };
+        targetList.appendChild(itemBtn);
+    });
+};
+
+// 全螢幕即時彈幕發送
+window.sendFsDanmaku = function() {
+    const input = document.getElementById("kazumiFsDanmakuInput");
+    if (!input) return;
+    const val = input.value.trim();
+    if (!val) return;
+    createBulletDanmaku(val, "#22c55e");
+    input.value = "";
+    showToast(`彈幕已在全螢幕發送：「${val}」`, "bi-chat-dots-fill text-success");
+};
 
 
 // ==========================================
@@ -4492,9 +4714,14 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
         const res = await fetch(`/api/kazumi/rule-play?playUrl=${encodeURIComponent(playUrl)}&source=${source}`);
         const data = await res.json();
         if (data.success && data.playerUrl) {
+            window.currentKazumiPlayingUrl = data.playerUrl;
             const iframe = document.getElementById("kazumiIframePlayer");
             iframe.src = data.playerUrl;
             showToast(`已載入 ${epTitle}，即刻開播！`, "bi-check-circle-fill text-success");
+
+            if (data.playerUrl.includes('lmm85.com')) {
+                showToast("💡 此集來源因站方安全保護無法內嵌，請點擊【新分頁播放】即可開播！", "bi-info-circle-fill text-warning");
+            }
 
             // 啟動彈幕流
             const epMatch = (epTitle || '').match(/\d+/);
@@ -4508,6 +4735,19 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
         showToast("載入播放器失敗", "bi-x-circle text-danger");
     }
 }
+
+// 另開新分頁播放 (完美解決第三方播放器 X-Frame-Options SAMEORIGIN / Cloudflare 防護阻擋內嵌問題)
+window.openCurrentInNewTab = function() {
+    const iframe = document.getElementById("kazumiIframePlayer");
+    const video = document.getElementById("kazumiVideoPlayer");
+    const url = window.currentKazumiPlayingUrl || (iframe && iframe.src) || (video && video.src);
+    if (!url || url === 'about:blank' || url.endsWith('/')) {
+        showToast("目前尚無可播放的外部網址", "bi-exclamation-triangle text-warning");
+        return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+    showToast("已在新分頁開啟播放頁面！", "bi-box-arrow-up-right text-info");
+};
 
 // 若在 ACG 頁面，綁定 Enter 鍵快速搜尋 (保持初始乾淨空白待命)
 document.addEventListener("DOMContentLoaded", () => {

@@ -161,14 +161,22 @@ async function crawlAgeEpisodes(detailUrl) {
 
 // 3. AGE動漫播放器真實網址解析
 async function crawlAgePlayer(playUrl) {
-    const res = await fetchWithTimeout(playUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36' }
-    });
-    if (!res.ok) throw new Error('無法讀取播放器頁面');
-    const html = await res.text();
-    const iframeMatch = html.match(/<iframe[^>]+id="iframeForVideo"[^>]+src="([^"]+)"/i) 
-                     || html.match(/<iframe[^>]+src="([^"]+)"/i);
-    return iframeMatch ? iframeMatch[1] : null;
+    try {
+        const res = await fetchWithTimeout(playUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36' }
+        });
+        if (!res.ok) throw new Error('無法讀取播放器頁面');
+        const html = await res.text();
+        const iframeMatch = html.match(/<iframe[^>]+id="iframeForVideo"[^>]+src="([^"]+)"/i) 
+                         || html.match(/<iframe[^>]+src="([^"]+)"/i);
+        const url = iframeMatch ? iframeMatch[1] : null;
+        if (!url) {
+            throw new Error('未能在 AGE 播放頁中解析出播放器網址');
+        }
+        return url;
+    } catch (e) {
+        throw new Error(e.message || 'AGE動漫播放器解析失敗');
+    }
 }
 
 // 4. 7sefun動漫搜尋 (備用源)
@@ -297,6 +305,58 @@ async function crawl7sefunPlayer(playUrl) {
     } catch (e) {
         console.warn('[7sefun crawlPlayer failed]:', e.message);
         return playUrl;
+    }
+}
+
+// 5. Girigirilove (ani.girigirilove.com) 資源搜尋模組
+async function crawlGiriSearch(keyword) {
+    try {
+        const url = `https://share.acgnx.cc/search.php?keyword=${encodeURIComponent(keyword)}`;
+        const res = await fetchWithTimeout(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Referer': 'https://ani.girigirilove.com/' }
+        }, 8000);
+        if (!res.ok) return [];
+        const html = await res.text();
+        const results = [];
+        const re = /<a[^>]+href="(show-[a-zA-Z0-9]+\.html)"[^>]*>([\s\S]*?)<\/a>/g;
+        let m;
+        const seen = new Set();
+        while ((m = re.exec(html)) !== null) {
+            const href = m[1];
+            const title = m[2].replace(/<[^>]+>/g, '').trim();
+            if (title && !seen.has(href)) {
+                seen.add(href);
+                results.push({
+                    title: title,
+                    detailUrl: `https://share.acgnx.cc/${href}`,
+                    cover: 'https://ani.girigirilove.com/brand/icon.png',
+                    source: 'Giri'
+                });
+                if (results.length >= 12) break;
+            }
+        }
+        return results;
+    } catch (e) {
+        console.warn('[Giri Search failed]:', e.message);
+        return [];
+    }
+}
+
+async function crawlGiriEpisodes(detailUrl) {
+    try {
+        const res = await fetchWithTimeout(detailUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        }, 8000);
+        if (!res.ok) return [];
+        const html = await res.text();
+        const magnetMatch = html.match(/(magnet:\?xt=urn:btih:[a-zA-Z0-9]+)/i);
+        const magnet = magnetMatch ? magnetMatch[1] : '';
+        return [{
+            name: 'BT 磁力資源連結 (可貼入下載器 / 播放器)',
+            playUrl: magnet || detailUrl
+        }];
+    } catch (e) {
+        return [];
     }
 }
 
@@ -816,6 +876,7 @@ async function handleKazumiRoute(req, res) {
                 success: true,
                 rules: [
                     { id: 'AGE', name: 'AGE動漫 (全網動漫資源庫 · 資源最多)', baseURL: 'https://www.agedm.io/', version: '1.5' },
+                    { id: 'Giri', name: 'Girigirilove (BT 資源索引庫)', baseURL: 'https://ani.girigirilove.com/', version: '1.0' },
                     { id: '7sefun', name: '7sefun動漫 (備用源)', baseURL: 'https://www.7sefun.top/', version: '1.3' }
                 ]
             });
@@ -831,7 +892,9 @@ async function handleKazumiRoute(req, res) {
 
             try {
                 let results = [];
-                if (source === '7sefun') {
+                if (source === 'Giri') {
+                    results = await crawlGiriSearch(q);
+                } else if (source === '7sefun') {
                     results = await crawl7sefunSearch(q);
                 } else {
                     results = await crawlAgeSearch(q);
@@ -858,7 +921,9 @@ async function handleKazumiRoute(req, res) {
 
             try {
                 let episodes = [];
-                if (detailUrl.includes('7sefun')) {
+                if (detailUrl.includes('acgnx.cc') || detailUrl.includes('girigirilove')) {
+                    episodes = await crawlGiriEpisodes(detailUrl);
+                } else if (detailUrl.includes('7sefun')) {
                     episodes = await crawl7sefunEpisodes(detailUrl);
                 } else {
                     episodes = await crawlAgeEpisodes(detailUrl);
@@ -883,8 +948,12 @@ async function handleKazumiRoute(req, res) {
 
             try {
                 let playerUrl = null;
-                if (playUrl.includes('7sefun')) {
+                if (playUrl.includes('agedm.io') || playUrl.includes('/play/')) {
+                    playerUrl = await crawlAgePlayer(playUrl);
+                } else if (playUrl.includes('7sefun')) {
                     playerUrl = await crawl7sefunPlayer(playUrl);
+                } else if (playUrl.includes('.m3u8') || playUrl.includes('.mp4')) {
+                    playerUrl = playUrl;
                 } else {
                     playerUrl = await crawlAgePlayer(playUrl);
                 }
