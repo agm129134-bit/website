@@ -1461,7 +1461,8 @@ async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
             const sourceModal = bootstrap.Modal.getInstance(document.getElementById('kazumiSourceModal'));
             if (sourceModal) sourceModal.hide();
 
-            openTheaterWithUrl(animeItem.title, episode.title, data.playerUrl, allEpisodes, episode);
+            const epData = { ...episode, isBlockedIframe: data.isBlockedIframe, isDirectStream: data.isDirectStream };
+            openTheaterWithUrl(animeItem.title, episode.title, data.playerUrl, allEpisodes, epData);
 
             // 自動雙向回寫 Bangumi 觀看進度 (若綁定 Token 且為 Bangumi 作品)
             try {
@@ -1500,36 +1501,83 @@ async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
 
 function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], currentEp = null) {
     window.currentKazumiPlayingUrl = playerUrl;
-    if (playerUrl && playerUrl.includes('lmm85.com')) {
-        showToast("💡 此集來源因站方安全保護無法內嵌，請點擊【新分頁播放】即可開播！", "bi-info-circle-fill text-warning");
-    }
     const modalTitle = document.getElementById("animePlayerTitle");
-    const isDirectVideo = /\.(mp4|m3u8)(\?.*)?$/i.test(playerUrl) || playerUrl.includes('.mp4') || playerUrl.includes('.m3u8');
+    const isDirectVideo = /\.(mp4|m3u8)(\?.*)?$/i.test(playerUrl) || playerUrl.includes('.mp4') || playerUrl.includes('.m3u8') || (currentEp && currentEp.isDirectStream);
+    const isBlocked = (currentEp && currentEp.isBlockedIframe) || (playerUrl && playerUrl.includes('lmm85.com'));
     
     if (modalTitle) {
         modalTitle.innerHTML = `${escapeHtml(animeTitle)} - ${escapeHtml(epTitle)} ` +
-            (isDirectVideo 
-                ? `<span class="badge bg-success-subtle text-success border border-success-subtle ms-2" style="font-size: 0.72rem;" title="原生播放器：支援畫面直接點擊暫停/播放與進度條雙向同步"><i class="bi bi-play-circle-fill"></i> 原生同步</span>` 
-                : `<span class="badge bg-secondary-subtle text-secondary border ms-2" style="font-size: 0.72rem;" title="內嵌播放器：受跨域安全限制，請用【空白鍵 Space】或下方控制條進行同步"><i class="bi bi-window"></i> 內嵌模式</span>`);
+            (isBlocked 
+                ? `<span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-2" style="font-size: 0.72rem;" title="此來源設有防內嵌保護，請於新分頁觀看"><i class="bi bi-shield-lock-fill"></i> 防內嵌保護</span>`
+                : isDirectVideo 
+                    ? `<span class="badge bg-success-subtle text-success border border-success-subtle ms-2" style="font-size: 0.72rem;" title="原生播放器：支援畫面直接點擊暫停/播放與進度條雙向同步"><i class="bi bi-play-circle-fill"></i> 原生同步</span>` 
+                    : `<span class="badge bg-secondary-subtle text-secondary border ms-2" style="font-size: 0.72rem;" title="內嵌播放器：受跨域安全限制，請用【空白鍵 Space】或下方控制條進行同步"><i class="bi bi-window"></i> 內嵌模式</span>`);
     }
 
     const video = document.getElementById("kazumiVideoPlayer");
     const iframe = document.getElementById("kazumiIframePlayer");
     const placeholder = document.getElementById("kazumiTheaterPlaceholder");
+    const fallbackCard = document.getElementById("kazumiBlockedFallback");
 
     if (placeholder) placeholder.style.display = "none";
 
-    // 判斷是否為 direct mp4 / m3u8 還是 web/iframe 解析器
-    if (isDirectVideo) {
+    // 處理受 SAMEORIGIN 阻擋之線路（如 lmm85 封鎖）
+    if (isBlocked) {
+        if (window.kazumiHlsInstance) {
+            window.kazumiHlsInstance.destroy();
+            window.kazumiHlsInstance = null;
+        }
+        if (video) { video.pause(); video.style.display = "none"; }
+        if (iframe) { iframe.src = ""; iframe.style.display = "none"; }
+        if (fallbackCard) {
+            fallbackCard.style.display = "block";
+            const openBtn = document.getElementById("kazumiBlockedOpenTabBtn");
+            if (openBtn) openBtn.href = playerUrl;
+        }
+        showToast("💡 此集來源因站方安全保護無法直接內嵌，請點擊中央【新分頁播放】或切換其他源！", "bi-info-circle-fill text-warning");
+    } else if (isDirectVideo) {
+        if (fallbackCard) fallbackCard.style.display = "none";
         if (iframe) { iframe.src = ""; iframe.style.display = "none"; }
         if (video) {
             video.style.display = "block";
-            video.src = playerUrl;
-            video.currentTime = 0;
-            video.play().catch(() => {});
+            if (playerUrl.includes('.m3u8')) {
+                if (window.Hls && Hls.isSupported()) {
+                    if (window.kazumiHlsInstance) {
+                        window.kazumiHlsInstance.destroy();
+                    }
+                    const hls = new Hls({ enableWorker: true });
+                    hls.loadSource(playerUrl);
+                    hls.attachMedia(video);
+                    window.kazumiHlsInstance = hls;
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        video.play().catch(() => {});
+                    });
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = playerUrl;
+                    video.currentTime = 0;
+                    video.play().catch(() => {});
+                } else {
+                    video.src = playerUrl;
+                    video.currentTime = 0;
+                    video.play().catch(() => {});
+                }
+            } else {
+                if (window.kazumiHlsInstance) {
+                    window.kazumiHlsInstance.destroy();
+                    window.kazumiHlsInstance = null;
+                }
+                video.src = playerUrl;
+                video.currentTime = 0;
+                video.play().catch(() => {});
+            }
         }
     } else {
+        if (window.kazumiHlsInstance) {
+            window.kazumiHlsInstance.destroy();
+            window.kazumiHlsInstance = null;
+        }
         if (video) { video.pause(); video.style.display = "none"; }
+        if (fallbackCard) fallbackCard.style.display = "none";
         if (iframe) {
             iframe.style.display = "block";
             iframe.src = playerUrl;
@@ -1608,9 +1656,14 @@ window.searchAnimeFromTheater = function(keyword) {
 
 // 重置動漫劇院為純淨黑底空白待命狀態
 window.resetKazumiTheater = function() {
+    if (window.kazumiHlsInstance) {
+        window.kazumiHlsInstance.destroy();
+        window.kazumiHlsInstance = null;
+    }
     const video = document.getElementById("kazumiVideoPlayer");
     const iframe = document.getElementById("kazumiIframePlayer");
     const placeholder = document.getElementById("kazumiTheaterPlaceholder");
+    const fallback = document.getElementById("kazumiBlockedFallback");
     const titleEl = document.getElementById("animePlayerTitle");
     const listContainer = document.querySelector(".episode-list-container");
 
@@ -1619,6 +1672,7 @@ window.resetKazumiTheater = function() {
     if (standbyInput) standbyInput.value = "";
     if (headerInput) headerInput.value = "";
 
+    if (fallback) fallback.style.display = "none";
     if (video) {
         video.pause();
         video.removeAttribute("src");
@@ -1751,8 +1805,14 @@ function renderKazumiEpisodes(bvid, episodes) {
 }
 
 window.closeAnimePlayer = function() {
+    if (window.kazumiHlsInstance) {
+        window.kazumiHlsInstance.destroy();
+        window.kazumiHlsInstance = null;
+    }
     const video = document.getElementById("kazumiVideoPlayer");
     const iframe = document.getElementById("kazumiIframePlayer");
+    const fallback = document.getElementById("kazumiBlockedFallback");
+    if (fallback) fallback.style.display = "none";
     if (video) {
         video.pause();
         video.removeAttribute("src");
@@ -1761,6 +1821,33 @@ window.closeAnimePlayer = function() {
     if (iframe) iframe.src = ""; // 停止播放
     if (typeof window.clearAllDanmakuState === 'function') {
         window.clearAllDanmakuState();
+    }
+};
+
+// 防內嵌優雅降級：快速切換至其他免跳轉來源
+window.quickSwitchKazumiSource = function(targetSource) {
+    const title = kazumiState.title || (document.getElementById("animePlayerTitle") ? document.getElementById("animePlayerTitle").textContent.split(' - ')[0].trim() : '');
+    if (!title) {
+        showToast("無當前番劇片名可切換來源", "bi-exclamation-triangle text-warning");
+        return;
+    }
+    if (targetSource === 'bilibili') {
+        window.open(`https://search.bilibili.com/all?keyword=${encodeURIComponent(title)}`, '_blank');
+        return;
+    }
+    // 關閉播放器並重新打開來源選單 (切換至 AGE動漫 等免跳轉源)
+    window.closeAnimePlayer();
+    const theaterModalEl = document.getElementById('animePlayerModal');
+    const theaterModal = theaterModalEl ? bootstrap.Modal.getInstance(theaterModalEl) : null;
+    if (theaterModal) {
+        const onHidden = () => {
+            theaterModalEl.removeEventListener('hidden.bs.modal', onHidden);
+            openKazumiSourceModal(title, kazumiState.cover || '');
+        };
+        theaterModalEl.addEventListener('hidden.bs.modal', onHidden);
+        theaterModal.hide();
+    } else {
+        openKazumiSourceModal(title, kazumiState.cover || '');
     }
 };
 

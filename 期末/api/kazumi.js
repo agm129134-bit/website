@@ -268,13 +268,13 @@ async function crawl7sefunEpisodes(detailUrl) {
     return episodes;
 }
 
-// 6. 7sefun動漫播放器真實網址解析 (MacCMS player_aaaa 變數 Base64 串流解碼)
+// 6. 7sefun動漫播放器真實網址解析 (支援 dp.no3acg.com AES 解密、原生 .m3u8/.mp4 直出與跨線路容錯)
 async function crawl7sefunPlayer(playUrl) {
     try {
         const res = await fetchWithTimeout(playUrl, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36' }
         });
-        if (!res.ok) return playUrl;
+        if (!res.ok) return { playerUrl: playUrl };
         const html = await res.text();
 
         // 嘗試解析 MacCMS 的 player_aaaa JSON 變數
@@ -288,8 +288,87 @@ async function crawl7sefunPlayer(playUrl) {
                 } else if (parsed.encrypt === 1) {
                     realUrl = unescape(parsed.url);
                 }
-                if (realUrl && (realUrl.startsWith('http://') || realUrl.startsWith('https://'))) {
-                    return realUrl;
+
+                if (realUrl) {
+                    // 1. 若本身即為 .mp4 / .m3u8 原生直連串流，直接返回
+                    if (/\.(mp4|m3u8)(\?.*)?$/i.test(realUrl)) {
+                        return { playerUrl: realUrl, isDirectStream: true };
+                    }
+
+                    // 2. 若為 lmm 線路或包含 lmm85.com，調用 7sefun 官方適配器 dp.no3acg.com 進行 AES-128-CBC 解密
+                    if (parsed.from === 'lmm' || realUrl.includes('lmm85.com')) {
+                        try {
+                            const dpUrl = `https://dp.no3acg.com/player/ec.php?code=qw&if=1&from=lmm&url=${realUrl}`;
+                            const dpRes = await fetchWithTimeout(dpUrl, {
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
+                                    'Referer': 'https://www.7sefun.top/'
+                                }
+                            }, 8000);
+                            if (dpRes.ok) {
+                                const dpHtml = await dpRes.text();
+                                const configMatch = dpHtml.match(/let\s+ConFig\s*=\s*(\{[\s\S]*?\})\s*,\s*box\s*=/);
+                                if (configMatch) {
+                                    const cfg = JSON.parse(configMatch[1]);
+                                    if (cfg.url && cfg.config && cfg.config.uid) {
+                                        const key = Buffer.from('2890' + cfg.config.uid + 'tB959C', 'utf-8');
+                                        const iv = Buffer.from('2F131BE91247866E', 'utf-8');
+                                        const decipher = crypto.createDecipheriv('aes-128-cbc', key, iv);
+                                        let streamUrl = decipher.update(cfg.url, 'base64', 'utf8');
+                                        streamUrl += decipher.final('utf8');
+                                        if (streamUrl && (streamUrl.startsWith('http://') || streamUrl.startsWith('https://'))) {
+                                            return { playerUrl: streamUrl, isDirectStream: true };
+                                        }
+                                    }
+                                }
+                                // 解密未果但 dpUrl 可用，返回無跨域限制的 dp.no3acg.com 播放頁
+                                return { playerUrl: dpUrl, isBlockedIframe: false };
+                            }
+                        } catch (dpErr) {
+                            console.warn('[7sefun dp.no3acg.com decrypt error]:', dpErr.message);
+                        }
+                    }
+
+                    // 3. 其他常見播放器適配器規則 (依據 7sefun playerconfig.js)
+                    if (parsed.from === 'funzy' || parsed.from === 'sssfun' || parsed.from === '7sefun') {
+                        return { playerUrl: `https://play.7sefun.top/?url=${encodeURIComponent(realUrl)}`, isBlockedIframe: false };
+                    }
+                    if (parsed.from === 'ndx' || parsed.from === 'aafun2' || parsed.from === 'CYDD1') {
+                        const addonUrl = `https://www.7sefun.top/addons/dp/player/index.php?key=0&id=${parsed.id || 0}&uid=0&from=${parsed.from}&url=${encodeURIComponent(realUrl)}`;
+                        return { playerUrl: addonUrl, isBlockedIframe: false };
+                    }
+
+                    // 4. 若仍為 lmm85.com 且未成功解密，嘗試偵測同一部動漫的同集備援線路 (Line 1/Line 2)
+                    if (realUrl.includes('lmm85.com')) {
+                        const playMatch = playUrl.match(/\/vodplay\/(\d+)-(\d+)-(\d+)\.html/);
+                        if (playMatch) {
+                            const [_, vodId, curLine, epIdx] = playMatch;
+                            const altLine = curLine === '1' ? '2' : '1';
+                            const altUrl = `https://www.7sefun.top/vodplay/${vodId}-${altLine}-${epIdx}.html`;
+                            try {
+                                const altRes = await fetchWithTimeout(altUrl, {
+                                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36' }
+                                }, 5000);
+                                if (altRes.ok) {
+                                    const altHtml = await altRes.text();
+                                    const altAaaa = altHtml.match(/player_aaaa\s*=\s*(\{[\s\S]*?\})<\/script>/);
+                                    if (altAaaa) {
+                                        const altParsed = JSON.parse(altAaaa[1].trim());
+                                        let altReal = altParsed.url;
+                                        if (altParsed.encrypt === 2) altReal = decodeURIComponent(Buffer.from(altParsed.url, 'base64').toString('utf-8'));
+                                        else if (altParsed.encrypt === 1) altReal = unescape(altParsed.url);
+                                        if (altReal && (/\.(mp4|m3u8)(\?.*)?$/i.test(altReal) || (!altReal.includes('lmm85.com')))) {
+                                            return { playerUrl: altReal, isDirectStream: /\.(mp4|m3u8)(\?.*)?$/i.test(altReal) };
+                                        }
+                                    }
+                                }
+                            } catch (_) {}
+                        }
+                        // 最終標記為受跨域 SAMEORIGIN 阻擋之線路，前端渲染安全降級卡片
+                        return { playerUrl: realUrl, isBlockedIframe: true };
+                    }
+
+                    return { playerUrl: realUrl, isBlockedIframe: false };
                 }
             } catch (e) {
                 console.warn('[7sefun Parse player_aaaa error]:', e.message);
@@ -299,12 +378,13 @@ async function crawl7sefunPlayer(playUrl) {
         // 降級嘗試解析 iframe src
         const iframeMatch = html.match(/<iframe[^>]+src=["']([^"']+)["']/i);
         if (iframeMatch && iframeMatch[1]) {
-            return iframeMatch[1].startsWith('http') ? iframeMatch[1] : `https://www.7sefun.top${iframeMatch[1]}`;
+            const link = iframeMatch[1].startsWith('http') ? iframeMatch[1] : `https://www.7sefun.top${iframeMatch[1]}`;
+            return { playerUrl: link, isBlockedIframe: link.includes('lmm85.com') };
         }
-        return playUrl;
+        return { playerUrl: playUrl, isBlockedIframe: playUrl.includes('lmm85.com') };
     } catch (e) {
         console.warn('[7sefun crawlPlayer failed]:', e.message);
-        return playUrl;
+        return { playerUrl: playUrl, isBlockedIframe: playUrl.includes('lmm85.com') };
     }
 }
 
@@ -948,12 +1028,22 @@ async function handleKazumiRoute(req, res) {
 
             try {
                 let playerUrl = null;
+                let isBlockedIframe = false;
+                let isDirectStream = false;
                 if (playUrl.includes('agedm.io') || playUrl.includes('/play/')) {
                     playerUrl = await crawlAgePlayer(playUrl);
                 } else if (playUrl.includes('7sefun')) {
-                    playerUrl = await crawl7sefunPlayer(playUrl);
+                    const result = await crawl7sefunPlayer(playUrl);
+                    if (typeof result === 'object' && result !== null) {
+                        playerUrl = result.playerUrl;
+                        isBlockedIframe = !!result.isBlockedIframe;
+                        isDirectStream = !!result.isDirectStream;
+                    } else {
+                        playerUrl = result;
+                    }
                 } else if (playUrl.includes('.m3u8') || playUrl.includes('.mp4')) {
                     playerUrl = playUrl;
+                    isDirectStream = true;
                 } else {
                     playerUrl = await crawlAgePlayer(playUrl);
                 }
@@ -963,7 +1053,9 @@ async function handleKazumiRoute(req, res) {
                 }
                 return sendJson(res, 200, {
                     success: true,
-                    playerUrl: playerUrl
+                    playerUrl: playerUrl,
+                    isBlockedIframe: isBlockedIframe,
+                    isDirectStream: isDirectStream
                 });
             } catch (err) {
                 console.error('[Kazumi Rule Play Error]:', err.message);
