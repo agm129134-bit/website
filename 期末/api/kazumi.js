@@ -6,6 +6,7 @@
 const { Readable } = require('node:stream');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // 統一設置 CORS 與 JSON 回應
 function sendJson(res, statusCode, payload) {
@@ -259,6 +260,75 @@ async function crawl7sefunEpisodes(detailUrl) {
     return episodes;
 }
 
+// 彈彈play 開放平台 (dandanplay) 彈幕接入模組
+async function fetchDandanplayDanmaku(animeTitle, episodeIndex = 1, appId = '', appSecret = '') {
+    const finalAppId = (appId || process.env.DANDANPLAY_APP_ID || '').trim();
+    const finalAppSecret = (appSecret || process.env.DANDANPLAY_APP_SECRET || '').trim();
+
+    if (!finalAppId || !finalAppSecret) {
+        return null;
+    }
+
+    try {
+        // 1. 搜尋動漫與集數
+        const searchPath = '/api/v2/search/episodes';
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const rawSearchSig = finalAppId + timestamp + searchPath + finalAppSecret;
+        const searchSig = crypto.createHash('sha256').update(rawSearchSig).digest('base64');
+
+        const searchUrl = `https://api.dandanplay.net${searchPath}?anime=${encodeURIComponent(animeTitle)}`;
+        const searchRes = await fetchWithTimeout(searchUrl, {
+            headers: {
+                'X-AppId': finalAppId,
+                'X-Timestamp': timestamp,
+                'X-Signature': searchSig,
+                'Accept': 'application/json'
+            }
+        }, 8000);
+
+        if (!searchRes.ok) return null;
+        const searchData = await searchRes.json();
+        const episodes = searchData.animes?.flatMap(a => a.episodes || []) || [];
+
+        if (episodes.length === 0) return null;
+
+        // 匹配集數
+        let targetEp = episodes.find(e => parseInt(e.episodeNumber, 10) === episodeIndex) || episodes[0];
+        const episodeId = targetEp.episodeId;
+
+        // 2. 獲取彈幕（附帶全網關聯彈幕 withRelated=true，自動繁體中文轉換 chConvert=1）
+        const commentPath = `/api/v2/comment/${episodeId}`;
+        const rawCommentSig = finalAppId + timestamp + commentPath + finalAppSecret;
+        const commentSig = crypto.createHash('sha256').update(rawCommentSig).digest('base64');
+
+        const commentUrl = `https://api.dandanplay.net${commentPath}?withRelated=true&chConvert=1`;
+        const commentRes = await fetchWithTimeout(commentUrl, {
+            headers: {
+                'X-AppId': finalAppId,
+                'X-Timestamp': timestamp,
+                'X-Signature': commentSig,
+                'Accept': 'application/json'
+            }
+        }, 10000);
+
+        if (!commentRes.ok) return null;
+        const commentData = await commentRes.json();
+        const comments = commentData.comments || [];
+
+        return comments.slice(0, 150).map(c => {
+            const pParts = (c.p || '').split(',');
+            return {
+                time: Math.floor(parseFloat(pParts[0]) || 0),
+                color: '#' + (parseInt(pParts[2], 10) || 16777215).toString(16).padStart(6, '0'),
+                content: c.m
+            };
+        });
+    } catch (err) {
+        console.log('[Kazumi Dandanplay Error]:', err.message);
+        return null;
+    }
+}
+
 /**
  * 處理 Kazumi API 路由主入口
  * @param {import('http').IncomingMessage} req 
@@ -427,10 +497,92 @@ async function handleKazumiRoute(req, res) {
             return sendJson(res, 400, { success: false, error: '請提供有效的 "url" 或 "bvid" 參數' });
         }
 
-        // 4. 路由 C: 彈幕數據 /api/kazumi/danmaku?cid={cid} (無預設假彈幕)
+        // 4. 路由 C: 彈幕數據 /api/kazumi/danmaku (支援 彈彈play 全網聚合 與 Bilibili 官方即時彈幕雙引擎自由切換)
         else if (pathname === '/api/kazumi/danmaku') {
-            const cid = getQueryParam(parsedUrl, 'cid');
+            let cid = getQueryParam(parsedUrl, 'cid');
+            const anime = getQueryParam(parsedUrl, 'anime') || getQueryParam(parsedUrl, 'title');
+            const epNum = parseInt(getQueryParam(parsedUrl, 'ep') || '1', 10);
+            const appId = getQueryParam(parsedUrl, 'appId');
+            const appSecret = getQueryParam(parsedUrl, 'appSecret');
+            const sourcePref = getQueryParam(parsedUrl, 'source') || 'bilibili'; // 預設優先直連 Bilibili
 
+            // A. 若使用者選用彈彈play 且有金鑰，優先嘗試彈彈play 全網聚合彈幕 (B站+動畫瘋+騰訊等)
+            if (sourcePref === 'dandanplay' && anime && appId && appSecret) {
+                const dandanDanmaku = await fetchDandanplayDanmaku(anime, epNum, appId, appSecret);
+                if (dandanDanmaku && dandanDanmaku.length > 0) {
+                    return sendJson(res, 200, {
+                        success: true,
+                        source: 'dandanplay',
+                        count: dandanDanmaku.length,
+                        danmaku: dandanDanmaku
+                    });
+                }
+            }
+
+            // B. 若無 cid 但有片名（或使用者選擇 Bilibili 官方直連），自動向 Bilibili 檢索獲取真實 CID
+            if (!cid && anime) {
+                try {
+                    // 淨化片名 (去除集數、季數與多餘標點)
+                    const cleanKeyword = anime
+                        .replace(/[【】\[\]()（）]/g, ' ')
+                        .replace(/第\s*\d+\s*[集話期]/g, '')
+                        .replace(/(Season\s*\d+|S\d+)/gi, '')
+                        .trim();
+
+                    // 候選搜尋詞組合 (優先精準第X話，次選第X集，最後純片名；並加上 order=dm 依彈幕量降序排列)
+                    const searchQueries = [
+                        `${cleanKeyword} 第${epNum}話`,
+                        `${cleanKeyword} 第${epNum}集`,
+                        `${cleanKeyword}`
+                    ];
+
+                    let foundBvid = null;
+                    for (const q of searchQueries) {
+                        // 關鍵加強：order=dm 確保優先檢索到彈幕量最大的熱門視頻
+                        const bSearchUrl = `https://api.bilibili.com/x/web-interface/search/type?search_type=video&keyword=${encodeURIComponent(q)}&order=dm`;
+                        const bRes = await fetchWithTimeout(bSearchUrl, {
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
+                                'Referer': 'https://www.bilibili.com/'
+                            }
+                        }, 3500);
+
+                        if (bRes.ok) {
+                            const bData = await bRes.json();
+                            const items = bData?.data?.result;
+                            if (Array.isArray(items) && items.length > 0) {
+                                // 依彈幕數量 (danmaku) 降序排序，確保挑選彈幕最多之作品
+                                items.sort((a, b) => (parseInt(b.danmaku, 10) || 0) - (parseInt(a.danmaku, 10) || 0));
+                                if (items[0]?.bvid) {
+                                    foundBvid = items[0].bvid;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (foundBvid) {
+                        const pageRes = await fetchWithTimeout(`https://api.bilibili.com/x/player/pagelist?bvid=${foundBvid}`, {
+                            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36' }
+                        }, 3500);
+                        if (pageRes.ok) {
+                            const pageData = await pageRes.json();
+                            const pages = pageData?.data;
+                            if (Array.isArray(pages) && pages.length > 0) {
+                                // 若有多分P，嘗試尋找對應集數，否則取第一P
+                                const targetP = pages[epNum - 1] || pages[0];
+                                if (targetP?.cid) {
+                                    cid = targetP.cid.toString();
+                                }
+                            }
+                        }
+                    }
+                } catch (bSearchErr) {
+                    console.log('[Kazumi Danmaku] B站片名 CID 動態反查略過:', bSearchErr.message);
+                }
+            }
+
+            // C. 嘗試以 CID 抓取 B站官方即時彈幕 (放寬抓取上限至 2000 條，極大化彈幕量)
             if (cid && /^\d+$/.test(cid)) {
                 try {
                     const dmUrl = `https://api.bilibili.com/x/v1/dm/list.so?oid=${cid}`;
@@ -439,7 +591,7 @@ async function handleKazumiRoute(req, res) {
                             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
                             'Referer': 'https://www.bilibili.com/'
                         }
-                    }, 8000);
+                    }, 5500);
 
                     if (response.ok) {
                         const xmlText = await response.text();
@@ -453,7 +605,7 @@ async function handleKazumiRoute(req, res) {
                                 color: '#' + (parseInt(pParts[3], 10) || 16777215).toString(16).padStart(6, '0'),
                                 content: m[2]
                             });
-                            if (list.length >= 80) break;
+                            if (list.length >= 2000) break; // 大幅提升彈幕上限至 2000 條！
                         }
 
                         if (list.length > 0) {
@@ -470,10 +622,10 @@ async function handleKazumiRoute(req, res) {
                 }
             }
 
-            // 無 cid 或取得失敗，回傳乾淨空清單（無預設假彈幕）
+            // D. 無第三方彈幕資料時回傳空陣列 (不生成任何預設或虛擬彈幕，保持畫面純淨)
             return sendJson(res, 200, {
                 success: true,
-                source: 'none',
+                source: 'empty',
                 count: 0,
                 danmaku: []
             });

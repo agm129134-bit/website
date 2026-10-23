@@ -7,6 +7,9 @@ const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 const { handleKazumiRoute } = require('./api/kazumi');
+const { handleMangaRoute } = require('./api/manga');
+const { handleNovelRoute } = require('./api/novel');
+const { handleSyncRoute } = require('./api/sync');
 
 // 期末專案使用 8000 端口（避開 Open WebUI 的 3000 與課堂的 8080）
 let currentPort = process.env.PORT || 8000;
@@ -33,6 +36,21 @@ const server = http.createServer((req, res) => {
     // 優先攔截 /api/kazumi 動漫後端模組路由
     if (req.url.startsWith('/api/kazumi')) {
         return handleKazumiRoute(req, res);
+    }
+
+    // 攔截 /api/manga Tachimanga 條漫後端模組路由
+    if (req.url.startsWith('/api/manga')) {
+        return handleMangaRoute(req, res);
+    }
+
+    // 攔截 /api/novel Legado 沉浸小說後端模組路由
+    if (req.url.startsWith('/api/novel')) {
+        return handleNovelRoute(req, res);
+    }
+
+    // 攔截 /api/user 與 /api/bangumi 跨裝置同步與雙向同步路由
+    if (req.url.startsWith('/api/user') || req.url.startsWith('/api/bangumi')) {
+        return handleSyncRoute(req, res);
     }
 
     // 取得乾淨路徑並防止目錄穿越漏洞

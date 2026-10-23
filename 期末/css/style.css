@@ -454,22 +454,101 @@ body {
    ACG 專用樣式 (Kazumi 劇院 / Tachimanga 條漫 / Legado 小說)
    ============================================================ */
 
-/* 1. Kazumi 彈幕動畫 */
+/* 1. Kazumi 彈幕動畫與浮層層級保證 (浮於 iframe / video 之上) */
 @keyframes danmakuFly {
-  0% { transform: translateX(1000px); }
-  100% { transform: translateX(-1500px); }
+  0% {
+    left: 100%;
+    transform: translateX(0);
+  }
+  100% {
+    left: 0;
+    transform: translateX(-100%);
+  }
+}
+
+#danmakuOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 20 !important;
+  pointer-events: none !important;
+  overflow: hidden;
+  --danmaku-font-size: 24px;
+  --danmaku-opacity: 1;
+  --danmaku-line-height: 1.6;
+  --danmaku-duration: 8s;
 }
 
 .danmaku-bullet {
   position: absolute;
   white-space: nowrap;
   font-weight: 700;
-  font-size: 1.15rem;
+  font-size: var(--danmaku-font-size, 24px);
+  opacity: var(--danmaku-opacity, 1);
+  line-height: var(--danmaku-line-height, 1.6);
   color: #ffffff;
-  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9), 0 0 4px rgba(0, 0, 0, 0.6);
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.95), 0 0 5px rgba(0, 0, 0, 0.8);
   pointer-events: none;
-  animation: danmakuFly 8s linear forwards;
-  will-change: transform;
+  animation: danmakuFly var(--danmaku-duration, 8s) linear forwards;
+  will-change: transform, left;
+  z-index: 25 !important;
+}
+
+/* 頂部與底部固定彈幕 */
+.danmaku-bullet.danmaku-top {
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  animation: danmakuFade var(--danmaku-duration, 5s) linear forwards !important;
+}
+.danmaku-bullet.danmaku-bottom {
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  animation: danmakuFade var(--danmaku-duration, 5s) linear forwards !important;
+}
+@keyframes danmakuFade {
+  0%, 85% { opacity: var(--danmaku-opacity, 1); }
+  100% { opacity: 0; }
+}
+
+/* 影片暫停時彈幕凍結靜止 (暫停飄動與生成) */
+#danmakuOverlay.danmaku-paused .danmaku-bullet,
+.danmaku-paused .danmaku-bullet {
+  animation-play-state: paused !important;
+}
+
+/* Kazumi 彈幕設定面板樣式 */
+.danmaku-settings-panel {
+  background: #14171a;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+.danmaku-settings-tabs .nav-link {
+  color: #94a3b8;
+  border-radius: 9999px;
+  padding: 0.35rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.danmaku-settings-tabs .nav-link.active {
+  background: #22c55e !important;
+  color: #052e16 !important;
+}
+.danmaku-setting-item {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.danmaku-range-val {
+  min-width: 48px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #4ade80;
 }
 
 .ep-btn {
@@ -488,38 +567,126 @@ body {
   border-radius: 2px;
 }
 
-/* 3. Legado 小說三種主題 */
-.novel-theme-sepia {
-  background-color: #f6f1e7 !important;
-  color: #382f2d !important;
+/* 3. Legado 小說三種主題與自訂字色支援 */
+.novel-theme-sepia,
+#novelReaderModal .novel-theme-sepia,
+#novelReaderModal .novel-theme-sepia #novelReadingArea,
+#novelReaderModal .novel-theme-sepia #novelChapterHeading,
+#novelReaderModal .novel-theme-sepia #novelChapterParagraphs,
+#novelReaderModal .novel-theme-sepia #novelChapterParagraphs p {
+  background-color: #f6f1e7;
+  color: #2d241e !important;
 }
 
 .novel-theme-sepia .modal-header,
+#novelReaderModal .novel-theme-sepia .modal-header {
+  background-color: #f1ebd8 !important;
+  color: #2d241e !important;
+}
+
 .novel-theme-sepia .border-top,
 .novel-theme-sepia .border-bottom {
   border-color: #e5dac9 !important;
 }
 
-.novel-theme-white {
-  background-color: #ffffff !important;
+.novel-theme-sepia #legadoPlaceholder h5 {
+  color: #2d241e !important;
+  text-shadow: none !important;
+}
+
+.novel-theme-sepia #legadoPlaceholder p,
+.novel-theme-sepia #legadoPlaceholder .text-muted,
+.novel-theme-sepia .text-secondary {
+  color: #574c43 !important;
+}
+
+.novel-theme-white,
+#novelReaderModal .novel-theme-white,
+#novelReaderModal .novel-theme-white #novelReadingArea,
+#novelReaderModal .novel-theme-white #novelChapterHeading,
+#novelReaderModal .novel-theme-white #novelChapterParagraphs,
+#novelReaderModal .novel-theme-white #novelChapterParagraphs p {
+  background-color: #ffffff;
   color: #1e293b !important;
 }
 
 .novel-theme-white .modal-header,
+#novelReaderModal .novel-theme-white .modal-header {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+}
+
 .novel-theme-white .border-top,
 .novel-theme-white .border-bottom {
   border-color: #e2e8f0 !important;
 }
 
-.novel-theme-dark {
-  background-color: #18181b !important;
+.novel-theme-white #legadoPlaceholder h5 {
+  color: #0f172a !important;
+  text-shadow: none !important;
+}
+
+.novel-theme-white #legadoPlaceholder p,
+.novel-theme-white #legadoPlaceholder .text-muted,
+.novel-theme-white .text-secondary {
+  color: #475569 !important;
+}
+
+.novel-theme-dark,
+#novelReaderModal .novel-theme-dark,
+#novelReaderModal .novel-theme-dark #novelReadingArea,
+#novelReaderModal .novel-theme-dark #novelChapterHeading,
+#novelReaderModal .novel-theme-dark #novelChapterParagraphs,
+#novelReaderModal .novel-theme-dark #novelChapterParagraphs p {
+  background-color: #18181b;
   color: #e4e4e7 !important;
 }
 
 .novel-theme-dark .modal-header,
+#novelReaderModal .novel-theme-dark .modal-header {
+  background-color: #18181b !important;
+  color: #e4e4e7 !important;
+}
+
 .novel-theme-dark .border-top,
 .novel-theme-dark .border-bottom {
   border-color: #27272a !important;
+}
+
+.novel-theme-dark #legadoPlaceholder h5 {
+  color: #ffffff !important;
+}
+
+.novel-theme-dark #legadoPlaceholder p,
+.novel-theme-dark #legadoPlaceholder .text-muted,
+.novel-theme-dark .text-secondary {
+  color: #cbd5e1 !important;
+}
+
+.novel-theme-dark .form-control {
+  background-color: #27272a !important;
+  color: #f4f4f5 !important;
+  border-color: #3f3f46 !important;
+}
+
+.novel-theme-dark .input-group-text {
+  background-color: #27272a !important;
+  color: #a1a1aa !important;
+  border-color: #3f3f46 !important;
+}
+
+.novel-paragraphs p {
+  text-indent: 2em;
+  margin-bottom: 1.5rem;
+  line-height: 2.2;
+}
+
+/* 支援使用者自訂小說字體顏色動態變數覆蓋 */
+.novel-custom-color #novelReadingArea,
+.novel-custom-color #novelChapterHeading,
+.novel-custom-color #novelChapterParagraphs,
+.novel-custom-color #novelChapterParagraphs p {
+  color: var(--novel-custom-text-color) !important;
 }
 
 /* 4. Bangumi 新番時間表卡片 */
@@ -610,6 +777,285 @@ body {
   background-color: #2563eb;
   border-color: #2563eb;
 }
+
+/* ============================================================
+   9. 深色背景與 ACG 模態框高對比度文字增強 (WCAG AA 4.5:1+)
+   針對 Kazumi 播放來源、Tachimanga 條漫、Legado 小說、動漫劇院、側邊抽屜
+   ============================================================ */
+
+/* 模態框與全螢幕閱覽器深色容器文字亮化 */
+.modal-content.bg-dark,
+.modal-content.bg-black,
+.offcanvas.bg-dark,
+.offcanvas.bg-black,
+#kazumiSourceModal .modal-content,
+#animePlayerModal .modal-content,
+#mangaReaderModal .modal-content,
+#tachimangaReaderModal .modal-content,
+#legadoReaderModal .modal-content,
+#mangaSourceModal .modal-content,
+#novelSourceModal .modal-content,
+#mangaSearchDrawer,
+#novelSearchDrawer {
+  color: #f1f5f9 !important;
+}
+
+/* 深色容器內的所有次要文字與說明文字全面調亮為高對比淺灰色 (#cbd5e1 / #94a3b8) */
+.modal-content.bg-dark .text-secondary,
+.modal-content.bg-dark .text-muted,
+.modal-content.bg-black .text-secondary,
+.modal-content.bg-black .text-muted,
+.offcanvas.bg-dark .text-secondary,
+.offcanvas.bg-dark .text-muted,
+#kazumiSourceModal .text-secondary,
+#kazumiSourceModal .text-muted,
+#animePlayerModal .text-secondary,
+#animePlayerModal .text-muted,
+#mangaReaderModal .text-secondary,
+#mangaReaderModal .text-muted,
+#mangaSourceModal .text-secondary,
+#mangaSourceModal .text-muted,
+#novelSourceModal .text-secondary,
+#novelSourceModal .text-muted,
+#tachimangaReaderModal .text-secondary,
+#tachimangaReaderModal .text-muted,
+#legadoReaderModal .text-secondary,
+#legadoReaderModal .text-muted,
+#mangaSearchDrawer .text-secondary,
+#mangaSearchDrawer .text-muted,
+#novelSearchDrawer .text-secondary,
+#novelSearchDrawer .text-muted,
+#tachimangaPlaceholder .text-secondary,
+#tachimangaPlaceholder p,
+#kazumiTheaterPlaceholder .text-secondary,
+#kazumiTheaterPlaceholder p {
+  color: #cbd5e1 !important; /* 對比度由原先 2.8:1 飆升至 10.5:1 */
+}
+
+/* 深色容器內的不透明度過低修正 (避免文字發黑沉底) */
+.modal-content.bg-dark .opacity-75,
+.modal-content.bg-dark .opacity-50,
+.modal-content.bg-black .opacity-75,
+.modal-content.bg-black .opacity-50,
+.offcanvas.bg-dark .opacity-75,
+.offcanvas.bg-dark .opacity-50,
+#kazumiSourceModal .opacity-75,
+#kazumiSourceModal .opacity-50,
+#tachimangaPlaceholder .opacity-75,
+#legadoPlaceholder .opacity-75,
+#kazumiTheaterPlaceholder .opacity-75 {
+  opacity: 0.95 !important;
+}
+
+/* 深色容器內的微型副標題與描述 */
+#kazumiSourceModal small,
+#kazumiSourceList small,
+#mangaSearchResultsContainer small,
+#novelSearchResultsContainer small {
+  color: #cbd5e1 !important;
+  font-weight: 500;
+}
+
+/* 深色容器內的輸入框 placeholder 調亮 (原先暗灰在黑底看不見) */
+.modal-content.bg-dark ::placeholder,
+.modal-content.bg-black ::placeholder,
+.offcanvas.bg-dark ::placeholder,
+#kazumiSourceModal input::placeholder,
+#animePlayerModal input::placeholder,
+#mangaReaderModal input::placeholder,
+#novelReaderModal input::placeholder,
+#tachimangaReaderModal input::placeholder,
+#legadoReaderModal input::placeholder,
+#mangaSourceModal input::placeholder,
+#novelSourceModal input::placeholder,
+#mangaSearchDrawer input::placeholder,
+#novelSearchDrawer input::placeholder,
+#theaterStandbySearchInput::placeholder,
+#mangaStandbySearchInput::placeholder,
+#novelStandbySearchInput::placeholder,
+#kazumiModalKeywordInput::placeholder {
+  color: #94a3b8 !important; /* 明顯清晰的占位提示 */
+  opacity: 1 !important;
+}
+
+/* 深色徽章 (Badges) 高對比度與半透明邊框 (WCAG AA 4.5:1+) */
+.modal-content.bg-dark .badge.bg-secondary-subtle,
+.modal-content.bg-black .badge.bg-secondary-subtle,
+.offcanvas.bg-dark .badge.bg-secondary-subtle,
+#kazumiSourceSummary,
+#mangaSelectedChapterCount,
+#novelSelectedChapterCount {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Tachimanga 閱覽器頂部章節徽章高對比度修正 (徹底解決淺藍底白字失明問題) */
+#mangaCurrentChapterBadge {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+#mangaPageIndicator {
+  background-color: #334155 !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  font-weight: 500 !important;
+}
+
+/* Legado 小說閱讀器頂部章節徽章高對比度修正 */
+#novelChapterBadge {
+  background-color: #16a34a !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  font-weight: 600 !important;
+}
+
+/* 多層 Modal 疊加層級 (避免來源/選集抽屜被全螢幕閱覽器遮擋) */
+#mangaSourceModal,
+#novelSourceModal,
+#kazumiSourceModal {
+  z-index: 1065 !important;
+}
+
+/* 深色卡片邊框與分隔線清晰化 */
+.modal-content.bg-dark .border-secondary,
+.modal-content.bg-black .border-secondary,
+.offcanvas.bg-dark .border-secondary,
+#kazumiSourceList .border-secondary {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* Kazumi 來源與選集卡片背景與文字加強 */
+#kazumiSourceList .bg-black.bg-opacity-40,
+#kazumiSourceList .bg-dark.bg-opacity-50 {
+  background-color: rgba(30, 41, 59, 0.75) !important; /* 改用藍黑底，層次分明 */
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+}
+
+#kazumiSourceList .text-light {
+  color: #f8fafc !important;
+  font-weight: 600 !important;
+}
+
+/* 劇集選集按鈕亮化與對比 */
+#kazumiSourceList .btn-outline-light {
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #f8fafc !important;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+#kazumiSourceList .btn-outline-light:hover {
+  background-color: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+/* 待命狀態大標題與圖標清晰度提升 (針對固定深色之 Tachimanga 與 Kazumi 劇院) */
+#tachimangaPlaceholder h5,
+#kazumiTheaterPlaceholder h5 {
+  color: #ffffff !important;
+  font-size: 1.35rem;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.5rem !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+#tachimangaPlaceholder p,
+#kazumiTheaterPlaceholder p {
+  color: #cbd5e1 !important;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   10. 動漫劇院右側選集與彈幕欄排版防護 (防止水平退化與擠壓跑版)
+   ============================================================ */
+.kazumi-theater-sidebar {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 480px;
+}
+
+.episode-list-container {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.episode-list-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.episode-list-container::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+}
+
+.episode-list-container .btn,
+.episode-list-container .ep-btn {
+  width: 100% !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem !important;
+  font-size: 0.875rem !important;
+  flex-shrink: 0;
+  margin-bottom: 0.35rem;
+  border-radius: 0.375rem;
+}
+
+.episode-list-container .ep-btn.btn-outline-secondary {
+  color: #e2e8f0 !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.episode-list-container .ep-btn.btn-outline-secondary:hover {
+  background-color: rgba(37, 99, 235, 0.2) !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+.episode-list-container .ep-btn.btn-primary.active {
+  background-color: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+}
+
+/* 提高彈幕設置面板所有輸入框 placeholder 的可讀性 (圖1字體修復) */
+.danmaku-settings-panel input::placeholder,
+#animePlayerModal input::placeholder,
+#dandanConfigCollapse input::placeholder,
+#dmkBlockWords::placeholder {
+  color: rgba(255, 255, 255, 0.72) !important;
+  opacity: 1 !important;
+}
+
+/* 側邊欄彈幕與選集 Tab 樣式 */
+.theater-sidebar-tab.active {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+
+
 
 
 
