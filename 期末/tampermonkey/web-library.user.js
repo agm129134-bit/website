@@ -28,7 +28,7 @@
 
     // 讀取設定與儲存的位置
     const config = {
-        get serverUrl() { return GM_getValue("wl_server_url", "http://localhost:8000/api/bookmarks"); },
+        get serverUrl() { return GM_getValue("wl_server_url", "http://localhost:8000/api/user/bookmarks"); },
         set serverUrl(v) { GM_setValue("wl_server_url", v); },
         get apiToken() { return GM_getValue("wl_api_token", "usr_tok_8f92ab3c71e041d8b991a"); },
         set apiToken(v) { GM_setValue("wl_api_token", v); },
@@ -582,13 +582,91 @@
         }
     }
 
-    // 6. 送出資料 (具備 8000 / 8080 自動切換與降級防護)
+    // 6. 送出資料 (具備 先 GET 現有書籤合併 + POST 雙重兼容與 8000/8080 自動切換)
     function submitBookmark(payload) {
         const btn = document.getElementById("wl-submit-btn");
         btn.disabled = true;
         btn.textContent = "傳送中...";
 
-        const tryUrl = (targetUrl, isRetry = false) => {
+        const trySend = (targetUrl, isRetry = false) => {
+            // 先嘗試拉取現有書籤進行合併
+            GM_xmlhttpRequest({
+                method: "GET",
+                url: targetUrl,
+                headers: { "Authorization": `Bearer ${config.apiToken}` },
+                timeout: 2500,
+                onload: function(getRes) {
+                    let existing = [];
+                    let username = 'default';
+                    try {
+                        const json = JSON.parse(getRes.responseText);
+                        if (Array.isArray(json.bookmarks)) existing = json.bookmarks;
+                        if (json.user) username = json.user;
+                    } catch (e) {}
+
+                    // 去除舊的相同 URL 並在頭部插入最新書籤
+                    const filtered = existing.filter(b => b.url !== payload.url);
+                    const merged = [payload, ...filtered];
+
+                    const postBody = {
+                        user: username,
+                        bookmark: payload,
+                        bookmarks: merged
+                    };
+
+                    GM_xmlhttpRequest({
+                        method: "POST",
+                        url: targetUrl,
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${config.apiToken}`
+                        },
+                        data: JSON.stringify(postBody),
+                        timeout: 3000,
+                        onload: function(res) {
+                            if (res.status >= 200 && res.status < 300) {
+                                btn.disabled = false;
+                                btn.textContent = "確認收藏";
+                                showNotice("🎉 成功收藏至 Web Library！");
+                                document.getElementById("wl-collector-modal").style.setProperty("display", "none", "important");
+                            } else if (!isRetry) {
+                                const altUrl = targetUrl.includes("8000") 
+                                    ? targetUrl.replace("8000", "8080") 
+                                    : targetUrl.replace("8080", "8000");
+                                trySend(altUrl, true);
+                            } else {
+                                handleLocalFallback(payload);
+                            }
+                        },
+                        ontimeout: () => {
+                            if (!isRetry) {
+                                const altUrl = targetUrl.includes("8000") ? targetUrl.replace("8000", "8080") : targetUrl.replace("8080", "8000");
+                                trySend(altUrl, true);
+                            } else {
+                                handleLocalFallback(payload);
+                            }
+                        },
+                        onerror: () => {
+                            if (!isRetry) {
+                                const altUrl = targetUrl.includes("8000") ? targetUrl.replace("8000", "8080") : targetUrl.replace("8080", "8000");
+                                trySend(altUrl, true);
+                            } else {
+                                handleLocalFallback(payload);
+                            }
+                        }
+                    });
+                },
+                onerror: () => {
+                    directPost(targetUrl, isRetry);
+                },
+                ontimeout: () => {
+                    directPost(targetUrl, isRetry);
+                }
+            });
+        };
+
+        const directPost = (targetUrl, isRetry) => {
+            const fallbackBody = { bookmark: payload, bookmarks: [payload] };
             GM_xmlhttpRequest({
                 method: "POST",
                 url: targetUrl,
@@ -596,7 +674,7 @@
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${config.apiToken}`
                 },
-                data: JSON.stringify(payload),
+                data: JSON.stringify(fallbackBody),
                 timeout: 3000,
                 onload: function(res) {
                     if (res.status >= 200 && res.status < 300) {
@@ -605,35 +683,18 @@
                         showNotice("🎉 成功收藏至 Web Library！");
                         document.getElementById("wl-collector-modal").style.setProperty("display", "none", "important");
                     } else if (!isRetry) {
-                        // 嘗試反向端口 (8000 <-> 8080)
-                        const altUrl = targetUrl.includes("8000") 
-                            ? targetUrl.replace("8000", "8080") 
-                            : targetUrl.replace("8080", "8000");
-                        tryUrl(altUrl, true);
+                        const altUrl = targetUrl.includes("8000") ? targetUrl.replace("8000", "8080") : targetUrl.replace("8080", "8000");
+                        trySend(altUrl, true);
                     } else {
                         handleLocalFallback(payload);
                     }
                 },
-                ontimeout: () => {
-                    if (!isRetry) {
-                        const altUrl = targetUrl.includes("8000") ? targetUrl.replace("8000", "8080") : targetUrl.replace("8080", "8000");
-                        tryUrl(altUrl, true);
-                    } else {
-                        handleLocalFallback(payload);
-                    }
-                },
-                onerror: () => {
-                    if (!isRetry) {
-                        const altUrl = targetUrl.includes("8000") ? targetUrl.replace("8000", "8080") : targetUrl.replace("8080", "8000");
-                        tryUrl(altUrl, true);
-                    } else {
-                        handleLocalFallback(payload);
-                    }
-                }
+                onerror: () => handleLocalFallback(payload),
+                ontimeout: () => handleLocalFallback(payload)
             });
         };
 
-        tryUrl(config.serverUrl);
+        trySend(config.serverUrl);
     }
 
     function handleLocalFallback(payload) {
