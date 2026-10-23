@@ -1,24 +1,23 @@
 {
   "user": "jyun",
-  "count": 2,
-  "updatedAt": "2026-10-23T09:39:41.593Z",
+  "count": 1,
+  "updatedAt": "2026-10-23T10:27:00.000Z",
   "bookmarks": [
     {
-      "id": "tampermonkey-test-1792748381579",
-      "title": "【篡改猴真實實測】葬送的芙莉蓮",
-      "url": "https://example.com/frieren-test",
-      "category": "anime",
+      "id": "bm_1792745662308",
+      "title": "nullmoth / nvidia-macos-driver - 開源專案",
+      "url": "https://github.com/nullmoth/nvidia-macos-driver",
+      "category": "web",
       "tags": [
-        "動畫",
-        "奇幻"
+        "GitHub",
+        "開源項目",
+        "代碼倉庫"
       ],
-      "createdAt": "2026-10-23T09:39:41.579Z"
-    },
-    {
-      "id": "bm-test-live",
-      "title": "Tampermonkey Live Verification",
-      "url": "https://example.com/live",
-      "category": "anime"
+      "cover": "https://opengraph.githubassets.com/1/nullmoth/nvidia-macos-driver",
+      "desc": "黑蘋果",
+      "pinned": false,
+      "clicks": 0,
+      "createdAt": "2026-10-23T08:54:22.308Z"
     }
   ]
 }

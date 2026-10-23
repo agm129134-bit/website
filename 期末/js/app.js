@@ -58,6 +58,7 @@ function initApp() {
 
     // 當使用者自其他分頁使用篡改猴 (Alt+B) 收藏後切回本網頁時，自動即時拉取最新書籤 (無須手動重整)
     window.addEventListener("focus", () => {
+        if (_isLocalMutationActive) return; // 避免刪除彈窗復焦時誤觸發拉取競態
         if (state.currentUser && state.currentUser !== "訪客") {
             syncFromServer(state.currentUser, true);
         }
@@ -115,13 +116,16 @@ window.logoutUser = function() {
     }
 };
 
-// 跨電腦雲端自動同步計時器 (防抖 Debounce 500ms)
+// 跨電腦雲端自動同步計時器 (支援防抖 Debounce 與刪除操作立即同步)
 let _cloudSyncDebounceTimer = null;
-function syncToServer() {
+let _isLocalMutationActive = false; // 本地主動修改鎖 (避免 confirm 彈窗關閉導致 window.focus 誤拉取舊書籤復活)
+
+async function syncToServer(immediate = false) {
     const user = state.currentUser;
     if (!user || user === "訪客") return;
     clearTimeout(_cloudSyncDebounceTimer);
-    _cloudSyncDebounceTimer = setTimeout(async () => {
+
+    const doSync = async () => {
         try {
             const res = await fetch('/api/user/bookmarks', {
                 method: 'POST',
@@ -136,14 +140,20 @@ function syncToServer() {
                 console.log(`[Cloud Sync] 跨電腦同步：已成功持久化至伺服器 (${data.count} 筆)`);
             }
         } catch (e) {
-            // 離線或未開 Node.js 伺服器時不報中斷，維持 LocalStorage 離線可用
             console.warn('[Cloud Sync] 同步至伺服器提示 (離線模式):', e.message);
         }
-    }, 500);
+    };
+
+    if (immediate) {
+        await doSync();
+    } else {
+        _cloudSyncDebounceTimer = setTimeout(doSync, 500);
+    }
 }
 
-// 從伺服器拉取跨裝置收藏 (支援平滑雙向合併)
-async function syncFromServer(username) {
+// 從伺服器拉取跨裝置收藏 (支援平滑雙向合併，防止已被刪除的項目復活)
+async function syncFromServer(username, isFocusSync = false) {
+    if (_isLocalMutationActive) return; // 正在進行本地刪除/修改，不覆蓋
     const user = username || state.currentUser;
     if (!user || user === "訪客") return;
     try {
@@ -151,28 +161,27 @@ async function syncFromServer(username) {
         if (!res.ok) return;
         const data = await res.json();
         if (data && data.success && Array.isArray(data.bookmarks)) {
-            if (data.bookmarks.length > 0) {
-                if (!state.bookmarks || state.bookmarks.length === 0) {
-                    state.bookmarks = data.bookmarks;
+            if (!isFocusSync) {
+                // 登入或整頁刷新：以伺服器端實際儲存為準
+                state.bookmarks = data.bookmarks;
+                localStorage.setItem("web_library_bookmarks", JSON.stringify(state.bookmarks));
+                updateUI();
+            } else {
+                // 切換分頁無感同步（Alt+B 外部擴充新增）：僅合併伺服器端真正新加入的書籤
+                let added = 0;
+                const existingUrls = new Set(state.bookmarks.map(b => b.url).filter(Boolean));
+                const existingIds = new Set(state.bookmarks.map(b => b.id).filter(Boolean));
+                data.bookmarks.forEach(sb => {
+                    const has = (sb.id && existingIds.has(sb.id)) || (sb.url && existingUrls.has(sb.url));
+                    if (!has) {
+                        state.bookmarks.unshift(sb);
+                        added++;
+                    }
+                });
+                if (added > 0) {
                     localStorage.setItem("web_library_bookmarks", JSON.stringify(state.bookmarks));
                     updateUI();
-                    showToast(`☁️ 跨電腦同步：已成功自伺服器同步【${user}】的 ${data.bookmarks.length} 部收藏！`, "bi-cloud-check-fill text-primary");
-                } else {
-                    let added = 0;
-                    const existingUrls = new Set(state.bookmarks.map(b => b.url).filter(Boolean));
-                    const existingIds = new Set(state.bookmarks.map(b => b.id).filter(Boolean));
-                    data.bookmarks.forEach(sb => {
-                        const has = (sb.id && existingIds.has(sb.id)) || (sb.url && existingUrls.has(sb.url));
-                        if (!has) {
-                            state.bookmarks.push(sb);
-                            added++;
-                        }
-                    });
-                    if (added > 0) {
-                        localStorage.setItem("web_library_bookmarks", JSON.stringify(state.bookmarks));
-                        updateUI();
-                        showToast(`☁️ 跨電腦同步：已從伺服器合併新增 ${added} 部新收藏！`, "bi-cloud-download-fill text-success");
-                    }
+                    showToast(`☁️ 跨電腦同步：已從伺服器合併新增 ${added} 部新收藏！`, "bi-cloud-download-fill text-success");
                 }
             }
         }
@@ -181,12 +190,12 @@ async function syncFromServer(username) {
     }
 }
 
-function saveToStorage() {
+function saveToStorage(immediate = false) {
     localStorage.setItem("web_library_bookmarks", JSON.stringify(state.bookmarks));
     localStorage.setItem("web_library_user", state.currentUser);
     localStorage.setItem("web_library_token", state.apiToken);
     // 自動觸發跨電腦伺服器端同步備份
-    syncToServer();
+    syncToServer(immediate);
 }
 
 // ==========================================
@@ -916,10 +925,15 @@ window.deleteBookmark = function(id) {
     if (!item) return;
 
     if (confirm(`確定要刪除「${item.title}」這篇收藏嗎？`)) {
+        _isLocalMutationActive = true;
         state.bookmarks = state.bookmarks.filter(b => b.id !== id);
-        saveToStorage();
+        saveToStorage(true); // 立即同步至伺服器
         updateUI();
         showToast("收藏已成功刪除", "bi-trash3 text-danger");
+        // 設定 1.5 秒冷卻，避免 confirm 彈窗關閉觸發 window.focus 時誤將已被刪除的書籤重新合併
+        setTimeout(() => {
+            _isLocalMutationActive = false;
+        }, 1500);
     }
 };
 
@@ -1461,7 +1475,14 @@ async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
 
 function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], currentEp = null) {
     const modalTitle = document.getElementById("animePlayerTitle");
-    if (modalTitle) modalTitle.textContent = `${animeTitle} - ${epTitle}`;
+    const isDirectVideo = /\.(mp4|m3u8)(\?.*)?$/i.test(playerUrl) || playerUrl.includes('.mp4') || playerUrl.includes('.m3u8');
+    
+    if (modalTitle) {
+        modalTitle.innerHTML = `${escapeHtml(animeTitle)} - ${escapeHtml(epTitle)} ` +
+            (isDirectVideo 
+                ? `<span class="badge bg-success-subtle text-success border border-success-subtle ms-2" style="font-size: 0.72rem;" title="原生播放器：支援畫面直接點擊暫停/播放與進度條雙向同步"><i class="bi bi-play-circle-fill"></i> 原生同步</span>` 
+                : `<span class="badge bg-secondary-subtle text-secondary border ms-2" style="font-size: 0.72rem;" title="內嵌播放器：受跨域安全限制，請用【空白鍵 Space】或下方控制條進行同步"><i class="bi bi-window"></i> 內嵌模式</span>`);
+    }
 
     const video = document.getElementById("kazumiVideoPlayer");
     const iframe = document.getElementById("kazumiIframePlayer");
@@ -1470,7 +1491,7 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
     if (placeholder) placeholder.style.display = "none";
 
     // 判斷是否為 direct mp4 / m3u8 還是 web/iframe 解析器
-    if (playerUrl.endsWith('.mp4') || playerUrl.endsWith('.m3u8')) {
+    if (isDirectVideo) {
         if (iframe) { iframe.src = ""; iframe.style.display = "none"; }
         if (video) {
             video.style.display = "block";
@@ -2123,12 +2144,14 @@ function updatePlayPauseButtonUI(paused) {
     const btn = document.getElementById("danmakuPlayPauseBtn");
     const btnText = document.getElementById("danmakuPlayPauseBtnText");
     const miniIcon = document.getElementById("danmakuMiniPlayPauseIcon");
+    const mainIcon = btn ? btn.querySelector("i") : null;
 
     if (paused) {
         if (btn) {
             btn.className = "btn btn-sm btn-warning text-dark fw-bold rounded-pill px-2";
             btn.title = "繼續彈幕飄動 (快捷鍵: 空白鍵 Space)";
         }
+        if (mainIcon) mainIcon.className = "bi bi-play-fill";
         if (btnText) btnText.textContent = "繼續";
         if (miniIcon) miniIcon.className = "bi bi-play-fill";
     } else {
@@ -2136,6 +2159,7 @@ function updatePlayPauseButtonUI(paused) {
             btn.className = "btn btn-sm btn-outline-warning rounded-pill px-2";
             btn.title = "暫停彈幕飄動 (快捷鍵: 空白鍵 Space)";
         }
+        if (mainIcon) mainIcon.className = "bi bi-pause-fill";
         if (btnText) btnText.textContent = "暫停";
         if (miniIcon) miniIcon.className = "bi bi-pause-fill";
     }
@@ -3220,115 +3244,6 @@ window.openNovelSearchModal = function(defaultKeyword = "") {
 };
 
 // ============================================================
-// Legado 小說前端高韌性備援題庫與動態作品生成引擎（輕量化重構）
-// 徹底消除數百行死代碼段落，章節與正文由輕量化引擎隨需動態產出
-// ============================================================
-function generateNovelChapters(title, count = 5) {
-    const cleanTitle = (title || '小說').trim();
-    const chapterTemplates = [
-        { suffix: '風雲再起', p: [
-            `在《${cleanTitle}》的世界中，傳奇正悄然拉開帷幕。`,
-            `古老的青銅鐘聲在山巔迴盪，少年佇立在命運的十字路口，眼神堅毅而清澈。`,
-            `「這一次，我絕不會再讓命運由他人主宰！」他握緊了手中的佩劍，步伐堅定地踏入了未知的試煉之門。`,
-            `前方的道路充滿了荊棘與迷霧，但他知道，只有不斷超越極限，才能守護心中最重要的信念。`
-        ]},
-        { suffix: '初露鋒芒', p: [
-            `清晨的第一縷陽光刺破雲海，演武場上早已聚集了無數神情凝重的各路豪傑。`,
-            `面對眾人的質疑與輕蔑，主角只是淡淡一笑，單手負後，步履從容地走上中央擂台。`,
-            `一招出，風雲動！雄渾而純粹的力量如滔滔江水般洶湧而出，震撼全場。`,
-            `這一刻，所有人終於明白，一位真正無可阻擋的時代弄潮兒，已經在此刻誕生！`
-        ]},
-        { suffix: '迷霧重重', p: [
-            `幽深的古道被濃厚的迷霧籠罩，隱藏在黑暗中的陰影蠢蠢欲動。`,
-            `蛛絲馬跡逐漸浮出水面，背後隱藏的陰謀遠比想像的更為龐大。`,
-            `少年屏息凝神，冷靜思索著對策，黑夜中的低語愈發清晰……`
-        ]},
-        { suffix: '宿命對決', p: [
-            `殘陽如血，荒古遺跡之上狂風獵獵作響。`,
-            `宿命中的強敵佇立在斷崖之巔，冷冷注視著步步走近的青年：「你本可以有更輕鬆的選擇，為何執意與這天道為敵？」`,
-            `青年長劍出鞘，寒芒如星：「因為在我心中，正義與守護，從來沒有妥協的餘地！」`,
-            `劍氣縱橫三萬里，一劍光寒十九洲！壯麗的篇章，才正要進入最精彩的高潮！`
-        ]},
-        { suffix: '傳奇序章', p: [
-            `黎明的第一道晨光破曉而出，照亮了浩瀚無垠的大陸。`,
-            `過往的戰火化作史冊中的一頁，而少年的腳步依然未曾停歇。`,
-            `浩蕩天地間，屬於這段冒險的嶄新篇章，正要翻開更為壯麗的一頁。`
-        ]}
-    ];
-
-    return Array.from({ length: count }, (_, i) => {
-        const tpl = chapterTemplates[i % chapterTemplates.length];
-        return {
-            id: `ch-${i + 1}`,
-            title: `第 ${i + 1} 章 《${cleanTitle}》${tpl.suffix}`,
-            paragraphs: tpl.p
-        };
-    });
-}
-
-const CLIENT_POPULAR_NOVELS = [
-    {
-        id: 'novel-oregairu',
-        title: '果然我的青春戀愛喜劇搞錯了。',
-        author: '渡航',
-        category: '校園青春 / 輕小說 / 戀愛心理',
-        status: '完結',
-        cover: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80',
-        intro: '高中生比企谷八幡性格孤僻冷淡，對所謂的青春與人際關係抱持著極度懷疑與批判的態度。因寫下一篇偏激的作文，他被國語教師平塚靜強行帶入了專門為學生排憂解難的「侍奉部」，並在此遇見了全校第一的美少女部長雪之下雪乃……'
-    },
-    {
-        id: 'novel-guimi',
-        title: '詭秘之主',
-        author: '愛潛水的烏賊',
-        category: '西方玄幻 / 蒸汽朋克 / 克蘇魯',
-        status: '完結',
-        cover: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80',
-        intro: '蒸汽與機械的浪潮中，誰能觸及非凡？歷史和黑暗的迷霧裡，又是誰在耳語？我從詭秘中醒來，睜眼看見這個世界：槍械，大砲，巨艦，飛空艇，差分機；魔藥，占卜，詛咒，倒吊人，封印物……光明依舊照耀，神秘從未遠離。這是一段「愚者」的傳說。'
-    },
-    {
-        id: 'novel-daogui',
-        title: '道詭異仙',
-        author: '狐尾的筆',
-        category: '克蘇魯修真 / 懸疑驚悚 / 仙俠',
-        status: '完結',
-        cover: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&q=80',
-        intro: '詭異的修仙世界，真真假假，李火旺分不清自己到底是在精神病院，還是在這個瘋狂扭曲的修真界。師傅想煉他成丹，道友想啃食他的血肉，而現實世界裡的醫生與親人正焦急地呼喚著他……'
-    },
-    {
-        id: 'novel-quanzhi',
-        title: '全職高手',
-        author: '蝴蝶藍',
-        category: '遊戲競技 / 熱血勵志 / 網遊',
-        status: '完結',
-        cover: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&q=80',
-        intro: '網遊榮耀中被譽為教科書級別的頂尖高手葉修，因為種種原因遭到俱樂部的驅逐，離開職業圈的他寄身於一家網吧成了一個小小的網管，在榮耀新開的第十區重新投入了遊戲，帶著自製武器千機傘開始了重返巔峰之路。'
-    },
-    {
-        id: 'novel-frieren',
-        title: '葬送的芙莉蓮 ~前奏~',
-        author: '八目迷 / 山田鐘人',
-        category: '輕小說 / 奇幻冒險 / 治癒溫馨',
-        status: '連載中',
-        cover: 'https://images.unsplash.com/photo-1532012164546-f432f2e3777a?w=400&q=80',
-        intro: '這是勇者一行人打倒魔王之後的故事，也是精靈魔法使芙莉蓮在漫長旅途中，回憶過往與面對未來的溫柔篇章。時間對長壽的精靈而言宛若彈指一瞬，但那些與欣梅爾、海塔、艾冉共度的十年，卻化作了生命中最燦爛的光芒。'
-    }
-];
-
-function generateClientDynamicNovel(keyword) {
-    const cleanKw = (keyword || '熱門小說').trim();
-    return {
-        id: 'client-custom-' + encodeURIComponent(cleanKw),
-        title: cleanKw,
-        author: '全網作家聯名 / 經典庫',
-        category: '網路熱門小說 / 精選佳作',
-        status: '連載中',
-        cover: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=400&q=80',
-        intro: `《${cleanKw}》是一部引人入勝的熱門力作。情節跌宕起伏，文筆流暢，世界觀宏大瑰麗。主角在逆境中秉持初心，披荊斬棘，開創出一片波瀾壯闊的傳奇天地。`,
-        chapters: generateNovelChapters(cleanKw)
-    };
-}
-
-// ============================================================
 // Legado 輕小說多書源切換與檢索核心 (Wenku8 輕小說文庫 vs Bilinovel 嗶哩輕小說)
 // ============================================================
 let currentNovelSource = localStorage.getItem("novel_preferred_source") || "wenku8";
@@ -3399,31 +3314,7 @@ window.searchNovelFromDrawer = async function(keyword) {
             }
         }
     } catch (err) {
-        console.warn("後端小說 API 未啟動或回應異常，切換至本地高韌性備援：", err);
-    }
-
-    // 本地備援檢索
-    if (results.length === 0) {
-        const baseList = CLIENT_POPULAR_NOVELS;
-        const lowerQ = q.toLowerCase();
-        results = baseList.filter(n =>
-            !q || n.title.toLowerCase().includes(lowerQ) ||
-            n.author.toLowerCase().includes(lowerQ) ||
-            n.category.toLowerCase().includes(lowerQ) ||
-            n.intro.toLowerCase().includes(lowerQ)
-        ).map(n => ({
-            id: n.id,
-            source: source,
-            sourceName: sourceName,
-            title: n.title,
-            author: n.author,
-            category: n.category,
-            status: n.status,
-            cover: n.cover,
-            intro: n.intro,
-            chapterCount: 5,
-            latestChapter: `第 5 章 《${n.title}》星空下的誓言與告白`
-        }));
+        console.warn("後端小說 API 未啟動或回應異常：", err);
     }
 
     novelState.searchResults = results;
@@ -3530,20 +3421,7 @@ window.selectNovel = async function(novelId, title, cover, author, intro = '') {
             }
         }
     } catch (err) {
-        console.warn("載入後端小說章節失敗，切換至本地高韌性備援：", err);
-    }
-
-    // 本地備援章節解析 (僅限精確匹配之作品，嚴禁捏造不存在的作品章節)
-    if (chapters.length === 0) {
-        let matched = CLIENT_POPULAR_NOVELS.find(n => n.id === novelId || (title && n.title.toLowerCase() === title.toLowerCase()));
-        if (matched) {
-            const fullChapters = generateNovelChapters(matched.title);
-            chapters = fullChapters.map((ch, idx) => ({
-                id: ch.id,
-                title: ch.title,
-                index: idx
-            }));
-        }
+        console.warn("載入後端小說章節失敗：", err);
     }
 
     novelState.chapters = chapters;
@@ -3652,20 +3530,7 @@ window.loadNovelChapter = async function(novelId, chapterId, chapterIdx, novelTi
             }
         }
     } catch (err) {
-        console.warn("後端章節內容獲取失敗，無縫切換本地正文備援：", err);
-    }
-
-    // 若後端離線或無正文，僅在精確匹配時載入正文，絕不張冠李戴
-    if (!loadedParagraphs) {
-        let matched = CLIENT_POPULAR_NOVELS.find(n => n.id === novelId || (novelTitle && n.title.toLowerCase() === novelTitle.toLowerCase()));
-        if (matched) {
-            const fullChapters = generateNovelChapters(matched.title);
-            let ch = fullChapters.find(c => c.id === chapterId) || fullChapters[chapterIdx];
-            if (ch) {
-                loadedParagraphs = ch.paragraphs;
-                loadedChapterTitle = ch.title;
-            }
-        }
+        console.warn("後端章節內容獲取失敗：", err);
     }
 
     if (!loadedParagraphs || loadedParagraphs.length === 0) {
@@ -4422,12 +4287,17 @@ window.batchDeleteBookmarks = function() {
     if (!confirm(`⚠️ 確定要批量刪除選取的 ${count} 個書籤收藏嗎？此操作無法還原！`)) {
         return;
     }
+    _isLocalMutationActive = true;
     state.bookmarks = state.bookmarks.filter(b => !state.selectedBookmarkIds.has(b.id));
     state.selectedBookmarkIds.clear();
-    saveToStorage();
+    saveToStorage(true); // 立即同步至伺服器
     updateUI();
     updateBatchUI();
     showToast(`🗑️ 已成功批量刪除 ${count} 個書籤！`, "bi-trash3-fill text-danger");
+    // 設定 1.5 秒冷卻，避免 confirm 彈窗關閉觸發 window.focus 時誤將已被刪除的書籤重新合併
+    setTimeout(() => {
+        _isLocalMutationActive = false;
+    }, 1500);
 };
 
 // HTML 特殊字元跳脫 (XSS 防護)
