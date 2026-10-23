@@ -844,30 +844,38 @@ function setupEventListeners() {
         }
     });
 
-    // 10. 會員登入 / 註冊切換模擬
-    document.getElementById("loginForm").addEventListener("submit", e => {
+    // 10. 會員登入 / 註冊切換模擬 (完整支援多帳號隔離與切換專屬書庫)
+    document.getElementById("loginForm").addEventListener("submit", async e => {
         e.preventDefault();
         const username = document.getElementById("loginUsername").value.trim();
         if (username) {
             state.currentUser = username;
-            saveToStorage();
+            localStorage.setItem("web_library_user", username);
+            const modalEl = document.getElementById("authModal");
+            if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+            showToast(`正在切換至【${username}】的個人書庫...`, "bi-person-check text-primary");
+            // 立即從伺服器拉取該帳號的專屬書庫
+            await syncFromServer(username, false);
             updateUI();
-            bootstrap.Modal.getInstance(document.getElementById("authModal")).hide();
-            showToast(`歡迎回來，${username}！`, "bi-check-circle-fill text-success");
+            showToast(`歡迎回來，${username}！已成功載入個人專屬收藏。`, "bi-check-circle-fill text-success");
         }
     });
 
-    document.getElementById("registerForm").addEventListener("submit", e => {
+    document.getElementById("registerForm").addEventListener("submit", async e => {
         e.preventDefault();
         const username = document.getElementById("regUsername").value.trim();
         if (username) {
             state.currentUser = username;
-            // 隨機生成新 Token
             state.apiToken = "usr_tok_" + Math.random().toString(36).substring(2, 12);
-            saveToStorage();
+            localStorage.setItem("web_library_user", username);
+            localStorage.setItem("web_library_token", state.apiToken);
+            const modalEl = document.getElementById("authModal");
+            if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+            // 新註冊帳號：初始化獨立個人書庫並即時同步至伺服器
+            state.bookmarks = [];
+            saveToStorage(true);
             updateUI();
-            bootstrap.Modal.getInstance(document.getElementById("authModal")).hide();
-            showToast(`帳號 ${username} 註冊並登入成功！`, "bi-check-circle-fill text-success");
+            showToast(`帳號 ${username} 註冊成功！已建立專屬獨立書庫。`, "bi-check-circle-fill text-success");
         }
     });
 }
