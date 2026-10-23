@@ -741,6 +741,27 @@
 
                             <video id="kazumiVideoPlayer" controls playsinline style="width: 100%; height: 100%; max-height: 500px; background: #000; display: none;"></video>
                             <iframe id="kazumiIframePlayer" style="width: 100%; height: 490px; border: none; display: none;" allowfullscreen="true" allow="autoplay; fullscreen"></iframe>
+                            <!-- 跨域防內嵌安全阻擋優雅降級介面 -->
+                            <div id="kazumiBlockedFallback" class="position-absolute top-50 start-50 translate-middle text-center p-4 rounded-4 shadow-lg border border-secondary border-opacity-50" style="display: none; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px); max-width: 520px; width: 90%; z-index: 45;">
+                                <div class="mb-3">
+                                    <i class="bi bi-shield-lock-fill text-warning" style="font-size: 2.8rem;"></i>
+                                </div>
+                                <h5 class="fw-bold text-white mb-2">此播放來源設有防內嵌保護</h5>
+                                <p class="small text-white-50 mb-4" id="kazumiBlockedMessage">
+                                    此番劇來源（lmm85 / 站方安全源）限制在第三方內嵌播放。請點擊下方按鈕在新分頁順暢開啟，或一鍵切換至其他免跳轉來源！
+                                </p>
+                                <div class="d-flex flex-wrap justify-content-center gap-2">
+                                    <a id="kazumiBlockedOpenTabBtn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-warning fw-semibold px-3 py-2 rounded-pill shadow-sm">
+                                        <i class="bi bi-box-arrow-up-right me-1"></i> 在新分頁開啟播放
+                                    </a>
+                                    <button type="button" class="btn btn-outline-info fw-semibold px-3 py-2 rounded-pill shadow-sm" onclick="quickSwitchKazumiSource('agedm')">
+                                        <i class="bi bi-arrow-repeat me-1"></i> 切換為 AGE動漫
+                                    </button>
+                                    <button type="button" class="btn btn-outline-light fw-semibold px-3 py-2 rounded-pill shadow-sm" onclick="quickSwitchKazumiSource('bilibili')">
+                                        <i class="bi bi-tv me-1"></i> 切換為 Bilibili
+                                    </button>
+                                </div>
+                            </div>
                             <!-- 純淨待命提示畫面 (內建搜尋列) -->
                             <div id="kazumiTheaterPlaceholder" class="position-absolute top-50 start-50 translate-middle text-center px-3" style="max-width: 480px; width: 100%; color: #cbd5e1;">
                                 <i class="bi bi-film fs-1 d-block mb-2 text-danger opacity-75"></i>
@@ -1391,6 +1412,8 @@
 
     <!-- Bootstrap 5.3 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Hls.js for native m3u8 playback in Chrome/Edge -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <!-- App Logic JS -->
     <script src="js/app.js"></script>
 </body>
