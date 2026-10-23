@@ -1,7 +1,53 @@
 {
   "user": "jyun",
-  "count": 3,
+  "count": 6,
   "bookmarks": [
+    {
+      "id": "bm_1792755966101_9cju",
+      "title": "Predidit/Kazumi: 基于自定义规则的番剧采集APP，支持流媒体在线观看，支持弹幕，支持实时超分辨率。",
+      "url": "https://github.com/Predidit/Kazumi",
+      "category": "web",
+      "tags": [
+        "GitHub",
+        "開源項目"
+      ],
+      "cover": "https://opengraph.githubassets.com/1/Predidit/Kazumi",
+      "desc": "",
+      "pinned": true,
+      "clicks": 0,
+      "createdAt": "2026-10-23T11:46:06.101Z"
+    },
+    {
+      "id": "bm_1792755944561_bnga",
+      "title": "Predidit/KazumiRules: Kazumi的规则托管仓库，欢迎贡献 ^•ﻌ•^",
+      "url": "https://github.com/Predidit/KazumiRules",
+      "category": "web",
+      "tags": [
+        "GitHub",
+        "開源項目"
+      ],
+      "cover": "https://opengraph.githubassets.com/1/Predidit/KazumiRules",
+      "desc": "",
+      "pinned": false,
+      "clicks": 0,
+      "createdAt": "2026-10-23T11:45:44.561Z"
+    },
+    {
+      "id": "bm_1792755745229",
+      "title": "FX战士久留美",
+      "url": "https://bgm.tv/subject/622288",
+      "category": "anime",
+      "tags": [
+        "本季新番",
+        "Bangumi同步",
+        "動畫"
+      ],
+      "cover": "https://lain.bgm.tv/pic/cover/l/d3/99/622288_nmbC3.jpg",
+      "desc": "由 Bangumi 官方每日新番時刻表一鍵同步收錄至個人圖書館，支援 Kazumi 全網多源高速播放。",
+      "pinned": false,
+      "clicks": 1,
+      "createdAt": "2026-10-23T11:42:25.229Z"
+    },
     {
       "id": "bm_1792754576187_hcz5",
       "title": "Qwen3.8 27B赛博治疗完结篇，压制了雷霆思考能力比原版还强大的27B如何诞生的后训练全纪实",
@@ -51,5 +97,5 @@
       "createdAt": "2026-10-23T08:54:22.308Z"
     }
   ],
-  "updatedAt": "2026-10-23T11:36:54.181Z"
+  "updatedAt": "2026-10-23T11:47:02.811Z"
 }
