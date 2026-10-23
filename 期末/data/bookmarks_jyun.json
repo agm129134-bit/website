@@ -1,7 +1,19 @@
 {
   "user": "jyun",
-  "count": 6,
+  "count": 7,
   "bookmarks": [
+    {
+      "id": "bm_1792756569022_lu0w",
+      "title": "跟 AI 做網站，最難講清楚的常常是動畫 「滑下來的時候帥一點」 AI 聽完只能用猜的 其實這些效果都有名字，報名字就好： 1. Scroll-triggered：滑到才播，卡片一張張浮出來 2. Scroll-linked：滑多少動多少，手停它也停 3. Parallax：背景跑得比前景慢，畫面多了景深 4. Sticky：滑到頂端就黏住，導覽列最常見 5. Scroll Snap：一次滑一整頁，跟刷 Reels 一樣 6. Horizontal Scroll：手指往下，內容往旁邊走 下次直接說「導覽列用 Sticky，首頁背景做 Parallax」，一句搞定",
+      "url": "https://www.threads.com/@ai_cpocoder/post/DePUuXsDxYq",
+      "category": "web",
+      "tags": [],
+      "cover": "https://static.cdninstagram.com/rsrc.php/yd/r/kHwIMM5b8PW.webp",
+      "desc": "跟 AI 做網站，最難講清楚的常常是動畫\n「滑下來的時候帥一點」\nAI 聽完只能用猜的\n其實這些效果都有名字，報名字就好：",
+      "pinned": false,
+      "clicks": 1,
+      "createdAt": "2026-10-23T11:56:09.022Z"
+    },
     {
       "id": "bm_1792755966101_9cju",
       "title": "Predidit/Kazumi: 基于自定义规则的番剧采集APP，支持流媒体在线观看，支持弹幕，支持实时超分辨率。",
@@ -97,5 +109,5 @@
       "createdAt": "2026-10-23T08:54:22.308Z"
     }
   ],
-  "updatedAt": "2026-10-23T11:47:02.811Z"
+  "updatedAt": "2026-10-23T11:56:16.132Z"
 }
