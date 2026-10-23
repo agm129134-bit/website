@@ -260,6 +260,46 @@ async function crawl7sefunEpisodes(detailUrl) {
     return episodes;
 }
 
+// 6. 7sefun動漫播放器真實網址解析 (MacCMS player_aaaa 變數 Base64 串流解碼)
+async function crawl7sefunPlayer(playUrl) {
+    try {
+        const res = await fetchWithTimeout(playUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36' }
+        });
+        if (!res.ok) return playUrl;
+        const html = await res.text();
+
+        // 嘗試解析 MacCMS 的 player_aaaa JSON 變數
+        const aaaaMatch = html.match(/player_aaaa\s*=\s*(\{[\s\S]*?\})<\/script>/);
+        if (aaaaMatch) {
+            try {
+                const parsed = JSON.parse(aaaaMatch[1].trim());
+                let realUrl = parsed.url;
+                if (parsed.encrypt === 2) {
+                    realUrl = decodeURIComponent(Buffer.from(parsed.url, 'base64').toString('utf-8'));
+                } else if (parsed.encrypt === 1) {
+                    realUrl = unescape(parsed.url);
+                }
+                if (realUrl && (realUrl.startsWith('http://') || realUrl.startsWith('https://'))) {
+                    return realUrl;
+                }
+            } catch (e) {
+                console.warn('[7sefun Parse player_aaaa error]:', e.message);
+            }
+        }
+
+        // 降級嘗試解析 iframe src
+        const iframeMatch = html.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+        if (iframeMatch && iframeMatch[1]) {
+            return iframeMatch[1].startsWith('http') ? iframeMatch[1] : `https://www.7sefun.top${iframeMatch[1]}`;
+        }
+        return playUrl;
+    } catch (e) {
+        console.warn('[7sefun crawlPlayer failed]:', e.message);
+        return playUrl;
+    }
+}
+
 // 彈彈play 開放平台 (dandanplay) 彈幕接入模組
 async function fetchDandanplayDanmaku(animeTitle, episodeIndex = 1, appId = '', appSecret = '') {
     const finalAppId = (appId || process.env.DANDANPLAY_APP_ID || '').trim();
@@ -844,7 +884,7 @@ async function handleKazumiRoute(req, res) {
             try {
                 let playerUrl = null;
                 if (playUrl.includes('7sefun')) {
-                    playerUrl = playUrl;
+                    playerUrl = await crawl7sefunPlayer(playUrl);
                 } else {
                     playerUrl = await crawlAgePlayer(playUrl);
                 }
