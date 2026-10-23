@@ -624,7 +624,7 @@ function renderBookmarks() {
                 ${checkboxHtml}
                 <!-- 封面圖區域 -->
                 <div class="card-cover-wrapper">
-                    <img src="${escapeHtml(coverSrc)}" class="card-cover-img" alt="${escapeHtml(item.title)}" loading="lazy" onerror="this.src='${fallbackCover}'">
+                    <img src="${escapeHtml(coverSrc)}" class="card-cover-img" alt="${escapeHtml(item.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='${fallbackCover}'">
                     
                     ${item.pinned ? `<div class="pin-badge"><i class="bi bi-pin-angle-fill"></i> 置頂</div>` : ''}
 
@@ -3904,7 +3904,7 @@ function renderCalendarDayAnime(dayId) {
         col.innerHTML = `
             <div class="card bgm-anime-card shadow-sm">
                 <div class="bgm-anime-cover-box" style="cursor: pointer;" data-title="${escapeHtml(title)}" data-cover="${escapeHtml(cover)}" onclick="openKazumiFromElement(this)">
-                    <img src="${escapeHtml(cover)}" class="bgm-anime-cover-img" alt="${escapeHtml(title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=700&q=80'">
+                    <img src="${escapeHtml(cover)}" class="bgm-anime-cover-img" alt="${escapeHtml(title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=700&q=80'">
                     <div class="bgm-rating-badge">${score}</div>
                 </div>
                 <div class="p-2 d-flex flex-column flex-grow-1">
@@ -4392,7 +4392,7 @@ window.searchKazumiAnime = async function(keyword = null) {
                 col.innerHTML = `
                     <div class="card bgm-anime-card shadow-sm h-100">
                         <div class="bgm-anime-cover-box">
-                            <img src="${escapeHtml(cover)}" class="bgm-anime-cover-img" alt="${escapeHtml(item.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'">
+                            <img src="${escapeHtml(cover)}" class="bgm-anime-cover-img" alt="${escapeHtml(item.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'">
                             <div class="bgm-rating-badge bg-danger text-white border-0">${data.source} 源</div>
                         </div>
                         <div class="p-2 d-flex flex-column flex-grow-1">
