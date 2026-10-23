@@ -12,6 +12,17 @@
                 window.location.replace('login.html');
             }
         })();
+
+        // 全域防護性 escapeHtml Fallback (確保在任何情況下頁面模板渲染不因缺少 escapeHtml 而中斷)
+        window.escapeHtml = window.escapeHtml || function(str) {
+            if (!str) return "";
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        };
     </script>
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -216,10 +227,10 @@
                 <div class="card border shadow-sm rounded-3 h-100 bg-white">
                     <div class="card-body p-4 d-flex flex-column">
                         <div class="d-flex align-items-center justify-content-between mb-3">
-                            <span class="badge bg-primary-subtle text-primary px-2 py-1">Tachimanga Reader</span>
+                            <span class="badge bg-primary-subtle text-primary px-2 py-1">條漫閱覽</span>
                             <i class="bi bi-journal-richtext text-primary fs-3"></i>
                         </div>
-                        <h5 class="fw-bold mb-1">🖼️ Tachimanga 條漫閱覽器</h5>
+                        <h5 class="fw-bold mb-1">🖼️ 條漫閱覽器</h5>
                         <p class="text-muted small mb-4">Webtoon 垂直瀑布流連續長圖無縫滑動，原生防盜鏈穿透，即時計算頁碼與雙擊縮放。</p>
                         <button class="btn btn-primary w-100 mt-auto rounded-2" onclick="openTachimangaReader()">
                             <i class="bi bi-book"></i> 開啟條漫閱覽
@@ -232,10 +243,10 @@
                 <div class="card border shadow-sm rounded-3 h-100 bg-white">
                     <div class="card-body p-4 d-flex flex-column">
                         <div class="d-flex align-items-center justify-content-between mb-3">
-                            <span class="badge bg-success-subtle text-success px-2 py-1">Legado Reader</span>
+                            <span class="badge bg-success-subtle text-success px-2 py-1">小說閱覽</span>
                             <i class="bi bi-book-half text-success fs-3"></i>
                         </div>
-                        <h5 class="fw-bold mb-1">📖 Legado 沉浸小說閱讀器</h5>
+                        <h5 class="fw-bold mb-1">📖 沉浸小說閱讀器</h5>
                         <p class="text-muted small mb-4">純淨文字排版，提供羊皮紙護眼黃、極簡白、深黑三種主題切換，支援 A- / A+ 字級縮放與章節導航。</p>
                         <button class="btn btn-success w-100 mt-auto rounded-2" onclick="openLegadoReader(0)">
                             <i class="bi bi-eyeglasses"></i> 開啟小說閱讀
@@ -300,21 +311,81 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">同步範圍</label>
-                        <select class="form-select" id="bgmSyncType">
-                            <option value="3" selected>僅同步「在看 (正在追番)」(推薦)</option>
-                            <option value="1">僅同步「想看」</option>
-                            <option value="2">僅同步「看過」</option>
+                        <label class="form-label fw-semibold">作品類別</label>
+                        <select class="form-select" id="bgmSubjectType">
+                            <option value="2" selected>🎬 動畫 (Anime)</option>
+                            <option value="1">📖 書籍 / 漫畫 / 小說 (Book)</option>
+                            <option value="all">🌟 同步全部 (動畫 + 書籍)</option>
                         </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">同步狀態範圍</label>
+                        <select class="form-select" id="bgmSyncType">
+                            <option value="3" selected>僅同步「在看 / 在讀」(推薦)</option>
+                            <option value="1">僅同步「想看 / 想讀」</option>
+                            <option value="2">僅同步「看過 / 讀過」</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="bgmTokenInput" class="form-label fw-semibold d-flex align-items-center justify-content-between">
+                            <span><i class="bi bi-key-fill text-warning"></i> Bangumi 個人授權令牌 (Token)</span>
+                            <span class="badge bg-primary-subtle text-primary border small">啟用雙向同步必填</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-shield-lock"></i></span>
+                            <input type="password" class="form-control font-monospace" id="bgmTokenInput" placeholder="貼上 Bangumi Access Token (可選)">
+                            <button class="btn btn-outline-secondary" type="button" onclick="toggleTokenVisibility('bgmTokenInput', this)" title="顯示/隱藏 Token">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="btn btn-outline-primary" type="button" id="btnVerifyBgmToken" onclick="verifyBangumiToken()" title="向 Bangumi 驗證 Token 是否有效">
+                                <i class="bi bi-shield-check"></i> 驗證令牌
+                            </button>
+                        </div>
+                        <div id="bgmTokenStatus" class="small mt-1 d-none"></div>
+                        <div class="form-text">
+                            填入後可解鎖<strong>「雙向反向同步」</strong>：在網站上觀看動畫或標記進度時，自動回寫 Bangumi！<br>
+                            👉 <a href="https://next.bgm.tv/demo/access-token" target="_blank" rel="noopener noreferrer" class="text-decoration-none">點此至 Bangumi 建立個人 Access Token</a>
+                        </div>
+                    </div>
+
+                    <!-- 雙向同步衝突解決策略 -->
+                    <div class="mb-3 p-3 bg-light rounded-3 border">
+                        <label class="form-label fw-semibold d-flex align-items-center justify-content-between mb-2">
+                            <span><i class="bi bi-sliders2 text-info"></i> 同步衝突優先權策略</span>
+                            <span class="badge bg-secondary-subtle text-secondary small">雙向模式生效</span>
+                        </label>
+                        <div class="d-flex flex-column gap-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="bgmConflictPriority" id="priorityBangumi" value="bangumi" checked onchange="saveBgmPriority(this.value)">
+                                <label class="form-check-label small" for="priorityBangumi">
+                                    <strong><i class="bi bi-cloud-check text-primary"></i> 以 Bangumi 優先 (雲端為準，推薦)</strong>
+                                    <div class="text-muted">若本站記錄與 Bangumi 不一致，以 Bangumi 官方進度與收藏狀態覆蓋本站。</div>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="bgmConflictPriority" id="priorityLocal" value="local" onchange="saveBgmPriority(this.value)">
+                                <label class="form-check-label small" for="priorityLocal">
+                                    <strong><i class="bi bi-laptop text-success"></i> 以 本網頁 優先 (本地為準)</strong>
+                                    <div class="text-muted">當本網頁有更新的觀看進度時，強制回寫覆蓋 Bangumi 上的官方紀錄。</div>
+                                </label>
+                            </div>
+                        </div>
                     </div>
 
                     <div id="bgmSyncResultAlert" class="alert alert-info py-2 small d-none"></div>
                 </div>
-                <div class="modal-footer border-top-0 pt-0">
+                <div class="modal-footer border-top-0 pt-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-success rounded-pill px-4" id="startBgmSyncBtn" onclick="triggerBangumiUserSync()">
-                        <i class="bi bi-cloud-arrow-down-fill"></i> 開始同步匯入
-                    </button>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-success rounded-pill px-3" id="startBgmImportOnlyBtn" onclick="triggerBangumiUserSync('import')" title="只將 Bangumi 資料單向匯入至網頁圖書館">
+                            <i class="bi bi-cloud-arrow-down"></i> 僅從 Bangumi 匯入網頁
+                        </button>
+                        <button type="button" class="btn btn-primary rounded-pill px-3" id="startBgmTwoWaySyncBtn" onclick="triggerBangumiUserSync('two-way')" title="比對兩邊進度並雙向回寫">
+                            <i class="bi bi-arrow-repeat"></i> 雙向全量同步
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -339,13 +410,13 @@
                         <div class="overflow-hidden flex-grow-1">
                             <h5 id="kazumiSourceTitle" class="fw-bold text-white mb-1 text-truncate">動漫片名</h5>
                             <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-secondary-subtle text-light" id="kazumiSourceSummary">2 個來源 · 正在檢索...</span>
+                                <span class="badge border text-white" id="kazumiSourceSummary" style="background-color: rgba(255, 255, 255, 0.2) !important; border-color: rgba(255, 255, 255, 0.3) !important;">2 個來源 · 正在檢索...</span>
                             </div>
                         </div>
                     </div>
                     <!-- 搜尋微調列 -->
                     <div class="input-group input-group-sm mb-3">
-                        <span class="input-group-text bg-black border-secondary text-secondary"><i class="bi bi-search"></i></span>
+                        <span class="input-group-text bg-black border-secondary text-white-50"><i class="bi bi-search"></i></span>
                         <input type="text" id="kazumiModalKeywordInput" class="form-control bg-black border-secondary text-white" placeholder="搜尋或微調番劇關鍵字..." onkeydown="if(event.key==='Enter') searchKazumiFromModal(this.value)">
                         <button class="btn btn-outline-danger" type="button" onclick="searchKazumiFromModal(document.getElementById('kazumiModalKeywordInput').value)">重新檢索</button>
                     </div>
@@ -376,51 +447,322 @@
                             </button>
                         </div>
                         <button type="button" class="btn btn-sm btn-outline-secondary" id="danmakuToggleBtn" title="切換彈幕開關">
-                            <i class="bi bi-chat-square-dots-fill text-warning"></i> 彈幕: 開
+                            <i class="bi bi-chat-square-dots text-muted"></i> 彈幕: 關
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-2" id="danmakuPlayPauseBtn" onclick="toggleDanmakuPlayPause()" title="暫停/繼續彈幕飄動 (快捷鍵: 空白鍵 Space)">
+                            <i class="bi bi-pause-fill"></i> <span id="danmakuPlayPauseBtnText">暫停</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="closeCurrentAnime()" title="關閉當前動畫回到待命">
+                            <i class="bi bi-stop-circle"></i> 關閉當前動畫
                         </button>
                         <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal" aria-label="關閉" onclick="closeAnimePlayer()"></button>
                     </div>
                 </div>
                 <div class="modal-body p-0">
                     <div class="row g-0">
-                        <div class="col-lg-9 bg-black position-relative d-flex align-items-center justify-content-center" style="min-height: 480px;" id="kazumiScreenContainer">
+                        <div class="col-lg-9 bg-black position-relative d-flex flex-column align-items-center justify-content-center" style="min-height: 480px;" id="kazumiScreenContainer">
                             <!-- 影片播放器：預設無假影片，純淨黑底待命 -->
-                            <video id="kazumiVideoPlayer" controls playsinline style="width: 100%; height: 100%; max-height: 540px; background: #000; display: none;"></video>
-                            <iframe id="kazumiIframePlayer" style="width: 100%; height: 500px; border: none; display: none;" allowfullscreen="true" allow="autoplay; fullscreen"></iframe>
+                            <video id="kazumiVideoPlayer" controls playsinline style="width: 100%; height: 100%; max-height: 500px; background: #000; display: none;"></video>
+                            <iframe id="kazumiIframePlayer" style="width: 100%; height: 490px; border: none; display: none;" allowfullscreen="true" allow="autoplay; fullscreen"></iframe>
                             <!-- 純淨待命提示畫面 (內建搜尋列) -->
-                            <div id="kazumiTheaterPlaceholder" class="position-absolute top-50 start-50 translate-middle text-center text-secondary px-3" style="max-width: 480px; width: 100%;">
+                            <div id="kazumiTheaterPlaceholder" class="position-absolute top-50 start-50 translate-middle text-center px-3" style="max-width: 480px; width: 100%; color: #cbd5e1;">
                                 <i class="bi bi-film fs-1 d-block mb-2 text-danger opacity-75"></i>
                                 <h5 class="fw-bold text-white mb-1">動漫劇院（待命狀態）</h5>
-                                <p class="small text-secondary mb-3">輸入片名即可全網檢索播放來源並開播</p>
+                                <p class="small mb-3" style="color: #cbd5e1;">輸入片名即可全網檢索播放來源並開播</p>
                                 
                                 <div class="input-group input-group-sm shadow-sm">
-                                    <span class="input-group-text bg-dark text-secondary border-secondary"><i class="bi bi-search"></i></span>
-                                    <input type="text" id="theaterStandbySearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋動漫片名 (例: 葬送的芙莉蓮、藥屋少女的呢喃、鬼滅之刃)..." onkeydown="if(event.key==='Enter') searchAnimeFromTheater()">
+                                    <span class="input-group-text bg-dark text-white-50 border-secondary"><i class="bi bi-search"></i></span>
+                                    <input type="text" id="theaterStandbySearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋動漫片名..." onkeydown="if(event.key==='Enter') searchAnimeFromTheater()">
                                     <button class="btn btn-danger px-3 fw-semibold" type="button" onclick="searchAnimeFromTheater()">
                                         搜尋來源
                                     </button>
                                 </div>
                             </div>
-                            <div id="danmakuOverlay" class="position-absolute top-0 start-0 w-100 h-100 pointer-events-none overflow-hidden" style="pointer-events: none;"></div>
+                            <!-- 彈幕渲染層 (預設顯示於最高圖層 z-index: 50) -->
+                            <div id="danmakuOverlay" class="position-absolute top-0 start-0 w-100 h-100 pointer-events-none overflow-hidden" style="pointer-events: none; z-index: 50 !important;"></div>
+
+                            <!-- 彈幕專屬懸浮時間軸與同步控制列 (支援 iframe 與 HTML5 雙模式跳轉) -->
+                            <div id="danmakuTimelineBar" class="w-100 mt-auto d-flex align-items-center justify-content-between px-3 py-1 bg-black bg-opacity-75 border-top border-secondary border-opacity-50 text-white small position-relative" style="min-height: 40px; z-index: 60 !important; pointer-events: auto;">
+                                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                    <button type="button" class="btn btn-xs btn-outline-warning rounded-pill px-2" onclick="toggleDanmakuPlayPause()" id="danmakuMiniPlayPauseBtn" title="暫停/繼續 (Space)">
+                                        <i class="bi bi-pause-fill" id="danmakuMiniPlayPauseIcon"></i>
+                                    </button>
+                                    <span class="font-monospace text-warning fw-semibold" id="theaterDanmakuTimeDisplay" style="font-size: 0.8rem; min-width: 90px;">00:00 / 24:00</span>
+                                </div>
+                                <!-- 進度拉桿 -->
+                                <div class="flex-grow-1 mx-3 d-flex align-items-center">
+                                    <input type="range" class="form-range" id="danmakuTimelineSlider" min="0" max="1440" step="1" value="0" style="cursor: pointer;" oninput="onDanmakuTimelineSliderInput(this.value)" onchange="onDanmakuTimelineSliderChange(this.value)">
+                                </div>
+                                <!-- 快速百分比跳轉 -->
+                                <div class="d-none d-md-flex align-items-center gap-1 flex-shrink-0">
+                                    <span class="text-white-50 me-1" style="font-size: 0.72rem;">同步到:</span>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 text-white" onclick="jumpToDanmakuPercent(0)" title="跳轉到開頭 0%">0%</button>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 text-white" onclick="jumpToDanmakuPercent(25)" title="跳轉到 25% (約 6 分鐘)">25%</button>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 text-white" onclick="jumpToDanmakuPercent(50)" title="跳轉到 50% (約 12 分鐘)">50%</button>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 text-white" onclick="jumpToDanmakuPercent(75)" title="跳轉到 75% (約 18 分鐘)">75%</button>
+                                    <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2" onclick="jumpDanmakuRelative(-10)" title="快退 10 秒"><i class="bi bi-arrow-counterclockwise"></i> -10s</button>
+                                    <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2" onclick="jumpDanmakuRelative(10)" title="快進 10 秒"><i class="bi bi-arrow-clockwise"></i> +10s</button>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="col-lg-3 d-flex flex-direction-column border-start border-secondary p-3 bg-dark">
-                            <h6 class="fw-semibold small text-muted mb-2"><i class="bi bi-list-ol"></i> 選集列表 (Episodes)</h6>
-                            <div class="d-flex flex-wrap gap-2 mb-3 episode-list-container" style="max-height: 320px; overflow-y: auto;">
-                                <!-- 預設為純淨空白，由來源選擇後動態載入 -->
-                                <div class="text-secondary small p-3 text-center w-100" id="kazumiEpisodePlaceholder">請先由來源清單選擇集數開播</div>
+                        <!-- 右側選集與彈幕輸入 (垂直 flex-column 自適應版面，支援 Tab 切換，絕不遮擋左側影片) -->
+                        <div class="col-lg-3 d-flex flex-column border-start border-secondary p-3 bg-dark kazumi-theater-sidebar" style="min-height: 480px;">
+                            <!-- 側邊欄切換 Tab (選集列表 vs 彈幕清單) -->
+                            <div class="mb-2 flex-shrink-0">
+                                <div class="btn-group btn-group-sm w-100 p-1 bg-black bg-opacity-50 rounded-pill border border-secondary" role="tablist">
+                                    <button type="button" class="btn btn-sm btn-primary rounded-pill fw-bold theater-sidebar-tab active" id="tabBtnEpisodes" onclick="switchTheaterSidebarTab('episodes')">
+                                        <i class="bi bi-list-ol"></i> 選集列表
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-light border-0 rounded-pill fw-semibold text-white theater-sidebar-tab" id="tabBtnDanmaku" onclick="switchTheaterSidebarTab('danmaku')">
+                                        <i class="bi bi-chat-square-text"></i> 彈幕清單 <span class="badge bg-warning text-dark font-monospace ms-1" id="dmkSidebarCountBadge">0</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- 1. 滾動選集列表 (佔滿垂直空間，集數多時自適應滾動) -->
+                            <div id="kazumiEpisodesPanel" class="d-flex flex-column flex-grow-1 overflow-hidden" style="min-height: 0;">
+                                <div class="episode-list-container d-flex flex-column gap-2 mb-3 flex-grow-1 overflow-auto" style="min-height: 0; max-height: 380px;">
+                                    <div class="text-secondary small p-3 text-center w-100" id="kazumiEpisodePlaceholder">請先由來源清單選擇集數開播</div>
+                                </div>
                             </div>
 
-                            <hr class="border-secondary my-2">
-                            <div class="mt-auto">
-                                <label class="form-label small text-muted"><i class="bi bi-send-fill"></i> 即時發送彈幕</label>
-                                <div class="input-group input-group-sm">
+                            <!-- 2. 右側內嵌彈幕列表 (完全不遮擋左側畫面，即時瀏覽與搜尋) -->
+                            <div id="kazumiDanmakuPanel" class="d-none flex-column flex-grow-1 overflow-hidden" style="min-height: 0;">
+                                <div class="input-group input-group-sm mb-2 flex-shrink-0">
+                                    <span class="input-group-text bg-black border-secondary text-white-50"><i class="bi bi-search"></i></span>
+                                    <input type="text" id="dmkSidebarSearchInput" class="form-control bg-black text-white border-secondary" placeholder="搜尋彈幕關鍵字..." oninput="filterDanmakuList(this.value)">
+                                </div>
+                                <div id="danmakuListItemsContainer" class="d-flex flex-column gap-1 mb-2 flex-grow-1 overflow-auto pe-1" style="min-height: 0; max-height: 350px;">
+                                    <div class="text-center py-5 text-white-50 small">
+                                        <i class="bi bi-chat-dots fs-3 d-block mb-2 text-warning opacity-75"></i>
+                                        <div>尚未載入彈幕或當前集數暫無彈幕</div>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between small text-white-50 px-1 py-1 border-top border-secondary border-opacity-50 flex-shrink-0">
+                                    <span id="dmkCurrentSourceLabel">來源：Bilibili 官方即時</span>
+                                    <span class="badge bg-dark border border-secondary text-info font-monospace" id="dmkListTotalBadge">0 則</span>
+                                </div>
+                            </div>
+
+                            <hr class="border-secondary my-2 flex-shrink-0">
+
+                            <!-- 發送彈幕區塊 (穩定沉底，寬度 100%，防止擠壓) -->
+                            <div class="mt-auto pt-1 flex-shrink-0 w-100">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <label class="form-label small text-light mb-0 fw-semibold d-flex align-items-center gap-1">
+                                        <i class="bi bi-send-fill text-primary"></i> 即時發送彈幕
+                                    </label>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button type="button" class="btn btn-link btn-xs text-warning p-0 text-decoration-none small text-nowrap d-flex align-items-center gap-1" onclick="switchTheaterSidebarTab('danmaku')" title="檢視所有已載入彈幕列表">
+                                            <i class="bi bi-card-list"></i> <span>彈幕列表</span>
+                                        </button>
+                                        <button type="button" class="btn btn-link btn-xs text-info p-0 text-decoration-none small text-nowrap d-flex align-items-center gap-1" onclick="openDanmakuSettingsModal()" title="開啟 Kazumi 彈幕外觀與播放時間校準設置">
+                                            <i class="bi bi-gear-fill"></i> <span>彈幕設置</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="input-group input-group-sm w-100 shadow-sm">
                                     <input type="text" id="danmakuInput" class="form-control bg-black text-white border-secondary" placeholder="發送一條彈幕...">
-                                    <button class="btn btn-primary" type="button" id="sendDanmakuBtn">發送</button>
+                                    <button class="btn btn-primary px-3 fw-semibold text-nowrap" type="button" id="sendDanmakuBtn">發送</button>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1.1 Kazumi 仿原生彈幕設置 Modal (外觀與播放時間校準) -->
+    <div class="modal fade" id="danmakuSettingsModal" tabindex="-1" aria-labelledby="danmakuSettingsLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+            <div class="modal-content danmaku-settings-panel border-0 shadow-lg">
+                <div class="modal-header border-bottom border-secondary border-opacity-25 py-3 px-4">
+                    <h5 class="modal-title fw-bold text-white mb-0" id="danmakuSettingsLabel">彈幕設置</h5>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <!-- 分頁導覽 Tab (外觀 vs 播放) -->
+                    <ul class="nav nav-pills nav-fill danmaku-settings-tabs mb-4 p-1 bg-black bg-opacity-40 rounded-pill" id="danmakuSettingsTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tab-appearance" data-bs-toggle="pill" data-bs-target="#panel-appearance" type="button" role="tab">外觀</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-playback" data-bs-toggle="pill" data-bs-target="#panel-playback" type="button" role="tab">播放</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="danmakuSettingsTabContent">
+                        <!-- 分頁 1: 外觀 -->
+                        <div class="tab-pane fade show active" id="panel-appearance" role="tabpanel">
+                            <div class="small fw-bold text-success mb-2">顯示效果</div>
+                            <div class="d-flex flex-column gap-3 mb-4">
+                                <div class="danmaku-setting-item">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <label for="dmkFontSize" class="form-label small text-light mb-0">字體大小</label>
+                                        <span class="danmaku-range-val" id="val-dmkFontSize">24</span>
+                                    </div>
+                                    <input type="range" class="form-range" id="dmkFontSize" min="14" max="38" step="1" value="24" oninput="onDanmakuSettingInput('fontSize', this.value)">
+                                </div>
+
+                                <div class="danmaku-setting-item">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <label for="dmkOpacity" class="form-label small text-light mb-0">不透明度</label>
+                                        <span class="danmaku-range-val" id="val-dmkOpacity">100%</span>
+                                    </div>
+                                    <input type="range" class="form-range" id="dmkOpacity" min="20" max="100" step="5" value="100" oninput="onDanmakuSettingInput('opacity', this.value)">
+                                </div>
+
+                                <div class="danmaku-setting-item">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <label for="dmkDisplayArea" class="form-label small text-light mb-0">顯示區域</label>
+                                        <span class="danmaku-range-val" id="val-dmkDisplayArea">100%</span>
+                                    </div>
+                                    <input type="range" class="form-range" id="dmkDisplayArea" min="25" max="100" step="25" value="100" oninput="onDanmakuSettingInput('displayArea', this.value)">
+                                </div>
+
+                                <div class="danmaku-setting-item">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <label for="dmkLineHeight" class="form-label small text-light mb-0">行間距</label>
+                                        <span class="danmaku-range-val" id="val-dmkLineHeight">1.6</span>
+                                    </div>
+                                    <input type="range" class="form-range" id="dmkLineHeight" min="1.0" max="2.4" step="0.1" value="1.6" oninput="onDanmakuSettingInput('lineHeight', this.value)">
+                                </div>
+                            </div>
+
+                            <div class="small fw-bold text-success mb-2">彈幕類型</div>
+                            <div class="danmaku-setting-item d-flex flex-column gap-2">
+                                <div class="form-check form-switch d-flex align-items-center justify-content-between ps-0">
+                                    <label class="form-check-label small text-light" for="dmkTypeScroll">滾動彈幕</label>
+                                    <input class="form-check-input ms-auto" type="checkbox" id="dmkTypeScroll" checked onchange="onDanmakuSettingToggle('scrollDanmaku', this.checked)">
+                                </div>
+                                <div class="form-check form-switch d-flex align-items-center justify-content-between ps-0">
+                                    <label class="form-check-label small text-light" for="dmkTypeTop">頂部固定彈幕</label>
+                                    <input class="form-check-input ms-auto" type="checkbox" id="dmkTypeTop" checked onchange="onDanmakuSettingToggle('topDanmaku', this.checked)">
+                                </div>
+                                <div class="form-check form-switch d-flex align-items-center justify-content-between ps-0">
+                                    <label class="form-check-label small text-light" for="dmkTypeBottom">底部固定彈幕</label>
+                                    <input class="form-check-input ms-auto" type="checkbox" id="dmkTypeBottom" checked onchange="onDanmakuSettingToggle('bottomDanmaku', this.checked)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 分頁 2: 播放 -->
+                        <div class="tab-pane fade" id="panel-playback" role="tabpanel">
+                            <!-- 1. 彈幕來源模式切換 (Bilibili 官方免金鑰 vs 彈彈play 全網庫) -->
+                            <div class="small fw-bold text-success mb-2 d-flex align-items-center gap-1">
+                                <i class="bi bi-broadcast"></i> 彈幕來源模式
+                            </div>
+                            <div class="p-3 bg-black bg-opacity-60 rounded-3 border border-secondary mb-3">
+                                <div class="d-flex flex-column gap-3">
+                                    <label class="form-check d-flex align-items-start gap-2 cursor-pointer mb-0">
+                                        <input class="form-check-input mt-1" type="radio" name="danmakuSourceRadio" id="dmkSourceBili" value="bilibili" checked onchange="onDanmakuSourcePreferenceChanged('bilibili')">
+                                        <div class="flex-grow-1">
+                                            <div class="small text-white fw-bold d-flex align-items-center gap-2">
+                                                <span>🌟 Bilibili 官方即時彈幕</span>
+                                                <span class="badge bg-success text-white" style="font-size: 0.7rem;">免金鑰・直連 B 站</span>
+                                            </div>
+                                            <div class="text-white-50 mt-1" style="font-size: 0.78rem; line-height: 1.4;">
+                                                依照動畫片名自動直連 Bilibili 官方視頻彈幕池，不需申請任何第三方金鑰即可穩定觀看。
+                                            </div>
+                                        </div>
+                                    </label>
+                                    <div class="border-top border-secondary border-opacity-50"></div>
+                                    <label class="form-check d-flex align-items-start gap-2 cursor-pointer mb-0">
+                                        <input class="form-check-input mt-1" type="radio" name="danmakuSourceRadio" id="dmkSourceDandan" value="dandanplay" onchange="onDanmakuSourcePreferenceChanged('dandanplay')">
+                                        <div class="flex-grow-1">
+                                            <div class="small text-white fw-bold d-flex align-items-center gap-2">
+                                                <span>🌐 彈彈play 全網聚合彈幕庫</span>
+                                                <span class="badge bg-warning text-dark fw-bold" style="font-size: 0.7rem;">全網聚合・需金鑰</span>
+                                            </div>
+                                            <div class="text-white-50 mt-1" style="font-size: 0.78rem; line-height: 1.4;">
+                                                聚合 B 站、巴哈姆特動畫瘋、騰訊等多平臺彈幕，需輸入下方開放平臺 AppId / Secret。
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="small fw-bold text-success mb-2">速度</div>
+                            <div class="d-flex flex-column gap-3 mb-4">
+                                <div class="danmaku-setting-item">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <label for="dmkDuration" class="form-label small text-white fw-semibold mb-0">停留時間</label>
+                                        <span class="danmaku-range-val text-white" id="val-dmkDuration">8 秒</span>
+                                    </div>
+                                    <input type="range" class="form-range" id="dmkDuration" min="4" max="15" step="1" value="8" oninput="onDanmakuSettingInput('duration', this.value)">
+                                </div>
+
+                                <div class="danmaku-setting-item">
+                                    <div class="form-check form-switch d-flex align-items-center justify-content-between ps-0 mb-0">
+                                        <div>
+                                            <div class="small text-white fw-semibold">跟隨視頻倍速</div>
+                                            <div class="text-white-50" style="font-size: 0.78rem;">加速播放時彈幕飛行速度同步等比加速</div>
+                                        </div>
+                                        <input class="form-check-input ms-auto" type="checkbox" id="dmkSyncSpeed" checked onchange="onDanmakuSettingToggle('syncSpeed', this.checked)">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="small fw-bold text-success mb-2">校準與過濾</div>
+                            <div class="d-flex flex-column gap-3">
+                                <!-- 時間校準 Offset -->
+                                <div class="danmaku-setting-item">
+                                    <div class="d-flex align-items-center justify-content-between mb-1">
+                                        <label class="form-label small text-white fw-semibold mb-0 d-flex align-items-center gap-1">
+                                            <i class="bi bi-clock-history text-info"></i> 時間校準 (彈幕時間微調)
+                                        </label>
+                                        <span class="badge bg-dark border border-secondary text-info font-monospace" id="val-dmkTimeOffset">0.0s (無偏移)</span>
+                                    </div>
+                                    <div class="text-white-50 mb-2" style="font-size: 0.78rem;">
+                                        彈幕位置與畫面不同步時，點擊按鈕或拖拉提早/延後彈幕：
+                                    </div>
+                                    <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
+                                        <button type="button" class="btn btn-outline-light btn-xs rounded text-white fw-semibold" onclick="adjustDanmakuOffset(-3)">-3s</button>
+                                        <button type="button" class="btn btn-outline-light btn-xs rounded text-white fw-semibold" onclick="adjustDanmakuOffset(-1)">-1s</button>
+                                        <button type="button" class="btn btn-outline-light btn-xs rounded text-white fw-semibold" onclick="adjustDanmakuOffset(-0.5)">-0.5s</button>
+                                        <button type="button" class="btn btn-success btn-xs rounded text-dark fw-bold px-2" onclick="resetDanmakuOffset()">0s 重置</button>
+                                        <button type="button" class="btn btn-outline-light btn-xs rounded text-white fw-semibold" onclick="adjustDanmakuOffset(+0.5)">+0.5s</button>
+                                        <button type="button" class="btn btn-outline-light btn-xs rounded text-white fw-semibold" onclick="adjustDanmakuOffset(+1)">+1s</button>
+                                        <button type="button" class="btn btn-outline-light btn-xs rounded text-white fw-semibold" onclick="adjustDanmakuOffset(+3)">+3s</button>
+                                    </div>
+                                    <input type="range" class="form-range" id="dmkTimeOffsetRange" min="-10" max="10" step="0.5" value="0" oninput="onDanmakuSettingInput('timeOffset', this.value)">
+                                </div>
+
+                                <!-- 屏蔽規則 -->
+                                <div class="danmaku-setting-item">
+                                    <label for="dmkBlockWords" class="form-label small text-white fw-semibold mb-1 d-flex align-items-center gap-1">
+                                        <i class="bi bi-shield-slash text-danger"></i> 屏蔽規則 (關鍵詞過濾)
+                                    </label>
+                                    <input type="text" class="form-control form-control-sm bg-black border-secondary text-white" id="dmkBlockWords" placeholder="輸入關鍵字以逗號分隔，如：劇透,難看" onchange="onDanmakuSettingBlockWords(this.value)">
+                                </div>
+
+                                <!-- 彈彈play API 金鑰設置折疊 (僅在選擇彈彈play時使用) -->
+                                <div class="danmaku-setting-item" id="dandanKeySettingBox">
+                                    <a class="text-decoration-none small text-warning fw-semibold d-flex align-items-center justify-content-between p-2 rounded bg-black bg-opacity-40 border border-secondary" data-bs-toggle="collapse" href="#dandanConfigCollapse" role="button" aria-expanded="false">
+                                        <span><i class="bi bi-key-fill text-warning"></i> 彈彈play 開放平台金鑰配置</span>
+                                        <i class="bi bi-chevron-down"></i>
+                                    </a>
+                                    <div class="collapse mt-2" id="dandanConfigCollapse">
+                                        <div class="mb-2">
+                                            <label class="form-label text-light fw-semibold small mb-1">AppId</label>
+                                            <input type="text" id="dmkDandanAppId" class="form-control form-control-sm bg-black border-secondary text-white font-monospace placeholder-white-50" placeholder="貼上 AppId">
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label text-light fw-semibold small mb-1">AppSecret</label>
+                                            <input type="password" id="dmkDandanAppSecret" class="form-control form-control-sm bg-black border-secondary text-white font-monospace placeholder-white-50" placeholder="貼上 AppSecret">
+                                        </div>
+                                        <button type="button" class="btn btn-warning btn-sm w-100 rounded-pill text-dark fw-bold" onclick="saveDandanplayFromModal()">儲存彈彈play 金鑰</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-secondary border-opacity-25 py-2 px-4 d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-light btn-sm rounded-pill text-white fw-semibold px-3" onclick="resetDanmakuSettingsDefault()">恢復預設值</button>
+                    <button type="button" class="btn btn-success btn-sm rounded-pill px-4" data-bs-dismiss="modal">完成</button>
                 </div>
             </div>
         </div>
@@ -432,26 +774,89 @@
             <div class="modal-content bg-black text-white border-0">
                 <div class="modal-header border-0 bg-dark bg-opacity-75 py-2 px-3 sticky-top">
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-primary">Tachimanga Reader</span>
+                        <span class="badge bg-primary">條漫閱覽器</span>
                         <span class="fw-bold" id="mangaModalTitle">漫畫閱覽器</span>
-                        <span class="badge bg-secondary-subtle text-secondary small" id="mangaPageIndicator"></span>
+                        <span class="badge bg-primary text-white ms-1" id="mangaCurrentChapterBadge">尚未選擇章節</span>
+                        <span class="badge bg-secondary text-white small" id="mangaPageIndicator"></span>
                     </div>
-                    <!-- 控制組居右，關閉 X 置於最右上角 -->
+                    <!-- 控制組居右，支援選集、上一話/下一話、搜尋、縮放與關閉 X -->
                     <div class="d-flex align-items-center gap-2 ms-auto">
-                        <button class="btn btn-sm btn-outline-light" onclick="zoomManga(0.1)" title="放大"><i class="bi bi-zoom-in"></i></button>
-                        <button class="btn btn-sm btn-outline-light" onclick="zoomManga(-0.1)" title="縮小"><i class="bi bi-zoom-out"></i></button>
-                        <button class="btn btn-sm btn-outline-light" onclick="resetZoomManga()" title="適應寬度"><i class="bi bi-arrows-angle-contract"></i></button>
+                        <div class="input-group input-group-sm d-none d-md-flex" style="width: 220px;">
+                            <input type="text" id="mangaHeaderSearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋漫畫..." onkeydown="if(event.key==='Enter') searchMangaFromHeader(this.value)">
+                            <button class="btn btn-outline-primary" type="button" onclick="searchMangaFromHeader(document.getElementById('mangaHeaderSearchInput').value)" title="搜尋漫畫"><i class="bi bi-search"></i></button>
+                        </div>
+                        <button class="btn btn-sm btn-outline-light rounded-pill px-2" id="mangaPrevChapterBtn" onclick="prevMangaChapter()" title="上一話"><i class="bi bi-chevron-left"></i> 上一話</button>
+                        <button class="btn btn-sm btn-outline-light rounded-pill px-2" id="mangaNextChapterBtn" onclick="nextMangaChapter()" title="下一話">下一話 <i class="bi bi-chevron-right"></i></button>
+                        <button class="btn btn-sm btn-outline-primary rounded-pill px-2" onclick="openMangaChapterPicker()" title="選擇章節"><i class="bi bi-list-ul"></i> 選集</button>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-sm btn-outline-secondary text-light" onclick="zoomManga(0.1)" title="放大"><i class="bi bi-zoom-in"></i></button>
+                            <button class="btn btn-sm btn-outline-secondary text-light" onclick="zoomManga(-0.1)" title="縮小"><i class="bi bi-zoom-out"></i></button>
+                            <button class="btn btn-sm btn-outline-secondary text-light" onclick="resetZoomManga()" title="適應寬度"><i class="bi bi-arrows-angle-contract"></i></button>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="closeCurrentManga()" title="關閉當前漫畫回到待命">
+                            <i class="bi bi-x-circle"></i> 關閉當前漫畫
+                        </button>
                         <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal" aria-label="關閉"></button>
                     </div>
                 </div>
-                <!-- 預設純淨空白畫面 (不載入假頁面) -->
+                <!-- 漫畫條漫捲軸主容器 (支援瀑布流與待命畫面) -->
                 <div class="modal-body p-0 overflow-auto d-flex justify-content-center" id="mangaScrollContainer" style="background: #111;">
                     <div class="manga-page-list text-center py-3" id="mangaPageWrapper" style="max-width: 820px; width: 100%; transition: transform 0.2s ease;">
-                        <div class="text-center text-secondary py-5 my-5" id="tachimangaPlaceholder">
-                            <i class="bi bi-book fs-1 d-block mb-3 opacity-50"></i>
-                            <p class="fs-5 fw-semibold mb-1 text-light">漫畫閱覽器（待命狀態）</p>
-                            <span class="small opacity-75">尚未載入漫畫內容，請先選擇作品章節</span>
+                        <!-- 待命狀態搜尋區 -->
+                        <div class="text-center py-5 my-5 px-3" id="tachimangaPlaceholder" style="max-width: 500px; margin: 0 auto; color: #cbd5e1;">
+                            <i class="bi bi-book fs-1 d-block mb-3 text-primary opacity-75"></i>
+                            <h5 class="fw-bold text-white mb-1">條漫閱覽器（待命狀態）</h5>
+                            <p class="small mb-3" style="color: #cbd5e1;">輸入漫畫作品名稱即可全網檢索章節並開啟無縫條漫閱讀</p>
+                            
+                            <div class="input-group input-group-sm shadow-sm">
+                                <span class="input-group-text bg-dark text-white-50 border-secondary"><i class="bi bi-search"></i></span>
+                                <input type="text" id="mangaStandbySearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋漫畫名稱..." onkeydown="if(event.key==='Enter') searchMangaFromStandby()">
+                                <button class="btn btn-primary px-3 fw-semibold" type="button" onclick="searchMangaFromStandby()">
+                                    搜尋漫畫
+                                </button>
+                            </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2.5 Tachimanga 漫畫來源與選集抽屜 Modal -->
+    <div class="modal fade" id="mangaSourceModal" tabindex="-1" aria-labelledby="mangaSourceModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-dark text-white border-secondary rounded-4 shadow-lg overflow-hidden">
+                <div class="modal-header border-bottom border-secondary py-3 px-4 bg-black">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary">漫畫</span>
+                        <h5 class="modal-title fw-bold mb-0" id="mangaSourceModalLabel">漫畫搜尋與章節選集</h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body p-4 bg-dark">
+                    <!-- 搜尋列 -->
+                    <div class="input-group input-group-sm mb-3">
+                        <span class="input-group-text bg-black border-secondary text-secondary"><i class="bi bi-search"></i></span>
+                        <input type="text" id="mangaDrawerKeywordInput" class="form-control bg-black border-secondary text-white" placeholder="輸入漫畫名稱..." onkeydown="if(event.key==='Enter') searchMangaFromDrawer(this.value)">
+                        <button class="btn btn-primary" type="button" onclick="searchMangaFromDrawer(document.getElementById('mangaDrawerKeywordInput').value)">檢索漫畫</button>
+                    </div>
+
+                    <!-- 當前選擇漫畫摘要 (選中漫畫後顯示) -->
+                    <div id="mangaSelectedSummaryBox" class="d-none align-items-center gap-3 p-3 bg-black bg-opacity-50 rounded-3 border border-secondary mb-3">
+                        <img id="mangaSelectedCover" src="" alt="封面" class="rounded-2 shadow-sm" style="width: 72px; height: 96px; object-fit: cover;">
+                        <div class="overflow-hidden flex-grow-1">
+                            <h5 id="mangaSelectedTitle" class="fw-bold text-white mb-1 text-truncate">漫畫名稱</h5>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-primary-subtle text-primary" id="mangaSelectedAuthor">作者資訊</span>
+                                <span class="badge bg-secondary border border-secondary text-white" id="mangaSelectedChapterCount">共 0 話</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="backToMangaSearchResults()"><i class="bi bi-arrow-left"></i> 重選作品</button>
+                    </div>
+
+                    <!-- 搜尋結果卡片清單 / 章節選集容器 -->
+                    <div id="mangaSearchResultsContainer" class="d-flex flex-column gap-2" style="max-height: 420px; overflow-y: auto;">
+                        <div class="text-secondary text-center py-4">輸入片名開始檢索全網漫畫庫</div>
                     </div>
                 </div>
             </div>
@@ -462,33 +867,143 @@
     <div class="modal fade" id="novelReaderModal" tabindex="-1" aria-labelledby="novelModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen">
             <div class="modal-content border-0 novel-theme-sepia" id="novelContentContainer">
-                <div class="modal-header border-bottom py-2 px-4 shadow-sm">
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="badge bg-success">Legado Reader</span>
-                        <h6 class="modal-title fw-bold mb-0" id="novelBookTitle">沉浸小說閱讀</h6>
-                        <span class="text-muted small" id="novelChapterTitle"></span>
+                <!-- 頂部小說控制列 -->
+                <div class="modal-header border-bottom py-2 px-3 px-md-4 shadow-sm" id="novelHeader">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-success">小說閱讀器</span>
+                        <h6 class="modal-title fw-bold mb-0 text-truncate" id="novelBookTitle" style="max-width: 200px;">沉浸小說閱讀</h6>
+                        <span class="badge bg-success-subtle text-success small" id="novelChapterBadge">尚未選擇章節</span>
                     </div>
-                    <!-- 控制組居右，關閉 X 置於最右上角 -->
+                    <!-- 控制組居右，支援選集、上一章/下一章、搜尋、縮放、關閉當前小說與關閉 X -->
                     <div class="d-flex align-items-center gap-2 ms-auto">
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-secondary active" onclick="setNovelTheme('sepia')">📜 羊皮紙</button>
-                            <button class="btn btn-outline-secondary" onclick="setNovelTheme('white')">☀️ 純白</button>
-                            <button class="btn btn-outline-secondary" onclick="setNovelTheme('dark')">🌙 暗黑</button>
+                        <div class="input-group input-group-sm d-none d-lg-flex" style="width: 200px;">
+                            <input type="text" id="novelHeaderSearchInput" class="form-control" placeholder="搜尋小說..." onkeydown="if(event.key==='Enter') searchNovelFromHeader(this.value)">
+                            <button class="btn btn-outline-success" type="button" onclick="searchNovelFromHeader(document.getElementById('novelHeaderSearchInput').value)" title="搜尋小說"><i class="bi bi-search"></i></button>
                         </div>
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-2" id="novelHeaderPrevBtn" onclick="switchNovelChapter(-1)" title="上一章"><i class="bi bi-chevron-left"></i> 上一章</button>
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-2" id="novelHeaderNextBtn" onclick="switchNovelChapter(1)" title="下一章">下一章 <i class="bi bi-chevron-right"></i></button>
+                        <button class="btn btn-sm btn-outline-success rounded-pill px-2" onclick="openNovelChapterPicker()" title="選擇章節目錄"><i class="bi bi-list-ul"></i> 目錄</button>
+                        
+                        <!-- 主題切換 -->
                         <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-secondary" onclick="adjustNovelFontSize(-2)">A-</button>
-                            <button class="btn btn-outline-secondary" onclick="adjustNovelFontSize(2)">A+</button>
+                            <button class="btn btn-outline-secondary active" id="novelThemeSepiaBtn" onclick="setNovelTheme('sepia')" title="羊皮紙護眼黃">📜 羊皮紙</button>
+                            <button class="btn btn-outline-secondary" id="novelThemeWhiteBtn" onclick="setNovelTheme('white')" title="純淨白">☀️ 純白</button>
+                            <button class="btn btn-outline-secondary" id="novelThemeDarkBtn" onclick="setNovelTheme('dark')" title="夜間深黑">🌙 暗黑</button>
                         </div>
-                        <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="關閉"></button>
+
+                        <!-- 自訂字體顏色 -->
+                        <div class="d-flex align-items-center gap-1 border border-secondary border-opacity-25 rounded-pill px-2 py-1 bg-body-tertiary bg-opacity-25" title="自訂閱讀字體顏色">
+                            <i class="bi bi-palette text-secondary small"></i>
+                            <input type="color" id="novelCustomColorPicker" class="form-control form-control-color border-0 p-0" style="width: 20px; height: 20px; cursor: pointer; background: transparent;" value="#2d241e" oninput="setNovelCustomTextColor(this.value)" title="自訂正文字體顏色">
+                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-secondary opacity-75" onclick="resetNovelCustomTextColor()" title="重置為預設主題顏色" style="font-size: 0.75rem;"><i class="bi bi-arrow-counterclockwise"></i></button>
+                        </div>
+
+                        <!-- 字級大小 -->
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="adjustNovelFontSize(-2)" title="縮小字體">A-</button>
+                            <button class="btn btn-outline-secondary" onclick="adjustNovelFontSize(2)" title="放大字體">A+</button>
+                        </div>
+
+                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="closeCurrentNovel()" title="關閉當前小說回到待命">
+                            <i class="bi bi-x-circle"></i> 關閉當前小說
+                        </button>
+                        <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="關閉" onclick="closeNovelReader()"></button>
                     </div>
                 </div>
-                <!-- 預設純淨空白畫面 (不載入假小說) -->
+
+                <!-- 小說閱讀主容器 (支援沉浸閱讀與待命畫面) -->
                 <div class="modal-body p-4 p-md-5 overflow-auto" id="novelBodyWrapper">
                     <div class="novel-article-box mx-auto" style="max-width: 760px; line-height: 2.1; font-size: 18px;" id="novelArticleContent">
-                        <div class="text-center text-secondary py-5 my-5" id="legadoPlaceholder">
-                            <i class="bi bi-journal-text fs-1 d-block mb-3 opacity-50"></i>
-                            <p class="fs-5 fw-semibold mb-1 text-dark">小說閱讀器（待命狀態）</p>
-                            <span class="small opacity-75">尚未載入小說內容，請先選擇章節開始閱讀</span>
+                        <!-- 待命狀態搜尋區 (未載入小說時顯示) -->
+                        <div class="text-center text-secondary py-5 my-4 px-3" id="legadoPlaceholder" style="max-width: 540px; margin: 0 auto;">
+                            <i class="bi bi-journal-text fs-1 d-block mb-3 text-success opacity-75"></i>
+                            <h5 class="fw-bold text-dark mb-1">沉浸小說閱讀器（待命狀態）</h5>
+                            <p class="small text-muted mb-3">輸入小說作品名稱或作者即可全網檢索章節並開啟沉浸式閱讀</p>
+                            
+                            <div class="input-group input-group-sm shadow-sm">
+                                <span class="input-group-text bg-white border-secondary-subtle text-secondary"><i class="bi bi-search"></i></span>
+                                <input type="text" id="novelStandbySearchInput" class="form-control border-secondary-subtle" placeholder="搜尋小說書名或作者..." onkeydown="if(event.key==='Enter') searchNovelFromStandby()">
+                                <button class="btn btn-success px-3 fw-semibold" type="button" onclick="searchNovelFromStandby()">
+                                    搜尋小說
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 沉浸式章節內文區 -->
+                        <div id="novelReadingArea" style="display: none;">
+                            <h3 class="fw-bold mb-4 pb-3 border-bottom" id="novelChapterHeading"></h3>
+                            <div id="novelChapterParagraphs" class="novel-paragraphs mb-5">
+                                <!-- 動態渲染段落 -->
+                            </div>
+
+                            <!-- 章節切換底部按鈕 -->
+                            <div class="d-flex justify-content-between align-items-center mt-5 pt-4 border-top mx-auto" style="max-width: 760px;">
+                                <button class="btn btn-outline-secondary" id="novelBottomPrevBtn" onclick="switchNovelChapter(-1)"><i class="bi bi-chevron-left"></i> 上一章</button>
+                                <button class="btn btn-outline-success" onclick="openNovelChapterPicker()"><i class="bi bi-list-ul"></i> 章節目錄</button>
+                                <button class="btn btn-outline-secondary" id="novelBottomNextBtn" onclick="switchNovelChapter(1)">下一章 <i class="bi bi-chevron-right"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3.5 Legado 小說來源與選集抽屜 Modal -->
+    <div class="modal fade" id="novelSourceModal" tabindex="-1" aria-labelledby="novelSourceModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-dark text-white border-secondary rounded-4 shadow-lg overflow-hidden">
+                <div class="modal-header border-bottom border-secondary py-3 px-4 bg-black">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-success">小說</span>
+                        <h5 class="modal-title fw-bold mb-0" id="novelSourceModalLabel">小說搜尋與章節選集</h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body p-4 bg-dark">
+                    <!-- 書源切換按鈕列 (仿 Kazumi 多來源切換: Wenku8 vs Bilinovel) -->
+                    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="small text-white-50 fw-semibold"><i class="bi bi-hdd-network"></i> 小說書源：</span>
+                            <div class="d-flex align-items-center gap-2" role="group" aria-label="小說書源切換">
+                                <button type="button" class="btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold novel-source-pill" id="sourcePill-wenku8" onclick="setNovelSource('wenku8')">
+                                    <i class="bi bi-book me-1"></i> 輕小說文庫 (Wenku8)
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill" id="sourcePill-bilinovel" onclick="setNovelSource('bilinovel')">
+                                    <i class="bi bi-journal-richtext me-1"></i> 嗶哩輕小說 (Bilinovel)
+                                </button>
+                            </div>
+                        </div>
+                        <span class="badge bg-dark border border-secondary text-white-50 small" id="currentNovelSourceBadge">當前：輕小說文庫</span>
+                    </div>
+
+                    <!-- 獨立檢索列：無寬度限制、直覺、防文字截斷 -->
+                    <div class="input-group mb-3">
+                        <input type="text" id="novelDrawerKeywordInput" class="form-control bg-black border-secondary text-white py-2" placeholder="輸入輕小說名稱或作者（如：果然我的青春、詭秘之主、芙莉蓮）..." onkeydown="if(event.key==='Enter') searchNovelFromDrawer(this.value)">
+                        <button class="btn btn-success px-4 fw-semibold" type="button" onclick="searchNovelFromDrawer(document.getElementById('novelDrawerKeywordInput').value)">
+                            <i class="bi bi-search me-1"></i> 檢索小說
+                        </button>
+                    </div>
+
+                    <!-- 當前選擇小說摘要 (選中小說後顯示) -->
+                    <div id="novelSelectedSummaryBox" class="d-none align-items-center gap-3 p-3 bg-black bg-opacity-50 rounded-3 border border-secondary mb-3">
+                        <img id="novelSelectedCover" src="" alt="封面" class="rounded-2 shadow-sm" style="width: 72px; height: 96px; object-fit: cover;">
+                        <div class="overflow-hidden flex-grow-1">
+                            <h5 id="novelSelectedTitle" class="fw-bold text-white mb-1 text-truncate">小說名稱</h5>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="badge bg-success-subtle text-success" id="novelSelectedAuthor">作者資訊</span>
+                                <span class="badge bg-secondary border border-secondary text-white" id="novelSelectedChapterCount">共 0 章</span>
+                            </div>
+                            <p class="small text-white-50 mb-0 text-truncate" id="novelSelectedIntro"></p>
+                        </div>
+                        <button class="btn btn-sm btn-outline-light text-white px-3" onclick="backToNovelSearchResults()"><i class="bi bi-arrow-left"></i> 重選作品</button>
+                    </div>
+
+                    <!-- 搜尋結果卡片清單 / 章節選集容器 (強制 overflow-x: hidden 防止橫向滾動條) -->
+                    <div id="novelSearchResultsContainer" style="max-height: 480px; overflow-y: auto; overflow-x: hidden !important;">
+                        <div class="text-center py-5 text-secondary">
+                            <i class="bi bi-book-half fs-2 d-block mb-2 text-success opacity-75"></i>
+                            <div>輸入小說關鍵字或由主頁熱門點擊檢索</div>
                         </div>
                     </div>
                 </div>
@@ -640,6 +1155,12 @@
                 }
                 if (typeof window.switchCalendarWeekday === 'function') {
                     window.switchCalendarWeekday(today);
+                } else {
+                    setTimeout(() => {
+                        if (typeof window.switchCalendarWeekday === 'function') {
+                            window.switchCalendarWeekday(today);
+                        }
+                    }, 200);
                 }
             } catch (e) {
                 console.error("載入時間表失敗", e);
