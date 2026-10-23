@@ -146,7 +146,11 @@ async function handleSyncRoute(req, res) {
         if (pathname === '/api/user/bookmarks' || pathname === '/api/bookmarks') {
             // GET: 從伺服器拉取該帳號最新收藏
             if (req.method === 'GET') {
-                const username = query.user || getDefaultActiveUser();
+                let username = query.user || getDefaultActiveUser();
+                // 智慧帳號歸屬映射：若前端未登入或為展示帳號，自動對齊當前活躍實體帳號 (如 jyun)
+                if ((username === '期末展示學生' || username === 'default') && getDefaultActiveUser() !== 'default') {
+                    username = getDefaultActiveUser();
+                }
                 const filePath = getUserFilePath(username);
 
                 if (!fs.existsSync(filePath)) {
@@ -179,7 +183,10 @@ async function handleSyncRoute(req, res) {
             // POST: 將客戶端收藏寫入伺服器端檔案 (支援整包覆蓋與 Tampermonkey 單筆快速插入)
             else if (req.method === 'POST') {
                 const body = await parseRequestBody(req);
-                const username = body.user || query.user || getDefaultActiveUser();
+                let username = body.user || query.user || getDefaultActiveUser();
+                if ((username === '期末展示學生' || username === 'default') && getDefaultActiveUser() !== 'default') {
+                    username = getDefaultActiveUser();
+                }
                 const filePath = getUserFilePath(username);
 
                 let currentData = { user: sanitizeUsername(username), count: 0, bookmarks: [] };
@@ -191,8 +198,19 @@ async function handleSyncRoute(req, res) {
                 }
 
                 if (Array.isArray(body.bookmarks)) {
-                    // 情境 A: 前端整批雙向同步或覆蓋更新
-                    currentData.bookmarks = body.bookmarks;
+                    // 情境 A: 前端整批雙向同步或覆蓋更新 (全面標準化所有欄位，確保 id 絕不缺失)
+                    currentData.bookmarks = body.bookmarks.map((b, idx) => ({
+                        id: b.id || ('bm_' + (Date.now() + idx)),
+                        title: (b.title || '未命名網頁').trim(),
+                        url: (b.url || '').trim(),
+                        category: b.category || 'web',
+                        tags: Array.isArray(b.tags) ? b.tags : (b.tags ? [b.tags] : []),
+                        cover: b.cover || b.coverUrl || '',
+                        desc: b.desc || b.description || '',
+                        pinned: !!b.pinned,
+                        clicks: typeof b.clicks === 'number' ? b.clicks : 0,
+                        createdAt: b.createdAt || new Date().toISOString()
+                    }));
                 } else {
                     // 情境 B: 篡改猴插件 (Tampermonkey) 單筆快速收藏
                     const bm = body.bookmark || body;

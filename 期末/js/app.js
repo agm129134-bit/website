@@ -18,7 +18,7 @@ const state = {
     searchQuery: "",
     sortMode: "newest",
     viewMode: "grid", // 'grid' | 'list'
-    currentUser: "期末展示學生",
+    currentUser: localStorage.getItem("web_library_user") || "jyun",
     apiToken: "usr_tok_8f92ab3c71e041d8b991a",
     isBatchMode: false,
     selectedBookmarkIds: new Set()
@@ -154,8 +154,9 @@ async function syncToServer(immediate = false) {
 // 從伺服器拉取跨裝置收藏 (支援平滑雙向合併，防止已被刪除的項目復活)
 async function syncFromServer(username, isFocusSync = false) {
     if (_isLocalMutationActive) return; // 正在進行本地刪除/修改，不覆蓋
-    const user = username || state.currentUser;
-    if (!user || user === "訪客") return;
+    let user = username || state.currentUser;
+    if (!user || user === "期末展示學生" || user === "default") user = "jyun";
+    if (user === "訪客") return;
     try {
         const res = await fetch(`/api/user/bookmarks?user=${encodeURIComponent(user)}`);
         if (!res.ok) return;
@@ -2044,7 +2045,16 @@ function sendIframePlaybackCommand(cmd, time = 0) {
     const iframe = document.getElementById("kazumiIframePlayer");
     if (!iframe || !iframe.contentWindow) return;
 
+    const targetSec = Math.max(0, Math.floor(time));
+
     try {
+        // 0. Tampermonkey Bridge 專屬高優先度直達控制
+        iframe.contentWindow.postMessage({
+            target: 'kazumi_iframe_video',
+            action: cmd,
+            time: targetSec
+        }, '*');
+
         if (cmd === 'pause') {
             // YouTube
             iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
@@ -2059,7 +2069,6 @@ function sendIframePlaybackCommand(cmd, time = 0) {
             iframe.contentWindow.postMessage({ event: 'play' }, '*');
             iframe.contentWindow.postMessage({ action: 'play' }, '*');
         } else if (cmd === 'seek') {
-            const targetSec = Math.max(0, Math.floor(time));
             // YouTube
             iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [targetSec, true] }), '*');
             // DPlayer / ArtPlayer / Bilibili
@@ -2672,10 +2681,39 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 支援 iframe 播放器透過 postMessage 進行暫停/播放/時間軸雙向通知
+    // 支援 iframe 播放器透過 postMessage 進行暫停/播放/時間軸雙向通知 (相容 Tampermonkey Bridge 與通用協議)
     window.addEventListener("message", (event) => {
         try {
             const data = event.data;
+            if (!data) return;
+
+            // 1. 優先處理來自 Tampermonkey Bridge 的高精度雙向回報
+            if (data.source === 'kazumi_player_bridge') {
+                const time = Number(data.currentTime);
+                const duration = Number(data.duration) || getDanmakuMaxDuration();
+
+                if (data.type === 'pause') {
+                    window.pauseDanmaku();
+                } else if (data.type === 'play') {
+                    window.resumeDanmaku();
+                } else if (data.type === 'timeupdate' || data.type === 'seek' || data.type === 'seeking' || data.type === 'seeked' || data.type === 'ready') {
+                    if (!isNaN(time) && time >= 0) {
+                        virtualDanmakuTime = time;
+                        updateDanmakuTimeDisplay(time, duration);
+                    }
+                    if (data.type === 'seek' || data.type === 'seeked') {
+                        // 彈幕隊列同步跳轉重對齊
+                        if (currentDanmakuQueue && currentDanmakuQueue.length > 0) {
+                            currentDanmakuQueue.forEach(item => {
+                                item._fired = (item.numericTime < time);
+                            });
+                        }
+                    }
+                }
+                return;
+            }
+
+            // 2. 通用 postMessage 協議 (Bilibili, YouTube, DPlayer, ArtPlayer)
             if (data === "pause" || data?.event === "pause" || data?.type === "pause" || data?.action === "pause") {
                 window.pauseDanmaku();
             } else if (data === "play" || data?.event === "play" || data?.type === "play" || data?.action === "play") {
