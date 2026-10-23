@@ -491,6 +491,7 @@
         imgWrap.style.cssText = "width: 100%; height: 120px; background: #f1f5f9; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;";
         const previewImg = document.createElement("img");
         previewImg.id = "wl-img-preview";
+        previewImg.setAttribute("referrerpolicy", "no-referrer");
         previewImg.style.cssText = "width: 100%; height: 100%; object-fit: cover;";
         imgWrap.appendChild(previewImg);
         coverBox.appendChild(imgWrap);
