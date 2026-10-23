@@ -292,8 +292,17 @@ async function fetchDandanplayDanmaku(animeTitle, episodeIndex = 1, appId = '', 
 
         if (episodes.length === 0) return null;
 
-        // 匹配集數
-        let targetEp = episodes.find(e => parseInt(e.episodeNumber, 10) === episodeIndex) || episodes[0];
+        // 匹配集數 (嚴格分集匹配，絕不盲目 fallback 至第 1 集，確保各集彈幕獨立精確)
+        let targetEp = episodes.find(e => parseInt(e.episodeNumber, 10) === episodeIndex)
+                    || episodes.find(e => (e.episodeTitle || '').includes(`第${episodeIndex}`))
+                    || episodes.find(e => (e.episodeTitle || '').includes(String(episodeIndex).padStart(2, '0')));
+        if (!targetEp) {
+            if (episodeIndex === 1 && episodes.length > 0) {
+                targetEp = episodes[0];
+            } else {
+                return null;
+            }
+        }
         const episodeId = targetEp.episodeId;
 
         // 2. 獲取彈幕（附帶全網關聯彈幕 withRelated=true，自動繁體中文轉換 chConvert=1）
@@ -519,7 +528,7 @@ async function handleKazumiRoute(req, res) {
                 }
             }
 
-            // B. 若無 cid 但有片名（或使用者選擇 Bilibili 官方直連），自動向 Bilibili 檢索獲取真實 CID
+            // B. 若無 cid 但有片名（或使用者選擇 Bilibili 官方直連），依集數獨立檢索各集彈幕最多之真實 CID
             if (!cid && anime) {
                 try {
                     // 淨化片名 (去除集數、季數與多餘標點)
@@ -529,21 +538,28 @@ async function handleKazumiRoute(req, res) {
                         .replace(/(Season\s*\d+|S\d+)/gi, '')
                         .trim();
 
-                    // 候選搜尋詞組合 (優先精準第X話，次選第X集，最後純片名；並加上 order=dm 依彈幕量降序排列)
+                    const epPad = String(epNum).padStart(2, '0');
+                    const epRegex = new RegExp(`(?:第\\s*(?:0?${epNum})\\s*[話集期]|ep\\s*(?:0?${epNum})\\b|\\b0?${epNum}\\s*[話集]|\\bEP${epNum}\\b|\\b${epPad}\\b)`, 'i');
+                    const noiseRegex = /(导视|吐槽|漫谈|手办|联动|第五人格|reaction|原声带|OST|纯音乐|二创|解说)/i;
+
+                    // 1. 先搜尋特定集數候選詞組合 (包含第X話、第X集、EP X、0X)
                     const searchQueries = [
                         `${cleanKeyword} 第${epNum}話`,
+                        `${cleanKeyword} 第${epPad}話`,
                         `${cleanKeyword} 第${epNum}集`,
-                        `${cleanKeyword}`
+                        `${cleanKeyword} 第${epPad}集`,
+                        `${cleanKeyword} EP${epNum}`,
+                        `${cleanKeyword} EP${epPad}`
                     ];
 
-                    let foundBvid = null;
+                    let matchedCandidates = [];
                     for (const q of searchQueries) {
-                        // 關鍵加強：order=dm 確保優先檢索到彈幕量最大的熱門視頻
                         const bSearchUrl = `https://api.bilibili.com/x/web-interface/search/type?search_type=video&keyword=${encodeURIComponent(q)}&order=dm`;
                         const bRes = await fetchWithTimeout(bSearchUrl, {
                             headers: {
-                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
-                                'Referer': 'https://www.bilibili.com/'
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                                'Referer': 'https://www.bilibili.com/',
+                                'Accept': 'application/json, text/plain, */*'
                             }
                         }, 3500);
 
@@ -551,34 +567,89 @@ async function handleKazumiRoute(req, res) {
                             const bData = await bRes.json();
                             const items = bData?.data?.result;
                             if (Array.isArray(items) && items.length > 0) {
-                                // 依彈幕數量 (danmaku) 降序排序，確保挑選彈幕最多之作品
-                                items.sort((a, b) => (parseInt(b.danmaku, 10) || 0) - (parseInt(a.danmaku, 10) || 0));
-                                if (items[0]?.bvid) {
-                                    foundBvid = items[0].bvid;
+                                for (const it of items) {
+                                    const cleanT = (it.title || '').replace(/<[^>]+>/g, '');
+                                    const dm = parseInt(it.danmaku, 10) || 0;
+                                    // 排除顯而易見的雜訊 (遊戲聯動、導視等)
+                                    if (noiseRegex.test(cleanT)) continue;
+                                    // 檢查標題是否吻合該集
+                                    if (epRegex.test(cleanT) || epNum === 1) {
+                                        matchedCandidates.push({ bvid: it.bvid, title: cleanT, danmaku: dm });
+                                    }
+                                }
+                                if (matchedCandidates.length >= 6) break;
+                            }
+                        }
+                    }
+
+                    // 依該集彈幕數量 (danmaku) 嚴格降序排序，確保選出該集最多彈幕
+                    matchedCandidates.sort((a, b) => b.danmaku - a.danmaku);
+
+                    // 嘗試從候選視頻中解析出真實 CID
+                    for (const cand of matchedCandidates) {
+                        const pageRes = await fetchWithTimeout(`https://api.bilibili.com/x/player/pagelist?bvid=${cand.bvid}`, {
+                            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' }
+                        }, 3000);
+                        if (pageRes.ok) {
+                            const pageData = await pageRes.json();
+                            const pages = pageData?.data;
+                            if (Array.isArray(pages) && pages.length > 0) {
+                                // 若為多P視頻：先按 part 匹配集數，次按 index 匹配
+                                if (pages.length >= epNum) {
+                                    const targetP = pages.find(p => epRegex.test(p.part)) || pages[epNum - 1];
+                                    if (targetP?.cid) {
+                                        cid = targetP.cid.toString();
+                                        break;
+                                    }
+                                } else if (pages.length === 1 && epRegex.test(cand.title)) {
+                                    // 單集獨立視頻 (標題明確標註為該集)
+                                    cid = pages[0].cid.toString();
                                     break;
                                 }
                             }
                         }
                     }
 
-                    if (foundBvid) {
-                        const pageRes = await fetchWithTimeout(`https://api.bilibili.com/x/player/pagelist?bvid=${foundBvid}`, {
-                            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36' }
+                    // 2. 若特定集數搜尋未果，搜尋合集 (Multi-P) 全集視頻
+                    if (!cid) {
+                        const allSearchUrl = `https://api.bilibili.com/x/web-interface/search/type?search_type=video&keyword=${encodeURIComponent(cleanKeyword)}&order=dm`;
+                        const allRes = await fetchWithTimeout(allSearchUrl, {
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                                'Referer': 'https://www.bilibili.com/',
+                                'Accept': 'application/json, text/plain, */*'
+                            }
                         }, 3500);
-                        if (pageRes.ok) {
-                            const pageData = await pageRes.json();
-                            const pages = pageData?.data;
-                            if (Array.isArray(pages) && pages.length > 0) {
-                                // 若有多分P，嘗試尋找對應集數，否則取第一P
-                                const targetP = pages[epNum - 1] || pages[0];
-                                if (targetP?.cid) {
-                                    cid = targetP.cid.toString();
+
+                        if (allRes.ok) {
+                            const allData = await allRes.json();
+                            const allItems = allData?.data?.result;
+                            if (Array.isArray(allItems)) {
+                                for (const it of allItems.slice(0, 8)) {
+                                    const cleanT = (it.title || '').replace(/<[^>]+>/g, '');
+                                    if (noiseRegex.test(cleanT)) continue;
+
+                                    const pageRes = await fetchWithTimeout(`https://api.bilibili.com/x/player/pagelist?bvid=${it.bvid}`, {
+                                        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' }
+                                    }, 3000);
+                                    if (pageRes.ok) {
+                                        const pageData = await pageRes.json();
+                                        const pages = pageData?.data;
+                                        // 必須含有對應集數，嚴禁 epNum > 1 時回退到 pages[0]！
+                                        if (Array.isArray(pages) && pages.length >= epNum) {
+                                            const targetP = pages.find(p => epRegex.test(p.part)) || pages[epNum - 1];
+                                            if (targetP?.cid) {
+                                                cid = targetP.cid.toString();
+                                                break;
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 } catch (bSearchErr) {
-                    console.log('[Kazumi Danmaku] B站片名 CID 動態反查略過:', bSearchErr.message);
+                    console.log('[Kazumi Danmaku] B站分集 CID 動態反查略過:', bSearchErr.message);
                 }
             }
 

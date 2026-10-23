@@ -28,7 +28,7 @@
 
     // 讀取設定與儲存的位置
     const config = {
-        get serverUrl() { return GM_getValue("wl_server_url", "http://localhost:8080/api/bookmarks"); },
+        get serverUrl() { return GM_getValue("wl_server_url", "http://localhost:8000/api/bookmarks"); },
         set serverUrl(v) { GM_setValue("wl_server_url", v); },
         get apiToken() { return GM_getValue("wl_api_token", "usr_tok_8f92ab3c71e041d8b991a"); },
         set apiToken(v) { GM_setValue("wl_api_token", v); },
@@ -582,34 +582,58 @@
         }
     }
 
-    // 6. 送出資料
+    // 6. 送出資料 (具備 8000 / 8080 自動切換與降級防護)
     function submitBookmark(payload) {
         const btn = document.getElementById("wl-submit-btn");
         btn.disabled = true;
         btn.textContent = "傳送中...";
 
-        GM_xmlhttpRequest({
-            method: "POST",
-            url: config.serverUrl,
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${config.apiToken}`
-            },
-            data: JSON.stringify(payload),
-            timeout: 3500,
-            onload: function(res) {
-                btn.disabled = false;
-                btn.textContent = "確認收藏";
-                if (res.status >= 200 && res.status < 300) {
-                    showNotice("🎉 成功收藏至 Web Library！");
-                    document.getElementById("wl-collector-modal").style.setProperty("display", "none", "important");
-                } else {
-                    handleLocalFallback(payload);
+        const tryUrl = (targetUrl, isRetry = false) => {
+            GM_xmlhttpRequest({
+                method: "POST",
+                url: targetUrl,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${config.apiToken}`
+                },
+                data: JSON.stringify(payload),
+                timeout: 3000,
+                onload: function(res) {
+                    if (res.status >= 200 && res.status < 300) {
+                        btn.disabled = false;
+                        btn.textContent = "確認收藏";
+                        showNotice("🎉 成功收藏至 Web Library！");
+                        document.getElementById("wl-collector-modal").style.setProperty("display", "none", "important");
+                    } else if (!isRetry) {
+                        // 嘗試反向端口 (8000 <-> 8080)
+                        const altUrl = targetUrl.includes("8000") 
+                            ? targetUrl.replace("8000", "8080") 
+                            : targetUrl.replace("8080", "8000");
+                        tryUrl(altUrl, true);
+                    } else {
+                        handleLocalFallback(payload);
+                    }
+                },
+                ontimeout: () => {
+                    if (!isRetry) {
+                        const altUrl = targetUrl.includes("8000") ? targetUrl.replace("8000", "8080") : targetUrl.replace("8080", "8000");
+                        tryUrl(altUrl, true);
+                    } else {
+                        handleLocalFallback(payload);
+                    }
+                },
+                onerror: () => {
+                    if (!isRetry) {
+                        const altUrl = targetUrl.includes("8000") ? targetUrl.replace("8000", "8080") : targetUrl.replace("8080", "8000");
+                        tryUrl(altUrl, true);
+                    } else {
+                        handleLocalFallback(payload);
+                    }
                 }
-            },
-            ontimeout: () => { handleLocalFallback(payload); },
-            onerror: () => { handleLocalFallback(payload); }
-        });
+            });
+        };
+
+        tryUrl(config.serverUrl);
     }
 
     function handleLocalFallback(payload) {
