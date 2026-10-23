@@ -1,14 +1,13 @@
 // ==UserScript==
-// @name         網頁圖書館快速收藏助手 (Web Library Collector)
+// @name         網頁圖書館快速收藏助手 (Web Library Collector & Theater Bridge)
 // @namespace    http://tampermonkey.net/
-// @version      1.4.0
-// @description  完美相容 YouTube (Trusted Types)、Bangumi (防放大)、支援自由拖曳移動位置、開關懸浮球與 Alt + B 快捷鍵收藏！
+// @version      1.5.0
+// @description  完美相容 YouTube、Bangumi、動漫劇院全域影片/彈幕雙向秒級同步橋樑 (解決跨域 iframe 暫停/跳轉割裂)、自由拖曳移動位置、開關懸浮球與 Alt + B 快捷鍵收藏！
 // @author       Web System Design Student
 // @match        http://*/*
 // @match        https://*/*
 // @match        file:///*
 // @include      *
-// @noframes
 // @run-at       document-idle
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
@@ -21,9 +20,88 @@
 (function() {
     'use strict';
 
-    // 1. 頂層視窗檢查：防止被廣告或播放器 iframe 劫持
+    // 0. 動漫劇院 iframe 內部播放器雙向同步橋樑 (Bi-directional Video Bridge)
+    // 徹底解決任何第三方跨域播放器 (ArtPlayer, DPlayer, Bilibili, AGE, 7sefun) 與母網頁彈幕/時間軸割裂問題
     if (window.top !== window.self) {
+        initIframePlaybackBridge();
         return;
+    }
+
+    function initIframePlaybackBridge() {
+        let video = null;
+        let lastReportedTime = -1;
+        let isSeekingLocal = false;
+
+        function findAndHookVideo() {
+            video = document.querySelector('video');
+            if (!video) {
+                setTimeout(findAndHookVideo, 800);
+                return;
+            }
+
+            // 雙向同步：將 iframe 內真實影片狀態回傳給 Web Library 劇院母頁面
+            const notifyParent = (eventType, extra = {}) => {
+                try {
+                    window.top.postMessage({
+                        source: 'kazumi_player_bridge',
+                        type: eventType,
+                        currentTime: video.currentTime,
+                        duration: video.duration || 0,
+                        paused: video.paused,
+                        ...extra
+                    }, '*');
+                } catch (e) {}
+            };
+
+            video.addEventListener('play', () => notifyParent('play'));
+            video.addEventListener('pause', () => notifyParent('pause'));
+            video.addEventListener('ended', () => notifyParent('pause'));
+            video.addEventListener('seeking', () => {
+                isSeekingLocal = true;
+                notifyParent('seeking', { currentTime: video.currentTime });
+            });
+            video.addEventListener('seeked', () => {
+                isSeekingLocal = false;
+                notifyParent('seeked', { currentTime: video.currentTime });
+            });
+            video.addEventListener('timeupdate', () => {
+                if (isSeekingLocal) return;
+                // 每隔至少 0.35 秒或時間跨度較大時回傳一次，避免過度廣播
+                if (Math.abs(video.currentTime - lastReportedTime) >= 0.35) {
+                    lastReportedTime = video.currentTime;
+                    notifyParent('timeupdate', { currentTime: video.currentTime, duration: video.duration });
+                }
+            });
+
+            // 立即回報一次初始狀態
+            notifyParent('ready', { currentTime: video.currentTime, duration: video.duration });
+            console.log('[Web Library Tampermonkey Bridge] 🎬 已成功掛接 iframe 內置播放器！');
+        }
+
+        // 接收母頁面的主控指令（暫停、播放、進度軸跳轉）
+        window.addEventListener('message', (e) => {
+            if (!e.data || e.data.target !== 'kazumi_iframe_video') return;
+            if (!video) video = document.querySelector('video');
+            if (!video) return;
+
+            const action = e.data.action;
+            if (action === 'pause') {
+                video.pause();
+            } else if (action === 'play') {
+                video.play().catch(() => {});
+            } else if (action === 'seek') {
+                const targetTime = Number(e.data.time);
+                if (!isNaN(targetTime)) {
+                    video.currentTime = targetTime;
+                }
+            } else if (action === 'toggle') {
+                if (video.paused) video.play().catch(() => {});
+                else video.pause();
+            }
+        });
+
+        // 啟動輪詢探測原生 <video>
+        findAndHookVideo();
     }
 
     // 讀取設定與儲存的位置
@@ -543,13 +621,18 @@
         });
 
         submitBtn.addEventListener("click", () => {
+            const now = Date.now();
             submitBookmark({
-                title: titleInput.value.trim(),
+                id: 'bm_' + now + '_' + Math.random().toString(36).substring(2, 6),
+                title: titleInput.value.trim() || document.title || '未命名網頁',
                 url: window.location.href,
-                category: catSelect.value,
+                category: catSelect.value || 'web',
                 tags: tagInput.value.split(/[,，\s]+/).filter(Boolean),
                 cover: covInput.value.trim(),
-                desc: descArea.value.trim()
+                desc: descArea.value.trim(),
+                pinned: false,
+                clicks: 0,
+                createdAt: new Date().toISOString()
             });
         });
     }
@@ -597,11 +680,11 @@
                 timeout: 2500,
                 onload: function(getRes) {
                     let existing = [];
-                    let username = 'default';
+                    let username = 'jyun';
                     try {
                         const json = JSON.parse(getRes.responseText);
                         if (Array.isArray(json.bookmarks)) existing = json.bookmarks;
-                        if (json.user) username = json.user;
+                        if (json.user && json.user !== 'default' && json.user !== '期末展示學生') username = json.user;
                     } catch (e) {}
 
                     // 去除舊的相同 URL 並在頭部插入最新書籤
