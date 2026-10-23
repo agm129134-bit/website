@@ -1,8 +1,39 @@
 {
   "user": "jyun",
-  "count": 1,
-  "updatedAt": "2026-10-23T11:15:00.000Z",
+  "count": 3,
   "bookmarks": [
+    {
+      "id": "bm_1792754576187_hcz5",
+      "title": "Qwen3.8 27B赛博治疗完结篇，压制了雷霆思考能力比原版还强大的27B如何诞生的后训练全纪实",
+      "url": "https://www.bilibili.com/video/BV16VHm6sEYB/?spm_id_from=333.1007.top_right_bar_window_custom_collection.content.click&vd_source=e998dfa0046c15728462b51767d2c101",
+      "category": "video",
+      "tags": [
+        "Bilibili",
+        "B站",
+        "影音影片"
+      ],
+      "cover": "https://i2.hdslb.com/bfs/archive/7c4f5eb3e066074fb513c10fbc1eac4d9ea3ee61.jpg@1200w_630h",
+      "desc": "Qwen3.8 27B赛博治疗完结篇，终于完成了镇压雷霆思考（思考P90比较原版在GPQA，MMLU和LCB平均降低45%）且三项测评超过90，代码特别强化提升7个PP，因此这次版本叫Coder-390。静态FP8，NVFP4及Ninfer，GGUF Q2～Q8及NINFER不管你是16G显卡还是48G，不论是你达子哥还是MAC总有适合你的一款。接受大家上一版本建议全都焊接了MTP仓库也可以自选挂, 视频播放量 92218、弹幕量 136、点赞数 3040、投硬币枚数 1665、收藏人数 4927、转发人数 733, 视频作者 Merkyor, 作者简介 喜欢后训练的个人发者，相关视频：终极千问部署方案=ninfer+kvmem 首发！，比肩 Opus5.5、GPT-6 Astra！Qwen3.8-27B-Coder390 多模态 AI 模型本地部署+实测｜接入 DeepSeek Harness，Qwen3.8-27B劝退，对普通用户没意义。，8G显存本地跑 Qwen3.8-27B？KVMEM，Bonsai2，NInfer，引擎和模型全部备好！本地模型部署工具，Qwen3.8-27B 赛博治疗实录：什么剂量才能让它想得少，不掉能力，不死循环，还能用 XH 档推理？，Qwen3.8好强啊，爽玩了几天，根本停不下来。这就是千问大小姐的芝士吗？，编程第一、速度第一！Qwen3.8-27B最强编程版本Coder390 EfficientThink，吓哭了！Qwen 3.8 27B 离谱性能，你敢信这是一个只有27B的模型？| 小浪妈雷达图，本地部署DeepSeek Harness 加 Qwen3.8-27B教程，实现token自由！我还发现“梁圣”在源码中的彩蛋！，最开放版来了！Qwen3.8-Flash-Next Strata版 AI 大模型本地部署教程｜MTP 加速 8GB 显卡就能跑",
+      "pinned": false,
+      "clicks": 0,
+      "createdAt": "2026-10-23T11:22:56.187Z"
+    },
+    {
+      "id": "bm_1792754248937_gh1t",
+      "title": "Gemini 同款彩虹光晕按钮｜纯 CSS 不用 JavaScript｜conic-gradient + @property 教程",
+      "url": "https://www.bilibili.com/video/BV1P1J26oEnN/?spm_id_from=333.1007.top_right_bar_window_default_collection.content.click&vd_source=e998dfa0046c15728462b51767d2c101",
+      "category": "video",
+      "tags": [
+        "Bilibili",
+        "B站",
+        "影音影片"
+      ],
+      "cover": "https://i2.hdslb.com/bfs/archive/57fb1c78f25c626809d409c1efa4c7e1c9597c2c.jpg@1200w_630h",
+      "desc": "Gemini 同款彩虹光晕按钮｜纯 CSS 不用 JavaScript｜conic-gradient + @property 教程共计2条视频，包括：普通话、粤语等，UP主更多精彩视频，请关注UP账号。",
+      "pinned": false,
+      "clicks": 0,
+      "createdAt": "2026-10-23T11:17:28.937Z"
+    },
     {
       "id": "bm_1792745662308",
       "title": "nullmoth / nvidia-macos-driver - 開源專案",
@@ -19,5 +50,6 @@
       "clicks": 0,
       "createdAt": "2026-10-23T08:54:22.308Z"
     }
-  ]
+  ],
+  "updatedAt": "2026-10-23T11:22:56.415Z"
 }

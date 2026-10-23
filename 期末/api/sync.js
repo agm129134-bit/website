@@ -59,15 +59,21 @@ function getUserFilePath(username) {
     return path.join(DATA_DIR, `bookmarks_${safeUser}.json`);
 }
 
+// 記憶當前伺服器中最後活躍登入的使用者（供 Tampermonkey 快捷收藏自動動態歸屬）
+let _currentSessionUser = 'jyun';
+
 // 取得當前伺服器中已存在的活躍使用者（供 Tampermonkey 快捷收藏自動歸屬）
 function getDefaultActiveUser() {
+    if (_currentSessionUser && _currentSessionUser !== 'default' && _currentSessionUser !== '期末展示學生' && _currentSessionUser !== '訪客') {
+        return _currentSessionUser;
+    }
     try {
         if (fs.existsSync(DATA_DIR)) {
             const files = fs.readdirSync(DATA_DIR);
             const userFiles = files.filter(f => f.startsWith('bookmarks_') && f.endsWith('.json'));
             if (userFiles.length > 0) {
                 // 優先使用非 default 的實體帳號（如 jyun）
-                const nonDefault = userFiles.find(f => !f.includes('default'));
+                const nonDefault = userFiles.find(f => !f.includes('default') && !f.includes('期末展示學生'));
                 const chosen = nonDefault || userFiles[0];
                 return chosen.replace('bookmarks_', '').replace('.json', '');
             }
@@ -150,6 +156,8 @@ async function handleSyncRoute(req, res) {
                 // 智慧帳號歸屬映射：若前端未登入或為展示帳號，自動對齊當前活躍實體帳號 (如 jyun)
                 if ((username === '期末展示學生' || username === 'default') && getDefaultActiveUser() !== 'default') {
                     username = getDefaultActiveUser();
+                } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
+                    _currentSessionUser = sanitizeUsername(username);
                 }
                 const filePath = getUserFilePath(username);
 
@@ -186,6 +194,8 @@ async function handleSyncRoute(req, res) {
                 let username = body.user || query.user || getDefaultActiveUser();
                 if ((username === '期末展示學生' || username === 'default') && getDefaultActiveUser() !== 'default') {
                     username = getDefaultActiveUser();
+                } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
+                    _currentSessionUser = sanitizeUsername(username);
                 }
                 const filePath = getUserFilePath(username);
 
