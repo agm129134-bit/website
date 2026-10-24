@@ -1621,7 +1621,7 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
     }
     const modalTitle = document.getElementById("animePlayerTitle");
     const isDirectVideo = /\.(mp4|m3u8)(\?.*)?$/i.test(playerUrl) || playerUrl.includes('.mp4') || playerUrl.includes('.m3u8') || (currentEp && currentEp.isDirectStream);
-    const isBlocked = (currentEp && currentEp.isBlockedIframe) || (playerUrl && playerUrl.includes('lmm85.com'));
+    const isBlocked = (currentEp && currentEp.isBlockedIframe) || (playerUrl && playerUrl.includes('lmm85.com') && !playerUrl.includes('dp.no3acg.com'));
     
     if (modalTitle) {
         modalTitle.innerHTML = `${escapeHtml(animeTitle)} - ${escapeHtml(epTitle)} ` +
@@ -1709,8 +1709,13 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
             iframeWrapper.style.display = "block";
             if (playerUrl && playerUrl.includes('bilibili')) {
                 iframeWrapper.classList.add("is-bilibili");
+                iframeWrapper.classList.remove("is-pure-anime");
+            } else if (playerUrl && !playerUrl.includes('youtube')) {
+                iframeWrapper.classList.remove("is-bilibili");
+                iframeWrapper.classList.add("is-pure-anime");
             } else {
                 iframeWrapper.classList.remove("is-bilibili");
+                iframeWrapper.classList.remove("is-pure-anime");
             }
         }
         if (iframe) {
@@ -3494,8 +3499,10 @@ function initKazumiFullscreenInteractions() {
         let clickTimeout = null;
         screenOverlay.addEventListener("click", (e) => {
             const container = document.getElementById("kazumiScreenContainer");
+            const theaterModal = document.getElementById("animePlayerModal");
+            const isOpen = theaterModal && (theaterModal.classList.contains("show") || theaterModal.style.display === "block");
             const isFs = container && (document.fullscreenElement === container || document.webkitFullscreenElement === container);
-            if (!isFs) return;
+            if (!isFs && !isOpen) return;
             if (typeof window.isKazumiStandby === 'function' && window.isKazumiStandby()) return;
             // 若點擊位置在畫面頂部 60px 或底部 85px (控制軸與時間列區域)，忽略中央代理層點擊，留給真實控制列
             const rect = screenOverlay.getBoundingClientRect();
@@ -4682,6 +4689,11 @@ window.switchNovelChapter = function(delta) {
         return;
     }
 
+    if (novelState.currentNovel.isLocal) {
+        loadLocalNovelChapter(nextIdx);
+        return;
+    }
+
     const targetCh = novelState.chapters[nextIdx];
     if (targetCh) {
         loadNovelChapter(novelState.currentNovel.id, targetCh.id, nextIdx, novelState.currentNovel.title);
@@ -4694,9 +4706,61 @@ window.openNovelChapterPicker = function() {
         openNovelSearchModal();
         return;
     }
+    if (novelState.currentNovel.isLocal) {
+        const summaryBox = document.getElementById("novelSelectedSummaryBox");
+        if (summaryBox) {
+            summaryBox.classList.remove("d-none");
+            summaryBox.classList.add("d-flex");
+            const titleEl = document.getElementById("novelSelectedTitle");
+            const authorEl = document.getElementById("novelSelectedAuthor");
+            const introEl = document.getElementById("novelSelectedIntro");
+            const coverEl = document.getElementById("novelSelectedCover");
+            if (coverEl) coverEl.src = 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=200';
+            if (titleEl) titleEl.textContent = novelState.currentNovel.title;
+            if (authorEl) authorEl.textContent = "本機電子書";
+            if (introEl) introEl.textContent = novelState.currentNovel.intro;
+        }
+        renderLocalNovelChapterList();
+        const modalEl = document.getElementById("novelSourceModal");
+        if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        return;
+    }
     selectNovel(novelState.currentNovel.id, novelState.currentNovel.title, novelState.currentNovel.cover, novelState.currentNovel.author, novelState.currentNovel.intro);
     const modalEl = document.getElementById("novelSourceModal");
     if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+};
+
+// 渲染本機電子書抽屜章節目錄
+function renderLocalNovelChapterList() {
+    const container = document.getElementById("novelSearchResultsContainer");
+    if (!container) return;
+    const chapters = novelState.chapters || [];
+    const countEl = document.getElementById("novelSelectedChapterCount");
+    if (countEl) countEl.textContent = `共 ${chapters.length} 章`;
+
+    container.innerHTML = `
+        <div class="row g-2">
+            ${chapters.map((ch, idx) => `
+                <div class="col-12 col-md-6 col-lg-4">
+                    <button class="btn btn-sm ${novelState.currentChapterIdx === idx ? 'btn-success fw-bold text-white shadow-sm' : 'btn-outline-light text-white-50'} w-100 text-truncate text-start px-3 py-2 border rounded-3" 
+                            onclick="selectLocalNovelChapter(${idx})" 
+                            title="${escapeHtml(ch.title)}">
+                        <i class="bi ${novelState.currentChapterIdx === idx ? 'bi-bookmark-check-fill text-white' : 'bi-file-text'} me-2"></i>
+                        <span>${escapeHtml(ch.title)}</span>
+                    </button>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+window.selectLocalNovelChapter = function(idx) {
+    loadLocalNovelChapter(idx);
+    const modalEl = document.getElementById("novelSourceModal");
+    if (modalEl) {
+        const m = bootstrap.Modal.getInstance(modalEl);
+        if (m) m.hide();
+    }
 };
 
 // 關閉當前小說，回到待命搜尋狀態
@@ -4705,6 +4769,9 @@ window.closeCurrentNovel = function() {
     novelState.chapters = [];
     novelState.currentChapterIdx = -1;
     novelState.currentParagraphs = [];
+
+    const fileInput = document.getElementById("novelLocalFileInput");
+    if (fileInput) fileInput.value = "";
 
     const titleEl = document.getElementById("novelBookTitle");
     if (titleEl) titleEl.textContent = "沉浸小說閱讀";
@@ -4730,6 +4797,253 @@ window.closeCurrentNovel = function() {
     updateNovelNavButtons();
     showToast("已關閉當前小說，回到待命狀態", "bi-x-circle text-success");
 };
+
+// ==========================================
+// 本機電子書解析引擎 (.txt / .epub)
+// ==========================================
+window.handleNovelFileUpload = async function(file) {
+    if (!file) return;
+    const fileName = file.name;
+    const ext = fileName.slice((fileName.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
+
+    if (ext !== 'txt' && ext !== 'epub') {
+        showToast("僅支援上傳 .txt 或 .epub 格式的電子書！", "bi-exclamation-triangle-fill text-warning");
+        return;
+    }
+
+    showToast(`正在讀取並解析電子書《${fileName}》...`, "bi-hourglass-split text-info");
+    const bookTitle = fileName.replace(/\.[^/.]+$/, "");
+
+    if (ext === 'txt') {
+        parseAndLoadTxtBook(file, bookTitle);
+    } else if (ext === 'epub') {
+        await parseAndLoadEpubBook(file, bookTitle);
+    }
+};
+
+// TXT 電子書智慧正則切分
+function parseAndLoadTxtBook(file, bookTitle) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const content = e.target.result;
+        if (!content || !content.trim()) {
+            showToast("此電子書檔案為空！", "bi-x-circle text-danger");
+            return;
+        }
+
+        // 章節正則匹配：支援 第X章、第X回、第X卷、第X節、Chapter X 等
+        const chapterRegex = /(?:^|\r?\n)[\t \u3000]*(第[\s0-9一二三四五六七八九十百千]+[章回節卷集話篇][^\r\n]*|Chapter\s*\d+[^\r\n]*)/gi;
+        const matches = [];
+        let m;
+        while ((m = chapterRegex.exec(content)) !== null) {
+            matches.push({
+                title: m[1].trim(),
+                index: m.index
+            });
+        }
+
+        const chapters = [];
+        if (matches.length > 0) {
+            // 前言或序章
+            if (matches[0].index > 0) {
+                const introText = content.slice(0, matches[0].index).trim();
+                if (introText) {
+                    chapters.push({
+                        id: 'ch_0',
+                        title: '前言 / 序章',
+                        index: 0,
+                        paragraphs: splitTextIntoParagraphs(introText)
+                    });
+                }
+            }
+
+            for (let i = 0; i < matches.length; i++) {
+                const start = matches[i].index;
+                const end = (i + 1 < matches.length) ? matches[i + 1].index : content.length;
+                const rawChText = content.slice(start, end).trim();
+                const firstLineEnd = rawChText.indexOf('\n');
+                const chBody = firstLineEnd !== -1 ? rawChText.slice(firstLineEnd).trim() : rawChText;
+
+                chapters.push({
+                    id: 'ch_' + chapters.length,
+                    title: matches[i].title,
+                    index: chapters.length,
+                    paragraphs: splitTextIntoParagraphs(chBody || rawChText)
+                });
+            }
+        } else {
+            // 無明顯章節標記，按每 4000 字智慧切分
+            const chunkSize = 4000;
+            let start = 0;
+            let chNum = 1;
+            while (start < content.length) {
+                let end = Math.min(start + chunkSize, content.length);
+                if (end < content.length) {
+                    const newlineIdx = content.indexOf('\n', end);
+                    if (newlineIdx !== -1 && newlineIdx - end < 500) {
+                        end = newlineIdx;
+                    }
+                }
+                const chunkText = content.slice(start, end).trim();
+                chapters.push({
+                    id: 'ch_' + chapters.length,
+                    title: `第 ${chNum} 部分`,
+                    index: chapters.length,
+                    paragraphs: splitTextIntoParagraphs(chunkText)
+                });
+                start = end;
+                chNum++;
+            }
+        }
+
+        loadLocalBookIntoReader(bookTitle, chapters);
+    };
+
+    reader.readAsText(file, "UTF-8");
+}
+
+function splitTextIntoParagraphs(text) {
+    return text.split(/\r?\n+/)
+        .map(p => p.trim())
+        .filter(p => p.length > 0);
+}
+
+// EPUB 電子書解析
+async function parseAndLoadEpubBook(file, bookTitle) {
+    if (typeof JSZip === 'undefined') {
+        showToast("正在載入 EPUB 解密元件，請稍候...", "bi-hourglass-split text-info");
+        try {
+            await new Promise((resolve, reject) => {
+                const s = document.createElement("script");
+                s.src = "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
+                s.onload = resolve;
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        } catch (e) {
+            showToast("載入 EPUB 解析器失敗，請確認網路！", "bi-x-circle text-danger");
+            return;
+        }
+    }
+
+    try {
+        const zip = await JSZip.loadAsync(file);
+        const htmlFiles = [];
+
+        zip.forEach((relativePath, zipEntry) => {
+            if (/\.(xhtml|html|htm)$/i.test(zipEntry.name) && !zipEntry.name.includes('cover')) {
+                htmlFiles.push(zipEntry);
+            }
+        });
+
+        htmlFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+        if (htmlFiles.length === 0) {
+            showToast("此 EPUB 檔案未包含可辨識章節！", "bi-exclamation-triangle text-warning");
+            return;
+        }
+
+        const chapters = [];
+        for (let i = 0; i < htmlFiles.length; i++) {
+            const rawHtml = await htmlFiles[i].async("text");
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(rawHtml, "text/html");
+
+            const h = doc.querySelector("h1, h2, h3, title");
+            const title = (h ? h.textContent.trim() : "") || `第 ${i + 1} 節`;
+
+            const pEls = doc.querySelectorAll("p");
+            let paragraphs = [];
+            if (pEls.length > 0) {
+                pEls.forEach(p => {
+                    const txt = p.textContent.trim();
+                    if (txt) paragraphs.push(txt);
+                });
+            } else {
+                paragraphs = splitTextIntoParagraphs(doc.body.textContent || "");
+            }
+
+            if (paragraphs.length > 0) {
+                chapters.push({
+                    id: 'ch_' + chapters.length,
+                    title: title,
+                    index: chapters.length,
+                    paragraphs: paragraphs
+                });
+            }
+        }
+
+        if (chapters.length === 0) {
+            showToast("無法解析此 EPUB 章節正文！", "bi-x-circle text-danger");
+            return;
+        }
+
+        loadLocalBookIntoReader(bookTitle, chapters);
+    } catch (err) {
+        console.error("EPUB 解析失敗:", err);
+        showToast("解析 EPUB 檔案失敗，請確認檔案未損壞", "bi-x-circle text-danger");
+    }
+}
+
+// 載入本機書籍到閱讀器
+function loadLocalBookIntoReader(bookTitle, chapters) {
+    novelState.currentNovel = {
+        id: 'local_' + Date.now(),
+        title: bookTitle,
+        author: '本機上傳',
+        cover: '',
+        intro: `本機上傳電子書《${bookTitle}》，共收錄 ${chapters.length} 個章節。`,
+        isLocal: true
+    };
+    novelState.chapters = chapters;
+
+    const countEl = document.getElementById("novelSelectedChapterCount");
+    if (countEl) countEl.textContent = `共 ${chapters.length} 章`;
+
+    loadLocalNovelChapter(0);
+    showToast(`📖 已載入《${bookTitle}》，共 ${chapters.length} 章！`, "bi-journal-check text-success");
+}
+
+// 載入本機特定章節
+function loadLocalNovelChapter(idx) {
+    if (!novelState.chapters || idx < 0 || idx >= novelState.chapters.length) return;
+    const ch = novelState.chapters[idx];
+    novelState.currentChapterIdx = idx;
+    novelState.currentParagraphs = ch.paragraphs || [];
+
+    const placeholder = document.getElementById("legadoPlaceholder");
+    if (placeholder) placeholder.style.display = "none";
+
+    const readingArea = document.getElementById("novelReadingArea");
+    if (readingArea) readingArea.style.display = "block";
+
+    const titleEl = document.getElementById("novelBookTitle");
+    const badgeEl = document.getElementById("novelChapterBadge");
+    const headingEl = document.getElementById("novelChapterHeading");
+    const paragraphsEl = document.getElementById("novelChapterParagraphs");
+
+    if (titleEl) titleEl.textContent = novelState.currentNovel.title;
+    if (badgeEl) badgeEl.textContent = ch.title;
+    if (headingEl) headingEl.textContent = ch.title;
+
+    if (paragraphsEl) {
+        paragraphsEl.innerHTML = (ch.paragraphs || []).map(p => `
+            <p class="mb-4 text-justify" style="text-indent: 2em; line-height: 2.2;">${escapeHtml(p)}</p>
+        `).join('');
+
+        const savedColor = novelState.customTextColor || (function() {
+            try { return localStorage.getItem('novel_text_color'); } catch (e) { return null; }
+        })();
+        if (savedColor && typeof window.setNovelCustomTextColor === 'function') {
+            window.setNovelCustomTextColor(savedColor);
+        }
+    }
+
+    const bodyWrapper = document.getElementById("novelBodyWrapper");
+    if (bodyWrapper) bodyWrapper.scrollTop = 0;
+
+    updateNovelNavButtons();
+}
 
 // 關閉閱讀器 Modal
 window.closeNovelReader = function() {
@@ -5626,8 +5940,13 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
                     iframeWrapper.style.display = "block";
                     if (data.playerUrl && data.playerUrl.includes('bilibili')) {
                         iframeWrapper.classList.add("is-bilibili");
+                        iframeWrapper.classList.remove("is-pure-anime");
+                    } else if (data.playerUrl && !data.playerUrl.includes('youtube')) {
+                        iframeWrapper.classList.remove("is-bilibili");
+                        iframeWrapper.classList.add("is-pure-anime");
                     } else {
                         iframeWrapper.classList.remove("is-bilibili");
+                        iframeWrapper.classList.remove("is-pure-anime");
                     }
                 }
                 if (iframe) {
@@ -5636,7 +5955,7 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
                 }
                 showToast(`已載入 ${epTitle}，即刻開播！`, "bi-check-circle-fill text-success");
 
-                if (data.playerUrl.includes('lmm85.com')) {
+                if (data.playerUrl.includes('lmm85.com') && !data.playerUrl.includes('dp.no3acg.com')) {
                     showToast("💡 此集來源因站方安全保護無法內嵌，請點擊【新分頁播放】即可開播！", "bi-info-circle-fill text-warning");
                 }
             }
@@ -6740,23 +7059,43 @@ const DEFAULT_ACG_GAMES = [
         isCustom: false
     },
     {
-        id: 'game_genshin_map',
-        title: '原神 - 提瓦特官方互動地圖',
-        url: 'https://act.hoyolab.com/ys/app/interactive-map/index.html',
-        badge: '官方地圖',
-        badgeClass: 'bg-success text-white',
-        tags: ['原神', '互動地圖', '神瞳寶箱', '素材點位'],
-        desc: '米哈遊官方提瓦特大地圖，標註全區域神瞳、寶箱、地靈龕、突破材料、礦產點位與最優採集路線。',
+        id: 'game_mfme_wiki',
+        title: '魔法紀錄：魔法少女小圓外傳 - GameKee 攻略百科',
+        url: 'https://www.gamekee.com/mfme/',
+        badge: 'Wiki 百科',
+        badgeClass: 'bg-danger-subtle text-danger border border-danger-subtle',
+        tags: ['魔法紀錄', '小圓外傳', 'GameKee', '角色圖鑑', '活動攻略'],
+        desc: '魔法少女小圓外傳最齊全的中文圖鑑與攻略站，收錄魔法少女養成數據、記憶結晶評價與活動關卡打法。',
         isCustom: false
     },
     {
-        id: 'game_hsr_map',
-        title: '崩壞：星穹鐵道 - 官方地圖與工具庫',
-        url: 'https://act.hoyolab.com/sr/app/interactive-map/index.html',
-        badge: '官方地圖',
-        badgeClass: 'bg-info text-dark',
-        tags: ['星穹鐵道', '互動地圖', '次元撲滿', '素材採集'],
-        desc: '米哈遊官方星穹鐵道銀河探索地圖，全區域寶箱、次元撲滿、戰利品位置即時標註與角色養成材料計算。',
+        id: 'game_fanshi_toy',
+        title: '泛式小遊戲 (簡單版) - Bilibili',
+        url: 'https://www.bilibili.com/toy/fx-simple/index.html',
+        badge: 'B站小遊戲',
+        badgeClass: 'bg-info-subtle text-info border border-info-subtle',
+        tags: ['Bilibili', '泛式', '互動小遊戲', '趣味挑戰'],
+        desc: 'Bilibili 知名動漫 UP 主泛式同款經典趣味小遊戲，免下載直接在瀏覽器遊玩！',
+        isCustom: false
+    },
+    {
+        id: 'game_powerful_wind_cabbages',
+        title: '強風大背頭高麗菜 (Powerful Wind, Slicked-Back Cabbages)',
+        url: 'https://asyncfish.itch.io/powerful-wind-slicked-back-cabbages',
+        badge: '獨立同人',
+        badgeClass: 'bg-success-subtle text-success border border-success-subtle',
+        tags: ['強風大背頭', '高麗菜', 'Itch.io', '同人小遊戲', '節奏魔性'],
+        desc: '由迷因神曲《強風大背頭》改編的魔性高麗菜節奏躲避獨立小遊戲，畫風超可愛治癒！',
+        isCustom: false
+    },
+    {
+        id: 'game_dabuchi_unityroom',
+        title: '大淵吃不停 (Double Cheeseburger Game) - Unityroom',
+        url: 'https://unityroom.com/games/dabuchitabemakurugame?fbclid=IwY2xjawG3rv9leHRuA2FlbQIxMAABHf54yd-nG-LgNBFiCr-HpZHAgf22CbuyeGSQJfBezm6ehg5eh9jtNLoVpA_aem_DfbhenzYSGab8s3IS3k7KQ',
+        badge: 'Unity 遊戲',
+        badgeClass: 'bg-warning-subtle text-warning border border-warning-subtle',
+        tags: ['Unityroom', '大淵吃不停', '雙層吉事堡', '休閒挑戰'],
+        desc: '日本 Unityroom 人氣熱門小遊戲，操控角色爽快狂吃雙層吉事堡，挑戰最高得分！',
         isCustom: false
     }
 ];
