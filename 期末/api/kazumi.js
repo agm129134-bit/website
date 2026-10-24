@@ -130,7 +130,8 @@ async function crawlAgeEpisodes(detailUrl) {
     }
 
     if (linesMap.size > 0) {
-        let chosenLine = linesMap.get('1');
+        // 優先挑選支援原畫直連的線路（Line 2, 3, 4, 5, 6 等通常為 m3u8 直連源，支援原生音量與全功能控制）
+        let chosenLine = linesMap.get('2') || linesMap.get('3') || linesMap.get('4') || linesMap.get('1');
         if (!chosenLine || chosenLine.length === 0) {
             let maxCount = 0;
             for (const [, list] of linesMap.entries()) {
@@ -164,22 +165,71 @@ async function crawlAgePlayer(playUrl) {
     try {
         const res = await fetchWithTimeout(playUrl, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36' }
-        });
+        }, 8000);
         if (!res.ok) throw new Error('無法讀取播放器頁面');
         const html = await res.text();
         const iframeMatch = html.match(/<iframe[^>]+id="iframeForVideo"[^>]+src="([^"]+)"/i) 
                          || html.match(/<iframe[^>]+src="([^"]+)"/i);
-        const url = iframeMatch ? iframeMatch[1] : null;
+        let url = iframeMatch ? iframeMatch[1] : null;
         if (!url) {
             throw new Error('未能在 AGE 播放頁中解析出播放器網址');
         }
 
-        // 針對第三方防盜鏈外嵌播放器，採用無跨域障礙的外嵌安全播放，避免 CORS 阻斷導致黑屏
+        // 1. 若 URL 參數本身直接包含直連 m3u8/mp4
         const m3u8Match = url.match(/[?&]url=([^&]+\.(?:m3u8|mp4)[^&]*)/i) 
                        || url.match(/(https?%3A%2F%2F[^&]+\.(?:m3u8|mp4)[^&]*)/i);
         if (m3u8Match) {
             const direct = decodeURIComponent(m3u8Match[1]);
             return { playerUrl: direct, isDirectStream: true };
+        }
+
+        // 2. 若為 wuzhoupai 解析器（如 /m3u8/?url=age_... 或 /vip/?url=age_...），主動深入解析出真實 m3u8 串流
+        if (url.includes('wuzhoupai.com') || url.includes('/m3u8/') || url.includes('/vip/')) {
+            try {
+                const ifrRes = await fetchWithTimeout(url, {
+                    headers: { 
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Referer': 'https://www.agedm.io/'
+                    }
+                }, 6000);
+                if (ifrRes.ok) {
+                    const ifrHtml = await ifrRes.text();
+                    const vurlMatch = ifrHtml.match(/var\s+Vurl\s*=\s*['"]([^'"]+\.(?:m3u8|mp4)[^'"]*)['"]/i)
+                                   || ifrHtml.match(/['"](https?:\/\/[^\s"'<>]+\.(?:m3u8|mp4)[^\s"'<>]*)['"]/i);
+                    if (vurlMatch && vurlMatch[1]) {
+                        return { playerUrl: vurlMatch[1], isDirectStream: true };
+                    }
+                }
+            } catch (e) {
+                console.warn('[AGE wuzhoupai extract warning]:', e.message);
+            }
+
+            // 3. 若當前為 Line 1 (vip)，嘗試自動向 Line 2 (m3u8 直連線路) 探針獲取真實串流
+            const lineMatch = playUrl.match(/\/play\/(\d+)\/1\/(\d+)/);
+            if (lineMatch) {
+                try {
+                    const altPlayUrl = `https://www.agedm.io/play/${lineMatch[1]}/2/${lineMatch[2]}`;
+                    const altRes = await fetchWithTimeout(altPlayUrl, {
+                        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+                    }, 5000);
+                    if (altRes.ok) {
+                        const altHtml = await altRes.text();
+                        const altIfrMatch = altHtml.match(/<iframe[^>]+src="([^"]+)"/i);
+                        if (altIfrMatch && altIfrMatch[1]) {
+                            const altIfrRes = await fetchWithTimeout(altIfrMatch[1], {
+                                headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.agedm.io/' }
+                            }, 5000);
+                            if (altIfrRes.ok) {
+                                const altIfrHtml = await altIfrRes.text();
+                                const altVurl = altIfrHtml.match(/var\s+Vurl\s*=\s*['"]([^'"]+\.(?:m3u8|mp4)[^'"]*)['"]/i);
+                                if (altVurl && altVurl[1]) {
+                                    return { playerUrl: altVurl[1], isDirectStream: true };
+                                }
+                            }
+                        }
+                    }
+                } catch (_) {}
+            }
         }
 
         return { playerUrl: url, isDirectStream: false };
@@ -286,7 +336,7 @@ async function resolveDpNo3acgStream(realUrl, from = 'lmm') {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
                 'Referer': 'https://www.7sefun.top/'
             }
-        }, 5000);
+        }, 8000);
         if (res.ok) {
             const html = await res.text();
             const configMatch = html.match(/let\s+ConFig\s*=\s*(\{[\s\S]*?\})\s*,\s*box/);
@@ -306,7 +356,7 @@ async function resolveDpNo3acgStream(realUrl, from = 'lmm') {
             }
         }
     } catch (e) {
-        console.warn('[resolveDpNo3acgStream error]:', e.message);
+        // 優雅降級：若超時或線路異常，不阻斷主線路，平滑回退為外部解析播放器
     }
     return { playerUrl: dpUrl, isBlockedIframe: false, isDirectStream: false };
 }

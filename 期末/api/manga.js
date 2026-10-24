@@ -225,16 +225,23 @@ async function searchCopyManga(keyword) {
 async function searchManga(keyword) {
     const p1 = searchBaoziManga(keyword);
     const p2 = searchCopyManga(keyword);
-    const [list1, list2] = await Promise.all([p1, p2]);
-    const merged = [...list1, ...list2];
+    const [list1, list2] = await Promise.allSettled([p1, p2]);
+    const baoziList = list1.status === 'fulfilled' ? list1.value : [];
+    const copyList = list2.status === 'fulfilled' ? list2.value : [];
+
+    // 去重與優化：若包子漫畫已有同名作品，優先採用包子漫畫（章節直接可讀，避免 CopyManga API 限制）
+    const baoziTitles = new Set(baoziList.map(b => b.title.trim().toLowerCase()));
+    const filteredCopy = copyList.filter(c => !baoziTitles.has(c.title.trim().toLowerCase()));
+
+    const merged = [...baoziList, ...filteredCopy];
     if (merged.length === 0) {
         throw new Error(`查無「${keyword}」相符之漫畫作品，請更換關鍵字後重試`);
     }
     return merged;
 }
 
-// 取得話數章節列表 (支援包子漫畫與拷貝漫畫)
-async function getMangaChapters(mangaId) {
+// 取得話數章節列表 (支援包子漫畫與拷貝漫畫，具備標題交叉備援機制)
+async function getMangaChapters(mangaId, title = '') {
     if (mangaId.startsWith('baozi_') || mangaId.includes('-')) {
         try {
             return await getBaoziChapters(mangaId);
@@ -262,7 +269,17 @@ async function getMangaChapters(mangaId) {
         }
     }
 
-    // 若都失敗，嘗試嘗試以 cleanId 呼叫包子漫畫
+    // 若 CopyManga 因限制無章節，嘗試透過漫畫片名搜尋包子漫畫進行無縫備援
+    if (title && title.trim()) {
+        try {
+            const bResults = await searchBaoziManga(title.trim());
+            if (bResults && bResults.length > 0) {
+                return await getBaoziChapters(bResults[0].id);
+            }
+        } catch (_) {}
+    }
+
+    // 若仍失敗，嘗試嘗試以 cleanId 呼叫包子漫畫
     try {
         return await getBaoziChapters(cleanId);
     } catch (_) {}
@@ -292,11 +309,11 @@ async function getChapterPages(mangaId, chapterId) {
     throw lastError || new Error('取得章節圖片失敗');
 }
 
-// 主路由處理器
+// 主路由處理器 (全面遵循 WHATWG URL 標準，消除 DEP0169 url.parse 棄用警告)
 async function handleMangaRoute(req, res) {
-    const parsedUrl = url.parse(req.url, true);
+    const parsedUrl = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
     const pathname = parsedUrl.pathname;
-    const query = parsedUrl.query;
+    const query = Object.fromEntries(parsedUrl.searchParams.entries());
 
     if (req.method === 'OPTIONS') {
         res.writeHead(200, {
@@ -322,13 +339,14 @@ async function handleMangaRoute(req, res) {
             });
         }
 
-        // 2. 取得漫畫話數章節: /api/manga/chapters?mangaId=xxx
+        // 2. 取得漫畫話數章節: /api/manga/chapters?mangaId=xxx&title=xxx
         else if (pathname === '/api/manga/chapters') {
             const mangaId = (query.mangaId || '').trim();
+            const title = (query.title || '').trim();
             if (!mangaId) {
                 return sendJson(res, 400, { success: false, error: '請提供漫畫 ID "mangaId"' });
             }
-            const chapters = await getMangaChapters(mangaId);
+            const chapters = await getMangaChapters(mangaId, title);
             return sendJson(res, 200, {
                 success: true,
                 count: chapters.length,

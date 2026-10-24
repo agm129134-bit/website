@@ -730,6 +730,18 @@ body {
   z-index: 90 !important;
   pointer-events: auto !important;
 }
+/* 跨域防內嵌阻擋卡片防護：確保按鈕永遠可點擊，不被透明事件代理層攔截 */
+#kazumiBlockedFallback {
+  z-index: 92 !important;
+  pointer-events: auto !important;
+}
+#kazumiBlockedFallback * {
+  pointer-events: auto !important;
+}
+#kazumiScreenContainer.has-blocked-fallback .kazumi-fs-screen-overlay {
+  display: none !important;
+  pointer-events: none !important;
+}
 #kazumiScreenContainer.is-standby .kazumi-fs-screen-overlay,
 #kazumiScreenContainer.is-standby .kazumi-fs-hover-zone {
   display: none !important;
