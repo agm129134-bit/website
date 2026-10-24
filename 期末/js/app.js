@@ -1223,10 +1223,34 @@ window.searchKazumiFromModal = function(q) {
     openKazumiSourceModal(q.trim(), kazumiState.cover);
 };
 
+// 智能獲取備用封面（優先反查書籤庫真實封面，無符合則使用中性 SVG 海報，絕不使用無關手辦圖）
+window.getFallbackAnimeCover = function(title = '', platform = '') {
+    if (title && window.state && Array.isArray(window.state.bookmarks) && window.state.bookmarks.length > 0) {
+        const cleanT = title.trim().toLowerCase();
+        const found = window.state.bookmarks.find(b => 
+            b && b.title && 
+            (b.title.toLowerCase().includes(cleanT) || cleanT.includes(b.title.toLowerCase())) && 
+            b.cover && !b.cover.includes('photo-1578632767115')
+        );
+        if (found && found.cover) return found.cover;
+    }
+    if (platform === 'youtube') {
+        return "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180' viewBox='0 0 320 180'%3E%3Crect fill='%231f2937' width='320' height='180'/%3E%3Cpath fill='%23ef4444' d='M180 90l-30-17.3v34.6z'/%3E%3Ctext x='50%25' y='80%25' fill='%239ca3af' font-family='system-ui,sans-serif' font-size='13' font-weight='bold' text-anchor='middle'%3EYouTube 視頻%3C/text%3E%3C/svg%3E";
+    }
+    if (platform === 'bilibili') {
+        return "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180' viewBox='0 0 320 180'%3E%3Crect fill='%231e293b' width='320' height='180'/%3E%3Cpath fill='%2300aeec' d='M140 70h40v30h-40z'/%3E%3Ctext x='50%25' y='75%25' fill='%2300aeec' font-family='system-ui,sans-serif' font-size='14' font-weight='bold' text-anchor='middle'%3EBilibili 視頻%3C/text%3E%3C/svg%3E";
+    }
+    return "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='450' viewBox='0 0 320 450'%3E%3Crect fill='%231e293b' width='320' height='450'/%3E%3Ccircle cx='160' cy='200' r='50' fill='%23dc2626' opacity='0.8'/%3E%3Cpolygon points='150,180 180,200 150,220' fill='%23ffffff'/%3E%3Ctext x='50%25' y='70%25' fill='%23e2e8f0' font-family='system-ui,sans-serif' font-size='18' font-weight='bold' text-anchor='middle'%3E動漫影片%3C/text%3E%3C/svg%3E";
+};
+
 window.openKazumiSourceModal = function(animeTitle = "", animeCover = "") {
     const title = (animeTitle || "").trim();
     kazumiState.title = title;
-    kazumiState.cover = animeCover || "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=700&q=80";
+    let cover = animeCover;
+    if (!cover || cover.includes('photo-1578632767115')) {
+        cover = window.getFallbackAnimeCover(title, 'anime');
+    }
+    kazumiState.cover = cover;
 
     const titleEl = document.getElementById('kazumiSourceTitle');
     const coverEl = document.getElementById('kazumiSourceCover');
@@ -1235,6 +1259,41 @@ window.openKazumiSourceModal = function(animeTitle = "", animeCover = "") {
 
     if (coverEl) coverEl.src = kazumiState.cover;
     if (kwInput) kwInput.value = title;
+
+    // 若尚未取得真實封面，非同步向 Bangumi API 搜尋補全官方高清海報
+    if (title && (!animeCover || animeCover.includes('photo-1578632767115'))) {
+        fetch(`/api/bangumi/search?q=${encodeURIComponent(title)}&type=2`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && res.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
+                    const match = res.data.data.find(s => 
+                        (s.name_cn && (s.name_cn.trim() === title || s.name_cn.includes(title) || title.includes(s.name_cn))) ||
+                        (s.name && (s.name.trim() === title || s.name.includes(title) || title.includes(s.name)))
+                    ) || res.data.data[0];
+                    const realImg = (match.images && (match.images.large || match.images.common || match.images.medium || match.images.small)) || match.image || '';
+                    if (realImg) {
+                        kazumiState.cover = realImg;
+                        if (coverEl) coverEl.src = realImg;
+                        let hist = window.getWatchHistoryList ? window.getWatchHistoryList() : [];
+                        let updated = false;
+                        hist.forEach(h => {
+                            if (h.platform === 'anime' && (h.title === title || h.title.includes(title) || title.includes(h.title))) {
+                                if (!h.cover || h.cover.includes('photo-1578632767115') || h.cover.startsWith('data:image/svg')) {
+                                    h.cover = realImg;
+                                    updated = true;
+                                }
+                            }
+                        });
+                        if (updated) {
+                            localStorage.setItem('web_library_watch_history', JSON.stringify(hist));
+                            if (typeof window.renderAnimeHistoryStandby === 'function') window.renderAnimeHistoryStandby();
+                            if (typeof window.renderWatchHistoryGrid === 'function') window.renderWatchHistoryGrid();
+                        }
+                    }
+                }
+            })
+            .catch(() => {});
+    }
 
     if (title) {
         if (titleEl) titleEl.textContent = title;
@@ -1513,7 +1572,8 @@ async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
             if (sourceModal) sourceModal.hide();
 
             const epData = { ...episode, isBlockedIframe: data.isBlockedIframe, isDirectStream: data.isDirectStream };
-            openTheaterWithUrl(animeItem.title, episode.title, data.playerUrl, allEpisodes, epData);
+            const animeCover = (animeItem && animeItem.cover) || kazumiState.cover || '';
+            openTheaterWithUrl(animeItem.title, episode.title, data.playerUrl, allEpisodes, epData, animeCover);
 
             // 自動雙向回寫 Bangumi 觀看進度 (若綁定 Token 且為 Bangumi 作品)
             try {
@@ -1550,12 +1610,14 @@ async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
     }
 }
 
-function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], currentEp = null) {
+function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], currentEp = null, animeCover = '') {
     window.currentKazumiPlayingUrl = playerUrl;
     window.currentKazumiAnimeTitle = animeTitle;
     window.currentKazumiEpTitle = epTitle;
+    if (animeCover) kazumiState.cover = animeCover;
+    const coverToSave = animeCover || kazumiState.cover || (window.getFallbackAnimeCover ? window.getFallbackAnimeCover(animeTitle, 'anime') : '');
     if (typeof window.saveAnimePlayHistory === 'function') {
-        window.saveAnimePlayHistory(animeTitle, kazumiState.cover || '', epTitle, playerUrl, 0, 0);
+        window.saveAnimePlayHistory(animeTitle, coverToSave, epTitle, playerUrl, 0, 0);
     }
     const modalTitle = document.getElementById("animePlayerTitle");
     const isDirectVideo = /\.(mp4|m3u8)(\?.*)?$/i.test(playerUrl) || playerUrl.includes('.mp4') || playerUrl.includes('.m3u8') || (currentEp && currentEp.isDirectStream);
@@ -1678,7 +1740,7 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
             btn.title = ep.title;
             btn.innerHTML = `<i class="bi bi-play-fill"></i> ${escapeHtml(ep.title)}`;
             btn.onclick = () => {
-                playRuleEpisode('', { title: animeTitle }, ep, uniqueEps);
+                playRuleEpisode('', { title: animeTitle, cover: coverToSave }, ep, uniqueEps);
             };
             listContainer.appendChild(btn);
         });
@@ -1885,15 +1947,37 @@ window.openKazumiPlayer = function(title = "", src = "") {
                 }, 200);
             });
 
-        // 呼叫後端 Kazumi 模組解析真實分P選集與 CID (若為 BV 視頻)
+        // 呼叫後端 Kazumi 模組解析真實分P選集、官方高清封面與 CID (若為 BV 視頻)
         if (bvid) {
             fetch(`/api/kazumi/resolve?bvid=${bvid}`)
                 .then(r => r.json())
                 .then(res => {
-                    if (res.success && res.data && Array.isArray(res.data.episodes) && res.data.episodes.length > 0) {
-                        renderKazumiEpisodes(bvid, res.data.episodes);
-                        if (res.data.episodes[0].cid) {
-                            startDanmakuStream(title, res.data.episodes[0].cid);
+                    if (res.success && res.data) {
+                        const realCover = res.data.cover || '';
+                        if (realCover) {
+                            kazumiState.cover = realCover;
+                            let hist = window.getWatchHistoryList ? window.getWatchHistoryList() : [];
+                            let updated = false;
+                            hist.forEach(h => {
+                                if (h.platform === 'bilibili' && (h.playUrl === src || (bvid && h.playUrl.includes(bvid)))) {
+                                    h.cover = realCover;
+                                    if (res.data.title && (!h.title || h.title.includes('Bilibili 視頻') || h.title.includes(bvid))) {
+                                        h.title = res.data.title;
+                                    }
+                                    updated = true;
+                                }
+                            });
+                            if (updated) {
+                                localStorage.setItem('web_library_watch_history', JSON.stringify(hist));
+                                if (typeof window.renderAnimeHistoryStandby === 'function') window.renderAnimeHistoryStandby();
+                                if (typeof window.renderWatchHistoryGrid === 'function') window.renderWatchHistoryGrid();
+                            }
+                        }
+                        if (Array.isArray(res.data.episodes) && res.data.episodes.length > 0) {
+                            renderKazumiEpisodes(bvid, res.data.episodes);
+                            if (res.data.episodes[0].cid) {
+                                startDanmakuStream(title, res.data.episodes[0].cid);
+                            }
                         }
                     }
                 })
@@ -6007,9 +6091,27 @@ window.getWatchHistoryList = function() {
                     duration: a.duration || 0,
                     updatedAt: a.updatedAt || Date.now()
                 }));
-                localStorage.setItem('web_library_watch_history', JSON.stringify(list));
             }
         }
+
+        // 舊資料自動清洗：如果封面含有明日香照片 (photo-1578632767115)，自動由書籤庫或中性海報替換
+        let hasFixed = false;
+        list.forEach(item => {
+            if (!item.cover || item.cover.includes('photo-1578632767115')) {
+                item.cover = window.getFallbackAnimeCover ? window.getFallbackAnimeCover(item.title, item.platform) : '';
+                hasFixed = true;
+            } else if (item.platform === 'youtube' && item.playUrl) {
+                const ytMatch = item.playUrl.match(/(?:v=|\/embed\/|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+                if (ytMatch && (!item.cover || item.cover.startsWith('data:image/svg'))) {
+                    item.cover = `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`;
+                    hasFixed = true;
+                }
+            }
+        });
+        if (hasFixed) {
+            localStorage.setItem('web_library_watch_history', JSON.stringify(list));
+        }
+
         return list;
     } catch(e) {
         return [];
@@ -6034,16 +6136,17 @@ window.saveWatchHistory = function(title, cover, epTitle, playUrl, currentTime =
             }
         }
 
-        // 封面智能補全
+        // 封面智能補全（杜絕無關手辦圖，精準抓取官方封面/YouTube縮圖/中性SVG）
         let finalCover = cover;
-        if (!finalCover) {
+        if (!finalCover || finalCover.includes('photo-1578632767115')) {
             if (detectedPlatform === 'youtube') {
                 const ytMatch = playUrl.match(/(?:v=|\/embed\/|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
                 if (ytMatch) finalCover = `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`;
+                else finalCover = window.getFallbackAnimeCover ? window.getFallbackAnimeCover(cleanTitle, 'youtube') : '';
             } else if (detectedPlatform === 'bilibili') {
-                finalCover = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80';
+                finalCover = (kazumiState && kazumiState.cover && !kazumiState.cover.includes('photo-1578632767115')) ? kazumiState.cover : (window.getFallbackAnimeCover ? window.getFallbackAnimeCover(cleanTitle, 'bilibili') : '');
             } else {
-                finalCover = kazumiState.cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80';
+                finalCover = (kazumiState && kazumiState.cover && !kazumiState.cover.includes('photo-1578632767115')) ? kazumiState.cover : (window.getFallbackAnimeCover ? window.getFallbackAnimeCover(cleanTitle, 'anime') : '');
             }
         }
 
@@ -6106,21 +6209,31 @@ window.saveCurrentAnimeProgressNow = function() {
         dur = 0;
     }
 
-    window.saveWatchHistory(animeTitle, kazumiState.cover || '', epTitle, playUrl, cur, dur);
+    const currentCover = kazumiState.cover || (window.getFallbackAnimeCover ? window.getFallbackAnimeCover(animeTitle, 'anime') : '');
+    window.saveWatchHistory(animeTitle, currentCover, epTitle, playUrl, cur, dur);
 };
 
-// 劇院待命畫面中渲染最近觀看摘要 (移至右側抽屜欄，展示所有紀錄並支援平滑向下滾動)
+// 劇院待命畫面中渲染最近觀看摘要 (移至右側抽屜欄，寬度舒展展示所有紀錄並支援平滑向下滾動)
 window.renderAnimeHistoryStandby = function() {
     const box = document.getElementById('animeRecentHistoryBox');
     if (!box) return;
     try {
-        const history = window.getWatchHistoryList();
+        const isStandby = (typeof window.isKazumiStandby === 'function') ? window.isKazumiStandby() : true;
         const listContainer = document.querySelector(".episode-list-container");
+
+        // 視圖互斥保護：若非待命模式（即已在開播動漫/B站/YT），強制隱藏歷史抽屜、顯示選集抽屜！
+        if (!isStandby) {
+            box.style.display = 'none';
+            if (listContainer) listContainer.style.display = 'flex';
+            return;
+        }
 
         // 待命模式下：展開歷史抽屜，隱藏空白的選集佔位清單
         box.style.display = 'flex';
         box.classList.add('flex-column');
         if (listContainer) listContainer.style.display = 'none';
+
+        const history = window.getWatchHistoryList();
 
         if (history.length === 0) {
             box.innerHTML = `
@@ -6147,38 +6260,40 @@ window.renderAnimeHistoryStandby = function() {
                         <i class="bi bi-clock-history"></i> 最近觀看紀錄
                     </small>
                     <div class="d-flex align-items-center gap-2">
-                        <button type="button" class="btn btn-link btn-xs text-info p-0 text-decoration-none fw-semibold" onclick="openWatchHistoryModal()" title="查看完整播放歷史清單">
+                        <button type="button" class="btn btn-link btn-xs text-info p-0 text-decoration-none fw-semibold" onclick="openWatchHistoryModal(event)" title="查看完整播放歷史清單">
                             <i class="bi bi-grid-fill me-1"></i>查看全部 (${history.length})
                         </button>
                         <button type="button" class="btn btn-link btn-xs text-secondary p-0 text-decoration-none" onclick="clearAllWatchHistory()" title="清空所有播放紀錄">清空</button>
                     </div>
                 </div>
-                <div class="d-flex flex-column gap-2 overflow-auto pe-1" style="max-height: 420px;">
+                <div class="d-flex flex-column gap-2 overflow-auto pe-1" style="max-height: 480px; min-height: 120px;">
                     ${history.map((item) => {
                         const pct = (item.duration > 0 && item.currentTime > 0) ? Math.min(100, Math.round((item.currentTime / item.duration) * 100)) : 0;
                         const timeStr = item.currentTime > 0 ? `${formatSec(item.currentTime)} / ${item.duration > 0 ? formatSec(item.duration) : '--:--'}` : '剛開始';
                         let platformBadge = item.platform === 'youtube' 
-                            ? `<span class="badge bg-danger" style="font-size:0.65rem;">YT</span>` 
+                            ? `<span class="badge bg-danger text-nowrap" style="font-size:0.68rem;"><i class="bi bi-youtube me-1"></i>YT</span>` 
                             : item.platform === 'bilibili' 
-                                ? `<span class="badge bg-primary" style="font-size:0.65rem; background-color: #00aeec !important;">B站</span>` 
-                                : `<span class="badge bg-warning text-dark" style="font-size:0.65rem;">動漫</span>`;
+                                ? `<span class="badge text-nowrap" style="font-size:0.68rem; background-color: #00aeec !important; color: #fff;"><i class="bi bi-tv me-1"></i>B站</span>` 
+                                : `<span class="badge bg-warning text-dark text-nowrap" style="font-size:0.68rem;"><i class="bi bi-film me-1"></i>動漫</span>`;
+                        const defaultImg = window.getFallbackAnimeCover ? window.getFallbackAnimeCover(item.title, item.platform) : '';
                         return `
-                            <div class="d-flex align-items-center gap-2 p-2 rounded bg-black bg-opacity-40 border border-secondary border-opacity-40 hover-bg-light transition-all position-relative">
-                                <img src="${escapeHtml(item.cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80')}" 
-                                     style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; flex-shrink: 0;" 
-                                     onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80'">
-                                <div class="flex-grow-1 overflow-hidden">
-                                    <div class="d-flex align-items-center gap-1">
+                            <div class="d-flex align-items-center gap-2 p-2 rounded bg-black bg-opacity-50 border border-secondary border-opacity-40 hover-bg-light transition-all position-relative shadow-sm">
+                                <img src="${escapeHtml(item.cover || defaultImg)}" 
+                                     style="width: 52px; height: 52px; object-fit: cover; border-radius: 6px; flex-shrink: 0;" 
+                                     onerror="this.src='${escapeHtml(defaultImg)}'"
+                                     alt="${escapeHtml(item.title)}">
+                                <div class="flex-grow-1 overflow-hidden" style="min-width: 0;">
+                                    <div class="d-flex align-items-center gap-1 mb-1">
                                         ${platformBadge}
                                         <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
                                     </div>
-                                    <div class="d-flex align-items-center justify-content-between text-secondary small mt-1" style="font-size: 0.72rem;">
-                                        <span class="text-danger-emphasis text-truncate" style="max-width: 90px;">${escapeHtml(item.epTitle || '正片')}</span>
-                                        <span class="font-monospace text-warning">${pct > 0 ? pct + '%' : timeStr}</span>
+                                    <div class="d-flex align-items-center justify-content-between text-secondary small" style="font-size: 0.75rem;">
+                                        <span class="text-danger-emphasis text-truncate me-2" style="max-width: 140px;" title="${escapeHtml(item.epTitle || '正片')}">${escapeHtml(item.epTitle || '正片')}</span>
+                                        <span class="font-monospace text-warning text-nowrap">${pct > 0 ? pct + '%' : timeStr}</span>
                                     </div>
                                 </div>
-                                <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                                    <button class="btn btn-sm btn-danger px-2 text-nowrap rounded-pill py-0" style="font-size: 0.72rem;" onclick="resumeWatchHistory('${item.id}')" title="繼續播放此進度">
+                                <div class="d-flex align-items-center gap-1 flex-shrink-0 ms-1">
+                                    <button class="btn btn-sm btn-danger px-2 text-nowrap rounded-pill py-0 d-flex align-items-center gap-1" style="font-size: 0.75rem; height: 26px;" onclick="resumeWatchHistory('${item.id}')" title="繼續播放此進度">
                                         <i class="bi bi-play-fill"></i> 續播
                                     </button>
                                     <button type="button" class="btn btn-xs btn-outline-secondary border-0 p-1 text-white-50 hover-text-danger" onclick="deleteWatchHistoryItem('${item.id}', event)" title="刪除此紀錄">
@@ -6253,6 +6368,7 @@ window.renderWatchHistoryGrid = function() {
                 platformBadge = `<span class="badge bg-warning text-dark watch-history-badge"><i class="bi bi-film me-1"></i>動漫劇院</span>`;
             }
 
+            const defaultGridImg = window.getFallbackAnimeCover ? window.getFallbackAnimeCover(item.title, item.platform) : '';
             return `
                 <div class="col-12 col-sm-6 col-md-4 col-xl-3">
                     <div class="card watch-history-card h-100 shadow-sm border-0 position-relative">
@@ -6261,11 +6377,11 @@ window.renderWatchHistoryGrid = function() {
                             <button type="button" class="watch-history-del-btn" onclick="deleteWatchHistoryItem('${item.id}', event)" title="刪除此紀錄">
                                 <i class="bi bi-x-lg"></i>
                             </button>
-                            <img src="${escapeHtml(item.cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80')}" 
+                            <img src="${escapeHtml(item.cover || defaultGridImg)}" 
                                  class="watch-history-cover" 
                                  alt="${escapeHtml(item.title)}" 
                                  loading="lazy" 
-                                 onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'">
+                                 onerror="this.src='${escapeHtml(defaultGridImg)}'">
                             <div class="watch-history-progress-bar">
                                 <div class="watch-history-progress-fill" style="width: ${pct}%;"></div>
                             </div>
@@ -6302,7 +6418,7 @@ window.resumeWatchHistory = function(id) {
     }
 
     if (item.platform === 'anime' && item.playUrl && !item.playUrl.includes('bilibili') && !item.playUrl.includes('youtube')) {
-        openTheaterWithUrl(item.title, item.epTitle, item.playUrl);
+        openTheaterWithUrl(item.title, item.epTitle, item.playUrl, [], null, item.cover || '');
         const video = document.getElementById("kazumiVideoPlayer");
         if (video && item.currentTime > 0) {
             const onLoaded = () => {
@@ -6355,7 +6471,10 @@ window.clearAnimeHistory = function() {
     window.clearAllWatchHistory();
 };
 
-window.openWatchHistoryModal = function() {
+window.openWatchHistoryModal = function(e) {
+    if (e) {
+        try { e.preventDefault(); e.stopPropagation(); } catch(_) {}
+    }
     window.renderWatchHistoryGrid();
     const modalEl = document.getElementById('watchHistoryModal');
     if (modalEl) {
@@ -6365,7 +6484,7 @@ window.openWatchHistoryModal = function() {
             document.body.classList.add("has-multi-modal");
             modalEl.style.zIndex = '1070';
         }
-        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl, { focus: false });
         modal.show();
 
         if (isTheaterOpen) {
@@ -6432,7 +6551,7 @@ window.renderMangaHistoryStandby = function() {
                     <button type="button" class="btn btn-link btn-xs text-secondary p-0 text-decoration-none" onclick="clearMangaHistory()" title="清除紀錄">清除</button>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <img src="${escapeHtml(latest.cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80')}" style="width: 44px; height: 58px; object-fit: cover; border-radius: 4px;" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80'">
+                    <img src="${escapeHtml(latest.cover || "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='400' viewBox='0 0 300 400'%3E%3Crect fill='%231e293b' width='300' height='400'/%3E%3Cpath fill='%230284c7' d='M150 180c-20-10-50-10-70 0v60c20-10 50-10 70 0m0-60c20-10 50-10 70 0v60c-20-10-50-10-70 0' stroke='%230284c7' stroke-width='6' fill='none'/%3E%3Ctext x='50%25' y='75%25' fill='%2394a3b8' font-family='sans-serif' font-size='14' text-anchor='middle'%3E漫畫書籍%3C/text%3E%3C/svg%3E")}" style="width: 44px; height: 58px; object-fit: cover; border-radius: 4px;" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'400\' viewBox=\'0 0 300 400\'%3E%3Crect fill=\'%231e293b\' width=\'300\' height=\'400\'/%3E%3Cpath fill=\'%230284c7\' d=\'M150 180c-20-10-50-10-70 0v60c20-10 50-10 70 0m0-60c20-10 50-10 70 0v60c-20-10-50-10-70 0\' stroke=\'%230284c7\' stroke-width=\'6\' fill=\'none\'/%3E%3Ctext x=\'50%25\' y=\'75%25\' fill=\'%2394a3b8\' font-family=\'sans-serif\' font-size=\'14\' text-anchor=\'middle\'%3E漫畫書籍%3C/text%3E%3C/svg%3E'">
                     <div class="flex-grow-1 overflow-hidden">
                         <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(latest.title)}">${escapeHtml(latest.title)}</div>
                         <div class="text-primary small text-truncate">${escapeHtml(latest.chapterTitle)}</div>

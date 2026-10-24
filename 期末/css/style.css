@@ -1396,6 +1396,22 @@ body {
   transition: width 0.3s ease;
 }
 
+/* 動漫劇院超大沉浸式對話框與側邊欄寬度優化 */
+.modal-dialog-theater {
+  max-width: 94vw !important;
+  width: 94vw !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+@media (min-width: 1400px) {
+  .modal-dialog-theater {
+    max-width: 1360px !important;
+  }
+}
+.kazumi-theater-sidebar {
+  min-width: 350px;
+}
+
 /* 動漫劇院待命狀態側邊欄觀看紀錄與自適應滾動條 */
 #animeRecentHistoryBox {
   scrollbar-width: thin;
