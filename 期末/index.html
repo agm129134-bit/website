@@ -817,8 +817,8 @@
                                     </button>
                                 </div>
                             </div>
-                            <!-- 純淨待命提示畫面 (內建搜尋列) -->
-                            <div id="kazumiTheaterPlaceholder" class="position-absolute top-50 start-50 translate-middle text-center px-3" style="max-width: 480px; width: 100%; color: #cbd5e1;">
+                            <!-- 純淨待命提示畫面 (內建搜尋列，確保最高層級可被直接點擊輸入) -->
+                            <div id="kazumiTheaterPlaceholder" class="position-absolute top-50 start-50 translate-middle text-center px-3" style="max-width: 480px; width: 100%; color: #cbd5e1; z-index: 90 !important; pointer-events: auto !important;">
                                 <i class="bi bi-film fs-1 d-block mb-2 text-danger opacity-75"></i>
                                 <h5 class="fw-bold text-white mb-1">動漫劇院（待命狀態）</h5>
                                 <p class="small mb-3" style="color: #cbd5e1;">輸入片名即可全網檢索播放來源並開播</p>
