@@ -1639,7 +1639,14 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
         }
         if (video) { video.pause(); video.style.display = "none"; }
         if (fallbackCard) fallbackCard.style.display = "none";
-        if (iframeWrapper) iframeWrapper.style.display = "block";
+        if (iframeWrapper) {
+            iframeWrapper.style.display = "block";
+            if (playerUrl && playerUrl.includes('bilibili')) {
+                iframeWrapper.classList.add("is-bilibili");
+            } else {
+                iframeWrapper.classList.remove("is-bilibili");
+            }
+        }
         if (iframe) {
             iframe.style.display = "block";
             iframe.src = playerUrl;
@@ -1803,7 +1810,10 @@ window.openKazumiPlayer = function(title = "", src = "") {
         const bvid = biliMatch[1];
         video.pause();
         video.style.display = "none";
-        if (iframeWrapper) iframeWrapper.style.display = "block";
+        if (iframeWrapper) {
+            iframeWrapper.style.display = "block";
+            iframeWrapper.classList.add("is-bilibili");
+        }
         iframe.style.display = "block";
         iframe.src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&as_wide=1&danmaku=0`;
         showToast("已載入 Bilibili 官方純淨內嵌播放器！", "bi-play-btn-fill text-danger");
@@ -1825,7 +1835,10 @@ window.openKazumiPlayer = function(title = "", src = "") {
         const ytId = ytMatch[1];
         video.pause();
         video.style.display = "none";
-        if (iframeWrapper) iframeWrapper.style.display = "block";
+        if (iframeWrapper) {
+            iframeWrapper.style.display = "block";
+            iframeWrapper.classList.remove("is-bilibili");
+        }
         iframe.style.display = "block";
         iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
         const originParam = encodeURIComponent(window.location.origin);
@@ -1833,7 +1846,10 @@ window.openKazumiPlayer = function(title = "", src = "") {
         showToast("已載入 YouTube 官方純淨內嵌劇院！", "bi-youtube text-danger");
     } else {
         // 原生 HTML5 影片 / 代理串流
-        if (iframeWrapper) iframeWrapper.style.display = "none";
+        if (iframeWrapper) {
+            iframeWrapper.style.display = "none";
+            iframeWrapper.classList.remove("is-bilibili");
+        }
         iframe.src = "";
         iframe.style.display = "none";
         video.style.display = "block";
@@ -1877,7 +1893,10 @@ function renderKazumiEpisodes(bvid, episodes) {
             
             const iframe = document.getElementById("kazumiIframePlayer");
             const iframeWrapper = document.getElementById("kazumiIframeWrapper");
-            if (iframeWrapper) iframeWrapper.style.display = "block";
+            if (iframeWrapper) {
+                iframeWrapper.style.display = "block";
+                iframeWrapper.classList.add("is-bilibili");
+            }
             iframe.style.display = "block";
             iframe.src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=${ep.page}&high_quality=1&as_wide=1&danmaku=0`;
             showToast(`Kazumi: 已切換至 P${ep.page}「${ep.part}」！`, "bi-play-circle-fill text-danger");
@@ -5113,7 +5132,14 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
             window.currentKazumiPlayingUrl = data.playerUrl;
             const iframe = document.getElementById("kazumiIframePlayer");
             const iframeWrapper = document.getElementById("kazumiIframeWrapper");
-            if (iframeWrapper) iframeWrapper.style.display = "block";
+            if (iframeWrapper) {
+                iframeWrapper.style.display = "block";
+                if (data.playerUrl && data.playerUrl.includes('bilibili')) {
+                    iframeWrapper.classList.add("is-bilibili");
+                } else {
+                    iframeWrapper.classList.remove("is-bilibili");
+                }
+            }
             if (iframe) {
                 iframe.style.display = "block";
                 iframe.src = data.playerUrl;
@@ -5831,3 +5857,271 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // 啟動應用
 document.addEventListener("DOMContentLoaded", initApp);
+
+// ==========================================
+// ACG 專區：遊戲專區與工具攻略庫 (Game Hub)
+// ==========================================
+const DEFAULT_ACG_GAMES = [
+    {
+        id: 'game_fgo_chaldea',
+        title: 'Fate/Grand Order - Chaldea 迦勒底',
+        url: 'https://chaldea.center/',
+        badge: 'FGO 官方/開源神器',
+        badgeClass: 'bg-danger text-white',
+        tags: ['FGO', '迦勒底', '素材規劃', '從者養成', '活動周回'],
+        desc: '跨平台開源 FGO 規劃工具，支援從者養成計算、素材需求掉落統計、活動周回規劃與抽卡模擬，支援在當前視窗即開即用！',
+        isCustom: false
+    },
+    {
+        id: 'game_fgo_mooncell',
+        title: 'Mooncell Wiki - FGO 繁簡中文百科',
+        url: 'https://fgo.wiki/',
+        badge: '權威百科',
+        badgeClass: 'bg-primary text-white',
+        tags: ['FGO', '中文百科', '指令卡數據', '關卡掉落'],
+        desc: '華人圈最詳盡的 Fate/Grand Order 中文資料庫，完整收錄從者數值、指令卡參數、寶具傷害、敵方配置與最新活動攻略。',
+        isCustom: false
+    },
+    {
+        id: 'game_genshin_map',
+        title: '原神 - 提瓦特官方互動地圖',
+        url: 'https://act.hoyolab.com/ys/app/interactive-map/index.html',
+        badge: '官方地圖',
+        badgeClass: 'bg-success text-white',
+        tags: ['原神', '互動地圖', '神瞳寶箱', '素材點位'],
+        desc: '米哈遊官方提瓦特大地圖，標註全區域神瞳、寶箱、地靈龕、突破材料、礦產點位與最優採集路線。',
+        isCustom: false
+    },
+    {
+        id: 'game_hsr_map',
+        title: '崩壞：星穹鐵道 - 官方地圖與工具庫',
+        url: 'https://act.hoyolab.com/sr/app/interactive-map/index.html',
+        badge: '官方地圖',
+        badgeClass: 'bg-info text-dark',
+        tags: ['星穹鐵道', '互動地圖', '次元撲滿', '素材採集'],
+        desc: '米哈遊官方星穹鐵道銀河探索地圖，全區域寶箱、次元撲滿、戰利品位置即時標註與角色養成材料計算。',
+        isCustom: false
+    }
+];
+
+function getGameHubItems() {
+    try {
+        const stored = JSON.parse(localStorage.getItem('web_library_custom_games') || '[]');
+        return [...DEFAULT_ACG_GAMES, ...stored];
+    } catch (e) {
+        return DEFAULT_ACG_GAMES;
+    }
+}
+
+window.openGameHubModal = function() {
+    window.renderGameHubGrid();
+    const modalEl = document.getElementById("gameHubModal");
+    if (modalEl) {
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    }
+};
+
+window.renderGameHubGrid = function(keyword = '') {
+    const container = document.getElementById("gameHubGridContainer");
+    if (!container) return;
+
+    const term = (keyword || '').trim().toLowerCase();
+    const items = getGameHubItems();
+    const filtered = items.filter(g => {
+        if (!term) return true;
+        return g.title.toLowerCase().includes(term) ||
+               g.desc.toLowerCase().includes(term) ||
+               (Array.isArray(g.tags) && g.tags.some(t => t.toLowerCase().includes(term)));
+    });
+
+    container.innerHTML = "";
+
+    filtered.forEach(game => {
+        const col = document.createElement("div");
+        col.className = "col";
+        col.innerHTML = `
+            <div class="card h-100 border border-secondary border-opacity-50 shadow-sm rounded-3 overflow-hidden text-white" style="background: #1e293b; transition: transform 0.2s, box-shadow 0.2s;">
+                <div class="card-body p-3 d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="badge ${game.badgeClass || 'bg-warning text-dark fw-bold'}">${escapeHtml(game.badge || '熱門工具')}</span>
+                        <span class="small text-white-50"><i class="bi bi-controller fs-6 text-warning"></i></span>
+                    </div>
+                    <h6 class="fw-bold mb-1 text-white">${escapeHtml(game.title)}</h6>
+                    <div class="mb-2 d-flex flex-wrap gap-1">
+                        ${(game.tags || []).map(t => `<span class="badge bg-secondary-subtle text-light border border-secondary border-opacity-50 small" style="font-size: 0.68rem;">${escapeHtml(t)}</span>`).join('')}
+                    </div>
+                    <p class="small text-white-50 mb-3 flex-grow-1" style="font-size: 0.8rem; line-height: 1.45; color: #cbd5e1 !important;">
+                        ${escapeHtml(game.desc)}
+                    </p>
+                    <div class="d-flex gap-2 mt-auto pt-2 border-top border-secondary border-opacity-25">
+                        <button class="btn btn-sm btn-primary flex-grow-1 rounded-pill fw-semibold shadow-sm" onclick="openGameToolViewer('${escapeHtml(game.title)}', '${escapeHtml(game.url)}')">
+                            <i class="bi bi-window-fullscreen"></i> 在線開啟
+                        </button>
+                        <button class="btn btn-sm btn-outline-info rounded-pill px-3" onclick="window.open('${escapeHtml(game.url)}', '_blank')" title="另開新分頁跳轉原網頁">
+                            <i class="bi bi-box-arrow-up-right"></i> 跳轉
+                        </button>
+                        ${game.isCustom ? `<button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="deleteCustomGame('${game.id}')" title="刪除自定義卡片"><i class="bi bi-trash"></i></button>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+        container.appendChild(col);
+    });
+
+    // 最後添加「新增自定義遊戲 / Wiki 卡片插槽」
+    const addCol = document.createElement("div");
+    addCol.className = "col";
+    addCol.innerHTML = `
+        <div class="card h-100 border border-secondary border-opacity-50 shadow-sm rounded-3 d-flex flex-column align-items-center justify-content-center p-4 text-center cursor-pointer" style="background: rgba(30, 41, 59, 0.45); border-style: dashed !important; min-height: 180px; cursor: pointer; transition: background 0.2s;" onclick="openAddCustomGameModal()" title="點擊新增您喜愛的遊戲攻略或資料庫">
+            <i class="bi bi-plus-circle-dotted fs-1 text-warning mb-2 opacity-75"></i>
+            <h6 class="fw-bold text-white mb-1">新增自定義遊戲 / Wiki</h6>
+            <p class="small text-white-50 mb-0" style="font-size: 0.78rem; color: #94a3b8 !important;">可自訂加入任何遊戲 Wiki 百科、素材工具或地圖</p>
+        </div>
+    `;
+    container.appendChild(addCol);
+};
+
+window.filterGameHubGrid = function(keyword) {
+    window.renderGameHubGrid(keyword);
+};
+
+window.openGameToolViewer = function(title, url) {
+    window.currentGameToolUrl = url;
+    const modalTitle = document.getElementById("gameToolModalTitle");
+    const iframe = document.getElementById("gameToolIframe");
+    const indicator = document.getElementById("gameToolLoadingIndicator");
+
+    if (modalTitle) modalTitle.textContent = title;
+    if (indicator) indicator.style.display = "block";
+
+    if (iframe) {
+        iframe.onload = () => {
+            if (indicator) indicator.style.display = "none";
+        };
+        iframe.src = url;
+    }
+
+    // 關閉清單 Modal 並展示工具視窗
+    const hubModalEl = document.getElementById("gameHubModal");
+    if (hubModalEl) {
+        const hubModal = bootstrap.Modal.getInstance(hubModalEl);
+        if (hubModal) hubModal.hide();
+    }
+
+    const toolModalEl = document.getElementById("gameToolModal");
+    if (toolModalEl) {
+        const toolModal = bootstrap.Modal.getOrCreateInstance(toolModalEl);
+        toolModal.show();
+    }
+};
+
+window.reloadGameToolIframe = function() {
+    const iframe = document.getElementById("gameToolIframe");
+    const indicator = document.getElementById("gameToolLoadingIndicator");
+    if (iframe && window.currentGameToolUrl) {
+        if (indicator) indicator.style.display = "block";
+        iframe.src = window.currentGameToolUrl;
+    }
+};
+
+window.openGameToolInNewTab = function() {
+    if (window.currentGameToolUrl) {
+        window.open(window.currentGameToolUrl, '_blank', 'noopener,noreferrer');
+    }
+};
+
+window.backToGameHub = function() {
+    const toolModalEl = document.getElementById("gameToolModal");
+    if (toolModalEl) {
+        const toolModal = bootstrap.Modal.getInstance(toolModalEl);
+        if (toolModal) toolModal.hide();
+    }
+    const iframe = document.getElementById("gameToolIframe");
+    if (iframe) iframe.src = "about:blank"; // 釋放記憶體
+
+    setTimeout(() => {
+        window.openGameHubModal();
+    }, 150);
+};
+
+window.closeGameToolViewer = function() {
+    const iframe = document.getElementById("gameToolIframe");
+    if (iframe) iframe.src = "about:blank";
+};
+
+window.openAddCustomGameModal = function() {
+    const nameInput = document.getElementById("customGameNameInput");
+    const urlInput = document.getElementById("customGameUrlInput");
+    const tagsInput = document.getElementById("customGameTagsInput");
+    const descInput = document.getElementById("customGameDescInput");
+    if (nameInput) nameInput.value = "";
+    if (urlInput) urlInput.value = "";
+    if (tagsInput) tagsInput.value = "";
+    if (descInput) descInput.value = "";
+
+    const modalEl = document.getElementById("addCustomGameModal");
+    if (modalEl) {
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    }
+};
+
+window.saveCustomGame = function() {
+    const nameInput = document.getElementById("customGameNameInput");
+    const urlInput = document.getElementById("customGameUrlInput");
+    const tagsInput = document.getElementById("customGameTagsInput");
+    const descInput = document.getElementById("customGameDescInput");
+
+    const title = nameInput ? nameInput.value.trim() : '';
+    let url = urlInput ? urlInput.value.trim() : '';
+    const tagsStr = tagsInput ? tagsInput.value.trim() : '';
+    const desc = descInput ? descInput.value.trim() : '';
+
+    if (!title || !url) {
+        showToast("請填寫遊戲名稱與工具網址！", "bi-exclamation-triangle text-warning");
+        return;
+    }
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+    }
+
+    const tags = tagsStr ? tagsStr.split(/[,，\s]+/).filter(Boolean) : ['自定義'];
+    const newGame = {
+        id: 'custom_game_' + Date.now(),
+        title,
+        url,
+        badge: '自定義',
+        badgeClass: 'bg-secondary text-white',
+        tags,
+        desc: desc || '使用者自定義加入之遊戲工具或 Wiki 資料庫。',
+        isCustom: true
+    };
+
+    try {
+        const stored = JSON.parse(localStorage.getItem('web_library_custom_games') || '[]');
+        stored.push(newGame);
+        localStorage.setItem('web_library_custom_games', JSON.stringify(stored));
+        showToast(`🎉 已成功加入《${title}》至遊戲專區！`, "bi-check-circle-fill text-success");
+
+        const modalEl = document.getElementById("addCustomGameModal");
+        if (modalEl) {
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+        }
+        window.renderGameHubGrid();
+    } catch (e) {
+        showToast("儲存失敗：" + e.message, "bi-x-circle text-danger");
+    }
+};
+
+window.deleteCustomGame = function(id) {
+    if (!confirm("確定要刪除此自定義遊戲卡片嗎？")) return;
+    try {
+        let stored = JSON.parse(localStorage.getItem('web_library_custom_games') || '[]');
+        stored = stored.filter(g => g.id !== id);
+        localStorage.setItem('web_library_custom_games', JSON.stringify(stored));
+        showToast("已刪除該自定義遊戲卡片", "bi-trash3 text-info");
+        window.renderGameHubGrid();
+    } catch (e) {}
+};
