@@ -175,12 +175,34 @@ async function crawlAgePlayer(playUrl) {
         }
 
         // 嘗試萃取真實 m3u8 或 mp4 直連串流 (消除 iframe 裁切，交由 Hls.js 原生播放)
+        let directUrl = null;
         const m3u8Match = url.match(/[?&]url=([^&]+\.(?:m3u8|mp4)[^&]*)/i) 
                        || url.match(/(https?%3A%2F%2F[^&]+\.(?:m3u8|mp4)[^&]*)/i)
                        || url.match(/(https?:\/\/[^"'\s]+\.(?:m3u8|mp4)[^"'\s]*)/i);
         if (m3u8Match) {
-            const direct = decodeURIComponent(m3u8Match[1]);
-            return { playerUrl: direct, isDirectStream: true };
+            directUrl = decodeURIComponent(m3u8Match[1]);
+        } else {
+            // 次級探測：深入請求 iframe 播放頁源碼，嘗試反查內嵌之真實 m3u8/mp4
+            try {
+                const innerRes = await fetchWithTimeout(url, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
+                        'Referer': playUrl
+                    }
+                }, 4000);
+                if (innerRes.ok) {
+                    const innerHtml = await innerRes.text();
+                    const innerMatch = innerHtml.match(/(?:url|source|file|src)\s*[:=]\s*["'](https?:\/\/[^"'\s]+\.(?:m3u8|mp4)[^"'\s]*)["']/i)
+                                    || innerHtml.match(/["'](https?:\/\/[^"'\s]+?\.(?:m3u8|mp4)(?:\?[^"'\s]*)?)["']/i);
+                    if (innerMatch) {
+                        directUrl = innerMatch[1];
+                    }
+                }
+            } catch (errInner) {}
+        }
+
+        if (directUrl) {
+            return { playerUrl: directUrl, isDirectStream: true };
         }
 
         return { playerUrl: url, isDirectStream: false };
@@ -341,10 +363,43 @@ async function crawl7sefunPlayer(playUrl) {
 
                     // 3. 其他常見播放器適配器規則 (依據 7sefun playerconfig.js)
                     if (parsed.from === 'funzy' || parsed.from === 'sssfun' || parsed.from === '7sefun') {
-                        return { playerUrl: `https://play.7sefun.top/?url=${encodeURIComponent(realUrl)}`, isBlockedIframe: false };
+                        const playTarget = `https://play.7sefun.top/?url=${encodeURIComponent(realUrl)}`;
+                        try {
+                            const pRes = await fetchWithTimeout(playTarget, {
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
+                                    'Referer': playUrl
+                                }
+                            }, 4000);
+                            if (pRes.ok) {
+                                const pHtml = await pRes.text();
+                                const pMatch = pHtml.match(/(?:url|source|file|src)\s*[:=]\s*["'](https?:\/\/[^"'\s]+\.(?:m3u8|mp4)[^"'\s]*)["']/i)
+                                            || pHtml.match(/["'](https?:\/\/[^"'\s]+?\.(?:m3u8|mp4)(?:\?[^"'\s]*)?)["']/i);
+                                if (pMatch) {
+                                    return { playerUrl: pMatch[1], isDirectStream: true };
+                                }
+                            }
+                        } catch (e) {}
+                        return { playerUrl: playTarget, isBlockedIframe: false };
                     }
                     if (parsed.from === 'ndx' || parsed.from === 'aafun2' || parsed.from === 'CYDD1') {
                         const addonUrl = `https://www.7sefun.top/addons/dp/player/index.php?key=0&id=${parsed.id || 0}&uid=0&from=${parsed.from}&url=${encodeURIComponent(realUrl)}`;
+                        try {
+                            const aRes = await fetchWithTimeout(addonUrl, {
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
+                                    'Referer': playUrl
+                                }
+                            }, 4000);
+                            if (aRes.ok) {
+                                const aHtml = await aRes.text();
+                                const aMatch = aHtml.match(/(?:url|source|file|src)\s*[:=]\s*["'](https?:\/\/[^"'\s]+\.(?:m3u8|mp4)[^"'\s]*)["']/i)
+                                            || aHtml.match(/["'](https?:\/\/[^"'\s]+?\.(?:m3u8|mp4)(?:\?[^"'\s]*)?)["']/i);
+                                if (aMatch) {
+                                    return { playerUrl: aMatch[1], isDirectStream: true };
+                                }
+                            }
+                        } catch (e) {}
                         return { playerUrl: addonUrl, isBlockedIframe: false };
                     }
 

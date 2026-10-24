@@ -75,6 +75,31 @@
 
             // 立即回報一次初始狀態
             notifyParent('ready', { currentTime: video.currentTime, duration: video.duration });
+
+            // 轉發 iframe 內部滾輪事件與全螢幕快捷鍵給母頁面，避免外嵌播放器攔截滾輪調音量與 F 全螢幕
+            window.addEventListener('wheel', (e) => {
+                const delta = e.deltaY < 0 ? 5 : -5;
+                try {
+                    window.top.postMessage({
+                        source: 'kazumi_player_bridge',
+                        type: 'wheel',
+                        delta: delta
+                    }, '*');
+                } catch (err) {}
+            }, { passive: true });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'KeyF' || e.key === 'f' || e.key === 'F') {
+                    e.preventDefault();
+                    try {
+                        window.top.postMessage({
+                            source: 'kazumi_player_bridge',
+                            type: 'fullscreen'
+                        }, '*');
+                    } catch (err) {}
+                }
+            });
+
             console.log('[Web Library Tampermonkey Bridge] 🎬 已成功掛接 iframe 內置播放器！');
         }
 

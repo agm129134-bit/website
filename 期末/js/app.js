@@ -3180,6 +3180,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // 1. 優先處理來自 Tampermonkey Bridge 的高精度雙向回報
             if (data.source === 'kazumi_player_bridge') {
+                if (data.type === 'wheel') {
+                    if (typeof window.isKazumiStandby === 'function' && window.isKazumiStandby()) return;
+                    if (typeof window.adjustKazumiVolume === 'function') {
+                        window.adjustKazumiVolume(data.delta || 5);
+                    }
+                    return;
+                } else if (data.type === 'fullscreen') {
+                    if (typeof window.toggleKazumiFullscreen === 'function') {
+                        window.toggleKazumiFullscreen();
+                    }
+                    return;
+                }
+
                 const time = Number(data.currentTime);
                 const duration = Number(data.duration) || getDanmakuMaxDuration();
 
