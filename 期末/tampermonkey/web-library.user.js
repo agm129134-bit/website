@@ -446,18 +446,18 @@
         const tokInput = document.createElement("input");
         tokInput.id = "wl-cfg-token";
         tokInput.value = config.apiToken;
-        tokInput.style.cssText = "width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: monospace; font-size: 12px; margin-bottom: 8px;";
+        tokInput.style.cssText = "width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: monospace; font-size: 12px; margin-bottom: 8px; background: #ffffff !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important;";
         drawer.appendChild(tokInput);
 
         const urlLabel = document.createElement("label");
         urlLabel.textContent = "伺服器 API 位址";
-        urlLabel.style.cssText = "display: block; font-weight: 600; margin-bottom: 4px;";
+        urlLabel.style.cssText = "display: block; font-weight: 600; margin-bottom: 4px; color: #475569 !important;";
         drawer.appendChild(urlLabel);
 
         const urlInput = document.createElement("input");
         urlInput.id = "wl-cfg-url";
         urlInput.value = config.serverUrl;
-        urlInput.style.cssText = "width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; margin-bottom: 8px;";
+        urlInput.style.cssText = "width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; margin-bottom: 8px; background: #ffffff !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important;";
         drawer.appendChild(urlInput);
 
         const drawerBottom = document.createElement("div");
@@ -504,7 +504,7 @@
         body.appendChild(tLabel);
         const titleInput = document.createElement("input");
         titleInput.id = "wl-input-title";
-        titleInput.style.cssText = "width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #0f172a; margin-bottom: 10px;";
+        titleInput.style.cssText = "width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #ffffff !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; margin-bottom: 10px;";
         body.appendChild(titleInput);
 
         // 分類與標籤 (Flex)
@@ -519,7 +519,7 @@
         col1.appendChild(catLabel);
         const catSelect = document.createElement("select");
         catSelect.id = "wl-input-category";
-        catSelect.style.cssText = "width: 100%; box-sizing: border-box; padding: 7px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white; color: #0f172a;";
+        catSelect.style.cssText = "width: 100%; box-sizing: border-box; padding: 7px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #ffffff !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important;";
         [
             { val: "web", text: "💻 一般網頁" },
             { val: "video", text: "🎬 影片影音" },
@@ -541,7 +541,7 @@
         col2.appendChild(tagLabel);
         const tagInput = document.createElement("input");
         tagInput.id = "wl-input-tags";
-        tagInput.style.cssText = "width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #0f172a;";
+        tagInput.style.cssText = "width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #ffffff !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important;";
         col2.appendChild(tagInput);
         row.appendChild(col2);
         body.appendChild(row);
@@ -553,7 +553,7 @@
         body.appendChild(covLabel);
         const covInput = document.createElement("input");
         covInput.id = "wl-input-cover";
-        covInput.style.cssText = "width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; color: #64748b; margin-bottom: 10px;";
+        covInput.style.cssText = "width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; background: #ffffff !important; color: #334155 !important; -webkit-text-fill-color: #334155 !important; margin-bottom: 10px;";
         body.appendChild(covInput);
 
         // 簡介
@@ -564,7 +564,7 @@
         const descArea = document.createElement("textarea");
         descArea.id = "wl-input-desc";
         descArea.placeholder = "輸入備註或重點...";
-        descArea.style.cssText = "width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; height: 42px; resize: none; color: #0f172a; margin-bottom: 16px;";
+        descArea.style.cssText = "width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; height: 42px; resize: none; background: #ffffff !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; margin-bottom: 16px;";
         body.appendChild(descArea);
 
         // 底部按鈕

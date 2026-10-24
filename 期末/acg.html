@@ -497,7 +497,15 @@
 
                             <!-- 影片播放器：預設無假影片，純淨黑底待命 -->
                             <video id="kazumiVideoPlayer" playsinline style="width: 100%; height: 100%; max-height: 500px; background: #000; display: none; cursor: pointer;"></video>
-                            <iframe id="kazumiIframePlayer" style="width: 100%; height: 490px; border: none; display: none;" allowfullscreen="true" allow="autoplay; fullscreen"></iframe>
+                            <!-- 內嵌播放器容器 (自動裁切第三方播放器多餘控制項) -->
+                            <div id="kazumiIframeWrapper" class="w-100 position-relative overflow-hidden" style="display: none; height: 490px; max-height: 500px; background: #000;">
+                                <iframe id="kazumiIframePlayer" style="width: 100%; height: calc(100% + 46px); border: none; margin-bottom: -46px;" allowfullscreen="true" allow="autoplay; fullscreen"></iframe>
+                            </div>
+                            <!-- 音量調節浮動提示 HUD (支援滑鼠滾輪與鍵盤上下鍵) -->
+                            <div id="kazumiVolumeHud" class="position-absolute top-50 start-50 translate-middle badge bg-dark bg-opacity-80 text-white px-3 py-2 rounded-pill shadow-lg d-none align-items-center gap-2" style="z-index: 80; pointer-events: none; font-size: 1.1rem; border: 1px solid rgba(255,255,255,0.25);">
+                                <i class="bi bi-volume-up-fill" id="volumeHudIcon"></i>
+                                <span id="volumeHudText">100%</span>
+                            </div>
                             <!-- 純淨待命提示畫面 (內建搜尋列) -->
                             <div id="kazumiTheaterPlaceholder" class="position-absolute top-50 start-50 translate-middle text-center px-3" style="max-width: 480px; width: 100%; color: #cbd5e1;">
                                 <i class="bi bi-film fs-1 d-block mb-2 text-danger opacity-75"></i>
@@ -524,6 +532,14 @@
                                         <i class="bi bi-pause-fill" id="danmakuMiniPlayPauseIcon"></i>
                                     </button>
                                     <span class="font-monospace text-warning fw-semibold" id="theaterDanmakuTimeDisplay" style="font-size: 0.8rem; min-width: 90px;">00:00 / 24:00</span>
+                                    <!-- 音量控制項 (按鈕可控、鍵盤方向鍵上下可控、滑鼠滾輪可控) -->
+                                    <div class="d-flex align-items-center gap-1 mx-1" id="kazumiVolumeControlGroup" title="音量控制 (滾輪 / 方向鍵 ↑↓ / M 鍵靜音)">
+                                        <button type="button" class="btn btn-xs btn-outline-light rounded-pill px-2" id="danmakuVolumeBtn" onclick="toggleKazumiVolumeMute()" title="靜音/取消靜音 (快捷鍵: M)">
+                                            <i class="bi bi-volume-up-fill" id="danmakuVolumeIcon"></i>
+                                        </button>
+                                        <input type="range" class="form-range d-none d-sm-inline-block" id="danmakuVolumeSlider" min="0" max="100" step="1" value="100" style="width: 55px; height: 4px; cursor: pointer;" oninput="onKazumiVolumeInput(this.value)" onchange="onKazumiVolumeChange(this.value)" title="調整音量">
+                                        <span id="danmakuVolumeLabel" class="text-white-50 font-monospace d-none d-sm-inline" style="font-size: 0.72rem; min-width: 32px;">100%</span>
+                                    </div>
                                 </div>
                                 <!-- 進度拉桿 -->
                                 <div class="flex-grow-1 mx-3 d-flex align-items-center">

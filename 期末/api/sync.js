@@ -130,6 +130,22 @@ function forwardToBangumi(apiPath, method, token, bodyData = null) {
     });
 }
 
+// 記憶體快取：Token 對應之 Bangumi 使用者名稱
+const tokenToUsernameMap = new Map();
+async function resolveUsernameFromToken(token) {
+    if (!token) return null;
+    if (tokenToUsernameMap.has(token)) return tokenToUsernameMap.get(token);
+    try {
+        const meRes = await forwardToBangumi('/v0/me', 'GET', token);
+        if (meRes.statusCode === 200 && meRes.data && (meRes.data.username || meRes.data.id)) {
+            const username = String(meRes.data.username || meRes.data.id);
+            tokenToUsernameMap.set(token, username);
+            return username;
+        }
+    } catch(e) {}
+    return null;
+}
+
 /**
  * 處理跨電腦同步與 Bangumi 雙向同步路由
  */
@@ -303,8 +319,13 @@ async function handleSyncRoute(req, res) {
             if (rating) payload.rate = rating;
             if (comment) payload.comment = comment;
 
-            // Bangumi API: PATCH /v0/users/-/collections/{subject_id} 或 POST /v0/users/-/collections/{subject_id}
-            const result = await forwardToBangumi(`/v0/users/-/collections/${subjectId}`, 'POST', token, payload);
+            // Bangumi API: POST /v0/users/{username}/collections/{subject_id}
+            let username = (body.username || '').trim();
+            if (!username && token) {
+                username = await resolveUsernameFromToken(token);
+            }
+            const userEndpoint = username ? encodeURIComponent(username) : '-';
+            const result = await forwardToBangumi(`/v0/users/${userEndpoint}/collections/${subjectId}`, 'POST', token, payload);
             return sendJson(res, result.statusCode, {
                 success: result.statusCode >= 200 && result.statusCode < 300,
                 status: result.statusCode,
@@ -316,14 +337,31 @@ async function handleSyncRoute(req, res) {
         else if (pathname === '/api/bangumi/collection' && req.method === 'GET') {
             const token = (query.token || (req.headers['authorization'] || '').replace('Bearer ', '')).trim();
             const subjectId = query.subjectId;
-            if (!token) return sendJson(res, 400, { success: false, error: '缺少 Bangumi Access Token' });
+            let username = (query.username || '').trim();
+
+            if (!token && !username) return sendJson(res, 400, { success: false, error: '缺少 Bangumi Access Token 或 username' });
             if (!subjectId) return sendJson(res, 400, { success: false, error: '缺少 subjectId' });
 
-            const result = await forwardToBangumi(`/v0/users/-/collections/${subjectId}`, 'GET', token);
+            if (!username && token) {
+                username = await resolveUsernameFromToken(token);
+            }
+            if (!username) {
+                return sendJson(res, 400, { success: false, error: '無法識別 Bangumi 使用者名稱' });
+            }
+
+            const result = await forwardToBangumi(`/v0/users/${encodeURIComponent(username)}/collections/${subjectId}`, 'GET', token);
+            if (result.statusCode === 404) {
+                // 404 在 Bangumi 表示作品未被該使用者收藏
+                return sendJson(res, 200, {
+                    success: true,
+                    status: 200,
+                    data: { type: 0, status: 'uncollected' }
+                });
+            }
             return sendJson(res, result.statusCode, {
                 success: result.statusCode >= 200 && result.statusCode < 300,
                 status: result.statusCode,
-                data: result.data
+                data: result.data || { type: 0 }
             });
         }
 
@@ -331,17 +369,23 @@ async function handleSyncRoute(req, res) {
         else if (pathname === '/api/bangumi/search' && req.method === 'GET') {
             const token = (query.token || (req.headers['authorization'] || '').replace('Bearer ', '')).trim();
             const q = query.q || '';
-            const type = query.type || ''; // 1: book, 2: anime
+            const type = query.type || '2'; // 1: book, 2: anime
             if (!q) return sendJson(res, 400, { success: false, error: '缺少關鍵字 q' });
 
-            let searchPath = `/v0/search/subjects?keyword=${encodeURIComponent(q)}&limit=5`;
-            if (type) searchPath += `&filter[type][]=${type}`;
-
+            const searchPath = `/search/subject/${encodeURIComponent(q)}?type=${encodeURIComponent(type)}&responseGroup=small`;
             const result = await forwardToBangumi(searchPath, 'GET', token || null);
+
+            let list = [];
+            if (result.data && Array.isArray(result.data.list)) {
+                list = result.data.list;
+            } else if (Array.isArray(result.data)) {
+                list = result.data;
+            }
+
             return sendJson(res, result.statusCode, {
                 success: result.statusCode >= 200 && result.statusCode < 300,
                 status: result.statusCode,
-                data: result.data
+                data: { data: list }
             });
         }
 

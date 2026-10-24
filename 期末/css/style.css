@@ -1167,6 +1167,41 @@ body {
   color: #ffffff !important;
 }
 
+/* 動漫劇院純淨化：強制隱藏 HTML5 原生 controls (避免任何雙層進度條/控制項重疊) */
+#kazumiVideoPlayer::-webkit-media-controls,
+#kazumiVideoPlayer::-webkit-media-controls-enclosure,
+#kazumiVideoPlayer::-webkit-media-controls-panel,
+#kazumiVideoPlayer::-webkit-media-controls-play-button,
+#kazumiVideoPlayer::-webkit-media-controls-timeline,
+#kazumiVideoPlayer::-webkit-media-controls-current-time-display,
+#kazumiVideoPlayer::-webkit-media-controls-time-remaining-display,
+#kazumiVideoPlayer::-webkit-media-controls-mute-button,
+#kazumiVideoPlayer::-webkit-media-controls-volume-slider,
+#kazumiVideoPlayer::-webkit-media-controls-fullscreen-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* 改善 Bangumi 狀態同步下拉選單可讀性 (圖3修復) */
+.dropdown-menu-dark .dropdown-header {
+  color: #38bdf8 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px;
+}
+
+/* 標記按鈕高對比度修復 (避免文字看不清) */
+.bookmark-watch-status-btn {
+  background: rgba(14, 165, 233, 0.15) !important;
+  color: #0284c7 !important;
+  border: 1px solid #38bdf8 !important;
+  font-weight: 600 !important;
+}
+[data-theme="dark"] .bookmark-watch-status-btn {
+  color: #38bdf8 !important;
+}
+
 
 
 

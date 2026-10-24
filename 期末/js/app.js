@@ -683,11 +683,11 @@ function renderBookmarks() {
                             </button>` : ''}
                             ${(isAnimeItem(item) || (Array.isArray(item.tags) && item.tags.some(t => t.includes('漫畫') || t.includes('条漫') || t.includes('動畫') || t.includes('番劇')))) ? `
                             <div class="dropdown d-inline-block">
-                                <button class="btn btn-outline-info btn-sm action-jump-btn dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="變更是否看/讀過並同步至 Bangumi">
+                                <button class="btn btn-outline-info btn-sm action-jump-btn dropdown-toggle d-flex align-items-center gap-1 bookmark-watch-status-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="變更是否看/讀過並同步至 Bangumi">
                                     <i class="bi bi-bookmark-check"></i> <span>${getBookmarkWatchStatusLabel(item)}</span>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-dark shadow-sm" style="font-size: 0.8rem; z-index: 1050;">
-                                    <li><h6 class="dropdown-header small text-muted">Bangumi 狀態同步</h6></li>
+                                    <li><h6 class="dropdown-header small" style="color: #38bdf8 !important;">Bangumi 狀態同步</h6></li>
                                     <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 3); return false;"><i class="bi bi-play-circle text-success me-1"></i> ${isMangaItem(item) ? '在讀' : '在看'}</a></li>
                                     <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 1); return false;"><i class="bi bi-heart text-danger me-1"></i> ${isMangaItem(item) ? '想讀' : '想看'}</a></li>
                                     <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 2); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> ${isMangaItem(item) ? '已讀過' : '已看過'}</a></li>
@@ -1353,11 +1353,11 @@ function renderSourceList() {
                             <i class="bi bi-bookmark-plus"></i> +收藏
                         </button>
                         <div class="dropdown d-inline-block">
-                            <button class="btn btn-xs btn-outline-secondary dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="檢視或更改 Bangumi 狀態">
+                            <button class="btn btn-xs btn-outline-info dropdown-toggle d-flex align-items-center gap-1 bookmark-watch-status-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="檢視或更改 Bangumi 狀態">
                                 <i class="bi bi-bookmark-heart"></i> <span id="${statusTagId}">辨識中...</span>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow-sm" style="font-size: 0.8rem; z-index: 1060;">
-                                <li><h6 class="dropdown-header small text-muted">Bangumi 狀態變更</h6></li>
+                                <li><h6 class="dropdown-header small" style="color: #38bdf8 !important;">Bangumi 狀態變更</h6></li>
                                 <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 3, false, '${statusTagId}'); return false;"><i class="bi bi-play-circle text-success me-1"></i> 在看</a></li>
                                 <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 1, false, '${statusTagId}'); return false;"><i class="bi bi-heart text-danger me-1"></i> 想看</a></li>
                                 <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 2, false, '${statusTagId}'); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> 看過</a></li>
@@ -1572,6 +1572,7 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
 
     const video = document.getElementById("kazumiVideoPlayer");
     const iframe = document.getElementById("kazumiIframePlayer");
+    const iframeWrapper = document.getElementById("kazumiIframeWrapper");
     const placeholder = document.getElementById("kazumiTheaterPlaceholder");
     const fallbackCard = document.getElementById("kazumiBlockedFallback");
 
@@ -1584,6 +1585,7 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
             window.kazumiHlsInstance = null;
         }
         if (video) { video.pause(); video.style.display = "none"; }
+        if (iframeWrapper) iframeWrapper.style.display = "none";
         if (iframe) { iframe.src = ""; iframe.style.display = "none"; }
         if (fallbackCard) {
             fallbackCard.style.display = "block";
@@ -1593,9 +1595,12 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
         showToast("💡 此集來源因站方安全保護無法直接內嵌，請點擊中央【新分頁播放】或切換其他源！", "bi-info-circle-fill text-warning");
     } else if (isDirectVideo) {
         if (fallbackCard) fallbackCard.style.display = "none";
+        if (iframeWrapper) iframeWrapper.style.display = "none";
         if (iframe) { iframe.src = ""; iframe.style.display = "none"; }
         if (video) {
             video.style.display = "block";
+            video.controls = false;
+            video.removeAttribute("controls");
             if (playerUrl.includes('.m3u8')) {
                 if (window.Hls && Hls.isSupported()) {
                     if (window.kazumiHlsInstance) {
@@ -1634,6 +1639,7 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
         }
         if (video) { video.pause(); video.style.display = "none"; }
         if (fallbackCard) fallbackCard.style.display = "none";
+        if (iframeWrapper) iframeWrapper.style.display = "block";
         if (iframe) {
             iframe.style.display = "block";
             iframe.src = playerUrl;
@@ -1675,6 +1681,9 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
 
     const theaterModal = bootstrap.Modal.getOrCreateInstance(document.getElementById("animePlayerModal"));
     theaterModal.show();
+    setTimeout(() => {
+        if (typeof window.applyKazumiVolume === 'function') window.applyKazumiVolume(false);
+    }, 100);
 }
 
 // 劇院內一鍵搜尋番劇（支援待命畫面與 Header 搜尋，具備 Bootstrap 5 模態框異步防衝突機制）
@@ -1718,6 +1727,7 @@ window.resetKazumiTheater = function() {
     }
     const video = document.getElementById("kazumiVideoPlayer");
     const iframe = document.getElementById("kazumiIframePlayer");
+    const iframeWrapper = document.getElementById("kazumiIframeWrapper");
     const placeholder = document.getElementById("kazumiTheaterPlaceholder");
     const fallback = document.getElementById("kazumiBlockedFallback");
     const titleEl = document.getElementById("animePlayerTitle");
@@ -1734,7 +1744,10 @@ window.resetKazumiTheater = function() {
         video.removeAttribute("src");
         video.load();
         video.style.display = "none";
+        video.controls = false;
+        video.removeAttribute("controls");
     }
+    if (iframeWrapper) iframeWrapper.style.display = "none";
     if (iframe) {
         iframe.src = "";
         iframe.style.display = "none";
@@ -1776,6 +1789,7 @@ window.openKazumiPlayer = function(title = "", src = "") {
     document.getElementById("animePlayerTitle").textContent = title;
     const video = document.getElementById("kazumiVideoPlayer");
     const iframe = document.getElementById("kazumiIframePlayer");
+    const iframeWrapper = document.getElementById("kazumiIframeWrapper");
     const placeholder = document.getElementById("kazumiTheaterPlaceholder");
     if (placeholder) placeholder.style.display = "none";
 
@@ -1785,13 +1799,14 @@ window.openKazumiPlayer = function(title = "", src = "") {
     const ytMatch = src.match(/(?:v=|\/embed\/|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
 
     if (biliMatch) {
-        // Bilibili 官方高清內嵌播放器
+        // Bilibili 官方高清內嵌播放器 (純淨化：關閉自帶彈幕與裁切控制列)
         const bvid = biliMatch[1];
         video.pause();
         video.style.display = "none";
+        if (iframeWrapper) iframeWrapper.style.display = "block";
         iframe.style.display = "block";
-        iframe.src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&as_wide=1&danmaku=1`;
-        showToast("已載入 Bilibili 官方無廣告內嵌播放器！", "bi-play-btn-fill text-danger");
+        iframe.src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&as_wide=1&danmaku=0`;
+        showToast("已載入 Bilibili 官方純淨內嵌播放器！", "bi-play-btn-fill text-danger");
 
         // 呼叫後端 Kazumi 模組解析真實分P選集與 CID
         fetch(`/api/kazumi/resolve?bvid=${bvid}`)
@@ -1806,20 +1821,24 @@ window.openKazumiPlayer = function(title = "", src = "") {
             })
             .catch(() => {});
     } else if (ytMatch) {
-        // YouTube 官方無 Cookie 安全內嵌播放器 (徹底修復 Error 153 播放器設定錯誤)
+        // YouTube 官方無 Cookie 安全內嵌播放器 (純淨化：隱藏原控制項、關閉鍵盤衝突)
         const ytId = ytMatch[1];
         video.pause();
         video.style.display = "none";
+        if (iframeWrapper) iframeWrapper.style.display = "block";
         iframe.style.display = "block";
         iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
         const originParam = encodeURIComponent(window.location.origin);
-        iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&enablejsapi=1&origin=${originParam}&widget_referrer=${originParam}&rel=0`;
-        showToast("已載入 YouTube 官方內嵌劇院！", "bi-youtube text-danger");
+        iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&enablejsapi=1&origin=${originParam}&widget_referrer=${originParam}&rel=0&controls=0&disablekb=1&iv_load_policy=3&modestbranding=1&playsinline=1`;
+        showToast("已載入 YouTube 官方純淨內嵌劇院！", "bi-youtube text-danger");
     } else {
         // 原生 HTML5 影片 / 代理串流
+        if (iframeWrapper) iframeWrapper.style.display = "none";
         iframe.src = "";
         iframe.style.display = "none";
         video.style.display = "block";
+        video.controls = false;
+        video.removeAttribute("controls");
         video.src = src;
         video.currentTime = 0;
         video.play().catch(() => {});
@@ -1827,6 +1846,9 @@ window.openKazumiPlayer = function(title = "", src = "") {
 
     const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("animePlayerModal"));
     modal.show();
+    setTimeout(() => {
+        if (typeof window.applyKazumiVolume === 'function') window.applyKazumiVolume(false);
+    }, 100);
 
     // 清空彈幕覆蓋層（無預設彈幕）
     clearInterval(danmakuInterval);
@@ -1854,7 +1876,10 @@ function renderKazumiEpisodes(bvid, episodes) {
             btn.classList.add("btn-primary", "active");
             
             const iframe = document.getElementById("kazumiIframePlayer");
-            iframe.src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=${ep.page}&high_quality=1&as_wide=1&danmaku=1`;
+            const iframeWrapper = document.getElementById("kazumiIframeWrapper");
+            if (iframeWrapper) iframeWrapper.style.display = "block";
+            iframe.style.display = "block";
+            iframe.src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=${ep.page}&high_quality=1&as_wide=1&danmaku=0`;
             showToast(`Kazumi: 已切換至 P${ep.page}「${ep.part}」！`, "bi-play-circle-fill text-danger");
             createBulletDanmaku(`--- 切換至 P${ep.page}「${ep.part}」 ---`, "#f59e0b");
             if (ep.cid) {
@@ -1872,13 +1897,17 @@ window.closeAnimePlayer = function() {
     }
     const video = document.getElementById("kazumiVideoPlayer");
     const iframe = document.getElementById("kazumiIframePlayer");
+    const iframeWrapper = document.getElementById("kazumiIframeWrapper");
     const fallback = document.getElementById("kazumiBlockedFallback");
     if (fallback) fallback.style.display = "none";
     if (video) {
         video.pause();
         video.removeAttribute("src");
         video.load();
+        video.controls = false;
+        video.removeAttribute("controls");
     }
+    if (iframeWrapper) iframeWrapper.style.display = "none";
     if (iframe) iframe.src = ""; // 停止播放
     if (typeof window.clearAllDanmakuState === 'function') {
         window.clearAllDanmakuState();
@@ -2476,6 +2505,142 @@ window.onDanmakuTimelineSliderChange = function(val) {
 };
 
 // ==========================================
+// Kazumi 動漫劇院純淨化：音量控制系統 (按鈕、拉桿、滾輪、鍵盤方向鍵 ↑↓、M 鍵靜音)
+// ==========================================
+let kazumiCurrentVolume = parseInt(localStorage.getItem('kazumi_theater_volume') || '100', 10);
+if (isNaN(kazumiCurrentVolume) || kazumiCurrentVolume < 0) kazumiCurrentVolume = 100;
+if (kazumiCurrentVolume > 100) kazumiCurrentVolume = 100;
+let kazumiIsMuted = localStorage.getItem('kazumi_theater_muted') === 'true';
+let kazumiVolumeHudTimer = null;
+
+// 廣播音量給 iframe (相容 YouTube Iframe API, Bilibili, DPlayer, ArtPlayer, Tampermonkey Bridge)
+function sendIframeVolumeCommand(vol, isMuted) {
+    const iframe = document.getElementById("kazumiIframePlayer");
+    if (!iframe || !iframe.contentWindow) return;
+    const effectiveVol = isMuted ? 0 : Math.max(0, Math.min(100, vol));
+
+    try {
+        // Tampermonkey Bridge
+        iframe.contentWindow.postMessage({
+            target: 'kazumi_iframe_video',
+            action: 'volume',
+            volume: effectiveVol / 100,
+            muted: isMuted
+        }, '*');
+
+        // YouTube Iframe API
+        iframe.contentWindow.postMessage(JSON.stringify({
+            event: 'command',
+            func: isMuted ? 'mute' : 'unMute',
+            args: ''
+        }), '*');
+        iframe.contentWindow.postMessage(JSON.stringify({
+            event: 'command',
+            func: 'setVolume',
+            args: [effectiveVol]
+        }), '*');
+
+        // Bilibili / DPlayer / ArtPlayer / HTML5
+        iframe.contentWindow.postMessage({ type: 'volume', volume: effectiveVol / 100 }, '*');
+        iframe.contentWindow.postMessage({ type: 'setVolume', value: effectiveVol / 100 }, '*');
+    } catch (e) {}
+}
+
+window.showKazumiVolumeHud = function(vol, isMuted) {
+    const hud = document.getElementById("kazumiVolumeHud");
+    const icon = document.getElementById("volumeHudIcon");
+    const text = document.getElementById("volumeHudText");
+    if (!hud) return;
+
+    const effectiveVol = isMuted ? 0 : vol;
+    if (text) text.textContent = isMuted ? "靜音" : `${effectiveVol}%`;
+    if (icon) {
+        if (isMuted || effectiveVol === 0) {
+            icon.className = "bi bi-volume-mute-fill text-danger";
+        } else if (effectiveVol <= 50) {
+            icon.className = "bi bi-volume-down-fill text-warning";
+        } else {
+            icon.className = "bi bi-volume-up-fill text-success";
+        }
+    }
+
+    hud.classList.remove("d-none");
+    hud.classList.add("d-flex");
+
+    if (kazumiVolumeHudTimer) clearTimeout(kazumiVolumeHudTimer);
+    kazumiVolumeHudTimer = setTimeout(() => {
+        hud.classList.add("d-none");
+        hud.classList.remove("d-flex");
+    }, 1200);
+};
+
+window.applyKazumiVolume = function(showHud = false) {
+    const video = document.getElementById("kazumiVideoPlayer");
+    const slider = document.getElementById("danmakuVolumeSlider");
+    const label = document.getElementById("danmakuVolumeLabel");
+    const icon = document.getElementById("danmakuVolumeIcon");
+    const effectiveVol = kazumiIsMuted ? 0 : kazumiCurrentVolume;
+
+    // 1. 套用至 HTML5 video
+    if (video) {
+        video.volume = Math.max(0, Math.min(1, kazumiCurrentVolume / 100));
+        video.muted = kazumiIsMuted;
+        video.controls = false;
+        video.removeAttribute("controls");
+    }
+
+    // 2. 廣播給 iframe
+    sendIframeVolumeCommand(kazumiCurrentVolume, kazumiIsMuted);
+
+    // 3. 更新 UI 元件狀態
+    if (slider) slider.value = effectiveVol;
+    if (label) label.textContent = `${effectiveVol}%`;
+    if (icon) {
+        if (kazumiIsMuted || effectiveVol === 0) {
+            icon.className = "bi bi-volume-mute-fill text-danger";
+        } else if (effectiveVol <= 50) {
+            icon.className = "bi bi-volume-down-fill text-warning";
+        } else {
+            icon.className = "bi bi-volume-up-fill";
+        }
+    }
+
+    // 4. 持久化至 localStorage
+    localStorage.setItem('kazumi_theater_volume', kazumiCurrentVolume);
+    localStorage.setItem('kazumi_theater_muted', kazumiIsMuted ? 'true' : 'false');
+
+    if (showHud) {
+        window.showKazumiVolumeHud(kazumiCurrentVolume, kazumiIsMuted);
+    }
+};
+
+window.toggleKazumiVolumeMute = function() {
+    kazumiIsMuted = !kazumiIsMuted;
+    window.applyKazumiVolume(true);
+};
+
+window.onKazumiVolumeInput = function(val) {
+    const v = parseInt(val, 10);
+    if (!isNaN(v)) {
+        kazumiCurrentVolume = Math.max(0, Math.min(100, v));
+        if (kazumiIsMuted && kazumiCurrentVolume > 0) {
+            kazumiIsMuted = false;
+        }
+        window.applyKazumiVolume(true);
+    }
+};
+
+window.onKazumiVolumeChange = function(val) {
+    window.onKazumiVolumeInput(val);
+};
+
+window.adjustKazumiVolume = function(delta) {
+    if (kazumiIsMuted) kazumiIsMuted = false;
+    kazumiCurrentVolume = Math.max(0, Math.min(100, kazumiCurrentVolume + delta));
+    window.applyKazumiVolume(true);
+};
+
+// ==========================================
 // 彈幕列表側邊欄功能 (右側完全不遮擋左側畫面，即時瀏覽與搜尋)
 // ==========================================
 window.switchTheaterSidebarTab = function(tabName) {
@@ -2937,8 +3102,43 @@ document.addEventListener("DOMContentLoaded", () => {
             if (typeof window.toggleKazumiFullscreen === 'function') {
                 window.toggleKazumiFullscreen();
             }
+        } else if (e.code === "ArrowUp") {
+            e.preventDefault();
+            if (typeof window.adjustKazumiVolume === 'function') {
+                window.adjustKazumiVolume(5);
+            }
+        } else if (e.code === "ArrowDown") {
+            e.preventDefault();
+            if (typeof window.adjustKazumiVolume === 'function') {
+                window.adjustKazumiVolume(-5);
+            }
+        } else if (e.code === "KeyM" || e.key === "m" || e.key === "M") {
+            e.preventDefault();
+            if (typeof window.toggleKazumiVolumeMute === 'function') {
+                window.toggleKazumiVolumeMute();
+            }
         }
     });
+
+    // 綁定動漫劇院畫面滑鼠滾輪調音量 (滾輪上下各 5%)
+    const screenContainer = document.getElementById("kazumiScreenContainer");
+    if (screenContainer) {
+        screenContainer.addEventListener('wheel', (e) => {
+            const theaterModal = document.getElementById("animePlayerModal");
+            const isOpen = theaterModal && (theaterModal.classList.contains("show") || theaterModal.style.display === "block");
+            if (!isOpen) return;
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 5 : -5;
+            if (typeof window.adjustKazumiVolume === 'function') {
+                window.adjustKazumiVolume(delta);
+            }
+        }, { passive: false });
+    }
+
+    // 初始化劇院音量狀態
+    if (typeof window.applyKazumiVolume === 'function') {
+        window.applyKazumiVolume(false);
+    }
 });
 
 // ==========================================
@@ -3336,11 +3536,11 @@ function renderMangaSearchResults(results, q) {
                         <i class="bi bi-bookmark-plus"></i> +收藏
                     </button>
                     <div class="dropdown d-inline-block">
-                        <button class="btn btn-xs btn-outline-secondary dropdown-toggle rounded-pill px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="檢視或更改 Bangumi 閱讀狀態">
+                        <button class="btn btn-xs btn-outline-info dropdown-toggle rounded-pill px-2 bookmark-watch-status-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="檢視或更改 Bangumi 閱讀狀態">
                             <i class="bi bi-book"></i> <span id="${statusTagId}">辨識中...</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow-sm" style="font-size: 0.8rem; z-index: 1060;">
-                            <li><h6 class="dropdown-header small text-muted">Bangumi 閱讀狀態</h6></li>
+                            <li><h6 class="dropdown-header small" style="color: #38bdf8 !important;">Bangumi 閱讀狀態</h6></li>
                             <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 3, true, '${statusTagId}'); return false;"><i class="bi bi-play-circle text-success me-1"></i> 在讀</a></li>
                             <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 1, true, '${statusTagId}'); return false;"><i class="bi bi-heart text-danger me-1"></i> 想讀</a></li>
                             <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 2, true, '${statusTagId}'); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> 讀過</a></li>
@@ -4845,13 +5045,20 @@ window.watchKazumiAnime = async function(title, detailUrl, source = "AGE") {
     document.getElementById("animePlayerTitle").textContent = `【Kazumi 在線】${title}`;
     const video = document.getElementById("kazumiVideoPlayer");
     const iframe = document.getElementById("kazumiIframePlayer");
+    const iframeWrapper = document.getElementById("kazumiIframeWrapper");
     video.pause();
+    video.controls = false;
+    video.removeAttribute("controls");
     video.style.display = "none";
+    if (iframeWrapper) iframeWrapper.style.display = "block";
     iframe.style.display = "block";
     iframe.src = "";
 
     const modal = new bootstrap.Modal(document.getElementById("animePlayerModal"));
     modal.show();
+    setTimeout(() => {
+        if (typeof window.applyKazumiVolume === 'function') window.applyKazumiVolume(false);
+    }, 100);
 
     // 2. 請求後端解析劇集
     try {
@@ -4905,7 +5112,12 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
         if (data.success && data.playerUrl) {
             window.currentKazumiPlayingUrl = data.playerUrl;
             const iframe = document.getElementById("kazumiIframePlayer");
-            iframe.src = data.playerUrl;
+            const iframeWrapper = document.getElementById("kazumiIframeWrapper");
+            if (iframeWrapper) iframeWrapper.style.display = "block";
+            if (iframe) {
+                iframe.style.display = "block";
+                iframe.src = data.playerUrl;
+            }
             showToast(`已載入 ${epTitle}，即刻開播！`, "bi-check-circle-fill text-success");
 
             if (data.playerUrl.includes('lmm85.com')) {
@@ -5148,34 +5360,119 @@ window.addMangaSearchResultToLibrary = async function(title, cover, mangaId) {
 // Bangumi 狀態辨識與快速修改快取
 window.bangumiSubjectStatusCache = window.bangumiSubjectStatusCache || {};
 
+function cleanBangumiQueryTitle(rawTitle) {
+    if (!rawTitle) return '';
+    let t = String(rawTitle).trim();
+    // 移除常見的包裝括號與前綴後綴標記
+    t = t.replace(/【.*?】|\[.*?\]|（.*?）|\(.*?\)|〔.*?〕|〈.*?〉|《.*?》|「.*?」|『.*?』/g, ' ');
+    // 移除季數、話數、分P、畫質標記
+    t = t.replace(/(第[0-9一二三四五六七八九十百]+[季期部話集]|Season\s*\d+|S\d+|Part\s*\d+|P\d+|TV(動畫|版)?|劇場版|特別篇|OVA|OAD|全\d+[集話]|\d+話全|\d+集全|1080[pP]|720[pP]|4[kK]|BDRip|BD)/gi, ' ');
+    t = t.replace(/\s+/g, ' ').trim();
+    return t;
+}
+
 window.fetchBangumiSubjectStatus = async function(title, typeId = 2) {
-    const cleanTitle = (title || '').replace(/【.*?】|\[.*?\]|第.+?季|S\d+/g, '').trim();
-    if (!cleanTitle) return null;
-    if (window.bangumiSubjectStatusCache[cleanTitle]) {
-        return window.bangumiSubjectStatusCache[cleanTitle];
+    const cleanTitle = cleanBangumiQueryTitle(title);
+    if (!cleanTitle && !title) return null;
+    const queryKey = cleanTitle || title.trim();
+
+    if (window.bangumiSubjectStatusCache[queryKey]) {
+        return window.bangumiSubjectStatusCache[queryKey];
     }
+    if (window.bangumiSubjectStatusCache[title]) {
+        return window.bangumiSubjectStatusCache[title];
+    }
+
     const token = window.getBangumiToken ? window.getBangumiToken() : '';
+
+    // 檢查本地現有書籤庫是否已綁定 subjectId 或具備狀態標籤
+    let knownSubjectId = null;
+    let localColType = 0;
+    const existingBm = (state.bookmarks || []).find(b => {
+        if (!b) return false;
+        if (b.title === title || b.title === queryKey) return true;
+        const bClean = cleanBangumiQueryTitle(b.title);
+        return bClean && (bClean === queryKey || bClean === title);
+    });
+
+    if (existingBm) {
+        if (existingBm.bangumiSubjectId) {
+            knownSubjectId = existingBm.bangumiSubjectId;
+        } else if (existingBm.url && /bgm\.tv\/subject\/(\d+)/.test(existingBm.url)) {
+            knownSubjectId = existingBm.url.match(/bgm\.tv\/subject\/(\d+)/)[1];
+        }
+        if (existingBm.bangumiStatus) {
+            localColType = parseInt(existingBm.bangumiStatus, 10) || 0;
+        } else if (Array.isArray(existingBm.tags)) {
+            if (existingBm.tags.some(t => t === '在看' || t === '在讀')) localColType = 3;
+            else if (existingBm.tags.some(t => t === '已看過' || t === '看過' || t === '已看' || t === '已讀過' || t === '讀過' || t === '已讀')) localColType = 2;
+            else if (existingBm.tags.some(t => t === '想看' || t === '想讀')) localColType = 1;
+        }
+    }
+
     try {
-        const searchRes = await fetch(`/api/bangumi/search?q=${encodeURIComponent(cleanTitle)}&type=${typeId}${token ? `&token=${encodeURIComponent(token)}` : ''}`);
-        const searchData = await searchRes.json();
-        if (searchData.success && searchData.data && Array.isArray(searchData.data.data) && searchData.data.data.length > 0) {
-            const subject = searchData.data.data[0];
-            const subjectId = subject.id;
+        let subjectId = knownSubjectId;
+        let subjectTitle = queryKey;
+
+        // 若尚未知曉 subjectId，則向後端 Bangumi Search 檢索
+        if (!subjectId) {
+            const searchRes = await fetch(`/api/bangumi/search?q=${encodeURIComponent(queryKey)}&type=${typeId}${token ? `&token=${encodeURIComponent(token)}` : ''}`);
+            const searchData = await searchRes.json();
+            if (searchData.success && searchData.data && Array.isArray(searchData.data.data) && searchData.data.data.length > 0) {
+                const candidates = searchData.data.data;
+                const matchedSubject = candidates.find(s => 
+                    (s.name_cn && (s.name_cn.trim() === queryKey || s.name_cn.trim() === title)) ||
+                    (s.name && (s.name.trim() === queryKey || s.name.trim() === title))
+                ) || candidates.find(s =>
+                    (s.name_cn && (s.name_cn.includes(queryKey) || queryKey.includes(s.name_cn))) ||
+                    (s.name && (s.name.includes(queryKey) || queryKey.includes(s.name)))
+                ) || candidates[0];
+
+                if (matchedSubject && matchedSubject.id) {
+                    subjectId = matchedSubject.id;
+                    subjectTitle = matchedSubject.name_cn || matchedSubject.name || queryKey;
+                }
+            }
+        }
+
+        if (subjectId) {
             let colType = 0; // 0 = 未收藏
             if (token) {
                 const colRes = await fetch(`/api/bangumi/collection?subjectId=${subjectId}&token=${encodeURIComponent(token)}`);
                 const colData = await colRes.json();
-                if (colData.success && colData.data && colData.data.type) {
-                    colType = colData.data.type;
+                if (colData.success && colData.data && typeof colData.data.type !== 'undefined') {
+                    colType = parseInt(colData.data.type, 10) || 0;
                 }
             }
-            const resObj = { subjectId, type: colType, title: subject.name_cn || subject.name };
-            window.bangumiSubjectStatusCache[cleanTitle] = resObj;
+
+            // 若 Bangumi 未查詢到或未收藏但本地書籤已有標記，優先回退本地標記
+            if (colType === 0 && localColType > 0) {
+                colType = localColType;
+            }
+
+            const resObj = { subjectId, type: colType, title: subjectTitle };
+            window.bangumiSubjectStatusCache[queryKey] = resObj;
+            window.bangumiSubjectStatusCache[title] = resObj;
+
+            if (existingBm && !existingBm.bangumiSubjectId) {
+                existingBm.bangumiSubjectId = subjectId;
+                if (colType > 0 && !existingBm.bangumiStatus) {
+                    existingBm.bangumiStatus = colType;
+                }
+            }
+
             return resObj;
         }
     } catch(e) {
         console.warn('查詢 Bangumi 狀態失敗:', e.message);
     }
+
+    if (localColType > 0) {
+        const fallbackObj = { subjectId: knownSubjectId, type: localColType, title: queryKey };
+        window.bangumiSubjectStatusCache[queryKey] = fallbackObj;
+        return fallbackObj;
+    }
+
     return null;
 };
 
@@ -5217,8 +5514,30 @@ window.applyBangumiStatusChange = async function(title, statusType, isManga = fa
     const success = await window.syncStatusToBangumi(info.subjectId, statusType);
     if (success) {
         info.type = statusType;
-        const cleanTitle = (title || '').replace(/【.*?】|\[.*?\]|第.+?季|S\d+/g, '').trim();
+        const cleanTitle = cleanBangumiQueryTitle(title);
         window.bangumiSubjectStatusCache[cleanTitle] = info;
+        window.bangumiSubjectStatusCache[title] = info;
+
+        // 同步更新本地書籤庫中匹配作品的狀態標記與卡片
+        const typeLabel = isManga 
+            ? (statusType === 1 ? '想讀' : statusType === 2 ? '已讀過' : '在讀')
+            : (statusType === 1 ? '想看' : statusType === 2 ? '已看過' : '在看');
+
+        let updatedAnyBookmark = false;
+        (state.bookmarks || []).forEach(bm => {
+            if (bm.title === title || bm.title === cleanTitle || bm.bangumiSubjectId === info.subjectId) {
+                bm.bangumiSubjectId = info.subjectId;
+                bm.bangumiStatus = statusType;
+                if (!Array.isArray(bm.tags)) bm.tags = [];
+                bm.tags = bm.tags.filter(t => !['想看', '在看', '看過', '已看', '已看過', '想讀', '在讀', '讀過', '已讀', '已讀過'].includes(t));
+                bm.tags.push(typeLabel);
+                updatedAnyBookmark = true;
+            }
+        });
+        if (updatedAnyBookmark) {
+            saveBookmarksLocally();
+            renderBookmarks();
+        }
 
         if (elementId) {
             const el = document.getElementById(elementId);
