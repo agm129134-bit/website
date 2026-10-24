@@ -1806,17 +1806,43 @@ window.openKazumiPlayer = function(title = "", src = "") {
     const ytMatch = src.match(/(?:v=|\/embed\/|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
 
     if (biliMatch) {
-        // Bilibili 官方高清內嵌播放器 (純淨化：關閉自帶彈幕與裁切控制列)
+        // Bilibili 播放處理：優先請求官方原生 MP4 串流，消除 iframe 裁切黑邊，支援原生音量與進度控制！
         const bvid = biliMatch[1];
-        video.pause();
-        video.style.display = "none";
-        if (iframeWrapper) {
-            iframeWrapper.style.display = "block";
-            iframeWrapper.classList.add("is-bilibili");
-        }
-        iframe.style.display = "block";
-        iframe.src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&as_wide=1&danmaku=0`;
-        showToast("已載入 Bilibili 官方純淨內嵌播放器！", "bi-play-btn-fill text-danger");
+        fetch(`/api/kazumi/bilibili-playurl?bvid=${bvid}`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && res.isDirectStream && res.streamUrl) {
+                    if (iframeWrapper) iframeWrapper.style.display = "none";
+                    if (iframe) { iframe.src = ""; iframe.style.display = "none"; }
+                    video.style.display = "block";
+                    video.controls = false;
+                    video.removeAttribute("controls");
+                    video.src = res.streamUrl;
+                    video.currentTime = 0;
+                    video.play().catch(() => {});
+                    showToast("🎉 已成功取得 Bilibili 原生高畫質串流！支援完美原生音量與進度控制！", "bi-play-circle-fill text-success");
+                } else {
+                    video.pause();
+                    video.style.display = "none";
+                    if (iframeWrapper) {
+                        iframeWrapper.style.display = "block";
+                        iframeWrapper.classList.add("is-bilibili");
+                    }
+                    iframe.style.display = "block";
+                    iframe.src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&as_wide=1&danmaku=0`;
+                    showToast("已載入 Bilibili 官方內嵌播放器！", "bi-play-btn-fill text-danger");
+                }
+            })
+            .catch(() => {
+                video.pause();
+                video.style.display = "none";
+                if (iframeWrapper) {
+                    iframeWrapper.style.display = "block";
+                    iframeWrapper.classList.add("is-bilibili");
+                }
+                iframe.style.display = "block";
+                iframe.src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&as_wide=1&danmaku=0`;
+            });
 
         // 呼叫後端 Kazumi 模組解析真實分P選集與 CID
         fetch(`/api/kazumi/resolve?bvid=${bvid}`)
@@ -1883,7 +1909,7 @@ function renderKazumiEpisodes(bvid, episodes) {
         btn.style.maxWidth = "100%";
         btn.title = ep.part;
         btn.innerHTML = `<i class="bi bi-play-fill"></i> P${ep.page}: ${escapeHtml(ep.part)}`;
-        btn.onclick = () => {
+        btn.onclick = async () => {
             document.querySelectorAll(".ep-btn").forEach(b => {
                 b.classList.remove("btn-primary", "active");
                 b.classList.add("btn-outline-secondary");
@@ -1891,14 +1917,45 @@ function renderKazumiEpisodes(bvid, episodes) {
             btn.classList.remove("btn-outline-secondary");
             btn.classList.add("btn-primary", "active");
             
+            showToast(`正在切換至 P${ep.page}「${ep.part}」...`, "bi-play-circle text-info");
+            // 優先請求原生 MP4 直連串流，支援原生播放器控制
+            try {
+                const streamRes = await fetch(`/api/kazumi/bilibili-playurl?bvid=${bvid}&cid=${ep.cid || 0}`);
+                const streamData = await streamRes.json();
+                if (streamData.success && streamData.isDirectStream && streamData.streamUrl) {
+                    const video = document.getElementById("kazumiVideoPlayer");
+                    const iframe = document.getElementById("kazumiIframePlayer");
+                    const iframeWrapper = document.getElementById("kazumiIframeWrapper");
+                    if (iframeWrapper) iframeWrapper.style.display = "none";
+                    if (iframe) { iframe.src = ""; iframe.style.display = "none"; }
+                    if (video) {
+                        video.style.display = "block";
+                        video.controls = false;
+                        video.removeAttribute("controls");
+                        video.src = streamData.streamUrl;
+                        video.currentTime = 0;
+                        video.play().catch(() => {});
+                    }
+                    showToast(`Kazumi: 已切換至 P${ep.page} 原生高畫質串流！`, "bi-play-circle-fill text-success");
+                    createBulletDanmaku(`--- 切換至 P${ep.page}「${ep.part}」 ---`, "#f59e0b");
+                    if (ep.cid) startDanmakuStream(ep.part, ep.cid);
+                    return;
+                }
+            } catch (e) {}
+
+            // 降級回退至官方內嵌播放器
             const iframe = document.getElementById("kazumiIframePlayer");
             const iframeWrapper = document.getElementById("kazumiIframeWrapper");
+            const video = document.getElementById("kazumiVideoPlayer");
+            if (video) { video.pause(); video.style.display = "none"; }
             if (iframeWrapper) {
                 iframeWrapper.style.display = "block";
                 iframeWrapper.classList.add("is-bilibili");
             }
-            iframe.style.display = "block";
-            iframe.src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=${ep.page}&high_quality=1&as_wide=1&danmaku=0`;
+            if (iframe) {
+                iframe.style.display = "block";
+                iframe.src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=${ep.page}&high_quality=1&as_wide=1&danmaku=0`;
+            }
             showToast(`Kazumi: 已切換至 P${ep.page}「${ep.part}」！`, "bi-play-circle-fill text-danger");
             createBulletDanmaku(`--- 切換至 P${ep.page}「${ep.part}」 ---`, "#f59e0b");
             if (ep.cid) {
@@ -3220,6 +3277,10 @@ function initKazumiFullscreenInteractions() {
             const container = document.getElementById("kazumiScreenContainer");
             const isFs = container && (document.fullscreenElement === container || document.webkitFullscreenElement === container);
             if (!isFs) return;
+            // 若點擊位置在畫面頂部 60px 或底部 85px (控制軸與時間列區域)，忽略中央代理層點擊，留給真實控制列
+            const rect = screenOverlay.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            if (y > rect.height - 85 || y < 60) return;
             if (clickTimeout) {
                 clearTimeout(clickTimeout);
                 clickTimeout = null;
@@ -5246,25 +5307,91 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
         const data = await res.json();
         if (data.success && data.playerUrl) {
             window.currentKazumiPlayingUrl = data.playerUrl;
+            
+            // 檢查是否為直接串流 (.mp4, .m3u8, 或後端標記 isDirectStream)
+            const isDirect = data.isDirectStream || /\.(mp4|m3u8)(\?.*)?$/i.test(data.playerUrl);
+            const video = document.getElementById("kazumiVideoPlayer");
             const iframe = document.getElementById("kazumiIframePlayer");
             const iframeWrapper = document.getElementById("kazumiIframeWrapper");
-            if (iframeWrapper) {
-                iframeWrapper.style.display = "block";
-                if (data.playerUrl && data.playerUrl.includes('bilibili')) {
-                    iframeWrapper.classList.add("is-bilibili");
-                } else {
-                    iframeWrapper.classList.remove("is-bilibili");
+            const fallbackCard = document.getElementById("kazumiBlockedFallback");
+
+            if (fallbackCard) fallbackCard.style.display = "none";
+
+            if (isDirect) {
+                // 原生播放器模式：支援原生音量調控、全螢幕面板無縫互動
+                if (iframeWrapper) iframeWrapper.style.display = "none";
+                if (iframe) { iframe.src = ""; iframe.style.display = "none"; }
+                if (video) {
+                    video.style.display = "block";
+                    video.controls = false;
+                    video.removeAttribute("controls");
+                    
+                    if (data.playerUrl.includes('.m3u8')) {
+                        if (window.Hls && Hls.isSupported()) {
+                            if (window.kazumiHlsInstance) {
+                                window.kazumiHlsInstance.destroy();
+                                window.kazumiHlsInstance = null;
+                            }
+                            const hls = new Hls({ enableWorker: true });
+                            hls.loadSource(data.playerUrl);
+                            hls.attachMedia(video);
+                            window.kazumiHlsInstance = hls;
+                            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                                video.play().catch(() => {});
+                            });
+                        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                            if (window.kazumiHlsInstance) {
+                                window.kazumiHlsInstance.destroy();
+                                window.kazumiHlsInstance = null;
+                            }
+                            video.src = data.playerUrl;
+                            video.currentTime = 0;
+                            video.play().catch(() => {});
+                        } else {
+                            video.src = data.playerUrl;
+                            video.currentTime = 0;
+                            video.play().catch(() => {});
+                        }
+                    } else {
+                        if (window.kazumiHlsInstance) {
+                            window.kazumiHlsInstance.destroy();
+                            window.kazumiHlsInstance = null;
+                        }
+                        video.src = data.playerUrl;
+                        video.currentTime = 0;
+                        video.play().catch(() => {});
+                    }
+                }
+                showToast(`已載入 ${epTitle}，原生高畫質串流開播！`, "bi-check-circle-fill text-success");
+            } else {
+                // iframe 模式
+                if (window.kazumiHlsInstance) {
+                    window.kazumiHlsInstance.destroy();
+                    window.kazumiHlsInstance = null;
+                }
+                if (video) { video.pause(); video.style.display = "none"; }
+                if (iframeWrapper) {
+                    iframeWrapper.style.display = "block";
+                    if (data.playerUrl && data.playerUrl.includes('bilibili')) {
+                        iframeWrapper.classList.add("is-bilibili");
+                    } else {
+                        iframeWrapper.classList.remove("is-bilibili");
+                    }
+                }
+                if (iframe) {
+                    iframe.style.display = "block";
+                    iframe.src = data.playerUrl;
+                }
+                showToast(`已載入 ${epTitle}，即刻開播！`, "bi-check-circle-fill text-success");
+
+                if (data.playerUrl.includes('lmm85.com')) {
+                    showToast("💡 此集來源因站方安全保護無法內嵌，請點擊【新分頁播放】即可開播！", "bi-info-circle-fill text-warning");
                 }
             }
-            if (iframe) {
-                iframe.style.display = "block";
-                iframe.src = data.playerUrl;
-            }
-            showToast(`已載入 ${epTitle}，即刻開播！`, "bi-check-circle-fill text-success");
 
-            if (data.playerUrl.includes('lmm85.com')) {
-                showToast("💡 此集來源因站方安全保護無法內嵌，請點擊【新分頁播放】即可開播！", "bi-info-circle-fill text-warning");
-            }
+            setTimeout(() => {
+                if (typeof window.applyKazumiVolume === 'function') window.applyKazumiVolume(false);
+            }, 100);
 
             // 啟動彈幕流
             const epMatch = (epTitle || '').match(/\d+/);
