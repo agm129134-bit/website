@@ -259,7 +259,7 @@ async function searchCopyManga(keyword) {
     return [];
 }
 
-// 漫畫搜尋核心 (雙來源聚合：包子漫畫首選 + 拷貝漫畫備援)
+// 漫畫搜尋核心 (雙來源聚合：包子漫畫 + 拷貝漫畫兩邊並存，明確標記來源)
 async function searchManga(keyword) {
     const p1 = searchBaoziManga(keyword);
     const p2 = searchCopyManga(keyword);
@@ -267,11 +267,8 @@ async function searchManga(keyword) {
     const baoziList = list1.status === 'fulfilled' ? list1.value : [];
     const copyList = list2.status === 'fulfilled' ? list2.value : [];
 
-    // 去重與優化：若包子漫畫已有同名作品，優先採用包子漫畫（章節直接可讀，避免 CopyManga API 限制）
-    const baoziTitles = new Set(baoziList.map(b => b.title.trim().toLowerCase()));
-    const filteredCopy = copyList.filter(c => !baoziTitles.has(c.title.trim().toLowerCase()));
-
-    const merged = [...baoziList, ...filteredCopy];
+    // 兩邊並存：完整保留包子漫畫與 CopyManga 的搜尋結果，不進行同名遮蔽
+    const merged = [...baoziList, ...copyList];
     if (merged.length === 0) {
         throw new Error(`查無「${keyword}」相符之漫畫作品，請更換關鍵字後重試`);
     }

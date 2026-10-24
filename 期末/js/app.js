@@ -4012,14 +4012,22 @@ function renderMangaSearchResults(results, q) {
         card.className = "p-2 rounded-3 bg-black bg-opacity-40 border border-secondary d-flex align-items-center gap-3";
         const coverUrl = m.cover || "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80";
         const statusTagId = `mangaBgmStatusTxt_${m.id || Math.random().toString(36).substr(2, 6)}`;
+        const isCopy = (m.source === 'CopyManga' || (m.id && m.id.startsWith('copy_')));
+        const sourceName = m.source || (isCopy ? 'CopyManga' : '包子漫畫');
+        const sourceBadgeHtml = isCopy 
+            ? `<span class="badge bg-primary bg-opacity-75 text-light px-2 py-0 border border-primary border-opacity-50" style="font-size: 0.72rem; vertical-align: middle;"><i class="bi bi-c-circle me-1"></i>CopyManga</span>`
+            : `<span class="badge bg-warning bg-opacity-75 text-dark px-2 py-0 border border-warning border-opacity-50" style="font-size: 0.72rem; vertical-align: middle;"><i class="bi bi-box-seam me-1"></i>包子漫畫</span>`;
 
         card.innerHTML = `
             <img src="${escapeHtml(coverUrl)}" class="rounded shadow-sm" alt="${escapeHtml(m.title)}" style="width: 54px; height: 72px; object-fit: cover;" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80'">
             <div class="overflow-hidden flex-grow-1">
-                <h6 class="fw-bold text-white mb-1 text-truncate" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</h6>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <h6 class="fw-bold text-white mb-0 text-truncate" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</h6>
+                    ${sourceBadgeHtml}
+                </div>
                 <div class="small text-truncate mb-1" style="color: #cbd5e1;">
                     <span class="text-primary me-2"><i class="bi bi-person"></i> ${escapeHtml(m.author || "未知作者")}</span>
-                    <span>${escapeHtml(m.source || "BaoziMh")}</span>
+                    <span class="text-muted" style="font-size: 0.75rem;">來源：${escapeHtml(sourceName)}</span>
                 </div>
                 <div class="small text-truncate" style="font-size: 0.8rem; color: #94a3b8;">${escapeHtml(m.brief || "全網精選條漫資源")}</div>
             </div>
@@ -4040,7 +4048,7 @@ function renderMangaSearchResults(results, q) {
                         </ul>
                     </div>
                 </div>
-                <button class="btn btn-sm btn-outline-primary text-nowrap rounded-pill px-3 w-100" onclick="selectManga('${escapeHtml(m.id)}', '${escapeHtml(m.title)}', '${escapeHtml(coverUrl)}', '${escapeHtml(m.author || '')}', '${escapeHtml(m.alias || '')}')">
+                <button class="btn btn-sm btn-outline-primary text-nowrap rounded-pill px-3 w-100" onclick="selectManga('${escapeHtml(m.id)}', '${escapeHtml(m.title)}', '${escapeHtml(coverUrl)}', '${escapeHtml(m.author || '')}', '${escapeHtml(m.alias || '')}', '${escapeHtml(sourceName)}')">
                     <i class="bi bi-list-ol"></i> 選集
                 </button>
             </div>
@@ -4051,18 +4059,23 @@ function renderMangaSearchResults(results, q) {
 }
 
 // 選擇一部漫畫並載入章節列表 (支援別名與繁簡智慧自癒)
-window.selectManga = async function(mangaId, title, cover, author, alias = '') {
-    mangaState.currentManga = { id: mangaId, title, cover, author, alias };
+window.selectManga = async function(mangaId, title, cover, author, alias = '', source = '') {
+    mangaState.currentManga = { id: mangaId, title, cover, author, alias, source };
 
     const summaryBox = document.getElementById("mangaSelectedSummaryBox");
     const container = document.getElementById("mangaSearchResultsContainer");
+
+    const isCopy = source === 'CopyManga' || (mangaId && mangaId.startsWith('copy_'));
+    const badgeHtml = isCopy 
+        ? `<span class="badge bg-primary bg-opacity-75 text-light px-2 py-0 border border-primary border-opacity-50" style="font-size: 0.72rem; vertical-align: middle;"><i class="bi bi-c-circle me-1"></i>CopyManga</span>`
+        : `<span class="badge bg-warning bg-opacity-75 text-dark px-2 py-0 border border-warning border-opacity-50" style="font-size: 0.72rem; vertical-align: middle;"><i class="bi bi-box-seam me-1"></i>包子漫畫</span>`;
 
     if (summaryBox) {
         summaryBox.classList.remove("d-none");
         summaryBox.classList.add("d-flex");
         document.getElementById("mangaSelectedCover").src = cover;
         document.getElementById("mangaSelectedTitle").textContent = title;
-        document.getElementById("mangaSelectedAuthor").textContent = author || "漫畫原作";
+        document.getElementById("mangaSelectedAuthor").innerHTML = `${escapeHtml(author || "漫畫原作")} <span class="ms-2">${badgeHtml}</span>`;
         document.getElementById("mangaSelectedChapterCount").textContent = "正在載入話數...";
     }
 
