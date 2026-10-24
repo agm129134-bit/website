@@ -1577,6 +1577,10 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
     const fallbackCard = document.getElementById("kazumiBlockedFallback");
 
     if (placeholder) placeholder.style.display = "none";
+    const histBox = document.getElementById("animeRecentHistoryBox");
+    if (histBox) histBox.style.display = "none";
+    const listContainer = document.querySelector(".episode-list-container");
+    if (listContainer) listContainer.style.display = "flex";
 
     // 處理受 SAMEORIGIN 阻擋之線路（如 lmm85 封鎖）
     if (isBlocked) {
@@ -1654,7 +1658,6 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
     }
 
     // 注入動漫劇院右側選集抽屜 (進行集數防重保護)
-    const listContainer = document.querySelector(".episode-list-container");
     if (listContainer && allEpisodes.length > 0) {
         listContainer.innerHTML = "";
         const seen = new Set();
@@ -1761,6 +1764,10 @@ window.resetKazumiTheater = function() {
     }
     if (placeholder) {
         placeholder.style.display = "block";
+    }
+    const histBox = document.getElementById("animeRecentHistoryBox");
+    if (histBox) {
+        histBox.style.display = "flex";
         if (typeof window.renderAnimeHistoryStandby === 'function') {
             window.renderAnimeHistoryStandby();
         }
@@ -1769,6 +1776,7 @@ window.resetKazumiTheater = function() {
         titleEl.textContent = "動漫劇院播放器（待命狀態）";
     }
     if (listContainer) {
+        listContainer.style.display = "none";
         listContainer.innerHTML = '<div class="text-secondary small p-3 text-center w-100" id="kazumiEpisodePlaceholder">請先由來源清單選擇集數開播</div>';
     }
     if (typeof window.clearAllDanmakuState === 'function') {
@@ -1801,6 +1809,10 @@ window.openKazumiPlayer = function(title = "", src = "") {
     const iframeWrapper = document.getElementById("kazumiIframeWrapper");
     const placeholder = document.getElementById("kazumiTheaterPlaceholder");
     if (placeholder) placeholder.style.display = "none";
+    const histBox = document.getElementById("animeRecentHistoryBox");
+    if (histBox) histBox.style.display = "none";
+    const listContainer = document.querySelector(".episode-list-container");
+    if (listContainer) listContainer.style.display = "flex";
 
     // 辨識是否為 Bilibili 影片 (支援 BV號、av號、番劇 ss/ep 或一般網址)
     const biliMatch = src.match(/bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/i) || 
@@ -3123,9 +3135,19 @@ document.addEventListener("DOMContentLoaded", () => {
             window.pauseDanmaku();
             window.saveCurrentAnimeProgressNow();
         });
+
+        const syncKazumiVideoVolume = () => {
+            if (typeof window.applyKazumiVolume === 'function') {
+                window.applyKazumiVolume(false);
+            }
+        };
+        kazumiVideo.addEventListener("loadedmetadata", syncKazumiVideoVolume);
+        kazumiVideo.addEventListener("canplay", syncKazumiVideoVolume);
         kazumiVideo.addEventListener("play", () => {
             window.resumeDanmaku();
+            syncKazumiVideoVolume();
         });
+        kazumiVideo.addEventListener("playing", syncKazumiVideoVolume);
         kazumiVideo.addEventListener("timeupdate", () => {
             if (!kazumiVideo.paused && !kazumiVideo.seeking) {
                 updateDanmakuTimeDisplay(kazumiVideo.currentTime, kazumiVideo.duration || getDanmakuMaxDuration());
@@ -3197,7 +3219,22 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (e) {}
     });
 
-    // 支援劇院快速鍵 (空白鍵暫停/繼續影片與彈幕、左右鍵快退/快進 5 秒)
+    // 待命狀態精準判定：劇院處於待命模式且無正在播放的視頻或串流
+    window.isKazumiStandby = function() {
+        const theaterModal = document.getElementById("animePlayerModal");
+        if (!theaterModal) return false;
+        const isOpen = theaterModal.classList.contains("show") || theaterModal.style.display === "block";
+        if (!isOpen) return false;
+        const placeholder = document.getElementById("kazumiTheaterPlaceholder");
+        if (placeholder && placeholder.style.display !== "none") return true;
+        const video = document.getElementById("kazumiVideoPlayer");
+        const iframe = document.getElementById("kazumiIframePlayer");
+        const isVideoActive = video && video.style.display !== "none" && video.src && !video.paused;
+        const isIframeActive = iframe && iframe.style.display !== "none" && iframe.src;
+        return !isVideoActive && !isIframeActive;
+    };
+
+    // 支援劇院快速鍵 (空白鍵暫停/繼續影片與彈幕、左右鍵快退/快進 5 秒，待命狀態僅保留按 F 全螢幕)
     document.addEventListener("keydown", (e) => {
         const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : "";
         if (tag === "input" || tag === "textarea") return;
@@ -3205,6 +3242,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const theaterModal = document.getElementById("animePlayerModal");
         const isOpen = theaterModal && theaterModal.classList.contains("show");
         if (!isOpen) return;
+
+        // 待命狀態守衛：待命模式下全面禁止空白鍵暫停/播放、左右鍵跳轉、上下鍵調音量與 M 鍵靜音，【僅保留按 F 鍵全螢幕】
+        if (typeof window.isKazumiStandby === 'function' && window.isKazumiStandby()) {
+            if (e.code === "KeyF" || e.key === "f" || e.key === "F") {
+                e.preventDefault();
+                if (typeof window.toggleKazumiFullscreen === 'function') {
+                    window.toggleKazumiFullscreen();
+                }
+            }
+            return;
+        }
 
         if (e.code === "Space" || e.key === " ") {
             e.preventDefault();
@@ -3244,7 +3292,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 綁定動漫劇院畫面滑鼠滾輪調音量 (滾輪上下各 5%)
+    // 綁定動漫劇院畫面滑鼠滾輪調音量 (滾輪上下各 5%，待命模式不響應)
     const screenContainer = document.getElementById("kazumiScreenContainer");
     if (screenContainer) {
         screenContainer.addEventListener('wheel', (e) => {
@@ -3252,6 +3300,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const isOpen = theaterModal && (theaterModal.classList.contains("show") || theaterModal.style.display === "block");
             const isFs = !!(document.fullscreenElement === screenContainer || document.webkitFullscreenElement === screenContainer);
             if (!isOpen && !isFs) return;
+            if (typeof window.isKazumiStandby === 'function' && window.isKazumiStandby()) return;
             e.preventDefault();
             const delta = e.deltaY < 0 ? 5 : -5;
             if (typeof window.adjustKazumiVolume === 'function') {
@@ -3290,6 +3339,7 @@ function initKazumiFullscreenInteractions() {
         const container = document.getElementById("kazumiScreenContainer");
         const isFs = container && (document.fullscreenElement === container || document.webkitFullscreenElement === container);
         if (!isFs) return;
+        if (typeof window.isKazumiStandby === 'function' && window.isKazumiStandby()) return;
         e.preventDefault();
         e.stopPropagation();
         const delta = e.deltaY < 0 ? 5 : -5;
@@ -3332,6 +3382,7 @@ function initKazumiFullscreenInteractions() {
             const container = document.getElementById("kazumiScreenContainer");
             const isFs = container && (document.fullscreenElement === container || document.webkitFullscreenElement === container);
             if (!isFs) return;
+            if (typeof window.isKazumiStandby === 'function' && window.isKazumiStandby()) return;
             // 若點擊位置在畫面頂部 60px 或底部 85px (控制軸與時間列區域)，忽略中央代理層點擊，留給真實控制列
             const rect = screenOverlay.getBoundingClientRect();
             const y = e.clientY - rect.top;
@@ -3362,11 +3413,12 @@ function initKazumiFullscreenInteractions() {
         });
     }
 
-    // 全域滾輪備援監聽：若處於全螢幕狀態，攔截滾輪即時調整音量
+    // 全域滾輪備援監聽：若處於全螢幕狀態，攔截滾輪即時調整音量 (待命狀態不響應)
     window.addEventListener("wheel", (e) => {
         const container = document.getElementById("kazumiScreenContainer");
         const isFs = container && (document.fullscreenElement === container || document.webkitFullscreenElement === container);
         if (isFs) {
+            if (typeof window.isKazumiStandby === 'function' && window.isKazumiStandby()) return;
             e.preventDefault();
             const delta = e.deltaY < 0 ? 5 : -5;
             if (typeof window.adjustKazumiVolume === 'function') {
@@ -4415,6 +4467,10 @@ window.loadNovelChapter = async function(novelId, chapterId, chapterIdx, novelTi
     const placeholder = document.getElementById("legadoPlaceholder");
 
     if (placeholder) placeholder.style.display = "none";
+    const histBox = document.getElementById("animeRecentHistoryBox");
+    if (histBox) histBox.style.display = "none";
+    const listContainer = document.querySelector(".episode-list-container");
+    if (listContainer) listContainer.style.display = "flex";
     if (readingArea) readingArea.style.display = "block";
 
     if (paragraphsEl) {
@@ -6040,15 +6096,27 @@ window.saveCurrentAnimeProgressNow = function() {
     window.saveWatchHistory(animeTitle, kazumiState.cover || '', epTitle, playUrl, cur, dur);
 };
 
-// 劇院待命畫面中渲染最近觀看摘要 (展示前 3 筆 + 查看完整歷史按鈕)
+// 劇院待命畫面中渲染最近觀看摘要 (移至右側抽屜欄，展示所有紀錄並支援平滑向下滾動)
 window.renderAnimeHistoryStandby = function() {
     const box = document.getElementById('animeRecentHistoryBox');
     if (!box) return;
     try {
         const history = window.getWatchHistoryList();
+        const listContainer = document.querySelector(".episode-list-container");
+
+        // 待命模式下：展開歷史抽屜，隱藏空白的選集佔位清單
+        box.style.display = 'flex';
+        box.classList.add('flex-column');
+        if (listContainer) listContainer.style.display = 'none';
+
         if (history.length === 0) {
-            box.style.display = 'none';
-            box.innerHTML = '';
+            box.innerHTML = `
+                <div class="card bg-black bg-opacity-70 border border-secondary border-opacity-50 p-4 text-center rounded-3">
+                    <i class="bi bi-clock-history fs-3 text-danger opacity-75 mb-2"></i>
+                    <div class="text-white-50 small mb-1">暫無最近觀看紀錄</div>
+                    <div class="text-secondary" style="font-size: 0.72rem;">播放過的動漫、B站或 YouTube 影片將自動記錄於此</div>
+                </div>
+            `;
             return;
         }
 
@@ -6059,11 +6127,9 @@ window.renderAnimeHistoryStandby = function() {
             return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
         };
 
-        const topThree = history.slice(0, 3);
-        box.style.display = 'block';
         box.innerHTML = `
-            <div class="card bg-black bg-opacity-80 border border-danger border-opacity-50 p-2 shadow-sm rounded-3">
-                <div class="d-flex align-items-center justify-content-between mb-2 pb-1 border-bottom border-secondary border-opacity-25">
+            <div class="card bg-black bg-opacity-80 border border-danger border-opacity-50 p-2 shadow-sm rounded-3 d-flex flex-column flex-grow-1 overflow-hidden">
+                <div class="d-flex align-items-center justify-content-between mb-2 pb-1 border-bottom border-secondary border-opacity-25 flex-shrink-0">
                     <small class="text-danger fw-bold d-flex align-items-center gap-1">
                         <i class="bi bi-clock-history"></i> 最近觀看紀錄
                     </small>
@@ -6074,8 +6140,8 @@ window.renderAnimeHistoryStandby = function() {
                         <button type="button" class="btn btn-link btn-xs text-secondary p-0 text-decoration-none" onclick="clearAllWatchHistory()" title="清空所有播放紀錄">清空</button>
                     </div>
                 </div>
-                <div class="d-flex flex-column gap-2">
-                    ${topThree.map((item) => {
+                <div class="d-flex flex-column gap-2 overflow-auto pe-1" style="max-height: 420px;">
+                    ${history.map((item) => {
                         const pct = (item.duration > 0 && item.currentTime > 0) ? Math.min(100, Math.round((item.currentTime / item.duration) * 100)) : 0;
                         const timeStr = item.currentTime > 0 ? `${formatSec(item.currentTime)} / ${item.duration > 0 ? formatSec(item.duration) : '--:--'}` : '剛開始';
                         let platformBadge = item.platform === 'youtube' 
@@ -6084,23 +6150,28 @@ window.renderAnimeHistoryStandby = function() {
                                 ? `<span class="badge bg-primary" style="font-size:0.65rem; background-color: #00aeec !important;">B站</span>` 
                                 : `<span class="badge bg-warning text-dark" style="font-size:0.65rem;">動漫</span>`;
                         return `
-                            <div class="d-flex align-items-center gap-2 p-1 rounded bg-white bg-opacity-10">
+                            <div class="d-flex align-items-center gap-2 p-2 rounded bg-black bg-opacity-40 border border-secondary border-opacity-40 hover-bg-light transition-all position-relative">
                                 <img src="${escapeHtml(item.cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80')}" 
-                                     style="width: 44px; height: 44px; object-fit: cover; border-radius: 4px;" 
+                                     style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; flex-shrink: 0;" 
                                      onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80'">
                                 <div class="flex-grow-1 overflow-hidden">
                                     <div class="d-flex align-items-center gap-1">
                                         ${platformBadge}
                                         <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
                                     </div>
-                                    <div class="d-flex align-items-center justify-content-between text-secondary small" style="font-size: 0.72rem;">
-                                        <span class="text-danger-emphasis text-truncate">${escapeHtml(item.epTitle || '')}</span>
-                                        <span>${pct > 0 ? pct + '%' : timeStr}</span>
+                                    <div class="d-flex align-items-center justify-content-between text-secondary small mt-1" style="font-size: 0.72rem;">
+                                        <span class="text-danger-emphasis text-truncate" style="max-width: 90px;">${escapeHtml(item.epTitle || '正片')}</span>
+                                        <span class="font-monospace text-warning">${pct > 0 ? pct + '%' : timeStr}</span>
                                     </div>
                                 </div>
-                                <button class="btn btn-sm btn-danger px-2 text-nowrap rounded-pill py-0" style="font-size: 0.75rem;" onclick="resumeWatchHistory('${item.id}')">
-                                    <i class="bi bi-play-fill"></i> 續播
-                                </button>
+                                <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                    <button class="btn btn-sm btn-danger px-2 text-nowrap rounded-pill py-0" style="font-size: 0.72rem;" onclick="resumeWatchHistory('${item.id}')" title="繼續播放此進度">
+                                        <i class="bi bi-play-fill"></i> 續播
+                                    </button>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary border-0 p-1 text-white-50 hover-text-danger" onclick="deleteWatchHistoryItem('${item.id}', event)" title="刪除此紀錄">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
                             </div>
                         `;
                     }).join('')}
@@ -6275,10 +6346,37 @@ window.openWatchHistoryModal = function() {
     window.renderWatchHistoryGrid();
     const modalEl = document.getElementById('watchHistoryModal');
     if (modalEl) {
+        const theaterModal = document.getElementById("animePlayerModal");
+        const isTheaterOpen = theaterModal && (theaterModal.classList.contains("show") || theaterModal.style.display === "block");
+        if (isTheaterOpen) {
+            document.body.classList.add("has-multi-modal");
+            modalEl.style.zIndex = '1070';
+        }
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         modal.show();
+
+        if (isTheaterOpen) {
+            setTimeout(() => {
+                const backdrops = document.querySelectorAll('.modal-backdrop');
+                if (backdrops.length > 1) {
+                    backdrops[backdrops.length - 1].style.zIndex = '1065';
+                }
+            }, 50);
+        }
     }
 };
+
+// 確保歷史模態框關閉時若劇院仍開啟，維持 body.modal-open 防止畫面滑動或焦點錯亂
+const whModalEl = document.getElementById('watchHistoryModal');
+if (whModalEl) {
+    whModalEl.addEventListener('hidden.bs.modal', () => {
+        document.body.classList.remove("has-multi-modal");
+        const theaterModal = document.getElementById("animePlayerModal");
+        if (theaterModal && (theaterModal.classList.contains("show") || theaterModal.style.display === "block")) {
+            document.body.classList.add("modal-open");
+        }
+    });
+}
 
 // 漫畫歷史紀錄系統
 window.saveMangaReadHistory = function(mangaId, title, cover, chapterTitle, chapterIndex) {

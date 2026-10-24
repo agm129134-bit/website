@@ -658,6 +658,7 @@ body {
 #kazumiScreenContainer:-webkit-full-screen .kazumi-fs-screen-overlay,
 #kazumiScreenContainer.is-fullscreen .kazumi-fs-screen-overlay {
   display: block !important;
+  pointer-events: auto !important;
 }
 
 /* 滑鼠閒置 3.5 秒自動隱藏控制列與游標（不要擋螢幕） */
@@ -1394,6 +1395,35 @@ body {
   background: #ef4444;
   transition: width 0.3s ease;
 }
+
+/* 動漫劇院待命狀態側邊欄觀看紀錄與自適應滾動條 */
+#animeRecentHistoryBox {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(239, 68, 68, 0.5) rgba(0, 0, 0, 0.3);
+}
+#animeRecentHistoryBox::-webkit-scrollbar {
+  width: 6px;
+}
+#animeRecentHistoryBox::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+#animeRecentHistoryBox::-webkit-scrollbar-thumb {
+  background: rgba(239, 68, 68, 0.5);
+  border-radius: 4px;
+}
+#animeRecentHistoryBox::-webkit-scrollbar-thumb:hover {
+  background: rgba(239, 68, 68, 0.8);
+}
+
+/* 多層模態框疊加層級修復：播放歷史 Modal 置於動漫劇院上方 */
+#watchHistoryModal {
+  z-index: 1070 !important;
+}
+body.has-multi-modal .modal-backdrop:last-of-type {
+  z-index: 1065 !important;
+}
+
 
 
 

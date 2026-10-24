@@ -1064,7 +1064,18 @@ async function handleKazumiRoute(req, res) {
             }
 
             const controller = new AbortController();
-            req.on('close', () => controller.abort());
+            let isAborted = false;
+
+            const cleanupStream = () => {
+                if (isAborted) return;
+                isAborted = true;
+                try {
+                    controller.abort();
+                } catch (e) {}
+            };
+
+            req.on('close', cleanupStream);
+            res.on('close', cleanupStream);
 
             try {
                 const proxyRes = await fetch(targetUrl, {
@@ -1089,9 +1100,28 @@ async function handleKazumiRoute(req, res) {
                 }
 
                 const nodeStream = Readable.fromWeb(proxyRes.body);
+
+                // 關鍵加固：徹底攔截並靜默處理串流的 error 事件，防止 AbortError 觸發 Node.js Unhandled 'error' event 導致伺服器崩潰！
+                nodeStream.on('error', (streamErr) => {
+                    // 客戶端中斷、換源、拖曳時間軸或關閉劇院產生的 AbortError / ECONNRESET 屬於正常連線中斷
+                    try {
+                        if (!nodeStream.destroyed) nodeStream.destroy();
+                    } catch (e) {}
+                    if (!res.writableEnded) {
+                        try { res.end(); } catch (e) {}
+                    }
+                });
+
+                res.on('error', (resErr) => {
+                    cleanupStream();
+                    try {
+                        if (!nodeStream.destroyed) nodeStream.destroy();
+                    } catch (e) {}
+                });
+
                 nodeStream.pipe(res);
             } catch (err) {
-                if (err.name === 'AbortError') return;
+                if (err.name === 'AbortError' || err.code === 'ABORT_ERR' || isAborted) return;
                 console.error('[Kazumi Stream Proxy Error]:', err.message);
                 if (!res.headersSent) {
                     sendJson(res, 502, { success: false, error: '串流代理傳輸失敗：' + err.message });
