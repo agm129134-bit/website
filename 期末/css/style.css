@@ -543,9 +543,9 @@ body {
 /* 動漫外嵌播放器專屬純淨化：精準裁切頂部標題與底部第三方原生控制欄，只保留純淨影片本體 */
 #kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer {
   width: 100% !important;
-  height: calc(100% + 94px) !important;
-  margin-top: -44px !important;
-  margin-bottom: -50px !important;
+  height: calc(100% + 108px) !important;
+  margin-top: -48px !important;
+  margin-bottom: -60px !important;
   border: none !important;
 }
 
@@ -553,27 +553,27 @@ body {
 #kazumiScreenContainer:-webkit-full-screen #kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer,
 #kazumiScreenContainer.is-fullscreen #kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer {
   width: 100vw !important;
-  height: calc(100vh + 94px) !important;
+  height: calc(100vh + 108px) !important;
   max-height: none !important;
-  margin-top: -44px !important;
-  margin-bottom: -50px !important;
+  margin-top: -48px !important;
+  margin-bottom: -60px !important;
   position: absolute !important;
   left: 0 !important;
   right: 0 !important;
   border: none !important;
 }
 
-/* 非 Bilibili 內嵌播放器 (YouTube / 通用源)：自適應滿版，不額外裁切畫面 */
-#kazumiIframeWrapper:not(.is-bilibili) #kazumiIframePlayer {
+/* 非純淨模式內嵌播放器 (YouTube / 通用源)：自適應滿版，不額外裁切畫面 */
+#kazumiIframeWrapper:not(.is-bilibili):not(.is-pure-anime) #kazumiIframePlayer {
   width: 100% !important;
   height: 100% !important;
   margin: 0 !important;
   border: none !important;
 }
 
-#kazumiScreenContainer:fullscreen #kazumiIframeWrapper:not(.is-bilibili) #kazumiIframePlayer,
-#kazumiScreenContainer:-webkit-full-screen #kazumiIframeWrapper:not(.is-bilibili) #kazumiIframePlayer,
-#kazumiScreenContainer.is-fullscreen #kazumiIframeWrapper:not(.is-bilibili) #kazumiIframePlayer {
+#kazumiScreenContainer:fullscreen #kazumiIframeWrapper:not(.is-bilibili):not(.is-pure-anime) #kazumiIframePlayer,
+#kazumiScreenContainer:-webkit-full-screen #kazumiIframeWrapper:not(.is-bilibili):not(.is-pure-anime) #kazumiIframePlayer,
+#kazumiScreenContainer.is-fullscreen #kazumiIframeWrapper:not(.is-bilibili):not(.is-pure-anime) #kazumiIframePlayer {
   width: 100vw !important;
   height: 100vh !important;
   max-height: 100vh !important;
@@ -671,6 +671,7 @@ body {
   cursor: default;
 }
 
+#animePlayerModal.show #kazumiScreenContainer:not(.is-standby) .kazumi-fs-hover-bottom,
 #kazumiScreenContainer:fullscreen .kazumi-fs-hover-zone,
 #kazumiScreenContainer:-webkit-full-screen .kazumi-fs-hover-zone,
 #kazumiScreenContainer.is-fullscreen .kazumi-fs-hover-zone {
@@ -685,9 +686,13 @@ body {
   pointer-events: auto !important;
 }
 
-/* 滑鼠閒置 3.5 秒自動隱藏控制列與游標（不要擋螢幕） */
-#kazumiScreenContainer.fs-controls-hidden,
-#kazumiScreenContainer.fs-controls-hidden * {
+/* 滑鼠閒置自動隱藏控制列：僅在全螢幕下隱藏游標，非全螢幕下保留游標 */
+#kazumiScreenContainer:fullscreen.fs-controls-hidden,
+#kazumiScreenContainer:fullscreen.fs-controls-hidden *,
+#kazumiScreenContainer:-webkit-full-screen.fs-controls-hidden,
+#kazumiScreenContainer:-webkit-full-screen.fs-controls-hidden *,
+#kazumiScreenContainer.is-fullscreen.fs-controls-hidden,
+#kazumiScreenContainer.is-fullscreen.fs-controls-hidden * {
   cursor: none !important;
 }
 
@@ -695,6 +700,11 @@ body {
 #kazumiScreenContainer.fs-controls-hidden .kazumi-fs-hover-zone,
 #kazumiScreenContainer.fs-controls-hidden .kazumi-fs-screen-overlay {
   pointer-events: auto !important;
+}
+#kazumiScreenContainer:fullscreen.fs-controls-hidden .kazumi-fs-hover-zone,
+#kazumiScreenContainer:fullscreen.fs-controls-hidden .kazumi-fs-screen-overlay,
+#kazumiScreenContainer.is-fullscreen.fs-controls-hidden .kazumi-fs-hover-zone,
+#kazumiScreenContainer.is-fullscreen.fs-controls-hidden .kazumi-fs-screen-overlay {
   cursor: none !important;
 }
 
@@ -707,12 +717,28 @@ body {
 #kazumiScreenContainer.fs-controls-hidden #danmakuTimelineBar {
   opacity: 0 !important;
   pointer-events: none !important;
-  transform: translateY(24px);
+  transform: translateY(24px) !important;
 }
 
 #kazumiScreenContainer.fs-controls-hidden #kazumiFsEpisodeDrawer {
   opacity: 0 !important;
   pointer-events: none !important;
+}
+
+/* 待命模式狀態防護：待命模式絕對不允許覆蓋層遮擋搜尋輸入框與按鈕 */
+#kazumiTheaterPlaceholder {
+  z-index: 90 !important;
+  pointer-events: auto !important;
+}
+#kazumiScreenContainer.is-standby .kazumi-fs-screen-overlay,
+#kazumiScreenContainer.is-standby .kazumi-fs-hover-zone {
+  display: none !important;
+  pointer-events: none !important;
+}
+#kazumiScreenContainer.is-standby #danmakuTimelineBar {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
 }
 
 .kazumi-fs-bar, #danmakuTimelineBar, #kazumiFsEpisodeDrawer {

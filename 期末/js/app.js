@@ -1644,6 +1644,12 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
     const listContainer = document.querySelector(".episode-list-container");
     if (listContainer) listContainer.style.display = "flex";
 
+    const screenCont = document.getElementById("kazumiScreenContainer");
+    if (screenCont) {
+        screenCont.classList.remove("is-standby");
+        if (typeof startFsIdleTimer === 'function') startFsIdleTimer();
+    }
+
     // 處理受 SAMEORIGIN 阻擋之線路（如 lmm85 封鎖）
     if (isBlocked) {
         if (window.kazumiHlsInstance) {
@@ -1842,6 +1848,11 @@ window.resetKazumiTheater = function() {
     if (titleEl) {
         titleEl.textContent = "動漫劇院播放器（待命狀態）";
     }
+    const container = document.getElementById("kazumiScreenContainer");
+    if (container) {
+        container.classList.add("is-standby");
+        container.classList.remove("fs-controls-hidden");
+    }
     if (listContainer) {
         listContainer.style.display = "none";
         listContainer.innerHTML = '<div class="text-secondary small p-3 text-center w-100" id="kazumiEpisodePlaceholder">請先由來源清單選擇集數開播</div>';
@@ -1880,6 +1891,12 @@ window.openKazumiPlayer = function(title = "", src = "") {
     if (histBox) histBox.style.display = "none";
     const listContainer = document.querySelector(".episode-list-container");
     if (listContainer) listContainer.style.display = "flex";
+
+    const screenCont = document.getElementById("kazumiScreenContainer");
+    if (screenCont) {
+        screenCont.classList.remove("is-standby");
+        if (typeof startFsIdleTimer === 'function') startFsIdleTimer();
+    }
 
     // 辨識是否為 Bilibili 影片 (支援 BV號、av號、番劇 ss/ep 或一般網址)
     const biliMatch = src.match(/bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/i) || 
@@ -2126,6 +2143,14 @@ window.closeAnimePlayer = function() {
             window.saveCurrentAnimeProgressNow();
         }
     } catch (e) {}
+    if (fsHideTimer) {
+        clearTimeout(fsHideTimer);
+        fsHideTimer = null;
+    }
+    const cont = document.getElementById("kazumiScreenContainer");
+    if (cont) {
+        cont.classList.remove("fs-controls-hidden");
+    }
     if (window.kazumiHlsInstance) {
         window.kazumiHlsInstance.destroy();
         window.kazumiHlsInstance = null;
@@ -3476,6 +3501,20 @@ function initKazumiFullscreenInteractions() {
         el.addEventListener("wheel", handleHoverWheel, { passive: false });
     });
 
+    const screenContainerEl = document.getElementById("kazumiScreenContainer");
+    if (screenContainerEl) {
+        screenContainerEl.addEventListener("mousemove", wakeUpAndResetTimer);
+        screenContainerEl.addEventListener("mouseleave", () => {
+            if (!screenContainerEl.classList.contains("is-standby")) {
+                const drawer = document.getElementById("kazumiFsEpisodeDrawer");
+                const drawerOpen = drawer && !drawer.classList.contains("d-none");
+                if (!drawerOpen) {
+                    screenContainerEl.classList.add("fs-controls-hidden");
+                }
+            }
+        });
+    }
+
     // 中央代理層：僅監聽真實滑鼠移動與滾輪，嚴禁監聽 mouseenter (避免 pointer-events auto 瞬間觸發虛假合成事件導致反覆抖動死循環)
     if (screenOverlay) {
         screenOverlay.addEventListener("mousemove", wakeUpAndResetTimer);
@@ -3490,7 +3529,13 @@ function initKazumiFullscreenInteractions() {
 
     if (timelineBar) {
         timelineBar.addEventListener("mousemove", wakeUpAndResetTimer);
-        timelineBar.addEventListener("mouseenter", wakeUpAndResetTimer);
+        timelineBar.addEventListener("mouseenter", () => {
+            if (fsHideTimer) clearTimeout(fsHideTimer);
+            if (screenContainerEl) screenContainerEl.classList.remove("fs-controls-hidden");
+        });
+        timelineBar.addEventListener("mouseleave", () => {
+            startFsIdleTimer();
+        });
         timelineBar.addEventListener("wheel", handleHoverWheel, { passive: false });
     }
 
@@ -3667,10 +3712,9 @@ function handleFullscreenChange() {
 
         window.syncFullscreenEpisodeDrawer();
 
-        container.addEventListener("mousemove", onFullscreenMouseMove);
         startFsIdleTimer();
     } else {
-        container.classList.remove("is-fullscreen", "fs-controls-hidden");
+        container.classList.remove("is-fullscreen");
         if (topBar) {
             topBar.classList.add("d-none");
             topBar.classList.remove("d-flex");
@@ -3684,10 +3728,10 @@ function handleFullscreenChange() {
         if (icon) icon.className = "bi bi-fullscreen";
         if (btnText) btnText.textContent = "全螢幕";
 
-        container.removeEventListener("mousemove", onFullscreenMouseMove);
-        if (fsHideTimer) {
-            clearTimeout(fsHideTimer);
-            fsHideTimer = null;
+        if (!container.classList.contains("is-standby")) {
+            startFsIdleTimer();
+        } else {
+            container.classList.remove("fs-controls-hidden");
         }
     }
 }
@@ -3722,14 +3766,21 @@ function startFsIdleTimer() {
     const container = document.getElementById("kazumiScreenContainer");
     if (!container) return;
     if (fsHideTimer) clearTimeout(fsHideTimer);
+
+    // 待命狀態下絕不隱藏控制項與搜尋介面
+    if (container.classList.contains("is-standby")) {
+        container.classList.remove("fs-controls-hidden");
+        return;
+    }
+
     fsHideTimer = setTimeout(() => {
-        const isFs = !!(document.fullscreenElement === container || document.webkitFullscreenElement === container);
         const drawer = document.getElementById("kazumiFsEpisodeDrawer");
         const drawerOpen = drawer && !drawer.classList.contains("d-none");
-        if (isFs && !drawerOpen) {
+        if (!drawerOpen && !container.classList.contains("is-standby")) {
+            // 全螢幕或非全螢幕播放中，閒置 3 秒自動隱藏底部/頂部控制列，避免擋住影片！
             container.classList.add("fs-controls-hidden");
         }
-    }, 3500);
+    }, 3000);
 }
 
 // 快速選集抽屜切換
@@ -4604,6 +4655,12 @@ window.loadNovelChapter = async function(novelId, chapterId, chapterIdx, novelTi
     if (histBox) histBox.style.display = "none";
     const listContainer = document.querySelector(".episode-list-container");
     if (listContainer) listContainer.style.display = "flex";
+
+    const screenCont = document.getElementById("kazumiScreenContainer");
+    if (screenCont) {
+        screenCont.classList.remove("is-standby");
+        if (typeof startFsIdleTimer === 'function') startFsIdleTimer();
+    }
     if (readingArea) readingArea.style.display = "block";
 
     if (paragraphsEl) {
@@ -7069,34 +7126,37 @@ const DEFAULT_ACG_GAMES = [
         isCustom: false
     },
     {
-        id: 'game_fanshi_toy',
-        title: '泛式小遊戲 (簡單版) - Bilibili',
+        id: 'game_bilibili_fx_toy',
+        title: 'FX 簡單！(外匯模擬交易) - Bilibili Toy',
         url: 'https://www.bilibili.com/toy/fx-simple/index.html',
         badge: 'B站小遊戲',
         badgeClass: 'bg-info-subtle text-info border border-info-subtle',
-        tags: ['Bilibili', '泛式', '互動小遊戲', '趣味挑戰'],
-        desc: 'Bilibili 知名動漫 UP 主泛式同款經典趣味小遊戲，免下載直接在瀏覽器遊玩！',
-        isCustom: false
+        tags: ['Bilibili', '外匯模擬', '趣味挑戰', '互動網頁'],
+        desc: 'Bilibili Toy 推出之趣味外匯模擬交易小遊戲（非泛式遊戲），輕鬆體驗低買高賣的刺激心跳！',
+        isCustom: false,
+        openInNewTab: true
     },
     {
         id: 'game_powerful_wind_cabbages',
-        title: '強風大背頭高麗菜 (Powerful Wind, Slicked-Back Cabbages)',
+        title: '強風大背頭',
         url: 'https://asyncfish.itch.io/powerful-wind-slicked-back-cabbages',
-        badge: '獨立同人',
+        badge: '節奏獨立小遊戲',
         badgeClass: 'bg-success-subtle text-success border border-success-subtle',
-        tags: ['強風大背頭', '高麗菜', 'Itch.io', '同人小遊戲', '節奏魔性'],
-        desc: '由迷因神曲《強風大背頭》改編的魔性高麗菜節奏躲避獨立小遊戲，畫風超可愛治癒！',
-        isCustom: false
+        tags: ['強風大背頭', '節奏', '獨立小遊戲', 'Itch.io'],
+        desc: '節奏獨立小遊戲。由迷因神曲《強風大背頭》改編的魔性節奏躲避獨立小遊戲，畫風超可愛治癒！',
+        isCustom: false,
+        openInNewTab: true
     },
     {
         id: 'game_dabuchi_unityroom',
-        title: '大淵吃不停 (Double Cheeseburger Game) - Unityroom',
-        url: 'https://unityroom.com/games/dabuchitabemakurugame?fbclid=IwY2xjawG3rv9leHRuA2FlbQIxMAABHf54yd-nG-LgNBFiCr-HpZHAgf22CbuyeGSQJfBezm6ehg5eh9jtNLoVpA_aem_DfbhenzYSGab8s3IS3k7KQ',
+        title: '狂吃雙吉堡 (ダブチを食べまくるゲーム)',
+        url: 'https://unityroom.com/games/dabuchitabemakurugame',
         badge: 'Unity 遊戲',
         badgeClass: 'bg-warning-subtle text-warning border border-warning-subtle',
-        tags: ['Unityroom', '大淵吃不停', '雙層吉事堡', '休閒挑戰'],
-        desc: '日本 Unityroom 人氣熱門小遊戲，操控角色爽快狂吃雙層吉事堡，挑戰最高得分！',
-        isCustom: false
+        tags: ['Unityroom', '雙吉堡', '吃漢堡', '休閒挑戰'],
+        desc: '日本 Unityroom 熱門小遊戲「ダブチを食べまくるゲーム」（狂吃麥當勞雙層牛肉吉事堡），操控角色爽快狂吃漢堡挑戰最高得分！',
+        isCustom: false,
+        openInNewTab: true
     }
 ];
 
@@ -7136,6 +7196,7 @@ window.renderGameHubGrid = function(keyword = '') {
     container.innerHTML = "";
 
     filtered.forEach(game => {
+        const isExternal = !!(game.openInNewTab || (game.url && (game.url.includes('itch.io') || game.url.includes('unityroom.com') || game.url.includes('bilibili.com/toy'))));
         const col = document.createElement("div");
         col.className = "col";
         col.innerHTML = `
@@ -7153,12 +7214,18 @@ window.renderGameHubGrid = function(keyword = '') {
                         ${escapeHtml(game.desc)}
                     </p>
                     <div class="d-flex gap-2 mt-auto pt-2 border-top border-secondary border-opacity-25">
+                        ${isExternal ? `
+                        <button class="btn btn-sm btn-primary flex-grow-1 rounded-pill fw-semibold shadow-sm" onclick="window.open('${escapeHtml(game.url)}', '_blank')">
+                            <i class="bi bi-box-arrow-up-right"></i> 開啟暢玩
+                        </button>
+                        ` : `
                         <button class="btn btn-sm btn-primary flex-grow-1 rounded-pill fw-semibold shadow-sm" onclick="openGameToolViewer('${escapeHtml(game.title)}', '${escapeHtml(game.url)}')">
                             <i class="bi bi-window-fullscreen"></i> 在線開啟
                         </button>
                         <button class="btn btn-sm btn-outline-info rounded-pill px-3" onclick="window.open('${escapeHtml(game.url)}', '_blank')" title="另開新分頁跳轉原網頁">
                             <i class="bi bi-box-arrow-up-right"></i> 跳轉
                         </button>
+                        `}
                         <button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="deleteGameHubCard('${game.id}', ${!!game.isCustom})" title="${game.isCustom ? '刪除自定義卡片' : '移除此預設卡片'}">
                             <i class="bi bi-trash"></i>
                         </button>
@@ -7187,6 +7254,11 @@ window.filterGameHubGrid = function(keyword) {
 };
 
 window.openGameToolViewer = function(title, url) {
+    if (!url) return;
+    if (url.includes('itch.io') || url.includes('unityroom.com') || url.includes('bilibili.com/toy')) {
+        window.open(url, '_blank');
+        return;
+    }
     window.currentGameToolUrl = url;
     const modalTitle = document.getElementById("gameToolModalTitle");
     const iframe = document.getElementById("gameToolIframe");
