@@ -45,7 +45,7 @@
       "cover": "https://img.youtube.com/vi/gUgfS1vkMxw/hqdefault.jpg",
       "desc": "在 YouTube 上盡情享受自己喜愛的影片和音樂、上傳原創內容，並與親朋好友和全世界觀眾分享你的影片。",
       "pinned": false,
-      "clicks": 0,
+      "clicks": 1,
       "createdAt": "2026-10-24T07:24:45.404Z"
     },
     {
@@ -337,7 +337,7 @@
       "category": "web",
       "tags": [],
       "cover": "https://static.cdninstagram.com/rsrc.php/yd/r/kHwIMM5b8PW.webp",
-      "desc": "跟 AI 做網站，最難講清楚的常常是動畫\n「滑下來的時候帥一點」\nAI 聽完只能用猜的\n其實這些效果都有名字，報名字就好：",
+      "desc": "跟 AI 做網站，最難講清楚的常常是動畫\n「滑下來的時候帥一點」\nAI 聽完只能用猜的\n其實這些效果都有名字，報名��就好：",
       "pinned": false,
       "clicks": 1,
       "createdAt": "2026-10-23T11:56:09.022Z"
@@ -438,5 +438,5 @@
       "createdAt": "2026-10-23T08:54:22.308Z"
     }
   ],
-  "updatedAt": "2026-10-24T10:37:45.723Z"
+  "updatedAt": "2026-10-24T11:00:29.073Z"
 }

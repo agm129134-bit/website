@@ -97,6 +97,14 @@
             } else if (action === 'toggle') {
                 if (video.paused) video.play().catch(() => {});
                 else video.pause();
+            } else if (action === 'volume') {
+                const vol = Number(e.data.volume);
+                if (!isNaN(vol)) {
+                    video.volume = Math.max(0, Math.min(1, vol));
+                }
+                if (typeof e.data.muted === 'boolean') {
+                    video.muted = e.data.muted;
+                }
             }
         });
 

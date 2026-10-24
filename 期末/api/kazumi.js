@@ -159,7 +159,7 @@ async function crawlAgeEpisodes(detailUrl) {
     return episodes;
 }
 
-// 3. AGE動漫播放器真實網址解析
+// 3. AGE動漫播放器真實網址解析 (支援 m3u8/mp4 原生直連萃取)
 async function crawlAgePlayer(playUrl) {
     try {
         const res = await fetchWithTimeout(playUrl, {
@@ -173,7 +173,17 @@ async function crawlAgePlayer(playUrl) {
         if (!url) {
             throw new Error('未能在 AGE 播放頁中解析出播放器網址');
         }
-        return url;
+
+        // 嘗試萃取真實 m3u8 或 mp4 直連串流 (消除 iframe 裁切，交由 Hls.js 原生播放)
+        const m3u8Match = url.match(/[?&]url=([^&]+\.(?:m3u8|mp4)[^&]*)/i) 
+                       || url.match(/(https?%3A%2F%2F[^&]+\.(?:m3u8|mp4)[^&]*)/i)
+                       || url.match(/(https?:\/\/[^"'\s]+\.(?:m3u8|mp4)[^"'\s]*)/i);
+        if (m3u8Match) {
+            const direct = decodeURIComponent(m3u8Match[1]);
+            return { playerUrl: direct, isDirectStream: true };
+        }
+
+        return { playerUrl: url, isDirectStream: false };
     } catch (e) {
         throw new Error(e.message || 'AGE動漫播放器解析失敗');
     }
@@ -686,6 +696,67 @@ async function handleKazumiRoute(req, res) {
             return sendJson(res, 400, { success: false, error: '請提供有效的 "url" 或 "bvid" 參數' });
         }
 
+        // 3.1 路由 B-2: 解析 Bilibili 真實直連 MP4 串流 /api/kazumi/bilibili-playurl?bvid={bvid}&cid={cid}
+        else if (pathname === '/api/kazumi/bilibili-playurl') {
+            const bvid = getQueryParam(parsedUrl, 'bvid');
+            const cid = getQueryParam(parsedUrl, 'cid');
+            if (!bvid) return sendJson(res, 400, { success: false, error: '缺少 bvid 參數' });
+
+            try {
+                let targetCid = cid;
+                if (!targetCid || targetCid === '0') {
+                    const plUrl = `https://api.bilibili.com/x/player/pagelist?bvid=${encodeURIComponent(bvid)}`;
+                    const plRes = await fetchWithTimeout(plUrl, {
+                        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+                    }, 5000);
+                    if (plRes.ok) {
+                        const plJson = await plRes.json();
+                        if (plJson.code === 0 && plJson.data && plJson.data.length > 0) {
+                            targetCid = plJson.data[0].cid;
+                        }
+                    }
+                }
+
+                if (targetCid) {
+                    const playApiUrl = `https://api.bilibili.com/x/player/playurl?bvid=${encodeURIComponent(bvid)}&cid=${encodeURIComponent(targetCid)}&qn=64&fnval=0&platform=html5`;
+                    const playRes = await fetchWithTimeout(playApiUrl, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                            'Referer': 'https://www.bilibili.com/'
+                        }
+                    }, 6000);
+
+                    if (playRes.ok) {
+                        const playJson = await playRes.json();
+                        if (playJson.code === 0 && playJson.data && playJson.data.durl && playJson.data.durl.length > 0) {
+                            const rawStreamUrl = playJson.data.durl[0].url;
+                            const proxyStreamUrl = `/api/kazumi/stream-proxy?url=${encodeURIComponent(rawStreamUrl)}`;
+                            return sendJson(res, 200, {
+                                success: true,
+                                isDirectStream: true,
+                                streamUrl: proxyStreamUrl,
+                                rawUrl: rawStreamUrl,
+                                duration: (playJson.data.durl[0].length / 1000) || 0,
+                                size: playJson.data.durl[0].size || 0
+                            });
+                        }
+                    }
+                }
+
+                return sendJson(res, 200, {
+                    success: true,
+                    isDirectStream: false,
+                    fallbackIframeUrl: `https://player.bilibili.com/player.html?bvid=${encodeURIComponent(bvid)}&page=1&high_quality=1&as_wide=1&danmaku=0`
+                });
+            } catch (err) {
+                return sendJson(res, 200, {
+                    success: true,
+                    isDirectStream: false,
+                    fallbackIframeUrl: `https://player.bilibili.com/player.html?bvid=${encodeURIComponent(bvid)}&page=1&high_quality=1&as_wide=1&danmaku=0`
+                });
+            }
+        }
+
         // 4. 路由 C: 彈幕數據 /api/kazumi/danmaku (支援 彈彈play 全網聚合 與 Bilibili 官方即時彈幕雙引擎自由切換)
         else if (pathname === '/api/kazumi/danmaku') {
             let cid = getQueryParam(parsedUrl, 'cid');
@@ -910,7 +981,7 @@ async function handleKazumiRoute(req, res) {
                 proxyHeaders['Range'] = req.headers.range;
             }
 
-            if (parsedTarget.hostname.includes('bilibili') || parsedTarget.hostname.includes('hdslb')) {
+            if (parsedTarget.hostname.includes('bilibili') || parsedTarget.hostname.includes('hdslb') || parsedTarget.hostname.includes('akamaized.net') || parsedTarget.hostname.includes('bilivideo')) {
                 proxyHeaders['Referer'] = 'https://www.bilibili.com/';
             }
 
@@ -1031,7 +1102,13 @@ async function handleKazumiRoute(req, res) {
                 let isBlockedIframe = false;
                 let isDirectStream = false;
                 if (playUrl.includes('agedm.io') || playUrl.includes('/play/')) {
-                    playerUrl = await crawlAgePlayer(playUrl);
+                    const result = await crawlAgePlayer(playUrl);
+                    if (typeof result === 'object' && result !== null) {
+                        playerUrl = result.playerUrl;
+                        isDirectStream = !!result.isDirectStream;
+                    } else {
+                        playerUrl = result;
+                    }
                 } else if (playUrl.includes('7sefun')) {
                     const result = await crawl7sefunPlayer(playUrl);
                     if (typeof result === 'object' && result !== null) {
@@ -1045,7 +1122,13 @@ async function handleKazumiRoute(req, res) {
                     playerUrl = playUrl;
                     isDirectStream = true;
                 } else {
-                    playerUrl = await crawlAgePlayer(playUrl);
+                    const result = await crawlAgePlayer(playUrl);
+                    if (typeof result === 'object' && result !== null) {
+                        playerUrl = result.playerUrl;
+                        isDirectStream = !!result.isDirectStream;
+                    } else {
+                        playerUrl = result;
+                    }
                 }
 
                 if (!playerUrl) {
