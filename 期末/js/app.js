@@ -1652,6 +1652,7 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
 
     // 處理受 SAMEORIGIN 阻擋之線路（如 lmm85 封鎖）
     if (isBlocked) {
+        if (screenCont) screenCont.classList.add("has-blocked-fallback");
         if (window.kazumiHlsInstance) {
             window.kazumiHlsInstance.destroy();
             window.kazumiHlsInstance = null;
@@ -1666,6 +1667,7 @@ function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], cu
         }
         showToast("💡 此集來源因站方安全保護無法直接內嵌，請點擊中央【新分頁播放】或切換其他源！", "bi-info-circle-fill text-warning");
     } else if (isDirectVideo) {
+        if (screenCont) screenCont.classList.remove("has-blocked-fallback");
         if (fallbackCard) fallbackCard.style.display = "none";
         if (iframeWrapper) iframeWrapper.style.display = "none";
         if (iframe) { iframe.src = ""; iframe.style.display = "none"; }
@@ -2149,7 +2151,7 @@ window.closeAnimePlayer = function() {
     }
     const cont = document.getElementById("kazumiScreenContainer");
     if (cont) {
-        cont.classList.remove("fs-controls-hidden");
+        cont.classList.remove("fs-controls-hidden", "has-blocked-fallback");
     }
     if (window.kazumiHlsInstance) {
         window.kazumiHlsInstance.destroy();
@@ -4074,7 +4076,7 @@ window.selectManga = async function(mangaId, title, cover, author) {
     }
 
     try {
-        const res = await fetch(`/api/manga/chapters?mangaId=${encodeURIComponent(mangaId)}`);
+        const res = await fetch(`/api/manga/chapters?mangaId=${encodeURIComponent(mangaId)}&title=${encodeURIComponent(title || '')}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         mangaState.chapters = data.chapters || [];
@@ -6955,28 +6957,49 @@ window.renderMangaHistoryStandby = function() {
             box.innerHTML = '';
             return;
         }
-        const latest = history[0];
         box.style.display = 'block';
         box.innerHTML = `
             <div class="card bg-black bg-opacity-75 border border-primary border-opacity-50 p-2 shadow-sm rounded-3">
-                <div class="d-flex align-items-center justify-content-between mb-1">
-                    <small class="text-primary fw-bold"><i class="bi bi-clock-history me-1"></i>上次閱讀紀錄</small>
-                    <button type="button" class="btn btn-link btn-xs text-secondary p-0 text-decoration-none" onclick="clearMangaHistory()" title="清除紀錄">清除</button>
+                <div class="d-flex align-items-center justify-content-between mb-2 pb-1 border-bottom border-secondary border-opacity-25">
+                    <small class="text-primary fw-bold"><i class="bi bi-clock-history me-1"></i>漫畫閱讀歷史紀錄 (${history.length})</small>
+                    <button type="button" class="btn btn-link btn-xs text-secondary p-0 text-decoration-none" onclick="clearMangaHistory()" title="清除全部紀錄">清除全部</button>
                 </div>
-                <div class="d-flex align-items-center gap-2">
-                    <img src="${escapeHtml(latest.cover || "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='400' viewBox='0 0 300 400'%3E%3Crect fill='%231e293b' width='300' height='400'/%3E%3Cpath fill='%230284c7' d='M150 180c-20-10-50-10-70 0v60c20-10 50-10 70 0m0-60c20-10 50-10 70 0v60c-20-10-50-10-70 0' stroke='%230284c7' stroke-width='6' fill='none'/%3E%3Ctext x='50%25' y='75%25' fill='%2394a3b8' font-family='sans-serif' font-size='14' text-anchor='middle'%3E漫畫書籍%3C/text%3E%3C/svg%3E")}" style="width: 44px; height: 58px; object-fit: cover; border-radius: 4px;" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'400\' viewBox=\'0 0 300 400\'%3E%3Crect fill=\'%231e293b\' width=\'300\' height=\'400\'/%3E%3Cpath fill=\'%230284c7\' d=\'M150 180c-20-10-50-10-70 0v60c20-10 50-10 70 0m0-60c20-10 50-10 70 0v60c-20-10-50-10-70 0\' stroke=\'%230284c7\' stroke-width=\'6\' fill=\'none\'/%3E%3Ctext x=\'50%25\' y=\'75%25\' fill=\'%2394a3b8\' font-family=\'sans-serif\' font-size=\'14\' text-anchor=\'middle\'%3E漫畫書籍%3C/text%3E%3C/svg%3E'">
-                    <div class="flex-grow-1 overflow-hidden">
-                        <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(latest.title)}">${escapeHtml(latest.title)}</div>
-                        <div class="text-primary small text-truncate">${escapeHtml(latest.chapterTitle)}</div>
-                    </div>
-                    <button class="btn btn-sm btn-primary px-2 text-nowrap rounded-pill" onclick="resumeMangaHistory(0)">
-                        <i class="bi bi-book-half"></i> 繼續閱讀
-                    </button>
+                <div class="d-flex flex-column gap-2" style="max-height: 220px; overflow-y: auto; scrollbar-width: thin;">
+                    ${history.map((item, idx) => `
+                        <div class="d-flex align-items-center gap-2 p-1 rounded-2 bg-dark bg-opacity-50 border border-secondary border-opacity-25" style="transition: background 0.15s;">
+                            <img src="${escapeHtml(item.cover || "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='400' viewBox='0 0 300 400'%3E%3Crect fill='%231e293b' width='300' height='400'/%3E%3Cpath fill='%230284c7' d='M150 180c-20-10-50-10-70 0v60c20-10 50-10 70 0m0-60c20-10 50-10 70 0v60c-20-10-50-10-70 0' stroke='%230284c7' stroke-width='6' fill='none'/%3E%3Ctext x='50%25' y='75%25' fill='%2394a3b8' font-family='sans-serif' font-size='14' text-anchor='middle'%3E漫畫書籍%3C/text%3E%3C/svg%3E")}" style="width: 38px; height: 50px; object-fit: cover; border-radius: 4px; flex-shrink: 0;" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'400\' viewBox=\'0 0 300 400\'%3E%3Crect fill=\'%231e293b\' width=\'300\' height=\'400\'/%3E%3Cpath fill=\'%230284c7\' d=\'M150 180c-20-10-50-10-70 0v60c20-10 50-10 70 0m0-60c20-10 50-10 70 0v60c-20-10-50-10-70 0\' stroke=\'%230284c7\' stroke-width=\'6\' fill=\'none\'/%3E%3Ctext x=\'50%25\' y=\'75%25\' fill=\'%2394a3b8\' font-family=\'sans-serif\' font-size=\'14\' text-anchor=\'middle\'%3E漫畫書籍%3C/text%3E%3C/svg%3E'">
+                            <div class="flex-grow-1 overflow-hidden">
+                                <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
+                                <div class="text-primary small text-truncate" style="font-size: 0.75rem;">${escapeHtml(item.chapterTitle || '第 1 話')}</div>
+                            </div>
+                            <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                <button class="btn btn-xs btn-primary px-2 text-nowrap rounded-pill" onclick="resumeMangaHistory(${idx})">
+                                    <i class="bi bi-book-half"></i> 閱讀
+                                </button>
+                                <button class="btn btn-xs btn-link text-white-50 p-1" onclick="removeMangaHistoryItem(${idx})" title="刪除此紀錄">
+                                    <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
                 </div>
             </div>
         `;
     } catch(e) {
         console.error('渲染漫畫歷史失敗:', e);
+    }
+};
+
+window.removeMangaHistoryItem = function(idx) {
+    try {
+        let history = JSON.parse(localStorage.getItem('web_library_manga_history') || '[]');
+        if (idx >= 0 && idx < history.length) {
+            history.splice(idx, 1);
+            localStorage.setItem('web_library_manga_history', JSON.stringify(history));
+            window.renderMangaHistoryStandby();
+        }
+    } catch(e) {
+        console.error('刪除單筆漫畫歷史失敗:', e);
     }
 };
 
@@ -6990,6 +7013,10 @@ window.resumeMangaHistory = function(idx = 0) {
             if (mangaState.chapters && mangaState.chapters[item.chapterIndex]) {
                 const targetCh = mangaState.chapters[item.chapterIndex];
                 loadMangaChapter(item.mangaId, targetCh.id, targetCh.title, item.chapterIndex);
+            } else if (mangaState.chapters && mangaState.chapters.length > 0) {
+                const matched = mangaState.chapters.find(c => c.title === item.chapterTitle);
+                const target = matched || mangaState.chapters[0];
+                loadMangaChapter(item.mangaId, target.id, target.title, 0);
             }
         }, 700);
     } catch(e) {
