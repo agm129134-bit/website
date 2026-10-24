@@ -865,24 +865,43 @@
                         </div>
 
                         <!-- 右側選集與彈幕輸入 (垂直 flex-column 自適應版面，支援 Tab 切換，絕不遮擋左側影片) -->
-                        <div class="col-lg-4 d-flex flex-column border-start border-secondary p-3 bg-dark kazumi-theater-sidebar" style="min-height: 520px;">
-                            <!-- 側邊欄切換 Tab (選集列表 vs 彈幕清單) -->
-                            <div class="mb-2 flex-shrink-0">
-                                <div class="btn-group btn-group-sm w-100 p-1 bg-black bg-opacity-50 rounded-pill border border-secondary" role="tablist">
+                        <div class="col-lg-4 d-flex flex-column border-start border-secondary p-3 bg-dark kazumi-theater-sidebar position-relative" style="min-height: 520px;">
+                            <!-- 頂部功能條：切換 Tab 與「最近觀看紀錄」懸浮按鈕 -->
+                            <div class="d-flex align-items-center gap-2 mb-2 flex-shrink-0">
+                                <div class="btn-group btn-group-sm flex-grow-1 p-1 bg-black bg-opacity-50 rounded-pill border border-secondary" role="tablist">
                                     <button type="button" class="btn btn-sm btn-primary rounded-pill fw-bold theater-sidebar-tab active" id="tabBtnEpisodes" onclick="switchTheaterSidebarTab('episodes')">
                                         <i class="bi bi-list-ol"></i> 選集列表
                                     </button>
                                     <button type="button" class="btn btn-sm btn-outline-light border-0 rounded-pill fw-semibold text-white theater-sidebar-tab" id="tabBtnDanmaku" onclick="switchTheaterSidebarTab('danmaku')">
-                                        <i class="bi bi-chat-square-text"></i> 彈幕清單 <span class="badge bg-warning text-dark font-monospace ms-1" id="dmkSidebarCountBadge">0</span>
+                                        <i class="bi bi-chat-square-text"></i> 彈幕 <span class="badge bg-warning text-dark font-monospace ms-1" id="dmkSidebarCountBadge">0</span>
                                     </button>
                                 </div>
+                                <!-- 最近觀看紀錄懸浮彈窗切換小按鈕 -->
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2 d-flex align-items-center gap-1 flex-shrink-0" id="theaterHistoryFloatingToggleBtn" onclick="toggleTheaterFloatingHistory(event)" title="開啟最近觀看歷史懸浮面板">
+                                    <i class="bi bi-clock-history"></i> <span class="d-none d-sm-inline">歷史</span> <span class="badge bg-danger rounded-pill" id="theaterFloatingHistoryBadge">0</span>
+                                </button>
+                            </div>
+
+                            <!-- 懸浮式最近觀看歷史視窗 (Floating Panel，絕不遮擋推擠選集列表) -->
+                            <div id="theaterFloatingHistoryPanel" class="theater-floating-history-panel shadow-lg" style="display: none;">
+                                <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom border-secondary border-opacity-40 flex-shrink-0">
+                                    <small class="text-danger fw-bold d-flex align-items-center gap-1">
+                                        <i class="bi bi-clock-history"></i> 最近觀看紀錄
+                                    </small>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button type="button" class="btn btn-link btn-xs text-info p-0 text-decoration-none fw-semibold" onclick="openWatchHistoryModal(event)" title="查看完整播放歷史清單">
+                                            <i class="bi bi-grid-fill me-1"></i>全部
+                                        </button>
+                                        <button type="button" class="btn btn-link btn-xs text-secondary p-0 text-decoration-none" onclick="clearAllWatchHistory()" title="清空紀錄">清空</button>
+                                        <button type="button" class="btn btn-link btn-xs text-white-50 p-0 text-decoration-none ms-1" onclick="toggleTheaterFloatingHistory(false)" title="關閉懸浮面板"><i class="bi bi-x-lg"></i></button>
+                                    </div>
+                                </div>
+                                <div id="animeRecentHistoryBox" class="d-flex flex-column gap-2 overflow-auto pe-1" style="max-height: 420px;"></div>
                             </div>
                             
-                            <!-- 1. 滾動選集列表 / 待命歷史紀錄 (佔滿垂直空間，多筆時自適應滾動) -->
+                            <!-- 1. 滾動選集列表 (佔滿垂直空間，多筆時自適應滾動) -->
                             <div id="kazumiEpisodesPanel" class="d-flex flex-column flex-grow-1 overflow-hidden" style="min-height: 0;">
-                                <!-- 待命觀看歷史紀錄區 (移至右側欄，支援平滑自適應捲動) -->
-                                <div id="animeRecentHistoryBox" class="d-flex flex-column flex-grow-1 overflow-auto pe-1" style="min-height: 0; max-height: 440px; display: none;"></div>
-                                <div class="episode-list-container d-flex flex-column gap-2 mb-3 flex-grow-1 overflow-auto" style="min-height: 0; max-height: 380px;">
+                                <div class="episode-list-container d-flex flex-column gap-2 mb-3 flex-grow-1 overflow-auto" style="min-height: 0; max-height: 440px;">
                                     <div class="text-secondary small p-3 text-center w-100" id="kazumiEpisodePlaceholder">請先由來源清單選擇集數開播</div>
                                 </div>
                             </div>
@@ -1024,7 +1043,7 @@
                                                 <span class="badge bg-success text-white" style="font-size: 0.7rem;">免金鑰・直連 B 站</span>
                                             </div>
                                             <div class="text-white-50 mt-1" style="font-size: 0.78rem; line-height: 1.4;">
-                                                依照動畫片名自動直連 Bilibili 官方視頻彈幕池，不需申請任何第三方金鑰即可穩定觀看。
+                                                依照動畫片名自動直連 Bilibili 官方影片彈幕池，不需申請任何第三方金鑰即可穩定觀看。
                                             </div>
                                         </div>
                                     </label>
@@ -1057,7 +1076,7 @@
                                 <div class="danmaku-setting-item">
                                     <div class="form-check form-switch d-flex align-items-center justify-content-between ps-0 mb-0">
                                         <div>
-                                            <div class="small text-white fw-semibold">跟隨視頻倍速</div>
+                                            <div class="small text-white fw-semibold">跟隨影片倍速</div>
                                             <div class="text-white-50" style="font-size: 0.78rem;">加速播放時彈幕飛行速度同步等比加速</div>
                                         </div>
                                         <input class="form-check-input ms-auto" type="checkbox" id="dmkSyncSpeed" checked onchange="onDanmakuSettingToggle('syncSpeed', this.checked)">

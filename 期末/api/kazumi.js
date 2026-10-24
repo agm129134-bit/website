@@ -304,38 +304,10 @@ async function crawl7sefunPlayer(playUrl) {
                         return { playerUrl: realUrl, isDirectStream: true };
                     }
 
-                    // 2. 若為 lmm 線路或包含 lmm85.com，調用 7sefun 官方適配器 dp.no3acg.com 進行 AES-128-CBC 解密
+                    // 2. 若為 lmm 線路或包含 lmm85.com，調用 7sefun 官方適配器 dp.no3acg.com (無跨域 CORS 阻擋之安全外嵌播放頁)
                     if (parsed.from === 'lmm' || realUrl.includes('lmm85.com')) {
-                        try {
-                            const dpUrl = `https://dp.no3acg.com/player/ec.php?code=qw&if=1&from=lmm&url=${realUrl}`;
-                            const dpRes = await fetchWithTimeout(dpUrl, {
-                                headers: {
-                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
-                                    'Referer': 'https://www.7sefun.top/'
-                                }
-                            }, 8000);
-                            if (dpRes.ok) {
-                                const dpHtml = await dpRes.text();
-                                const configMatch = dpHtml.match(/let\s+ConFig\s*=\s*(\{[\s\S]*?\})\s*,\s*box\s*=/);
-                                if (configMatch) {
-                                    const cfg = JSON.parse(configMatch[1]);
-                                    if (cfg.url && cfg.config && cfg.config.uid) {
-                                        const key = Buffer.from('2890' + cfg.config.uid + 'tB959C', 'utf-8');
-                                        const iv = Buffer.from('2F131BE91247866E', 'utf-8');
-                                        const decipher = crypto.createDecipheriv('aes-128-cbc', key, iv);
-                                        let streamUrl = decipher.update(cfg.url, 'base64', 'utf8');
-                                        streamUrl += decipher.final('utf8');
-                                        if (streamUrl && (streamUrl.startsWith('http://') || streamUrl.startsWith('https://'))) {
-                                            return { playerUrl: streamUrl, isDirectStream: true };
-                                        }
-                                    }
-                                }
-                                // 解密未果但 dpUrl 可用，返回無跨域限制的 dp.no3acg.com 播放頁
-                                return { playerUrl: dpUrl, isBlockedIframe: false };
-                            }
-                        } catch (dpErr) {
-                            console.warn('[7sefun dp.no3acg.com decrypt error]:', dpErr.message);
-                        }
+                        const dpUrl = `https://dp.no3acg.com/player/ec.php?code=qw&if=1&from=lmm&url=${realUrl}`;
+                        return { playerUrl: dpUrl, isBlockedIframe: false, isDirectStream: false };
                     }
 
                     // 3. 其他常見播放器適配器規則 (依據 7sefun playerconfig.js)
