@@ -711,16 +711,16 @@
 
     <!-- 1. Kazumi 動漫串流播放器 Modal -->
     <div class="modal fade" id="animePlayerModal" tabindex="-1" aria-labelledby="animeModalLabel" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-theater">
             <div class="modal-content bg-dark text-white border-secondary rounded-4 shadow-lg overflow-hidden">
                 <div class="modal-header border-bottom border-secondary py-2 px-3 bg-black">
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge bg-danger">Kazumi Engine</span>
-                        <h6 class="modal-title fw-bold mb-0 text-truncate" id="animePlayerTitle" style="max-width: 220px;">動漫劇院播放器</h6>
+                        <h6 class="modal-title fw-bold mb-0 text-truncate" id="animePlayerTitle" style="max-width: 320px;">動漫劇院播放器</h6>
                     </div>
                     <!-- 控制組居右，支援劇院內快速搜尋，關閉 X 置於最右上角 -->
                     <div class="d-flex align-items-center gap-2 ms-auto">
-                        <div class="input-group input-group-sm d-none d-sm-flex" style="width: 190px;">
+                        <div class="input-group input-group-sm d-none d-sm-flex" style="width: 220px;">
                             <input type="text" id="theaterHeaderSearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋番劇..." onkeydown="if(event.key==='Enter') searchAnimeFromTheater(this.value)">
                             <button class="btn btn-outline-danger" type="button" onclick="searchAnimeFromTheater(document.getElementById('theaterHeaderSearchInput').value)" title="搜尋動漫來源">
                                 <i class="bi bi-search"></i>
@@ -741,7 +741,7 @@
                 <div class="modal-body p-0">
                     <div class="row g-0">
                         <!-- 左側播放器主畫面 (支援 HTML5 串流、B站內嵌與 YouTube 內嵌) -->
-                        <div class="col-lg-9 bg-black position-relative d-flex flex-column align-items-center justify-content-center" style="min-height: 480px;" id="kazumiScreenContainer">
+                        <div class="col-lg-8 bg-black position-relative d-flex flex-column align-items-center justify-content-center" style="min-height: 520px;" id="kazumiScreenContainer">
                             <!-- 全螢幕頂部滑鼠感應區 (移入即刻喚醒控制選項並接收滾輪事件) -->
                             <div id="kazumiFsTopHoverZone" class="kazumi-fs-hover-zone kazumi-fs-hover-top" title="移入顯示控制列"></div>
 
@@ -865,7 +865,7 @@
                         </div>
 
                         <!-- 右側選集與彈幕輸入 (垂直 flex-column 自適應版面，支援 Tab 切換，絕不遮擋左側影片) -->
-                        <div class="col-lg-3 d-flex flex-column border-start border-secondary p-3 bg-dark kazumi-theater-sidebar" style="min-height: 480px;">
+                        <div class="col-lg-4 d-flex flex-column border-start border-secondary p-3 bg-dark kazumi-theater-sidebar" style="min-height: 520px;">
                             <!-- 側邊欄切換 Tab (選集列表 vs 彈幕清單) -->
                             <div class="mb-2 flex-shrink-0">
                                 <div class="btn-group btn-group-sm w-100 p-1 bg-black bg-opacity-50 rounded-pill border border-secondary" role="tablist">
