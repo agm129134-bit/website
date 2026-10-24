@@ -1,7 +1,68 @@
 {
   "user": "jyun",
-  "count": 24,
+  "count": 28,
   "bookmarks": [
+    {
+      "id": "bm_1792827835882_z1f9",
+      "title": "Charonyuu/whatsmyagentdoing: See what every Claude Code and Codex agent on your machine is doing — live, in a little office.",
+      "url": "https://github.com/Charonyuu/whatsmyagentdoing",
+      "category": "web",
+      "tags": [
+        "GitHub",
+        "開源項目"
+      ],
+      "cover": "https://opengraph.githubassets.com/1/Charonyuu/whatsmyagentdoing",
+      "desc": "",
+      "pinned": false,
+      "clicks": 0,
+      "createdAt": "2026-10-24T07:43:55.883Z"
+    },
+    {
+      "id": "bm_1792827338221_q4ih",
+      "title": "超辉夜姬！-番剧-全集-高清独家在线观看-bilibili-哔哩哔哩",
+      "url": "https://www.bilibili.com/bangumi/play/ss142945?theme=movie&from_spmid=666.4.mylist.1",
+      "category": "video",
+      "tags": [
+        "Bilibili",
+        "B站",
+        "影音影片"
+      ],
+      "cover": "https://i0.hdslb.com/bfs/bangumi/image/e840f9073cae566f7bdc48bb41eca418617c93af.png",
+      "desc": "在梦与希望汇聚的虚拟空间，少女们相遇又离别的舞台即将拉开帷幕。\n在不远的未来，在东京的重点高中学习的17岁女生酒寄彩叶过着半工半读的超忙碌生活。\n她每天的精神慰藉仅有网上虚拟空间「月夜见」的管理者兼人气主播的月见八千代。\n在「月夜见」，大家可以创造自己的分身，自由从事创作活动。彩叶一边追偶像八千代，一边通过对战游戏攒零花钱。\n一天，彩叶在回家路上见到了一根放出七彩光芒的游艺电线杆。其中出现的，居然是一个可爱的婴儿。\n彩叶把婴儿带回家，没想到它转眼间便长大，成了一个和彩叶年纪相仿的女孩子。\n「你难道…是辉夜公主吗？」\n长大后的辉夜公主任性妄为。彩叶答应了她的（任性）请求，帮助她开始了主播活动。\n彩叶作为制作人创作歌曲，辉夜则作为主播负责演唱，两人逐渐亲密起来。\n然而不祥的阴影已经迫近，要将辉夜带回月亮去……",
+      "pinned": false,
+      "clicks": 1,
+      "createdAt": "2026-10-24T07:35:38.221Z"
+    },
+    {
+      "id": "bm_1792826685404_b1k0",
+      "title": "(142) 折1萬次，會壞嗎？iPhone Duo深度評測",
+      "url": "https://www.youtube.com/watch?v=gUgfS1vkMxw",
+      "category": "video",
+      "tags": [
+        "YouTube",
+        "影音串流"
+      ],
+      "cover": "https://img.youtube.com/vi/gUgfS1vkMxw/hqdefault.jpg",
+      "desc": "在 YouTube 上盡情享受自己喜愛的影片和音樂、上傳原創內容，並與親朋好友和全世界觀眾分享你的影片。",
+      "pinned": false,
+      "clicks": 0,
+      "createdAt": "2026-10-24T07:24:45.404Z"
+    },
+    {
+      "id": "bm_1792823004723_5497",
+      "title": "FX 简单!",
+      "url": "https://www.bilibili.com/toy/fx-simple/index.html",
+      "category": "web",
+      "tags": [
+        "Bilibili",
+        "B站"
+      ],
+      "cover": "",
+      "desc": "",
+      "pinned": true,
+      "clicks": 1,
+      "createdAt": "2026-10-24T06:23:24.723Z"
+    },
     {
       "id": "bm_1792770183370_qux7",
       "title": "用好这5种卡片样式，让你的网站瞬间变高级",
@@ -377,5 +438,5 @@
       "createdAt": "2026-10-23T08:54:22.308Z"
     }
   ],
-  "updatedAt": "2026-10-23T16:09:37.135Z"
+  "updatedAt": "2026-10-24T07:43:56.125Z"
 }

@@ -86,16 +86,19 @@ function getDefaultActiveUser() {
 function forwardToBangumi(apiPath, method, token, bodyData = null) {
     return new Promise((resolve, reject) => {
         const payloadStr = bodyData ? JSON.stringify(bodyData) : null;
+        const headers = {
+            'User-Agent': 'WebLibrary-ACG-Client/2.0 (https://github.com/web-library)',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        };
+        if (token && typeof token === 'string' && token.trim()) {
+            headers['Authorization'] = `Bearer ${token.trim()}`;
+        }
         const options = {
             hostname: 'api.bgm.tv',
             path: apiPath,
             method: method,
-            headers: {
-                'User-Agent': 'WebLibrary-ACG-Client/2.0 (https://github.com/web-library)',
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
+            headers: headers,
             timeout: 10000
         };
 
@@ -302,6 +305,39 @@ async function handleSyncRoute(req, res) {
 
             // Bangumi API: PATCH /v0/users/-/collections/{subject_id} 或 POST /v0/users/-/collections/{subject_id}
             const result = await forwardToBangumi(`/v0/users/-/collections/${subjectId}`, 'POST', token, payload);
+            return sendJson(res, result.statusCode, {
+                success: result.statusCode >= 200 && result.statusCode < 300,
+                status: result.statusCode,
+                data: result.data
+            });
+        }
+
+        // B-2. 查詢指定作品的收藏狀態 /api/bangumi/collection?subjectId=... (GET)
+        else if (pathname === '/api/bangumi/collection' && req.method === 'GET') {
+            const token = (query.token || (req.headers['authorization'] || '').replace('Bearer ', '')).trim();
+            const subjectId = query.subjectId;
+            if (!token) return sendJson(res, 400, { success: false, error: '缺少 Bangumi Access Token' });
+            if (!subjectId) return sendJson(res, 400, { success: false, error: '缺少 subjectId' });
+
+            const result = await forwardToBangumi(`/v0/users/-/collections/${subjectId}`, 'GET', token);
+            return sendJson(res, result.statusCode, {
+                success: result.statusCode >= 200 && result.statusCode < 300,
+                status: result.statusCode,
+                data: result.data
+            });
+        }
+
+        // B-3. 關鍵字搜尋作品取得 Bangumi Subject /api/bangumi/search?q=...&type=... (GET)
+        else if (pathname === '/api/bangumi/search' && req.method === 'GET') {
+            const token = (query.token || (req.headers['authorization'] || '').replace('Bearer ', '')).trim();
+            const q = query.q || '';
+            const type = query.type || ''; // 1: book, 2: anime
+            if (!q) return sendJson(res, 400, { success: false, error: '缺少關鍵字 q' });
+
+            let searchPath = `/v0/search/subjects?keyword=${encodeURIComponent(q)}&limit=5`;
+            if (type) searchPath += `&filter[type][]=${type}`;
+
+            const result = await forwardToBangumi(searchPath, 'GET', token || null);
             return sendJson(res, result.statusCode, {
                 success: result.statusCode >= 200 && result.statusCode < 300,
                 status: result.statusCode,

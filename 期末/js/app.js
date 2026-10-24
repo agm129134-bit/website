@@ -681,6 +681,18 @@ function renderBookmarks() {
                             <button class="btn btn-outline-success btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="openLegadoWithTitle('${escapeHtml(item.title)}')">
                                 <i class="bi bi-book-half"></i> 小說
                             </button>` : ''}
+                            ${(isAnimeItem(item) || (Array.isArray(item.tags) && item.tags.some(t => t.includes('漫畫') || t.includes('条漫') || t.includes('動畫') || t.includes('番劇')))) ? `
+                            <div class="dropdown d-inline-block">
+                                <button class="btn btn-outline-info btn-sm action-jump-btn dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="變更是否看/讀過並同步至 Bangumi">
+                                    <i class="bi bi-bookmark-check"></i> <span>${getBookmarkWatchStatusLabel(item)}</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-dark shadow-sm" style="font-size: 0.8rem; z-index: 1050;">
+                                    <li><h6 class="dropdown-header small text-muted">Bangumi 狀態同步</h6></li>
+                                    <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 3); return false;"><i class="bi bi-play-circle text-success me-1"></i> ${isMangaItem(item) ? '在讀' : '在看'}</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 1); return false;"><i class="bi bi-heart text-danger me-1"></i> ${isMangaItem(item) ? '想讀' : '想看'}</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 2); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> ${isMangaItem(item) ? '已讀過' : '已看過'}</a></li>
+                                </ul>
+                            </div>` : ''}
                         </div>
 
                         <div class="btn-group btn-group-sm">
@@ -1328,17 +1340,35 @@ function renderSourceList() {
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'p-2 rounded-2 bg-dark bg-opacity-50 border border-secondary';
 
+                const statusTagId = `animeBgmStatusTxt_${source.id}_${rIdx}`;
                 const itemHeader = document.createElement('div');
                 itemHeader.className = 'd-flex align-items-center justify-content-between flex-wrap gap-2 mb-2';
                 itemHeader.innerHTML = `
-                    <div class="d-flex align-items-center gap-2 text-truncate" style="max-width: 70%;">
+                    <div class="d-flex align-items-center gap-2 text-truncate" style="max-width: 52%;">
                         <span class="badge bg-danger-subtle text-danger px-1">#${rIdx + 1}</span>
                         <span class="fw-semibold text-white small text-truncate" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</span>
                     </div>
-                    <button class="btn btn-xs btn-outline-danger" id="epBtn_${source.id}_${rIdx}">
-                        <i class="bi bi-list-ul"></i> 取得選集
-                    </button>
+                    <div class="d-flex align-items-center gap-1 flex-wrap">
+                        <button class="btn btn-xs btn-outline-success text-truncate" onclick="addAnimeSearchResultToLibrary('${escapeHtml(item.title)}', '${escapeHtml(kazumiState.cover || '')}', '${escapeHtml(item.detailUrl || '')}')" title="收藏作品至個人圖書館">
+                            <i class="bi bi-bookmark-plus"></i> +收藏
+                        </button>
+                        <div class="dropdown d-inline-block">
+                            <button class="btn btn-xs btn-outline-secondary dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="檢視或更改 Bangumi 狀態">
+                                <i class="bi bi-bookmark-heart"></i> <span id="${statusTagId}">辨識中...</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow-sm" style="font-size: 0.8rem; z-index: 1060;">
+                                <li><h6 class="dropdown-header small text-muted">Bangumi 狀態變更</h6></li>
+                                <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 3, false, '${statusTagId}'); return false;"><i class="bi bi-play-circle text-success me-1"></i> 在看</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 1, false, '${statusTagId}'); return false;"><i class="bi bi-heart text-danger me-1"></i> 想看</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 2, false, '${statusTagId}'); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> 看過</a></li>
+                            </ul>
+                        </div>
+                        <button class="btn btn-xs btn-outline-danger" id="epBtn_${source.id}_${rIdx}">
+                            <i class="bi bi-list-ul"></i> 取得選集
+                        </button>
+                    </div>
                 `;
+                setTimeout(() => { checkAndRenderBangumiStatus(item.title, 2, statusTagId); }, 20);
 
                 const epContainer = document.createElement('div');
                 epContainer.id = `episodes_${source.id}_${rIdx}`;
@@ -1431,7 +1461,8 @@ function renderEpisodeButtons(sourceId, animeItem, episodes, container) {
         }
     });
 
-    const displayEps = uniqueEpisodes.slice(0, 48);
+    const isExpanded = container.getAttribute('data-expanded') === 'true';
+    const displayEps = (isExpanded || uniqueEpisodes.length <= 48) ? uniqueEpisodes : uniqueEpisodes.slice(0, 48);
     displayEps.forEach((ep, idx) => {
         const epBtn = document.createElement('button');
         epBtn.className = 'btn btn-xs btn-outline-light text-truncate';
@@ -1443,10 +1474,30 @@ function renderEpisodeButtons(sourceId, animeItem, episodes, container) {
     });
 
     if (uniqueEpisodes.length > 48) {
-        const moreSpan = document.createElement('span');
-        moreSpan.className = 'badge bg-secondary-subtle text-muted align-self-center small';
-        moreSpan.textContent = `+ 尚有 ${uniqueEpisodes.length - 48} 集`;
-        container.appendChild(moreSpan);
+        if (!isExpanded) {
+            const moreBtn = document.createElement('button');
+            moreBtn.type = 'button';
+            moreBtn.className = 'btn btn-xs btn-outline-info align-self-center text-truncate';
+            moreBtn.innerHTML = `<i class="bi bi-chevron-double-down"></i> + 尚有 ${uniqueEpisodes.length - 48} 集 (點擊展開)`;
+            moreBtn.title = "點擊展開全部集數清單";
+            moreBtn.onclick = (e) => {
+                e.stopPropagation();
+                container.setAttribute('data-expanded', 'true');
+                renderEpisodeButtons(sourceId, animeItem, episodes, container);
+            };
+            container.appendChild(moreBtn);
+        } else {
+            const collapseBtn = document.createElement('button');
+            collapseBtn.type = 'button';
+            collapseBtn.className = 'btn btn-xs btn-outline-secondary align-self-center text-truncate';
+            collapseBtn.innerHTML = `<i class="bi bi-chevron-double-up"></i> 收起多餘集數`;
+            collapseBtn.onclick = (e) => {
+                e.stopPropagation();
+                container.setAttribute('data-expanded', 'false');
+                renderEpisodeButtons(sourceId, animeItem, episodes, container);
+            };
+            container.appendChild(collapseBtn);
+        }
     }
 }
 
@@ -1501,6 +1552,11 @@ async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
 
 function openTheaterWithUrl(animeTitle, epTitle, playerUrl, allEpisodes = [], currentEp = null) {
     window.currentKazumiPlayingUrl = playerUrl;
+    window.currentKazumiAnimeTitle = animeTitle;
+    window.currentKazumiEpTitle = epTitle;
+    if (typeof window.saveAnimePlayHistory === 'function') {
+        window.saveAnimePlayHistory(animeTitle, kazumiState.cover || '', epTitle, playerUrl, 0, 0);
+    }
     const modalTitle = document.getElementById("animePlayerTitle");
     const isDirectVideo = /\.(mp4|m3u8)(\?.*)?$/i.test(playerUrl) || playerUrl.includes('.mp4') || playerUrl.includes('.m3u8') || (currentEp && currentEp.isDirectStream);
     const isBlocked = (currentEp && currentEp.isBlockedIframe) || (playerUrl && playerUrl.includes('lmm85.com'));
@@ -1685,6 +1741,9 @@ window.resetKazumiTheater = function() {
     }
     if (placeholder) {
         placeholder.style.display = "block";
+        if (typeof window.renderAnimeHistoryStandby === 'function') {
+            window.renderAnimeHistoryStandby();
+        }
     }
     if (titleEl) {
         titleEl.textContent = "動漫劇院播放器（待命狀態）";
@@ -1747,12 +1806,14 @@ window.openKazumiPlayer = function(title = "", src = "") {
             })
             .catch(() => {});
     } else if (ytMatch) {
-        // YouTube 官方內嵌播放器
+        // YouTube 官方無 Cookie 安全內嵌播放器 (徹底修復 Error 153 播放器設定錯誤)
         const ytId = ytMatch[1];
         video.pause();
         video.style.display = "none";
         iframe.style.display = "block";
-        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1`;
+        iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+        const originParam = encodeURIComponent(window.location.origin);
+        iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&enablejsapi=1&origin=${originParam}&widget_referrer=${originParam}&rel=0`;
         showToast("已載入 YouTube 官方內嵌劇院！", "bi-youtube text-danger");
     } else {
         // 原生 HTML5 影片 / 代理串流
@@ -2761,8 +2822,17 @@ document.addEventListener("DOMContentLoaded", () => {
     // 監聽播放器播放/暫停/跳轉事件，實現彈幕與畫面嚴格同步
     const kazumiVideo = document.getElementById("kazumiVideoPlayer");
     if (kazumiVideo) {
+        kazumiVideo.addEventListener("click", (e) => {
+            e.preventDefault();
+            window.toggleDanmakuPlayPause();
+        });
+        kazumiVideo.addEventListener("dblclick", (e) => {
+            e.preventDefault();
+            window.toggleKazumiFullscreen();
+        });
         kazumiVideo.addEventListener("pause", () => {
             window.pauseDanmaku();
+            window.saveCurrentAnimeProgressNow();
         });
         kazumiVideo.addEventListener("play", () => {
             window.resumeDanmaku();
@@ -2770,6 +2840,7 @@ document.addEventListener("DOMContentLoaded", () => {
         kazumiVideo.addEventListener("timeupdate", () => {
             if (!kazumiVideo.paused && !kazumiVideo.seeking) {
                 updateDanmakuTimeDisplay(kazumiVideo.currentTime, kazumiVideo.duration || getDanmakuMaxDuration());
+                window.throttleSaveAnimeProgress(kazumiVideo.currentTime, kazumiVideo.duration);
             }
         });
         kazumiVideo.addEventListener("seeking", () => {
@@ -2786,6 +2857,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         kazumiVideo.addEventListener("ended", () => {
             window.pauseDanmaku();
+            window.saveCurrentAnimeProgressNow();
         });
     }
 
@@ -3144,8 +3216,13 @@ function renderMangaStandby() {
                         搜尋漫畫
                     </button>
                 </div>
+                <!-- 漫畫閱讀歷史紀錄區 -->
+                <div id="mangaRecentHistoryBox" class="mt-3 text-start w-100" style="display: none;"></div>
             </div>
         `;
+        if (typeof window.renderMangaHistoryStandby === 'function') {
+            window.renderMangaHistoryStandby();
+        }
     }
 }
 
@@ -3241,6 +3318,7 @@ function renderMangaSearchResults(results, q) {
         const card = document.createElement("div");
         card.className = "p-2 rounded-3 bg-black bg-opacity-40 border border-secondary d-flex align-items-center gap-3";
         const coverUrl = m.cover || "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80";
+        const statusTagId = `mangaBgmStatusTxt_${m.id || Math.random().toString(36).substr(2, 6)}`;
 
         card.innerHTML = `
             <img src="${escapeHtml(coverUrl)}" class="rounded shadow-sm" alt="${escapeHtml(m.title)}" style="width: 54px; height: 72px; object-fit: cover;" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80'">
@@ -3248,15 +3326,34 @@ function renderMangaSearchResults(results, q) {
                 <h6 class="fw-bold text-white mb-1 text-truncate" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</h6>
                 <div class="small text-truncate mb-1" style="color: #cbd5e1;">
                     <span class="text-primary me-2"><i class="bi bi-person"></i> ${escapeHtml(m.author || "未知作者")}</span>
-                    <span>${escapeHtml(m.source || "CopyManga")}</span>
+                    <span>${escapeHtml(m.source || "BaoziMh")}</span>
                 </div>
-                <div class="small text-truncate" style="font-size: 0.8rem; color: #94a3b8;">${escapeHtml(m.brief || "暫無簡介")}</div>
+                <div class="small text-truncate" style="font-size: 0.8rem; color: #94a3b8;">${escapeHtml(m.brief || "全網精選條漫資源")}</div>
             </div>
-            <button class="btn btn-sm btn-outline-primary text-nowrap rounded-pill px-3" onclick="selectManga('${escapeHtml(m.id)}', '${escapeHtml(m.title)}', '${escapeHtml(coverUrl)}', '${escapeHtml(m.author || '')}')">
-                <i class="bi bi-list-ol"></i> 選集
-            </button>
+            <div class="d-flex flex-column align-items-end gap-1 flex-shrink-0">
+                <div class="d-flex align-items-center gap-1">
+                    <button class="btn btn-xs btn-outline-success rounded-pill px-2" onclick="addMangaSearchResultToLibrary('${escapeHtml(m.title)}', '${escapeHtml(coverUrl)}', '${escapeHtml(m.id)}')" title="收藏作品至個人圖書館">
+                        <i class="bi bi-bookmark-plus"></i> +收藏
+                    </button>
+                    <div class="dropdown d-inline-block">
+                        <button class="btn btn-xs btn-outline-secondary dropdown-toggle rounded-pill px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="檢視或更改 Bangumi 閱讀狀態">
+                            <i class="bi bi-book"></i> <span id="${statusTagId}">辨識中...</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow-sm" style="font-size: 0.8rem; z-index: 1060;">
+                            <li><h6 class="dropdown-header small text-muted">Bangumi 閱讀狀態</h6></li>
+                            <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 3, true, '${statusTagId}'); return false;"><i class="bi bi-play-circle text-success me-1"></i> 在讀</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 1, true, '${statusTagId}'); return false;"><i class="bi bi-heart text-danger me-1"></i> 想讀</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 2, true, '${statusTagId}'); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> 讀過</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline-primary text-nowrap rounded-pill px-3 w-100" onclick="selectManga('${escapeHtml(m.id)}', '${escapeHtml(m.title)}', '${escapeHtml(coverUrl)}', '${escapeHtml(m.author || '')}')">
+                    <i class="bi bi-list-ol"></i> 選集
+                </button>
+            </div>
         `;
         container.appendChild(card);
+        setTimeout(() => { checkAndRenderBangumiStatus(m.title, 1, statusTagId); }, 20);
     });
 }
 
@@ -3362,6 +3459,11 @@ window.loadMangaChapter = async function(mangaId, chapterId, chapterTitle, chapt
     if (titleEl && mangaState.currentManga) titleEl.textContent = mangaState.currentManga.title;
     if (chapterBadge) chapterBadge.textContent = chapterTitle || `第 ${chapterIndex + 1} 話`;
     if (indicatorEl) indicatorEl.textContent = "載入中...";
+
+    // 紀錄漫畫閱讀歷史
+    if (mangaState.currentManga) {
+        window.saveMangaReadHistory(mangaId, mangaState.currentManga.title, mangaState.currentManga.cover, chapterTitle, chapterIndex);
+    }
 
     if (wrapper) {
         wrapper.innerHTML = `
@@ -4896,6 +4998,516 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     } catch (e) {}
+});
+
+// ==========================================
+// C. 歷史紀錄、Bangumi 狀態辨識/同步與書籤匯入
+// ==========================================
+
+function isMangaItem(item) {
+    if (!item) return false;
+    return (item.category === 'manga' || item.category === 'resource') || 
+           (Array.isArray(item.tags) && item.tags.some(t => t.includes('漫畫') || t.includes('条漫') || t.includes('Tachimanga')));
+}
+
+window.getBookmarkWatchStatusLabel = function(item) {
+    if (!item) return '狀態';
+    const isManga = isMangaItem(item);
+    if (Array.isArray(item.tags)) {
+        if (item.tags.some(t => t === '在看' || t === '在讀')) return isManga ? '在讀' : '在看';
+        if (item.tags.some(t => t === '已看過' || t === '看過' || t === '已看' || t === '已讀過' || t === '讀過' || t === '已讀')) return isManga ? '已讀過' : '已看過';
+        if (item.tags.some(t => t === '想看' || t === '想讀')) return isManga ? '想讀' : '想看';
+    }
+    return isManga ? '標記狀態' : '標記狀態';
+};
+
+window.updateCardWatchStatus = async function(bookmarkId, newType) {
+    const item = state.bookmarks.find(b => b.id === bookmarkId);
+    if (!item) return;
+    const isManga = isMangaItem(item);
+    const typeLabel = isManga 
+        ? (newType === 1 ? '想讀' : newType === 2 ? '已讀過' : '在讀')
+        : (newType === 1 ? '想看' : newType === 2 ? '已看過' : '在看');
+
+    if (!Array.isArray(item.tags)) item.tags = [];
+    item.tags = item.tags.filter(t => !['想看', '在看', '看過', '已看', '已看過', '想讀', '在讀', '讀過', '已讀', '已讀過'].includes(t));
+    item.tags.push(typeLabel);
+    item.bangumiStatus = newType;
+
+    saveBookmarksLocally();
+    renderBookmarks();
+
+    showToast(`已將《${item.title}》標記為「${typeLabel}」`, "bi-bookmark-check-fill text-info");
+
+    // 同步回寫 Bangumi
+    const token = window.getBangumiToken ? window.getBangumiToken() : '';
+    if (token) {
+        let subjectId = null;
+        if (item.url && /bgm\.tv\/subject\/(\d+)/.test(item.url)) {
+            subjectId = item.url.match(/bgm\.tv\/subject\/(\d+)/)[1];
+        } else if (item.bangumiSubjectId) {
+            subjectId = item.bangumiSubjectId;
+        } else {
+            const statusInfo = await window.fetchBangumiSubjectStatus(item.title, isManga ? 1 : 2);
+            if (statusInfo && statusInfo.subjectId) {
+                subjectId = statusInfo.subjectId;
+                item.bangumiSubjectId = subjectId;
+                saveBookmarksLocally();
+            }
+        }
+
+        if (subjectId) {
+            await window.syncStatusToBangumi(subjectId, newType);
+        } else {
+            showToast("已更新本地標記（未找到對應 Bangumi 作品 ID）", "bi-info-circle text-muted");
+        }
+    } else {
+        showToast("提示：綁定 Bangumi Token 可自動回寫官方收藏狀態！", "bi-key text-warning");
+    }
+
+    // 同步後端檔案庫
+    const currentUser = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser') || 'default';
+    try {
+        await fetch('/api/bookmarks/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user: currentUser, bookmarks: state.bookmarks })
+        });
+    } catch(e) {}
+};
+
+// 搜尋結果加入圖書館
+window.addAnimeSearchResultToLibrary = async function(title, cover, url) {
+    if (!title) return;
+    const currentUser = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser') || 'default';
+    const newBookmark = {
+        id: 'bm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        title: title.trim(),
+        url: url || `https://bgm.tv/subject_search/${encodeURIComponent(title)}?cat=2`,
+        cover: cover || "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=700&q=80",
+        category: "anime",
+        tags: ["動畫", "動漫劇院", "Kazumi播放"],
+        desc: `從動漫來源庫收藏之作品《${title.trim()}》`,
+        pinned: false,
+        clicks: 0,
+        createdAt: new Date().toISOString()
+    };
+    const exists = state.bookmarks.some(b => b.title === newBookmark.title);
+    if (exists) {
+        showToast(`《${title}》已在您的圖書館收藏中！`, "bi-bookmark-check-fill text-warning");
+        return;
+    }
+    state.bookmarks.unshift(newBookmark);
+    saveBookmarksLocally();
+    renderBookmarks();
+    renderCategoryTabs();
+    try {
+        await fetch('/api/bookmarks/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user: currentUser, bookmark: newBookmark })
+        });
+    } catch(e) {}
+    showToast(`🎉 已成功將《${title}》收藏至個人圖書館！`, "bi-bookmark-plus-fill text-success");
+};
+
+window.addMangaSearchResultToLibrary = async function(title, cover, mangaId) {
+    if (!title) return;
+    const currentUser = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser') || 'default';
+    const newBookmark = {
+        id: 'bm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        title: title.trim(),
+        url: `https://www.webmota.com/comic/${encodeURIComponent(mangaId)}`,
+        cover: cover || "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80",
+        category: "resource",
+        tags: ["漫畫", "條漫", "Tachimanga"],
+        desc: `從漫畫庫收藏之作品《${title.trim()}》`,
+        pinned: false,
+        clicks: 0,
+        createdAt: new Date().toISOString()
+    };
+    const exists = state.bookmarks.some(b => b.title === newBookmark.title);
+    if (exists) {
+        showToast(`《${title}》已在您的圖書館收藏中！`, "bi-bookmark-check-fill text-warning");
+        return;
+    }
+    state.bookmarks.unshift(newBookmark);
+    saveBookmarksLocally();
+    renderBookmarks();
+    renderCategoryTabs();
+    try {
+        await fetch('/api/bookmarks/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user: currentUser, bookmark: newBookmark })
+        });
+    } catch(e) {}
+    showToast(`🎉 已成功將《${title}》收藏至個人圖書館！`, "bi-bookmark-plus-fill text-success");
+};
+
+// Bangumi 狀態辨識與快速修改快取
+window.bangumiSubjectStatusCache = window.bangumiSubjectStatusCache || {};
+
+window.fetchBangumiSubjectStatus = async function(title, typeId = 2) {
+    const cleanTitle = (title || '').replace(/【.*?】|\[.*?\]|第.+?季|S\d+/g, '').trim();
+    if (!cleanTitle) return null;
+    if (window.bangumiSubjectStatusCache[cleanTitle]) {
+        return window.bangumiSubjectStatusCache[cleanTitle];
+    }
+    const token = window.getBangumiToken ? window.getBangumiToken() : '';
+    try {
+        const searchRes = await fetch(`/api/bangumi/search?q=${encodeURIComponent(cleanTitle)}&type=${typeId}${token ? `&token=${encodeURIComponent(token)}` : ''}`);
+        const searchData = await searchRes.json();
+        if (searchData.success && searchData.data && Array.isArray(searchData.data.data) && searchData.data.data.length > 0) {
+            const subject = searchData.data.data[0];
+            const subjectId = subject.id;
+            let colType = 0; // 0 = 未收藏
+            if (token) {
+                const colRes = await fetch(`/api/bangumi/collection?subjectId=${subjectId}&token=${encodeURIComponent(token)}`);
+                const colData = await colRes.json();
+                if (colData.success && colData.data && colData.data.type) {
+                    colType = colData.data.type;
+                }
+            }
+            const resObj = { subjectId, type: colType, title: subject.name_cn || subject.name };
+            window.bangumiSubjectStatusCache[cleanTitle] = resObj;
+            return resObj;
+        }
+    } catch(e) {
+        console.warn('查詢 Bangumi 狀態失敗:', e.message);
+    }
+    return null;
+};
+
+window.checkAndRenderBangumiStatus = async function(title, typeId, elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const isManga = typeId === 1;
+    const info = await window.fetchBangumiSubjectStatus(title, typeId);
+    if (!info) {
+        el.textContent = "未標記";
+        el.className = "text-white-50";
+        return;
+    }
+    const type = info.type;
+    const mapLabels = isManga
+        ? { 1: "想讀", 2: "讀過", 3: "在讀", 4: "擱置", 5: "拋棄" }
+        : { 1: "想看", 2: "看過", 3: "在看", 4: "擱置", 5: "拋棄" };
+    
+    if (mapLabels[type]) {
+        el.textContent = mapLabels[type];
+        el.className = type === 3 ? "text-success fw-bold" : type === 2 ? "text-primary fw-bold" : "text-danger fw-bold";
+    } else {
+        el.textContent = "未收藏";
+        el.className = "text-white-50";
+    }
+};
+
+window.applyBangumiStatusChange = async function(title, statusType, isManga = false, elementId = null) {
+    const info = await window.fetchBangumiSubjectStatus(title, isManga ? 1 : 2);
+    if (!info || !info.subjectId) {
+        showToast("未找到對應的 Bangumi 作品條目！", "bi-exclamation-triangle text-warning");
+        return;
+    }
+    const token = window.getBangumiToken ? window.getBangumiToken() : '';
+    if (!token) {
+        showToast("請在個人設定「同步 Bangumi」中綁定 Access Token，即可啟用雙向回寫！", "bi-key text-warning");
+        return;
+    }
+    const success = await window.syncStatusToBangumi(info.subjectId, statusType);
+    if (success) {
+        info.type = statusType;
+        const cleanTitle = (title || '').replace(/【.*?】|\[.*?\]|第.+?季|S\d+/g, '').trim();
+        window.bangumiSubjectStatusCache[cleanTitle] = info;
+
+        if (elementId) {
+            const el = document.getElementById(elementId);
+            if (el) {
+                const mapLabels = isManga
+                    ? { 1: "想讀", 2: "讀過", 3: "在讀" }
+                    : { 1: "想看", 2: "看過", 3: "在看" };
+                el.textContent = mapLabels[statusType] || "已收藏";
+                el.className = statusType === 3 ? "text-success fw-bold" : statusType === 2 ? "text-primary fw-bold" : "text-danger fw-bold";
+            }
+        }
+    }
+};
+
+// 觀看歷史紀錄系統
+window.saveAnimePlayHistory = function(animeTitle, cover, epTitle, playUrl, currentTime = 0, duration = 0) {
+    if (!animeTitle || animeTitle.trim() === "") return;
+    try {
+        let history = JSON.parse(localStorage.getItem('web_library_anime_history') || '[]');
+        history = history.filter(h => h.animeTitle !== animeTitle);
+        history.unshift({
+            animeTitle: animeTitle.trim(),
+            cover: cover || "",
+            epTitle: epTitle || "第 1 話",
+            playUrl: playUrl || "",
+            currentTime: Math.floor(currentTime || 0),
+            duration: Math.floor(duration || 0),
+            updatedAt: Date.now()
+        });
+        if (history.length > 20) history = history.slice(0, 20);
+        localStorage.setItem('web_library_anime_history', JSON.stringify(history));
+        window.renderAnimeHistoryStandby();
+    } catch(e) {
+        console.error('儲存動畫歷史失敗:', e);
+    }
+};
+
+let lastAnimeThrottleTime = 0;
+window.throttleSaveAnimeProgress = function(currentTime, duration) {
+    const now = Date.now();
+    if (now - lastAnimeThrottleTime > 4000) {
+        lastAnimeThrottleTime = now;
+        window.saveCurrentAnimeProgressNow();
+    }
+};
+
+window.saveCurrentAnimeProgressNow = function() {
+    const video = document.getElementById("kazumiVideoPlayer");
+    const animeTitle = kazumiState.title || window.currentKazumiAnimeTitle || '';
+    const epTitle = (document.getElementById("animePlayerTitle")?.textContent || '').split('-')[1]?.trim() || '';
+    if (video && animeTitle) {
+        window.saveAnimePlayHistory(animeTitle, kazumiState.cover, epTitle, window.currentKazumiPlayingUrl, video.currentTime, video.duration);
+    }
+};
+
+window.renderAnimeHistoryStandby = function() {
+    const box = document.getElementById('animeRecentHistoryBox');
+    if (!box) return;
+    try {
+        const history = JSON.parse(localStorage.getItem('web_library_anime_history') || '[]');
+        if (history.length === 0) {
+            box.style.display = 'none';
+            box.innerHTML = '';
+            return;
+        }
+        const latest = history[0];
+        const formatSec = (s) => {
+            if (!s || isNaN(s)) return '00:00';
+            const m = Math.floor(s / 60);
+            const sec = Math.floor(s % 60);
+            return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+        };
+        const timeStr = latest.currentTime > 0 ? `${formatSec(latest.currentTime)} / ${latest.duration > 0 ? formatSec(latest.duration) : '--:--'}` : '剛開始';
+        box.style.display = 'block';
+        box.innerHTML = `
+            <div class="card bg-black bg-opacity-75 border border-danger border-opacity-50 p-2 shadow-sm rounded-3">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <small class="text-danger fw-bold"><i class="bi bi-clock-history me-1"></i>上次觀看紀錄</small>
+                    <button type="button" class="btn btn-link btn-xs text-secondary p-0 text-decoration-none" onclick="clearAnimeHistory()" title="清除紀錄">清除</button>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <img src="${escapeHtml(latest.cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80')}" style="width: 44px; height: 58px; object-fit: cover; border-radius: 4px;" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80'">
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(latest.animeTitle)}">${escapeHtml(latest.animeTitle)}</div>
+                        <div class="text-danger small text-truncate">${escapeHtml(latest.epTitle)}</div>
+                        <div class="text-secondary small" style="font-size: 0.75rem;">進度: ${timeStr}</div>
+                    </div>
+                    <button class="btn btn-sm btn-danger px-2 text-nowrap rounded-pill" onclick="resumeAnimeHistory(0)">
+                        <i class="bi bi-play-fill"></i> 繼續觀看
+                    </button>
+                </div>
+            </div>
+        `;
+    } catch(e) {
+        console.error('渲染動畫歷史失敗:', e);
+    }
+};
+
+window.resumeAnimeHistory = function(idx = 0) {
+    try {
+        const history = JSON.parse(localStorage.getItem('web_library_anime_history') || '[]');
+        const item = history[idx];
+        if (!item) return;
+        if (item.playUrl) {
+            openTheaterWithUrl(item.animeTitle, item.epTitle, item.playUrl);
+            const video = document.getElementById("kazumiVideoPlayer");
+            if (video && item.currentTime > 0) {
+                const onLoaded = () => {
+                    video.removeEventListener('loadedmetadata', onLoaded);
+                    video.currentTime = item.currentTime;
+                };
+                video.addEventListener('loadedmetadata', onLoaded);
+            }
+        } else {
+            openKazumiSourceModal(item.animeTitle, item.cover);
+        }
+    } catch(e) {
+        console.error('恢復觀看失敗:', e);
+    }
+};
+
+window.clearAnimeHistory = function() {
+    localStorage.removeItem('web_library_anime_history');
+    window.renderAnimeHistoryStandby();
+    showToast("已清除動畫觀看歷史！", "bi-trash text-secondary");
+};
+
+// 漫畫歷史紀錄系統
+window.saveMangaReadHistory = function(mangaId, title, cover, chapterTitle, chapterIndex) {
+    if (!title || title.trim() === "") return;
+    try {
+        let history = JSON.parse(localStorage.getItem('web_library_manga_history') || '[]');
+        history = history.filter(h => h.mangaId !== mangaId && h.title !== title);
+        history.unshift({
+            mangaId,
+            title: title.trim(),
+            cover: cover || "",
+            chapterTitle: chapterTitle || "第 1 話",
+            chapterIndex: chapterIndex || 0,
+            updatedAt: Date.now()
+        });
+        if (history.length > 20) history = history.slice(0, 20);
+        localStorage.setItem('web_library_manga_history', JSON.stringify(history));
+        window.renderMangaHistoryStandby();
+    } catch(e) {
+        console.error('儲存漫畫閱讀歷史失敗:', e);
+    }
+};
+
+window.renderMangaHistoryStandby = function() {
+    const box = document.getElementById('mangaRecentHistoryBox');
+    if (!box) return;
+    try {
+        const history = JSON.parse(localStorage.getItem('web_library_manga_history') || '[]');
+        if (history.length === 0) {
+            box.style.display = 'none';
+            box.innerHTML = '';
+            return;
+        }
+        const latest = history[0];
+        box.style.display = 'block';
+        box.innerHTML = `
+            <div class="card bg-black bg-opacity-75 border border-primary border-opacity-50 p-2 shadow-sm rounded-3">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <small class="text-primary fw-bold"><i class="bi bi-clock-history me-1"></i>上次閱讀紀錄</small>
+                    <button type="button" class="btn btn-link btn-xs text-secondary p-0 text-decoration-none" onclick="clearMangaHistory()" title="清除紀錄">清除</button>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <img src="${escapeHtml(latest.cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80')}" style="width: 44px; height: 58px; object-fit: cover; border-radius: 4px;" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80'">
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(latest.title)}">${escapeHtml(latest.title)}</div>
+                        <div class="text-primary small text-truncate">${escapeHtml(latest.chapterTitle)}</div>
+                    </div>
+                    <button class="btn btn-sm btn-primary px-2 text-nowrap rounded-pill" onclick="resumeMangaHistory(0)">
+                        <i class="bi bi-book-half"></i> 繼續閱讀
+                    </button>
+                </div>
+            </div>
+        `;
+    } catch(e) {
+        console.error('渲染漫畫歷史失敗:', e);
+    }
+};
+
+window.resumeMangaHistory = function(idx = 0) {
+    try {
+        const history = JSON.parse(localStorage.getItem('web_library_manga_history') || '[]');
+        const item = history[idx];
+        if (!item) return;
+        selectManga(item.mangaId, item.title, item.cover, "");
+        setTimeout(() => {
+            if (mangaState.chapters && mangaState.chapters[item.chapterIndex]) {
+                const targetCh = mangaState.chapters[item.chapterIndex];
+                loadMangaChapter(item.mangaId, targetCh.id, targetCh.title, item.chapterIndex);
+            }
+        }, 700);
+    } catch(e) {
+        console.error('恢復閱讀失敗:', e);
+    }
+};
+
+window.clearMangaHistory = function() {
+    localStorage.removeItem('web_library_manga_history');
+    window.renderMangaHistoryStandby();
+    showToast("已清除漫畫閱讀歷史！", "bi-trash text-secondary");
+};
+
+// 匯入書籤 JSON 支援
+window.handleImportBookmarks = function(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const rawData = JSON.parse(e.target.result);
+            let importedList = [];
+            if (Array.isArray(rawData)) {
+                importedList = rawData;
+            } else if (rawData && Array.isArray(rawData.bookmarks)) {
+                importedList = rawData.bookmarks;
+            } else if (rawData && typeof rawData === 'object') {
+                importedList = Object.values(rawData).filter(v => v && typeof v === 'object' && (v.title || v.url));
+            }
+
+            if (!importedList || importedList.length === 0) {
+                showToast("匯入的 JSON 檔案中未發現有效書籤資料！", "bi-exclamation-triangle text-warning");
+                return;
+            }
+
+            let addedCount = 0;
+            let updatedCount = 0;
+            const currentUser = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser') || 'default';
+
+            importedList.forEach(item => {
+                if (!item || !item.url) return;
+                const existingIdx = state.bookmarks.findIndex(b => b.id === item.id || (b.url && b.url === item.url));
+                const normalizedItem = {
+                    id: item.id || ('bm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5)),
+                    title: item.title || item.name || '未命名書籤',
+                    url: item.url,
+                    cover: item.cover || '',
+                    category: item.category || 'other',
+                    tags: Array.isArray(item.tags) ? item.tags : [],
+                    desc: item.desc || item.description || '',
+                    pinned: !!item.pinned,
+                    clicks: item.clicks || 0,
+                    createdAt: item.createdAt || new Date().toISOString()
+                };
+                if (existingIdx >= 0) {
+                    state.bookmarks[existingIdx] = { ...state.bookmarks[existingIdx], ...normalizedItem };
+                    updatedCount++;
+                } else {
+                    state.bookmarks.unshift(normalizedItem);
+                    addedCount++;
+                }
+            });
+
+            saveBookmarksLocally();
+            renderBookmarks();
+            renderCategoryTabs();
+
+            // 跨裝置同步至後端伺服器 (若伺服器已開啟)
+            try {
+                await fetch('/api/bookmarks/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user: currentUser, bookmarks: state.bookmarks })
+                });
+            } catch(err) {
+                console.log('後端離線或無須即時同步:', err.message);
+            }
+
+            showToast(`🎉 成功匯入書籤！新增 ${addedCount} 筆，更新 ${updatedCount} 筆`, "bi-file-earmark-check-fill text-success");
+        } catch(err) {
+            console.error('匯入書籤解析失敗:', err);
+            showToast("匯入失敗：JSON 格式無效或檔案損毀！", "bi-x-circle text-danger");
+        } finally {
+            event.target.value = '';
+        }
+    };
+    reader.readAsText(file, "UTF-8");
+};
+
+// 頁面初始化自動渲染歷史紀錄
+document.addEventListener("DOMContentLoaded", () => {
+    setTimeout(() => {
+        if (typeof window.renderAnimeHistoryStandby === 'function') window.renderAnimeHistoryStandby();
+        if (typeof window.renderMangaHistoryStandby === 'function') window.renderMangaHistoryStandby();
+    }, 100);
 });
 
 // 啟動應用

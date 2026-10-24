@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="referrer" content="no-referrer">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>ACG 影音漫讀專區 | Web Library</title>
     <!-- 身分認證守衛：未登入者強制導向登入頁 -->
     <script>
@@ -496,7 +496,7 @@
                             </div>
 
                             <!-- 影片播放器：預設無假影片，純淨黑底待命 -->
-                            <video id="kazumiVideoPlayer" controls playsinline style="width: 100%; height: 100%; max-height: 500px; background: #000; display: none;"></video>
+                            <video id="kazumiVideoPlayer" playsinline style="width: 100%; height: 100%; max-height: 500px; background: #000; display: none; cursor: pointer;"></video>
                             <iframe id="kazumiIframePlayer" style="width: 100%; height: 490px; border: none; display: none;" allowfullscreen="true" allow="autoplay; fullscreen"></iframe>
                             <!-- 純淨待命提示畫面 (內建搜尋列) -->
                             <div id="kazumiTheaterPlaceholder" class="position-absolute top-50 start-50 translate-middle text-center px-3" style="max-width: 480px; width: 100%; color: #cbd5e1;">
@@ -511,6 +511,8 @@
                                         搜尋來源
                                     </button>
                                 </div>
+                                <!-- 觀看歷史紀錄區 -->
+                                <div id="animeRecentHistoryBox" class="mt-3 text-start w-100" style="display: none;"></div>
                             </div>
                             <!-- 彈幕渲染層 (預設顯示於最高圖層 z-index: 50) -->
                             <div id="danmakuOverlay" class="position-absolute top-0 start-0 w-100 h-100 pointer-events-none overflow-hidden" style="pointer-events: none; z-index: 50 !important;"></div>
@@ -855,6 +857,8 @@
                                     搜尋漫畫
                                 </button>
                             </div>
+                            <!-- 漫畫閱讀歷史紀錄區 -->
+                            <div id="mangaRecentHistoryBox" class="mt-3 text-start w-100" style="display: none;"></div>
                         </div>
                     </div>
                 </div>
