@@ -712,8 +712,17 @@
                     <div class="row g-0">
                         <!-- 左側播放器主畫面 (支援 HTML5 串流、B站內嵌與 YouTube 內嵌) -->
                         <div class="col-lg-9 bg-black position-relative d-flex flex-column align-items-center justify-content-center" style="min-height: 480px;" id="kazumiScreenContainer">
+                            <!-- 全螢幕頂部滑鼠感應區 (移入即刻喚醒控制選項並接收滾輪事件) -->
+                            <div id="kazumiFsTopHoverZone" class="kazumi-fs-hover-zone kazumi-fs-hover-top" title="移入顯示控制列"></div>
+
+                            <!-- 全螢幕中央透明事件代理層 (全螢幕模式下捕獲滑鼠移動、滾輪調音量與單擊暫停/雙擊全螢幕) -->
+                            <div id="kazumiFsScreenOverlay" class="kazumi-fs-screen-overlay"></div>
+
+                            <!-- 全螢幕底部滑鼠感應區 (移入即刻喚醒控制選項並接收滾輪事件) -->
+                            <div id="kazumiFsBottomHoverZone" class="kazumi-fs-hover-zone kazumi-fs-hover-bottom" title="移入顯示控制列"></div>
+
                             <!-- 頂部懸浮控制列 (全螢幕專用，滑鼠閒置 3 秒自動淡出隱藏) -->
-                            <div id="kazumiFsTopBar" class="kazumi-fs-bar kazumi-fs-top position-absolute top-0 start-0 w-100 d-none align-items-center justify-content-between px-3 py-2" style="z-index: 70 !important;">
+                            <div id="kazumiFsTopBar" class="kazumi-fs-bar kazumi-fs-top position-absolute top-0 start-0 w-100 d-none align-items-center justify-content-between px-3 py-2" style="z-index: 80 !important;">
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="badge bg-danger shadow-sm">Kazumi</span>
                                     <h6 class="modal-title fw-bold mb-0 text-truncate text-white" id="kazumiFsTitle" style="max-width: 450px;">動漫劇院播放中</h6>

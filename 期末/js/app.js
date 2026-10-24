@@ -684,11 +684,11 @@ function renderBookmarks() {
                             ${(isAnimeItem(item) || (Array.isArray(item.tags) && item.tags.some(t => t.includes('漫畫') || t.includes('条漫') || t.includes('動畫') || t.includes('番劇')))) ? `
                             <div class="dropdown d-inline-block">
                                 <button class="btn btn-outline-info btn-sm action-jump-btn dropdown-toggle d-flex align-items-center gap-1 bookmark-watch-status-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="變更是否看/讀過並同步至 Bangumi">
-                                    <i class="bi bi-bookmark-check"></i> <span>${getBookmarkWatchStatusLabel(item)}</span>
+                                    <i class="bi bi-bookmark-check"></i> <span id="bmWatchStatusText_${item.id}">${getBookmarkWatchStatusLabel(item)}</span>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-dark shadow-sm" style="font-size: 0.8rem; z-index: 1050;">
                                     <li><h6 class="dropdown-header small" style="color: #38bdf8 !important;">Bangumi 狀態同步</h6></li>
-                                    <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 3); return false;"><i class="bi bi-play-circle text-success me-1"></i> ${isMangaItem(item) ? '在讀' : '在看'}</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 3); return false;"><i class="bi bi-play-circle text-success me-1"></i> ${isMangaItem(item) ? '已在讀' : '已在看'}</a></li>
                                     <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 1); return false;"><i class="bi bi-heart text-danger me-1"></i> ${isMangaItem(item) ? '想讀' : '想看'}</a></li>
                                     <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 2); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> ${isMangaItem(item) ? '已讀過' : '已看過'}</a></li>
                                 </ul>
@@ -1358,9 +1358,9 @@ function renderSourceList() {
                             </button>
                             <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow-sm" style="font-size: 0.8rem; z-index: 1060;">
                                 <li><h6 class="dropdown-header small" style="color: #38bdf8 !important;">Bangumi 狀態變更</h6></li>
-                                <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 3, false, '${statusTagId}'); return false;"><i class="bi bi-play-circle text-success me-1"></i> 在看</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 3, false, '${statusTagId}'); return false;"><i class="bi bi-play-circle text-success me-1"></i> 已在看</a></li>
                                 <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 1, false, '${statusTagId}'); return false;"><i class="bi bi-heart text-danger me-1"></i> 想看</a></li>
-                                <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 2, false, '${statusTagId}'); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> 看過</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 2, false, '${statusTagId}'); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> 已看過</a></li>
                             </ul>
                         </div>
                         <button class="btn btn-xs btn-outline-danger" id="epBtn_${source.id}_${rIdx}">
@@ -3145,20 +3145,121 @@ document.addEventListener("DOMContentLoaded", () => {
         screenContainer.addEventListener('wheel', (e) => {
             const theaterModal = document.getElementById("animePlayerModal");
             const isOpen = theaterModal && (theaterModal.classList.contains("show") || theaterModal.style.display === "block");
-            if (!isOpen) return;
+            const isFs = !!(document.fullscreenElement === screenContainer || document.webkitFullscreenElement === screenContainer);
+            if (!isOpen && !isFs) return;
             e.preventDefault();
             const delta = e.deltaY < 0 ? 5 : -5;
             if (typeof window.adjustKazumiVolume === 'function') {
                 window.adjustKazumiVolume(delta);
             }
+            if (isFs && typeof window.onFullscreenMouseMove === 'function') {
+                window.onFullscreenMouseMove();
+            }
         }, { passive: false });
     }
+
+    // 全螢幕上下感應區與中央事件代理層事件綁定
+    initKazumiFullscreenInteractions();
 
     // 初始化劇院音量狀態
     if (typeof window.applyKazumiVolume === 'function') {
         window.applyKazumiVolume(false);
     }
 });
+
+// 全螢幕沉浸式互動感應區初始化
+function initKazumiFullscreenInteractions() {
+    const topHover = document.getElementById("kazumiFsTopHoverZone");
+    const bottomHover = document.getElementById("kazumiFsBottomHoverZone");
+    const screenOverlay = document.getElementById("kazumiFsScreenOverlay");
+    const topBar = document.getElementById("kazumiFsTopBar");
+    const timelineBar = document.getElementById("danmakuTimelineBar");
+
+    const wakeUpAndResetTimer = () => {
+        if (typeof window.onFullscreenMouseMove === 'function') {
+            window.onFullscreenMouseMove();
+        }
+    };
+
+    const handleHoverWheel = (e) => {
+        const container = document.getElementById("kazumiScreenContainer");
+        const isFs = container && (document.fullscreenElement === container || document.webkitFullscreenElement === container);
+        if (!isFs) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const delta = e.deltaY < 0 ? 5 : -5;
+        if (typeof window.adjustKazumiVolume === 'function') {
+            window.adjustKazumiVolume(delta);
+        }
+        wakeUpAndResetTimer();
+    };
+
+    [topHover, bottomHover, screenOverlay].forEach(el => {
+        if (!el) return;
+        el.addEventListener("mousemove", wakeUpAndResetTimer);
+        el.addEventListener("mouseenter", wakeUpAndResetTimer);
+        el.addEventListener("wheel", handleHoverWheel, { passive: false });
+    });
+
+    if (topBar) {
+        topBar.addEventListener("mousemove", wakeUpAndResetTimer);
+        topBar.addEventListener("mouseenter", wakeUpAndResetTimer);
+        topBar.addEventListener("wheel", handleHoverWheel, { passive: false });
+    }
+
+    if (timelineBar) {
+        timelineBar.addEventListener("mousemove", wakeUpAndResetTimer);
+        timelineBar.addEventListener("mouseenter", wakeUpAndResetTimer);
+        timelineBar.addEventListener("wheel", handleHoverWheel, { passive: false });
+    }
+
+    if (screenOverlay) {
+        // 中央點擊切換播放/暫停，雙擊切換全螢幕
+        let clickTimeout = null;
+        screenOverlay.addEventListener("click", (e) => {
+            const container = document.getElementById("kazumiScreenContainer");
+            const isFs = container && (document.fullscreenElement === container || document.webkitFullscreenElement === container);
+            if (!isFs) return;
+            if (clickTimeout) {
+                clearTimeout(clickTimeout);
+                clickTimeout = null;
+                return;
+            }
+            clickTimeout = setTimeout(() => {
+                clickTimeout = null;
+                if (typeof window.toggleDanmakuPlayPause === 'function') {
+                    window.toggleDanmakuPlayPause();
+                }
+                wakeUpAndResetTimer();
+            }, 250);
+        });
+
+        screenOverlay.addEventListener("dblclick", (e) => {
+            e.preventDefault();
+            if (clickTimeout) {
+                clearTimeout(clickTimeout);
+                clickTimeout = null;
+            }
+            if (typeof window.toggleKazumiFullscreen === 'function') {
+                window.toggleKazumiFullscreen();
+            }
+        });
+    }
+
+    // 全域滾輪備援監聽：若處於全螢幕狀態，攔截滾輪即時調整音量
+    window.addEventListener("wheel", (e) => {
+        const container = document.getElementById("kazumiScreenContainer");
+        const isFs = container && (document.fullscreenElement === container || document.webkitFullscreenElement === container);
+        if (isFs) {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 5 : -5;
+            if (typeof window.adjustKazumiVolume === 'function') {
+                window.adjustKazumiVolume(delta);
+            }
+            wakeUpAndResetTimer();
+        }
+    }, { passive: false });
+}
 
 // ==========================================
 // Kazumi 彈幕開關與全域控制
@@ -3290,11 +3391,15 @@ function handleFullscreenChange() {
     }
 }
 
-function onFullscreenMouseMove() {
+window.onFullscreenMouseMove = function() {
     const container = document.getElementById("kazumiScreenContainer");
     if (!container) return;
     container.classList.remove("fs-controls-hidden");
     startFsIdleTimer();
+};
+
+function onFullscreenMouseMove() {
+    window.onFullscreenMouseMove();
 }
 
 function startFsIdleTimer() {
@@ -3308,7 +3413,7 @@ function startFsIdleTimer() {
         if (isFs && !drawerOpen) {
             container.classList.add("fs-controls-hidden");
         }
-    }, 3000);
+    }, 3500);
 }
 
 // 快速選集抽屜切換
@@ -3560,9 +3665,9 @@ function renderMangaSearchResults(results, q) {
                         </button>
                         <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow-sm" style="font-size: 0.8rem; z-index: 1060;">
                             <li><h6 class="dropdown-header small" style="color: #38bdf8 !important;">Bangumi 閱讀狀態</h6></li>
-                            <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 3, true, '${statusTagId}'); return false;"><i class="bi bi-play-circle text-success me-1"></i> 在讀</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 3, true, '${statusTagId}'); return false;"><i class="bi bi-play-circle text-success me-1"></i> 已在讀</a></li>
                             <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 1, true, '${statusTagId}'); return false;"><i class="bi bi-heart text-danger me-1"></i> 想讀</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 2, true, '${statusTagId}'); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> 讀過</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 2, true, '${statusTagId}'); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> 已讀過</a></li>
                         </ul>
                     </div>
                 </div>
@@ -4690,8 +4795,12 @@ window.triggerBangumiUserSync = async function(mode = 'import') {
             let currentEp = item.ep_status || 0;
             const totalEps = subject.eps || subject.total_episodes || "?";
             const scoreStr = subject.score ? `⭐ 評分 ${subject.score}` : "";
+            const statusNum = parseInt(syncType, 10) || 3;
+            const specificStatusLabel = isBook
+                ? (statusNum === 1 ? '想讀' : statusNum === 2 ? '已讀過' : '已在讀')
+                : (statusNum === 1 ? '想看' : statusNum === 2 ? '已看過' : '已在看');
             const category = isBook ? "resource" : "anime";
-            const tags = ["Bangumi同步", currentTypeName];
+            const tags = ["Bangumi同步", specificStatusLabel, currentTypeName];
             if (isBook) tags.push("書籍", "漫畫", "小說");
             else tags.push("動畫");
 
@@ -4729,6 +4838,11 @@ window.triggerBangumiUserSync = async function(mode = 'import') {
                 existing.cover = cover;
                 existing.desc = desc;
                 existing.category = category;
+                existing.bangumiStatus = statusNum;
+                existing.bangumiSubjectId = subjectId;
+                if (!Array.isArray(existing.tags)) existing.tags = [];
+                // 清理舊的狀態標籤並加入最新的精確標籤
+                existing.tags = existing.tags.filter(t => !['想看', '在看', '看過', '已看', '已看過', '已在看', '想讀', '在讀', '讀過', '已讀', '已讀過', '已在讀', '在看/在讀', '看過/讀過', '想看/想讀'].includes(t));
                 tags.forEach(t => {
                     if (!existing.tags.includes(t)) existing.tags.push(t);
                 });
@@ -4746,6 +4860,8 @@ window.triggerBangumiUserSync = async function(mode = 'import') {
                     tags: tags,
                     cover: cover,
                     desc: desc,
+                    bangumiStatus: statusNum,
+                    bangumiSubjectId: subjectId,
                     pinned: false,
                     clicks: 0,
                     createdAt: new Date().toISOString()
@@ -5251,12 +5367,40 @@ function isMangaItem(item) {
 window.getBookmarkWatchStatusLabel = function(item) {
     if (!item) return '狀態';
     const isManga = isMangaItem(item);
-    if (Array.isArray(item.tags)) {
-        if (item.tags.some(t => t === '在看' || t === '在讀')) return isManga ? '在讀' : '在看';
-        if (item.tags.some(t => t === '已看過' || t === '看過' || t === '已看' || t === '已讀過' || t === '讀過' || t === '已讀')) return isManga ? '已讀過' : '已看過';
-        if (item.tags.some(t => t === '想看' || t === '想讀')) return isManga ? '想讀' : '想看';
+
+    // 1. 優先檢查 bangumiStatus 數值 (3: 已在看/已在讀, 2: 已看過/已讀過, 1: 想看/想讀)
+    if (item.bangumiStatus !== undefined && item.bangumiStatus !== null) {
+        const s = parseInt(item.bangumiStatus, 10);
+        if (s === 3) return isManga ? '已在讀' : '已在看';
+        if (s === 2) return isManga ? '已讀過' : '已看過';
+        if (s === 1) return isManga ? '想讀' : '想看';
     }
-    return isManga ? '標記狀態' : '標記狀態';
+
+    // 2. 檢查 tags 標籤陣列 (支援模糊匹配、複合標籤如「在看/在讀」、「#在看/在讀」、「#已看」等)
+    if (Array.isArray(item.tags)) {
+        if (item.tags.some(t => typeof t === 'string' && (t.includes('在看') || t.includes('在讀')))) {
+            return isManga ? '已在讀' : '已在看';
+        }
+        if (item.tags.some(t => typeof t === 'string' && (t.includes('看過') || t.includes('已看') || t.includes('讀過') || t.includes('已讀')))) {
+            return isManga ? '已讀過' : '已看過';
+        }
+        if (item.tags.some(t => typeof t === 'string' && (t.includes('想看') || t.includes('想讀')))) {
+            return isManga ? '想讀' : '想看';
+        }
+    }
+
+    // 3. 檢查快取
+    if (item.title) {
+        const cleanTitle = cleanBangumiQueryTitle(item.title);
+        const cached = (window.bangumiSubjectStatusCache && (window.bangumiSubjectStatusCache[cleanTitle] || window.bangumiSubjectStatusCache[item.title]));
+        if (cached && cached.type > 0) {
+            if (cached.type === 3) return isManga ? '已在讀' : '已在看';
+            if (cached.type === 2) return isManga ? '已讀過' : '已看過';
+            if (cached.type === 1) return isManga ? '想讀' : '想看';
+        }
+    }
+
+    return '標記狀態';
 };
 
 window.updateCardWatchStatus = async function(bookmarkId, newType) {
@@ -5264,11 +5408,11 @@ window.updateCardWatchStatus = async function(bookmarkId, newType) {
     if (!item) return;
     const isManga = isMangaItem(item);
     const typeLabel = isManga 
-        ? (newType === 1 ? '想讀' : newType === 2 ? '已讀過' : '在讀')
-        : (newType === 1 ? '想看' : newType === 2 ? '已看過' : '在看');
+        ? (newType === 1 ? '想讀' : newType === 2 ? '已讀過' : '已在讀')
+        : (newType === 1 ? '想看' : newType === 2 ? '已看過' : '已在看');
 
     if (!Array.isArray(item.tags)) item.tags = [];
-    item.tags = item.tags.filter(t => !['想看', '在看', '看過', '已看', '已看過', '想讀', '在讀', '讀過', '已讀', '已讀過'].includes(t));
+    item.tags = item.tags.filter(t => !['想看', '在看', '看過', '已看', '已看過', '已在看', '想讀', '在讀', '讀過', '已讀', '已讀過', '已在讀', '在看/在讀', '看過/讀過', '想看/想讀', '#在看/在讀', '#看過/讀過', '#想看/想讀'].includes(t));
     item.tags.push(typeLabel);
     item.bangumiStatus = newType;
 
@@ -5430,9 +5574,9 @@ window.fetchBangumiSubjectStatus = async function(title, typeId = 2) {
         if (existingBm.bangumiStatus) {
             localColType = parseInt(existingBm.bangumiStatus, 10) || 0;
         } else if (Array.isArray(existingBm.tags)) {
-            if (existingBm.tags.some(t => t === '在看' || t === '在讀')) localColType = 3;
-            else if (existingBm.tags.some(t => t === '已看過' || t === '看過' || t === '已看' || t === '已讀過' || t === '讀過' || t === '已讀')) localColType = 2;
-            else if (existingBm.tags.some(t => t === '想看' || t === '想讀')) localColType = 1;
+            if (existingBm.tags.some(t => typeof t === 'string' && (t.includes('在看') || t.includes('在讀')))) localColType = 3;
+            else if (existingBm.tags.some(t => typeof t === 'string' && (t.includes('看過') || t.includes('已看') || t.includes('讀過') || t.includes('已讀')))) localColType = 2;
+            else if (existingBm.tags.some(t => typeof t === 'string' && (t.includes('想看') || t.includes('想讀')))) localColType = 1;
         }
     }
 
@@ -5514,8 +5658,8 @@ window.checkAndRenderBangumiStatus = async function(title, typeId, elementId) {
     }
     const type = info.type;
     const mapLabels = isManga
-        ? { 1: "想讀", 2: "讀過", 3: "在讀", 4: "擱置", 5: "拋棄" }
-        : { 1: "想看", 2: "看過", 3: "在看", 4: "擱置", 5: "拋棄" };
+        ? { 1: "想讀", 2: "已讀過", 3: "已在讀", 4: "擱置", 5: "拋棄" }
+        : { 1: "想看", 2: "已看過", 3: "已在看", 4: "擱置", 5: "拋棄" };
     
     if (mapLabels[type]) {
         el.textContent = mapLabels[type];
@@ -5546,8 +5690,8 @@ window.applyBangumiStatusChange = async function(title, statusType, isManga = fa
 
         // 同步更新本地書籤庫中匹配作品的狀態標記與卡片
         const typeLabel = isManga 
-            ? (statusType === 1 ? '想讀' : statusType === 2 ? '已讀過' : '在讀')
-            : (statusType === 1 ? '想看' : statusType === 2 ? '已看過' : '在看');
+            ? (statusType === 1 ? '想讀' : statusType === 2 ? '已讀過' : '已在讀')
+            : (statusType === 1 ? '想看' : statusType === 2 ? '已看過' : '已在看');
 
         let updatedAnyBookmark = false;
         (state.bookmarks || []).forEach(bm => {
@@ -5555,7 +5699,7 @@ window.applyBangumiStatusChange = async function(title, statusType, isManga = fa
                 bm.bangumiSubjectId = info.subjectId;
                 bm.bangumiStatus = statusType;
                 if (!Array.isArray(bm.tags)) bm.tags = [];
-                bm.tags = bm.tags.filter(t => !['想看', '在看', '看過', '已看', '已看過', '想讀', '在讀', '讀過', '已讀', '已讀過'].includes(t));
+                bm.tags = bm.tags.filter(t => !['想看', '在看', '看過', '已看', '已看過', '已在看', '想讀', '在讀', '讀過', '已讀', '已讀過', '已在讀', '在看/在讀', '看過/讀過', '想看/想讀', '#在看/在讀', '#看過/讀過', '#想看/想讀'].includes(t));
                 bm.tags.push(typeLabel);
                 updatedAnyBookmark = true;
             }
@@ -5569,8 +5713,8 @@ window.applyBangumiStatusChange = async function(title, statusType, isManga = fa
             const el = document.getElementById(elementId);
             if (el) {
                 const mapLabels = isManga
-                    ? { 1: "想讀", 2: "讀過", 3: "在讀" }
-                    : { 1: "想看", 2: "看過", 3: "在看" };
+                    ? { 1: "想讀", 2: "已讀過", 3: "已在讀" }
+                    : { 1: "想看", 2: "已看過", 3: "已在看" };
                 el.textContent = mapLabels[statusType] || "已收藏";
                 el.className = statusType === 3 ? "text-success fw-bold" : statusType === 2 ? "text-primary fw-bold" : "text-danger fw-bold";
             }
@@ -5906,8 +6050,10 @@ const DEFAULT_ACG_GAMES = [
 
 function getGameHubItems() {
     try {
+        const hiddenDefaults = JSON.parse(localStorage.getItem('web_library_hidden_default_games') || '[]');
+        const visibleDefaults = DEFAULT_ACG_GAMES.filter(g => !hiddenDefaults.includes(g.id));
         const stored = JSON.parse(localStorage.getItem('web_library_custom_games') || '[]');
-        return [...DEFAULT_ACG_GAMES, ...stored];
+        return [...visibleDefaults, ...stored];
     } catch (e) {
         return DEFAULT_ACG_GAMES;
     }
@@ -5961,7 +6107,9 @@ window.renderGameHubGrid = function(keyword = '') {
                         <button class="btn btn-sm btn-outline-info rounded-pill px-3" onclick="window.open('${escapeHtml(game.url)}', '_blank')" title="另開新分頁跳轉原網頁">
                             <i class="bi bi-box-arrow-up-right"></i> 跳轉
                         </button>
-                        ${game.isCustom ? `<button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="deleteCustomGame('${game.id}')" title="刪除自定義卡片"><i class="bi bi-trash"></i></button>` : ''}
+                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="deleteGameHubCard('${game.id}', ${!!game.isCustom})" title="${game.isCustom ? '刪除自定義卡片' : '移除此預設卡片'}">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -6115,13 +6263,34 @@ window.saveCustomGame = function() {
     }
 };
 
-window.deleteCustomGame = function(id) {
-    if (!confirm("確定要刪除此自定義遊戲卡片嗎？")) return;
+window.deleteGameHubCard = function(id, isCustom) {
+    if (!confirm(isCustom ? "確定要刪除此自定義遊戲卡片嗎？" : "確定要從清單移除此預設遊戲卡片嗎？（之後可點擊上方「恢復預設」隨時還原）")) return;
     try {
-        let stored = JSON.parse(localStorage.getItem('web_library_custom_games') || '[]');
-        stored = stored.filter(g => g.id !== id);
-        localStorage.setItem('web_library_custom_games', JSON.stringify(stored));
-        showToast("已刪除該自定義遊戲卡片", "bi-trash3 text-info");
+        if (isCustom) {
+            let stored = JSON.parse(localStorage.getItem('web_library_custom_games') || '[]');
+            stored = stored.filter(g => g.id !== id);
+            localStorage.setItem('web_library_custom_games', JSON.stringify(stored));
+            showToast("已刪除該自定義遊戲卡片", "bi-trash3 text-info");
+        } else {
+            let hidden = JSON.parse(localStorage.getItem('web_library_hidden_default_games') || '[]');
+            if (!hidden.includes(id)) {
+                hidden.push(id);
+                localStorage.setItem('web_library_hidden_default_games', JSON.stringify(hidden));
+            }
+            showToast("已移除該預設遊戲卡片（可隨時點擊「恢復預設」還原）", "bi-trash3 text-warning");
+        }
         window.renderGameHubGrid();
-    } catch (e) {}
+    } catch (e) {
+        console.error("移除遊戲卡片失敗:", e);
+    }
+};
+
+window.deleteCustomGame = function(id) {
+    window.deleteGameHubCard(id, true);
+};
+
+window.resetDefaultGames = function() {
+    localStorage.removeItem('web_library_hidden_default_games');
+    showToast("🎉 已成功恢復所有預設遊戲卡片！", "bi-arrow-counterclockwise text-success");
+    window.renderGameHubGrid();
 };
