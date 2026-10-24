@@ -206,9 +206,9 @@
             </div>
         </section>
 
-        <!-- 2. 三大核心閱覽入口卡片 -->
+        <!-- 2. 四大核心閱覽與遊戲入口卡片 -->
         <section class="row g-3 mb-4">
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-sm-6 col-lg-3">
                 <div class="card border shadow-sm rounded-3 h-100 bg-white">
                     <div class="card-body p-4 d-flex flex-column">
                         <div class="d-flex align-items-center justify-content-between mb-3">
@@ -224,7 +224,7 @@
                 </div>
             </div>
 
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-sm-6 col-lg-3">
                 <div class="card border shadow-sm rounded-3 h-100 bg-white">
                     <div class="card-body p-4 d-flex flex-column">
                         <div class="d-flex align-items-center justify-content-between mb-3">
@@ -240,7 +240,7 @@
                 </div>
             </div>
 
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-sm-6 col-lg-3">
                 <div class="card border shadow-sm rounded-3 h-100 bg-white">
                     <div class="card-body p-4 d-flex flex-column">
                         <div class="d-flex align-items-center justify-content-between mb-3">
@@ -251,6 +251,22 @@
                         <p class="text-muted small mb-4">純淨文字排版，提供羊皮紙護眼黃、極簡白、深黑三種主題切換，支援 A- / A+ 字級縮放與章節導航。</p>
                         <button class="btn btn-success w-100 mt-auto rounded-2" onclick="openLegadoReader(0)">
                             <i class="bi bi-eyeglasses"></i> 開啟小說閱讀
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card border shadow-sm rounded-3 h-100 bg-white">
+                    <div class="card-body p-4 d-flex flex-column">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <span class="badge bg-warning-subtle text-warning-emphasis px-2 py-1" style="color: #b45309 !important; background-color: #fef3c7 !important;">遊戲攻略庫</span>
+                            <i class="bi bi-controller text-warning fs-3"></i>
+                        </div>
+                        <h5 class="fw-bold mb-1">🎮 遊戲專區與工具庫</h5>
+                        <p class="text-muted small mb-4">收錄精選手遊與家機工具、官方 Wiki 與資料庫，支援 FGO Chaldea 素材規劃、Mooncell 在線使用與跳轉。</p>
+                        <button class="btn btn-warning text-dark fw-bold w-100 mt-auto rounded-2 shadow-sm" onclick="openGameHubModal()">
+                            <i class="bi bi-controller"></i> 開啟遊戲專區
                         </button>
                     </div>
                 </div>
@@ -499,7 +515,7 @@
                             <video id="kazumiVideoPlayer" playsinline style="width: 100%; height: 100%; max-height: 500px; background: #000; display: none; cursor: pointer;"></video>
                             <!-- 內嵌播放器容器 (自動裁切第三方播放器多餘控制項) -->
                             <div id="kazumiIframeWrapper" class="w-100 position-relative overflow-hidden" style="display: none; height: 490px; max-height: 500px; background: #000;">
-                                <iframe id="kazumiIframePlayer" style="width: 100%; height: calc(100% + 46px); border: none; margin-bottom: -46px;" allowfullscreen="true" allow="autoplay; fullscreen"></iframe>
+                                <iframe id="kazumiIframePlayer" style="border: none;" allowfullscreen="true" allow="autoplay; fullscreen"></iframe>
                             </div>
                             <!-- 音量調節浮動提示 HUD (支援滑鼠滾輪與鍵盤上下鍵) -->
                             <div id="kazumiVolumeHud" class="position-absolute top-50 start-50 translate-middle badge bg-dark bg-opacity-80 text-white px-3 py-2 rounded-pill shadow-lg d-none align-items-center gap-2" style="z-index: 80; pointer-events: none; font-size: 1.1rem; border: 1px solid rgba(255,255,255,0.25);">
@@ -550,11 +566,8 @@
                                     <input type="text" id="kazumiFsDanmakuInput" class="form-control form-control-sm bg-dark text-white border-secondary rounded-pill px-3 py-0" style="font-size: 0.75rem; height: 26px;" placeholder="全螢幕發送彈幕 (Enter)..." onkeydown="if(event.key==='Enter') sendFsDanmaku()">
                                     <button class="btn btn-xs btn-danger rounded-pill px-2 flex-shrink-0" onclick="sendFsDanmaku()">發送</button>
                                 </div>
-                                <!-- 快速百分比跳轉與全螢幕切換按鍵群 -->
+                                <!-- 快進快退與全螢幕切換按鍵群 -->
                                 <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                                    <span class="text-white-50 me-1 d-none d-md-inline" style="font-size: 0.72rem;">同步:</span>
-                                    <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 text-white d-none d-md-inline" onclick="jumpToDanmakuPercent(0)" title="跳轉到開頭 0%">0%</button>
-                                    <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 text-white d-none d-md-inline" onclick="jumpToDanmakuPercent(50)" title="跳轉到 50% (約 12 分鐘)">50%</button>
                                     <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2" onclick="jumpDanmakuRelative(-10)" title="快退 10 秒"><i class="bi bi-arrow-counterclockwise"></i> -10s</button>
                                     <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2" onclick="jumpDanmakuRelative(10)" title="快進 10 秒"><i class="bi bi-arrow-clockwise"></i> +10s</button>
                                     <button type="button" class="btn btn-xs btn-outline-info rounded-pill px-2 d-none d-sm-inline" onclick="openCurrentInNewTab()" title="在新分頁開啟播放頁面"><i class="bi bi-box-arrow-up-right"></i> 新分頁</button>
@@ -1066,6 +1079,113 @@
                             <div>輸入小說關鍵字或由主頁熱門點擊檢索</div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. ACG 遊戲專區與攻略庫 Modal -->
+    <div class="modal fade" id="gameHubModal" tabindex="-1" aria-labelledby="gameHubModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content bg-dark text-white border-secondary rounded-4 shadow-lg overflow-hidden">
+                <div class="modal-header border-bottom border-secondary py-3 px-4 bg-black">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-warning text-dark fw-bold">Game Hub</span>
+                        <h5 class="modal-title fw-bold mb-0 text-white" id="gameHubModalLabel"><i class="bi bi-controller text-warning me-1"></i> ACG 遊戲專區與攻略資料庫</h5>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        <button class="btn btn-sm btn-outline-warning rounded-pill px-3" onclick="openAddCustomGameModal()">
+                            <i class="bi bi-plus-lg"></i> 自定義加入遊戲/Wiki
+                        </button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="關閉"></button>
+                    </div>
+                </div>
+                <div class="modal-body p-4 bg-dark">
+                    <!-- 搜尋列與簡介 -->
+                    <div class="row align-items-center mb-4 g-2">
+                        <div class="col-12 col-md-6">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-black border-secondary text-white-50"><i class="bi bi-search"></i></span>
+                                <input type="text" id="gameHubSearchInput" class="form-control bg-black border-secondary text-white" placeholder="搜尋遊戲名稱、Wiki 或功能關鍵字..." oninput="filterGameHubGrid(this.value)">
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 text-md-end text-white-50 small">
+                            <span>點擊「在線開啟」直接在當前頁面操作，或點擊「跳轉原網頁」另開新分頁。</span>
+                        </div>
+                    </div>
+
+                    <!-- 遊戲卡片網格容器 (Grid) -->
+                    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-3" id="gameHubGridContainer">
+                        <!-- 由 JavaScript 動態渲染 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4.5 遊戲在線工具與 Wiki 內嵌視窗 Modal (當前網頁開新畫面) -->
+    <div class="modal fade" id="gameToolModal" tabindex="-1" aria-labelledby="gameToolModalLabel" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content bg-dark text-white border-0">
+                <div class="modal-header border-bottom border-secondary py-2 px-3 bg-black">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-warning text-dark fw-bold">在線運行</span>
+                        <h6 class="modal-title fw-bold mb-0 text-truncate text-white" id="gameToolModalTitle">遊戲工具視窗</h6>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        <button class="btn btn-sm btn-outline-light rounded-pill px-3" onclick="reloadGameToolIframe()" title="重新整理當前工具畫面">
+                            <i class="bi bi-arrow-clockwise"></i> 重新載入
+                        </button>
+                        <button class="btn btn-sm btn-outline-info rounded-pill px-3" onclick="openGameToolInNewTab()" title="在新分頁開啟原始網站">
+                            <i class="bi bi-box-arrow-up-right"></i> 跳轉原網頁
+                        </button>
+                        <button class="btn btn-sm btn-warning text-dark fw-bold rounded-pill px-3" onclick="backToGameHub()" title="返回遊戲專區選擇其他工具">
+                            <i class="bi bi-grid-fill"></i> 返回遊戲庫
+                        </button>
+                        <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal" aria-label="關閉" onclick="closeGameToolViewer()"></button>
+                    </div>
+                </div>
+                <div class="modal-body p-0 overflow-hidden position-relative" style="background: #0f172a;">
+                    <!-- 載入中 Spinner -->
+                    <div id="gameToolLoadingIndicator" class="position-absolute top-50 start-50 translate-middle text-center" style="z-index: 10;">
+                        <div class="spinner-border text-warning mb-2" role="status"></div>
+                        <div class="small text-white-50">正在載入遊戲工具環境...</div>
+                    </div>
+                    <iframe id="gameToolIframe" class="w-100 h-100 position-relative" style="min-height: calc(100vh - 58px); border: none; z-index: 20; background: #0f172a;" allow="clipboard-read; clipboard-write; fullscreen"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4.6 自定義新增遊戲 Wiki / 工具 Modal -->
+    <div class="modal fade" id="addCustomGameModal" tabindex="-1" aria-labelledby="addCustomGameModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-white border-secondary rounded-4 shadow">
+                <div class="modal-header border-bottom border-secondary py-3 px-4 bg-black">
+                    <h5 class="modal-title fw-bold text-white" id="addCustomGameModalLabel"><i class="bi bi-plus-circle text-warning me-1"></i> 新增自定義遊戲 Wiki / 工具</h5>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-white">遊戲 / 工具名稱</label>
+                        <input type="text" id="customGameNameInput" class="form-control bg-black border-secondary text-white" placeholder="例如：碧藍航線 Wiki、原神祈願模擬器">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-white">工具或 Wiki 網址 (URL)</label>
+                        <input type="url" id="customGameUrlInput" class="form-control bg-black border-secondary text-white" placeholder="https://...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-white">標籤分類 (以逗號分隔)</label>
+                        <input type="text" id="customGameTagsInput" class="form-control bg-black border-secondary text-white" placeholder="例如：手遊, 攻略, 養成">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-white">簡短說明 (選填)</label>
+                        <textarea id="customGameDescInput" class="form-control bg-black border-secondary text-white" rows="2" placeholder="備註工具用途或重點攻略..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-secondary p-3 bg-black">
+                    <button type="button" class="btn btn-secondary rounded-pill px-3" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-warning text-dark fw-bold rounded-pill px-4" onclick="saveCustomGame()">儲存加入</button>
                 </div>
             </div>
         </div>
