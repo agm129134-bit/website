@@ -540,6 +540,29 @@ body {
   border: none !important;
 }
 
+/* 動漫外嵌播放器專屬純淨化：精準裁切頂部標題與底部第三方原生控制欄，只保留純淨影片本體 */
+#kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer {
+  width: 100% !important;
+  height: calc(100% + 94px) !important;
+  margin-top: -44px !important;
+  margin-bottom: -50px !important;
+  border: none !important;
+}
+
+#kazumiScreenContainer:fullscreen #kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer,
+#kazumiScreenContainer:-webkit-full-screen #kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer,
+#kazumiScreenContainer.is-fullscreen #kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer {
+  width: 100vw !important;
+  height: calc(100vh + 94px) !important;
+  max-height: none !important;
+  margin-top: -44px !important;
+  margin-bottom: -50px !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  border: none !important;
+}
+
 /* 非 Bilibili 內嵌播放器 (YouTube / 通用源)：自適應滿版，不額外裁切畫面 */
 #kazumiIframeWrapper:not(.is-bilibili) #kazumiIframePlayer {
   width: 100% !important;
@@ -654,6 +677,7 @@ body {
   display: block !important;
 }
 
+#animePlayerModal.show #kazumiScreenContainer:not(.is-standby) .kazumi-fs-screen-overlay,
 #kazumiScreenContainer:fullscreen .kazumi-fs-screen-overlay,
 #kazumiScreenContainer:-webkit-full-screen .kazumi-fs-screen-overlay,
 #kazumiScreenContainer.is-fullscreen .kazumi-fs-screen-overlay {
@@ -1491,6 +1515,41 @@ body.has-multi-modal .modal-backdrop:last-of-type {
 #kazumiIframeWrapper {
   height: 480px !important;
   max-height: 500px !important;
+}
+
+/* 小說閱讀器待命狀態：本機電子書拖曳上傳區 */
+.novel-upload-dropzone {
+  border: 2px dashed rgba(25, 135, 84, 0.45);
+  border-radius: 1rem;
+  background-color: rgba(25, 135, 84, 0.05);
+  transition: all 0.25s ease;
+  cursor: pointer;
+}
+.novel-upload-dropzone:hover,
+.novel-upload-dropzone.dragover {
+  border-color: #198754;
+  background-color: rgba(25, 135, 84, 0.12);
+  transform: translateY(-2px);
+}
+
+/* 主頁響應式設計 (RWD) 強化 */
+@media (max-width: 768px) {
+  .category-pills {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    padding-bottom: 6px !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .category-pills::-webkit-scrollbar {
+    display: none;
+  }
+  .category-pills .nav-link {
+    white-space: nowrap !important;
+  }
+  .search-input-group {
+    width: 100% !important;
+  }
 }
 
 

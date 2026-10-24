@@ -24,6 +24,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Custom Styles -->
     <link rel="stylesheet" href="css/style.css">
+    <!-- JSZip for EPUB Ebook Parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
 <body class="bg-light">
 
@@ -55,8 +57,8 @@
                     </div>
                 </div>
 
-                <!-- 右側操作區 -->
-                <div class="d-flex align-items-center gap-2 mt-2 mt-lg-0 ms-lg-3">
+                <!-- 右側操作區 (支援 RWD 自適應折疊排版) -->
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-2 mt-lg-0 ms-lg-3">
                     <button class="btn btn-dark d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#bookmarkModal" id="openAddModalBtn">
                         <i class="bi bi-plus-lg"></i>
                         <span>新增收藏</span>
@@ -159,7 +161,8 @@
                     <div>
                         <a href="acg.html" class="btn btn-sm btn-dark d-flex align-items-center gap-2 rounded-pill px-3 shadow-sm">
                             <i class="bi bi-play-circle-fill text-danger"></i>
-                            <span>進入 ACG 影音專區 (每日新番輪播圖 / 劇院 / 條漫 / 小說)</span>
+                            <span class="d-none d-sm-inline">進入 ACG 影音專區 (每日新番 / 劇院 / 漫畫 / 小說)</span>
+                            <span class="d-inline d-sm-none">進入 ACG 影音專區</span>
                             <i class="bi bi-arrow-right"></i>
                         </a>
                     </div>
@@ -689,16 +692,18 @@
     <div class="modal fade" id="watchHistoryModal" tabindex="-1" aria-labelledby="watchHistoryModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
             <div class="modal-content rounded-4 border-0 shadow">
-                <div class="modal-header border-bottom py-3 px-4">
-                    <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="watchHistoryModalLabel">
+                <div class="modal-header border-bottom py-3 px-4 d-flex align-items-center">
+                    <h5 class="modal-title fw-bold d-flex align-items-center gap-2 mb-0" id="watchHistoryModalLabel">
                         <i class="bi bi-clock-history text-danger"></i>
                         <span>全部觀看歷史紀錄 (動漫 / B站 / YouTube)</span>
                         <span class="badge bg-danger-subtle text-danger rounded-pill px-2 py-1 ms-2" id="modalWatchHistoryBadge">0 部</span>
                     </h5>
-                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill ms-auto me-3 d-flex align-items-center gap-1" onclick="clearAllWatchHistory()">
-                        <i class="bi bi-trash3"></i> 清空全部
-                    </button>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                    <div class="ms-auto d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-danger btn-sm rounded-pill d-flex align-items-center gap-1" onclick="clearAllWatchHistory()">
+                            <i class="bi bi-trash3"></i> 清空全部
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                    </div>
                 </div>
                 <div class="modal-body p-4 bg-light">
                     <div class="row g-3" id="modalWatchHistoryGrid">
@@ -1300,13 +1305,30 @@
                         <div class="text-center text-secondary py-5 my-4 px-3" id="legadoPlaceholder" style="max-width: 540px; margin: 0 auto;">
                             <i class="bi bi-journal-text fs-1 d-block mb-3 text-success opacity-75"></i>
                             <h5 class="fw-bold text-dark mb-1">沉浸小說閱讀器（待命狀態）</h5>
-                            <p class="small text-muted mb-3">輸入小說作品名稱或作者即可全網檢索章節並開啟沉浸式閱讀</p>
+                            <p class="small text-muted mb-3">輸入小說作品名稱或作者即可全網檢索章節，或直接上傳本機電子書進行沉浸式閱讀</p>
                             
                             <div class="input-group input-group-sm shadow-sm">
                                 <span class="input-group-text bg-white border-secondary-subtle text-secondary"><i class="bi bi-search"></i></span>
                                 <input type="text" id="novelStandbySearchInput" class="form-control border-secondary-subtle" placeholder="搜尋小說書名或作者..." onkeydown="if(event.key==='Enter') searchNovelFromStandby()">
                                 <button class="btn btn-success px-3 fw-semibold" type="button" onclick="searchNovelFromStandby()">
                                     搜尋小說
+                                </button>
+                            </div>
+
+                            <div class="my-4 d-flex align-items-center">
+                                <hr class="flex-grow-1 opacity-25">
+                                <span class="px-3 small text-muted fw-bold">或 本機電子書閱讀</span>
+                                <hr class="flex-grow-1 opacity-25">
+                            </div>
+
+                            <!-- 本機電子書拖曳與選取上傳區 -->
+                            <div class="novel-upload-dropzone p-4 text-center shadow-sm" id="novelUploadDropzone" onclick="document.getElementById('novelLocalFileInput').click()">
+                                <i class="bi bi-file-earmark-arrow-up-fill fs-1 text-success d-block mb-2"></i>
+                                <h6 class="fw-bold text-dark mb-1">上傳本機電子書檔案</h6>
+                                <p class="small text-muted mb-3">支援 .txt 與 .epub 格式，系統將自動解析並智慧切分章節目錄</p>
+                                <input type="file" id="novelLocalFileInput" accept=".txt,.epub" class="d-none" onchange="if(this.files[0]) handleNovelFileUpload(this.files[0])">
+                                <button type="button" class="btn btn-sm btn-success rounded-pill px-4 shadow-sm fw-semibold">
+                                    <i class="bi bi-upload me-1"></i> 選取電子書檔案 (.txt / .epub)
                                 </button>
                             </div>
                         </div>
