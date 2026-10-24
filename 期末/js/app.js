@@ -4040,7 +4040,7 @@ function renderMangaSearchResults(results, q) {
                         </ul>
                     </div>
                 </div>
-                <button class="btn btn-sm btn-outline-primary text-nowrap rounded-pill px-3 w-100" onclick="selectManga('${escapeHtml(m.id)}', '${escapeHtml(m.title)}', '${escapeHtml(coverUrl)}', '${escapeHtml(m.author || '')}')">
+                <button class="btn btn-sm btn-outline-primary text-nowrap rounded-pill px-3 w-100" onclick="selectManga('${escapeHtml(m.id)}', '${escapeHtml(m.title)}', '${escapeHtml(coverUrl)}', '${escapeHtml(m.author || '')}', '${escapeHtml(m.alias || '')}')">
                     <i class="bi bi-list-ol"></i> 選集
                 </button>
             </div>
@@ -4050,9 +4050,9 @@ function renderMangaSearchResults(results, q) {
     });
 }
 
-// 選擇一部漫畫並載入章節列表
-window.selectManga = async function(mangaId, title, cover, author) {
-    mangaState.currentManga = { id: mangaId, title, cover, author };
+// 選擇一部漫畫並載入章節列表 (支援別名與繁簡智慧自癒)
+window.selectManga = async function(mangaId, title, cover, author, alias = '') {
+    mangaState.currentManga = { id: mangaId, title, cover, author, alias };
 
     const summaryBox = document.getElementById("mangaSelectedSummaryBox");
     const container = document.getElementById("mangaSearchResultsContainer");
@@ -4076,13 +4076,13 @@ window.selectManga = async function(mangaId, title, cover, author) {
     }
 
     try {
-        const res = await fetch(`/api/manga/chapters?mangaId=${encodeURIComponent(mangaId)}&title=${encodeURIComponent(title || '')}`);
+        const res = await fetch(`/api/manga/chapters?mangaId=${encodeURIComponent(mangaId)}&title=${encodeURIComponent(title || '')}&alias=${encodeURIComponent(alias || '')}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         mangaState.chapters = data.chapters || [];
 
         const countBadge = document.getElementById("mangaSelectedChapterCount");
-        if (countBadge) countBadge.textContent = `共 ${mangaState.chapters.length} 話`;
+        if (countBadge) countBadge.textContent = mangaState.chapters.length > 0 ? `共 ${mangaState.chapters.length} 話` : "暫無在線話數";
 
         renderMangaChaptersGrid(mangaId, mangaState.chapters);
     } catch (err) {
@@ -4106,7 +4106,16 @@ function renderMangaChaptersGrid(mangaId, chapters) {
     if (!container) return;
 
     if (!chapters || chapters.length === 0) {
-        container.innerHTML = `<div class="text-secondary text-center py-4">暫無可用章節</div>`;
+        container.innerHTML = `
+            <div class="text-secondary text-center py-5">
+                <i class="bi bi-shield-lock text-warning fs-3 mb-2 d-block"></i>
+                <div class="fw-bold mb-1 text-light">暫無可用線上章節</div>
+                <div class="small text-muted mb-3">此作品可能受源站官方 APP 權限保護或線上暫無庫存，建議返回更換關鍵字或點擊其他備援條目。</div>
+                <button class="btn btn-sm btn-outline-info rounded-pill px-3" onclick="backToMangaSearchResults()">
+                    <i class="bi bi-arrow-left"></i> 返回搜尋結果
+                </button>
+            </div>
+        `;
         return;
     }
 
