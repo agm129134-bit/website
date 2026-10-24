@@ -661,7 +661,8 @@ body {
 }
 
 /* 滑鼠閒置 3.5 秒自動隱藏控制列與游標（不要擋螢幕） */
-#kazumiScreenContainer.fs-controls-hidden {
+#kazumiScreenContainer.fs-controls-hidden,
+#kazumiScreenContainer.fs-controls-hidden * {
   cursor: none !important;
 }
 
@@ -1315,6 +1316,85 @@ body {
 [data-theme="dark"] .bookmark-watch-status-btn {
   color: #38bdf8 !important;
 }
+
+/* ==================== 獨立觀看歷史專區樣式 ==================== */
+.watch-history-card {
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  overflow: hidden;
+  border-radius: 12px;
+}
+[data-theme="dark"] .watch-history-card {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.watch-history-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+}
+.watch-history-cover-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0f172a;
+  overflow: hidden;
+}
+.watch-history-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+.watch-history-card:hover .watch-history-cover {
+  transform: scale(1.05);
+}
+.watch-history-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  font-size: 0.72rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+.watch-history-del-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.65);
+  color: #ffffff;
+  border: none;
+  font-size: 0.75rem;
+  opacity: 0.75;
+  transition: opacity 0.2s, background 0.2s;
+}
+.watch-history-del-btn:hover {
+  background: #ef4444;
+  opacity: 1;
+  color: #ffffff;
+}
+.watch-history-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+}
+.watch-history-progress-fill {
+  height: 100%;
+  background: #ef4444;
+  transition: width 0.3s ease;
+}
+
 
 
 

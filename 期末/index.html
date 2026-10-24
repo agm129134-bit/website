@@ -62,6 +62,12 @@
                         <span>新增收藏</span>
                     </button>
 
+                    <button class="btn btn-outline-danger d-flex align-items-center gap-1" onclick="openWatchHistoryModal()" title="查看播放歷史清單">
+                        <i class="bi bi-clock-history"></i>
+                        <span class="d-none d-md-inline">觀看歷史</span>
+                        <span class="badge bg-danger text-white rounded-pill ms-1" id="navWatchHistoryBadge">0</span>
+                    </button>
+
                     <button class="btn btn-outline-secondary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#tampermonkeyModal" title="篡改猴插件設定">
                         <i class="bi bi-puzzle"></i>
                         <span class="d-none d-md-inline">篡改猴插件</span>
@@ -673,6 +679,30 @@
                     <!-- 規則來源清單 -->
                     <div id="kazumiSourceList" class="d-flex flex-column gap-2">
                         <!-- 動態由 JavaScript 注入來源晶片與選集 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 0.5 播放歷史清單 Modal (支援動漫/B站/YouTube) -->
+    <div class="modal fade" id="watchHistoryModal" tabindex="-1" aria-labelledby="watchHistoryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-bottom py-3 px-4">
+                    <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="watchHistoryModalLabel">
+                        <i class="bi bi-clock-history text-danger"></i>
+                        <span>全部觀看歷史紀錄 (動漫 / B站 / YouTube)</span>
+                        <span class="badge bg-danger-subtle text-danger rounded-pill px-2 py-1 ms-2" id="modalWatchHistoryBadge">0 部</span>
+                    </h5>
+                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill ms-auto me-3 d-flex align-items-center gap-1" onclick="clearAllWatchHistory()">
+                        <i class="bi bi-trash3"></i> 清空全部
+                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="row g-3" id="modalWatchHistoryGrid">
+                        <!-- 動態渲染卡片 -->
                     </div>
                 </div>
             </div>

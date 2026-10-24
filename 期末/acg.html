@@ -141,6 +141,9 @@
             </a>
 
             <div class="d-flex align-items-center gap-2 ms-auto">
+                <button class="btn btn-outline-danger btn-sm d-flex align-items-center gap-1 rounded-2" onclick="openWatchHistoryModal()" title="查看播放歷史清單">
+                    <i class="bi bi-clock-history"></i> 觀看歷史 <span class="badge bg-danger text-white rounded-pill ms-1" id="navWatchHistoryBadge">0</span>
+                </button>
                 <button class="btn btn-outline-success btn-sm d-flex align-items-center gap-1 rounded-2" data-bs-toggle="modal" data-bs-target="#bangumiSyncModal">
                     <i class="bi bi-arrow-repeat"></i> 同步 Bangumi 追番
                 </button>
@@ -269,6 +272,27 @@
                             <i class="bi bi-controller"></i> 開啟遊戲專區
                         </button>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2.5 獨立觀看歷史紀錄專區 (支援卡片網格、動漫/B站/YouTube、接續播放與單筆刪除) -->
+        <section class="card border-0 shadow-sm rounded-4 mb-4" id="acgWatchHistorySection">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-clock-history fs-4 text-danger"></i>
+                        <h5 class="fw-bold mb-0">最近觀看歷史紀錄</h5>
+                        <span class="badge bg-danger-subtle text-danger rounded-pill px-2 py-1" id="watchHistoryBadge">0 部</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-outline-danger btn-sm rounded-pill d-flex align-items-center gap-1" onclick="clearAllWatchHistory()">
+                            <i class="bi bi-trash3"></i> 清空全部紀錄
+                        </button>
+                    </div>
+                </div>
+                <div class="row g-3" id="watchHistoryGrid">
+                    <!-- 動態注入多筆歷史紀錄卡片 -->
                 </div>
             </div>
         </section>
@@ -1198,6 +1222,30 @@
                 <div class="modal-footer border-top border-secondary p-3 bg-black">
                     <button type="button" class="btn btn-secondary rounded-pill px-3" data-bs-dismiss="modal">取消</button>
                     <button type="button" class="btn btn-warning text-dark fw-bold rounded-pill px-4" onclick="saveCustomGame()">儲存加入</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 播放歷史清單 Modal -->
+    <div class="modal fade" id="watchHistoryModal" tabindex="-1" aria-labelledby="watchHistoryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-bottom py-3 px-4">
+                    <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="watchHistoryModalLabel">
+                        <i class="bi bi-clock-history text-danger"></i>
+                        <span>全部觀看歷史紀錄 (動漫 / B站 / YouTube)</span>
+                        <span class="badge bg-danger-subtle text-danger rounded-pill px-2 py-1 ms-2" id="modalWatchHistoryBadge">0 部</span>
+                    </h5>
+                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill ms-auto me-3 d-flex align-items-center gap-1" onclick="clearAllWatchHistory()">
+                        <i class="bi bi-trash3"></i> 清空全部
+                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="row g-3" id="modalWatchHistoryGrid">
+                        <!-- 動態渲染卡片 -->
+                    </div>
                 </div>
             </div>
         </div>
