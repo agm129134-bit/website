@@ -272,7 +272,7 @@ async function crawl7sefunSearch(keyword) {
     return [];
 }
 
-// 5. 7sefun選集解析（依播放線路分組並去重）
+// 5. 7sefun選集解析（依播放線路分組並優先選取具備原生直連的 Line 2）
 async function crawl7sefunEpisodes(detailUrl) {
     const res = await fetchWithTimeout(detailUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36' }
@@ -298,7 +298,8 @@ async function crawl7sefunEpisodes(detailUrl) {
     }
 
     if (linesMap.size > 0) {
-        let chosen = linesMap.get('1');
+        // 優先選取具備原生直連 .mp4 的 Line 2 (ndx)，若無則依序選取 Line 1 或集數最多的線路
+        let chosen = linesMap.get('2') || linesMap.get('1');
         if (!chosen || chosen.length === 0) {
             let maxCount = 0;
             for (const [, list] of linesMap.entries()) {
@@ -383,13 +384,13 @@ async function crawl7sefunPlayer(playUrl) {
                 }
 
                 if (realUrl) {
-                    // 1. 若本身即為 .mp4 / .m3u8 原生直連串流或內嵌串流網址，直接返回
+                    // 1. 若本身即為 .mp4 / .m3u8 原生直連串流或內嵌串流網址，直接返回（走原生 video 標籤，不黑屏且音量完全受控）
                     const directMatch = realUrl.match(/https?%3A%2F%2F[^\s&"']+\.(?:m3u8|mp4)[^\s&"']*/i) || realUrl.match(/https?:\/\/[^\s&"']+\.(?:m3u8|mp4)[^\s&"']*/i);
                     if (directMatch) {
                         const rawDirect = decodeURIComponent(directMatch[0]);
                         return { playerUrl: rawDirect, isDirectStream: true, isBlockedIframe: false };
                     }
-                    if (/\.(mp4|m3u8)(\?.*)?$/i.test(realUrl)) {
+                    if (/\.(mp4|m3u8)(\?.*)?$/i.test(realUrl) || realUrl.includes('.mp4') || realUrl.includes('.m3u8')) {
                         return { playerUrl: realUrl, isDirectStream: true, isBlockedIframe: false };
                     }
 
@@ -399,8 +400,11 @@ async function crawl7sefunPlayer(playUrl) {
                         return streamResult;
                     }
 
-                    // 3. 若為其他播放器適配器規則
+                    // 3. 若為其他播放器適配器規則（若 realUrl 不含直連副檔名才轉發解析器）
                     if (parsed.from === 'ndx' || parsed.from === 'aafun2' || parsed.from === 'CYDD1') {
+                        if (realUrl.startsWith('http') && (realUrl.includes('.mp4') || realUrl.includes('.m3u8'))) {
+                            return { playerUrl: realUrl, isDirectStream: true, isBlockedIframe: false };
+                        }
                         const addonUrl = `https://www.7sefun.top/addons/dp/player/index.php?key=0&id=${parsed.id || 0}&uid=0&from=${parsed.from}&url=${encodeURIComponent(realUrl)}`;
                         return { playerUrl: addonUrl, isBlockedIframe: false, isDirectStream: false };
                     }
