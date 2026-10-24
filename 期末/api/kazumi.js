@@ -696,13 +696,58 @@ async function handleKazumiRoute(req, res) {
             return sendJson(res, 400, { success: false, error: '請提供有效的 "url" 或 "bvid" 參數' });
         }
 
-        // 3.1 路由 B-2: 解析 Bilibili 真實直連 MP4 串流 /api/kazumi/bilibili-playurl?bvid={bvid}&cid={cid}
+        // 3.1 路由 B-2: 解析 Bilibili 真實直連 MP4 串流 /api/kazumi/bilibili-playurl?bvid={bvid}&cid={cid}&url={url}
         else if (pathname === '/api/kazumi/bilibili-playurl') {
-            const bvid = getQueryParam(parsedUrl, 'bvid');
-            const cid = getQueryParam(parsedUrl, 'cid');
-            if (!bvid) return sendJson(res, 400, { success: false, error: '缺少 bvid 參數' });
+            let bvid = getQueryParam(parsedUrl, 'bvid') || '';
+            let cid = getQueryParam(parsedUrl, 'cid') || '';
+            const rawUrl = getQueryParam(parsedUrl, 'url') || '';
+
+            // 從傳入的網址或參數中智能萃取 bvid、season_id 或 ep_id
+            const searchTarget = rawUrl || bvid;
+            const bvMatch = searchTarget.match(/(BV[a-zA-Z0-9]{10})/i);
+            const ssMatch = searchTarget.match(/bangumi\/play\/ss(\d+)/i) || searchTarget.match(/season_id=(\d+)/i);
+            const epMatch = searchTarget.match(/bangumi\/play\/ep(\d+)/i) || searchTarget.match(/ep_id=(\d+)/i);
+
+            if (bvMatch) {
+                bvid = bvMatch[1];
+            }
 
             try {
+                // 若為 B 站番劇/電影 (ss/ep)，透過官方 pgc 接口反查對應集數的真實 bvid 與 cid
+                if ((!bvid || ssMatch || epMatch) && (ssMatch || epMatch)) {
+                    let pgcSeasonUrl = '';
+                    if (ssMatch) {
+                        pgcSeasonUrl = `https://api.bilibili.com/pgc/view/web/season?season_id=${ssMatch[1]}`;
+                    } else if (epMatch) {
+                        pgcSeasonUrl = `https://api.bilibili.com/pgc/view/web/season?ep_id=${epMatch[1]}`;
+                    }
+
+                    if (pgcSeasonUrl) {
+                        const pgcRes = await fetchWithTimeout(pgcSeasonUrl, {
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                                'Referer': 'https://www.bilibili.com/'
+                            }
+                        }, 5000);
+                        if (pgcRes.ok) {
+                            const pgcData = await pgcRes.json();
+                            if (pgcData.code === 0 && pgcData.result && Array.isArray(pgcData.result.episodes) && pgcData.result.episodes.length > 0) {
+                                let targetEp = pgcData.result.episodes[0];
+                                if (epMatch) {
+                                    const matchFound = pgcData.result.episodes.find(e => e.id == epMatch[1]);
+                                    if (matchFound) targetEp = matchFound;
+                                }
+                                if (targetEp.bvid) bvid = targetEp.bvid;
+                                if (targetEp.cid) cid = targetEp.cid.toString();
+                            }
+                        }
+                    }
+                }
+
+                if (!bvid && !cid) {
+                    return sendJson(res, 400, { success: false, error: '未能識別有效的 Bilibili BV號或番劇集數' });
+                }
+
                 let targetCid = cid;
                 if (!targetCid || targetCid === '0') {
                     const plUrl = `https://api.bilibili.com/x/player/pagelist?bvid=${encodeURIComponent(bvid)}`;
@@ -718,6 +763,7 @@ async function handleKazumiRoute(req, res) {
                 }
 
                 if (targetCid) {
+                    // 1. 優先嘗試常規 UGC 直連接口 (HTML5 MP4)
                     const playApiUrl = `https://api.bilibili.com/x/player/playurl?bvid=${encodeURIComponent(bvid)}&cid=${encodeURIComponent(targetCid)}&qn=64&fnval=0&platform=html5`;
                     const playRes = await fetchWithTimeout(playApiUrl, {
                         headers: {
@@ -736,8 +782,38 @@ async function handleKazumiRoute(req, res) {
                                 isDirectStream: true,
                                 streamUrl: proxyStreamUrl,
                                 rawUrl: rawStreamUrl,
+                                bvid: bvid,
+                                cid: targetCid,
                                 duration: (playJson.data.durl[0].length / 1000) || 0,
                                 size: playJson.data.durl[0].size || 0
+                            });
+                        }
+                    }
+
+                    // 2. 次要嘗試番劇 PGC 直連接口 (若為番劇作品)
+                    const pgcPlayApiUrl = `https://api.bilibili.com/pgc/player/web/playurl?bvid=${encodeURIComponent(bvid)}&cid=${encodeURIComponent(targetCid)}&qn=64&fnval=0&platform=html5`;
+                    const pgcPlayRes = await fetchWithTimeout(pgcPlayApiUrl, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                            'Referer': 'https://www.bilibili.com/'
+                        }
+                    }, 6000);
+
+                    if (pgcPlayRes.ok) {
+                        const pgcPlayJson = await pgcPlayRes.json();
+                        const durlList = pgcPlayJson?.result?.durl || pgcPlayJson?.data?.durl;
+                        if (durlList && durlList.length > 0) {
+                            const rawStreamUrl = durlList[0].url;
+                            const proxyStreamUrl = `/api/kazumi/stream-proxy?url=${encodeURIComponent(rawStreamUrl)}`;
+                            return sendJson(res, 200, {
+                                success: true,
+                                isDirectStream: true,
+                                streamUrl: proxyStreamUrl,
+                                rawUrl: rawStreamUrl,
+                                bvid: bvid,
+                                cid: targetCid,
+                                duration: (durlList[0].length / 1000) || 0,
+                                size: durlList[0].size || 0
                             });
                         }
                     }
@@ -746,12 +822,14 @@ async function handleKazumiRoute(req, res) {
                 return sendJson(res, 200, {
                     success: true,
                     isDirectStream: false,
+                    bvid: bvid,
                     fallbackIframeUrl: `https://player.bilibili.com/player.html?bvid=${encodeURIComponent(bvid)}&page=1&high_quality=1&as_wide=1&danmaku=0`
                 });
             } catch (err) {
                 return sendJson(res, 200, {
                     success: true,
                     isDirectStream: false,
+                    bvid: bvid,
                     fallbackIframeUrl: `https://player.bilibili.com/player.html?bvid=${encodeURIComponent(bvid)}&page=1&high_quality=1&as_wide=1&danmaku=0`
                 });
             }
