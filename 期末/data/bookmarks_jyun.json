@@ -1,7 +1,23 @@
 {
   "user": "jyun",
-  "count": 28,
+  "count": 29,
   "bookmarks": [
+    {
+      "id": "bm_1792909600071_goe7",
+      "title": "名侦探光之美少女 第39话【中字】",
+      "url": "https://www.bilibili.com/video/BV1EDH36WEq4/?trackid=web_pegasus_0.router-web-pegasus-2479516-gfll4.1792908045989.35&spm_id_from=333.1007.tianma.1-1-1.click&vd_source=e998dfa0046c15728462b51767d2c101",
+      "category": "video",
+      "tags": [
+        "Bilibili",
+        "B站",
+        "影音影片"
+      ],
+      "cover": "https://i0.hdslb.com/bfs/archive/718484e6e466cb867939cb0ffa34b045d0c36338.jpg@1200w_630h",
+      "desc": "名侦探光之美少女 第39话【中字】共计2条视频，包括：39、剧场版OP等，UP主更多精彩视频，请关注UP账号。",
+      "pinned": false,
+      "clicks": 0,
+      "createdAt": "2026-10-25T06:26:40.071Z"
+    },
     {
       "id": "bm_1792827835882_z1f9",
       "title": "Charonyuu/whatsmyagentdoing: See what every Claude Code and Codex agent on your machine is doing — live, in a little office.",
@@ -438,5 +454,5 @@
       "createdAt": "2026-10-23T08:54:22.308Z"
     }
   ],
-  "updatedAt": "2026-10-24T16:02:43.147Z"
+  "updatedAt": "2026-10-25T06:26:40.331Z"
 }
