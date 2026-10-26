@@ -7161,7 +7161,7 @@ const DEFAULT_ACG_GAMES = [
         badge: '權威百科',
         badgeClass: 'bg-primary text-white',
         tags: ['FGO', '中文百科', '指令卡數據', '關卡掉落'],
-        desc: '華人圈最詳盡的 Fate/Grand Order 中文資料庫，完整收錄從者數值、指令卡參數、寶具傷害、敵方配置與最新活動攻略。',
+        desc: '中文圈最詳盡的 Fate/Grand Order 中文資料庫，完整收錄從者數值、指令卡參數、寶具傷害、敵方配置與最新活動攻略。',
         isCustom: false
     },
     {
@@ -7181,7 +7181,7 @@ const DEFAULT_ACG_GAMES = [
         badge: 'B站小遊戲',
         badgeClass: 'bg-info-subtle text-info border border-info-subtle',
         tags: ['Bilibili', '外匯模擬', '趣味挑戰', '互動網頁'],
-        desc: 'Bilibili Toy 推出之趣味外匯模擬交易小遊戲（非泛式遊戲），輕鬆體驗低買高賣的刺激心跳！',
+        desc: 'Bilibili Toy 推出之趣味外匯模擬交易小遊戲，輕鬆體驗低買高賣的刺激心跳！',
         isCustom: false,
         openInNewTab: true
     },
@@ -7192,7 +7192,7 @@ const DEFAULT_ACG_GAMES = [
         badge: '節奏獨立小遊戲',
         badgeClass: 'bg-success-subtle text-success border border-success-subtle',
         tags: ['強風大背頭', '節奏', '獨立小遊戲', 'Itch.io'],
-        desc: '節奏獨立小遊戲。由迷因神曲《強風大背頭》改編的魔性節奏躲避獨立小遊戲，畫風超可愛治癒！',
+        desc: '節奏獨立小遊戲。由迷因神曲《強風大背頭》改編的魔性節奏獨立小遊戲，畫風超可愛治癒！',
         isCustom: false,
         openInNewTab: true
     },
