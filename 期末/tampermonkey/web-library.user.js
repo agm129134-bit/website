@@ -4,7 +4,7 @@
 
 // @namespace    http://tampermonkey.net/
 
-// @version      1.6.0
+// @version      1.6.2
 
 // @description  完美相容 YouTube、Bangumi、動漫劇院全域影片/彈幕雙向秒級同步橋樑 (解決跨域 iframe 暫停/跳轉割裂)、自由拖曳移動位置、開關懸浮球與 Alt + B 快捷鍵收藏！
 
@@ -280,7 +280,14 @@
 
     const config = {
 
-        get serverUrl() { return GM_getValue("wl_server_url", "http://localhost:8090/api/user/bookmarks"); },
+        get serverUrl() {
+            let val = GM_getValue("wl_server_url", "http://localhost:8090/api/user/bookmarks");
+            if (val.includes(":8080") || val.includes(":8000")) {
+                val = val.replace(":8080", ":8090").replace(":8000", ":8090");
+                GM_setValue("wl_server_url", val);
+            }
+            return val;
+        },
 
         set serverUrl(v) { GM_setValue("wl_server_url", v); },
 
@@ -1512,235 +1519,94 @@
 
 
 
-    // 6. 送出資料 (具備 先 GET 現有書籤合併 + POST 雙重兼容與 8000/8080 自動切換)
-
+    // 6. 送出資料 (具備 8090 / 8095 多埠號自動容錯感知探測架構)
     function submitBookmark(payload) {
-
         const btn = document.getElementById("wl-submit-btn");
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = "傳送中...";
+        }
 
-        btn.disabled = true;
+        // 智慧候選端點清單（優先使用當前設定，失敗時自動秒級切換 8090 與 Docker 8095）
+        const candidateUrls = [
+            config.serverUrl,
+            "http://localhost:8090/api/user/bookmarks",
+            "http://localhost:8095/api/user/bookmarks",
+            "http://127.0.0.1:8090/api/user/bookmarks",
+            "http://127.0.0.1:8095/api/user/bookmarks"
+        ].filter((u, i, arr) => u && arr.indexOf(u) === i);
 
-        btn.textContent = "傳送中...";
+        let currentIndex = 0;
 
+        function tryNext() {
+            if (currentIndex >= candidateUrls.length) {
+                handleLocalFallback(payload);
+                return;
+            }
 
+            const currentUrl = candidateUrls[currentIndex++];
 
-        const trySend = (targetUrl, isRetry = false) => {
-
-            // 先嘗試拉取現有書籤進行合併
-
+            // 1. 先 GET 現有書籤合併 (防止覆蓋已有書籤)
             GM_xmlhttpRequest({
-
                 method: "GET",
-
-                url: targetUrl,
-
+                url: currentUrl,
                 headers: { "Authorization": `Bearer ${config.apiToken}` },
-
-                timeout: 2500,
-
+                timeout: 2000,
                 onload: function(getRes) {
-
-                    let existing = [];
-
-                    let username = 'jyun';
-
-                    try {
-
-                        const json = JSON.parse(getRes.responseText);
-
-                        if (Array.isArray(json.bookmarks)) existing = json.bookmarks;
-
-                        if (json.user && json.user !== 'default' && json.user !== '期末展示學生') username = json.user;
-
-                    } catch (e) {}
-
-
-
-                    // 去除舊的相同 URL 並在頭部插入最新書籤
-
-                    const filtered = existing.filter(b => b.url !== payload.url);
-
-                    const merged = [payload, ...filtered];
-
-
-
-                    const postBody = {
-
-                        user: username,
-
-                        bookmark: payload,
-
-                        bookmarks: merged
-
-                    };
-
-
-
-                    GM_xmlhttpRequest({
-
-                        method: "POST",
-
-                        url: targetUrl,
-
-                        headers: {
-
-                            "Content-Type": "application/json",
-
-                            "Authorization": `Bearer ${config.apiToken}`
-
-                        },
-
-                        data: JSON.stringify(postBody),
-
-                        timeout: 3000,
-
-                        onload: function(res) {
-
-                            if (res.status >= 200 && res.status < 300) {
-
-                                btn.disabled = false;
-
-                                btn.textContent = "確認收藏";
-
-                                showNotice("🎉 成功收藏至 Web Library！");
-
-                                document.getElementById("wl-collector-modal").style.setProperty("display", "none", "important");
-
-                            } else if (!isRetry) {
-
-                                const altUrl = targetUrl.includes("8000") 
-
-                                    ? targetUrl.replace("8000", "8090") 
-
-                                    : targetUrl.replace("8080", "8090");
-
-                                trySend(altUrl, true);
-
-                            } else {
-
-                                handleLocalFallback(payload);
-
-                            }
-
-                        },
-
-                        ontimeout: () => {
-
-                            if (!isRetry) {
-
-                                const altUrl = targetUrl.includes("8000") ? targetUrl.replace("8000", "8090") : targetUrl.replace("8080", "8090");
-
-                                trySend(altUrl, true);
-
-                            } else {
-
-                                handleLocalFallback(payload);
-
-                            }
-
-                        },
-
-                        onerror: () => {
-
-                            if (!isRetry) {
-
-                                const altUrl = targetUrl.includes("8000") ? targetUrl.replace("8000", "8090") : targetUrl.replace("8080", "8090");
-
-                                trySend(altUrl, true);
-
-                            } else {
-
-                                handleLocalFallback(payload);
-
-                            }
-
-                        }
-
-                    });
-
-                },
-
-                onerror: () => {
-
-                    directPost(targetUrl, isRetry);
-
-                },
-
-                ontimeout: () => {
-
-                    directPost(targetUrl, isRetry);
-
-                }
-
-            });
-
-        };
-
-
-
-        const directPost = (targetUrl, isRetry) => {
-
-            const fallbackBody = { bookmark: payload, bookmarks: [payload] };
-
-            GM_xmlhttpRequest({
-
-                method: "POST",
-
-                url: targetUrl,
-
-                headers: {
-
-                    "Content-Type": "application/json",
-
-                    "Authorization": `Bearer ${config.apiToken}`
-
-                },
-
-                data: JSON.stringify(fallbackBody),
-
-                timeout: 3000,
-
-                onload: function(res) {
-
-                    if (res.status >= 200 && res.status < 300) {
-
-                        btn.disabled = false;
-
-                        btn.textContent = "確認收藏";
-
-                        showNotice("🎉 成功收藏至 Web Library！");
-
-                        document.getElementById("wl-collector-modal").style.setProperty("display", "none", "important");
-
-                    } else if (!isRetry) {
-
-                        const altUrl = targetUrl.includes("8000") ? targetUrl.replace("8000", "8090") : targetUrl.replace("8080", "8090");
-
-                        trySend(altUrl, true);
-
+                    if (getRes.status >= 200 && getRes.status < 300) {
+                        let existing = [];
+                        let username = 'jyun';
+                        try {
+                            const json = JSON.parse(getRes.responseText);
+                            if (Array.isArray(json.bookmarks)) existing = json.bookmarks;
+                            if (json.user && json.user !== 'default' && json.user !== '期末展示學生') username = json.user;
+                        } catch (e) {}
+
+                        const filtered = existing.filter(b => b.url !== payload.url);
+                        const merged = [payload, ...filtered];
+                        const postBody = { user: username, bookmark: payload, bookmarks: merged };
+                        executePost(currentUrl, postBody);
                     } else {
-
-                        handleLocalFallback(payload);
-
+                        executePost(currentUrl, { bookmark: payload, bookmarks: [payload] });
                     }
-
                 },
-
-                onerror: () => handleLocalFallback(payload),
-
-                ontimeout: () => handleLocalFallback(payload)
-
+                onerror: () => tryNext(),
+                ontimeout: () => tryNext()
             });
+        }
 
-        };
+        function executePost(url, postBody) {
+            GM_xmlhttpRequest({
+                method: "POST",
+                url: url,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${config.apiToken}`
+                },
+                data: JSON.stringify(postBody),
+                timeout: 3000,
+                onload: function(res) {
+                    if (res.status >= 200 && res.status < 300) {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.textContent = "確認收藏";
+                        }
+                        const portLabel = url.includes("8095") ? "Docker 8095" : "Port 8090";
+                        showNotice(`🎉 成功收藏至 Web Library！(${portLabel})`);
+                        config.serverUrl = url; // 自動記憶通暢之 URL
+                        const modal = document.getElementById("wl-collector-modal");
+                        if (modal) modal.style.setProperty("display", "none", "important");
+                    } else {
+                        tryNext();
+                    }
+                },
+                onerror: () => tryNext(),
+                ontimeout: () => tryNext()
+            });
+        }
 
-
-
-        trySend(config.serverUrl);
-
+        tryNext();
     }
-
-
 
     function handleLocalFallback(payload) {
 
