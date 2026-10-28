@@ -712,6 +712,22 @@ function renderBookmarks() {
         `;
         container.appendChild(col);
     });
+
+    // GSAP 3 物理交錯彈入動畫 (Stagger In & Smooth Damping)
+    if (typeof gsap !== 'undefined') {
+        gsap.fromTo("#bookmarkContainer .bookmark-card", 
+            { y: 22, opacity: 0, scale: 0.97 },
+            { 
+                y: 0, 
+                opacity: 1, 
+                scale: 1, 
+                duration: 0.38, 
+                stagger: 0.03, 
+                ease: "power2.out", 
+                clearProps: "transform,opacity" 
+            }
+        );
+    }
 }
 
 // ==========================================
@@ -3851,6 +3867,130 @@ let mangaState = {
     searchResults: []        // 最近搜尋結果
 };
 
+// ==========================================
+// 全域立體書架管理輔助函式 (相容 acg.html 與 index.html)
+// ==========================================
+if (!window.getMangaBookshelf) {
+    window.getMangaBookshelf = function() {
+        try {
+            const data = localStorage.getItem('web_library_manga_bookshelf');
+            if (data !== null) {
+                let parsed = JSON.parse(data);
+                if (Array.isArray(parsed)) {
+                    const dummyTitles = ["航海王", "葬送的芙莉蓮", "咒術迴戰", "鏈鋸人", "鬼滅之刃"];
+                    return parsed.filter(b => !dummyTitles.includes(b.title));
+                }
+            }
+        } catch (e) {}
+        return [];
+    };
+}
+if (!window.saveMangaBookshelf) {
+    window.saveMangaBookshelf = function(list) {
+        localStorage.setItem('web_library_manga_bookshelf', JSON.stringify(list));
+        if (typeof window.renderMangaBookshelf === 'function') {
+            window.renderMangaBookshelf();
+        }
+    };
+}
+if (!window.toggleMangaBookshelfItem) {
+    window.toggleMangaBookshelfItem = function(title, cover, btnEl) {
+        if (!title) return;
+        let shelf = window.getMangaBookshelf();
+        const exists = shelf.some(b => b.title === title);
+        if (exists) {
+            shelf = shelf.filter(b => b.title !== title);
+            window.saveMangaBookshelf(shelf);
+            if (btnEl) {
+                btnEl.className = "btn btn-xs btn-outline-primary rounded-pill px-2";
+                btnEl.innerHTML = `<i class="bi bi-bookmark-plus"></i> + 放進書架`;
+                btnEl.title = "將此漫畫放進條漫立體書架";
+            }
+            if (typeof showToast === 'function') {
+                showToast(`已將《${title}》移出條漫書架`, "bi-trash text-warning");
+            }
+        } else {
+            shelf.unshift({
+                title: title.trim(),
+                cover: cover || "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80",
+                tag: "條漫"
+            });
+            window.saveMangaBookshelf(shelf);
+            if (btnEl) {
+                btnEl.className = "btn btn-xs btn-primary rounded-pill px-2";
+                btnEl.innerHTML = `<i class="bi bi-bookmark-check-fill"></i> 已在書架`;
+                btnEl.title = "已在條漫書架中，點擊可移出";
+            }
+            if (typeof showToast === 'function') {
+                showToast(`🎉 成功將《${title}》收藏進條漫立體書架！`, "bi-star-fill text-warning");
+            }
+        }
+        if (typeof window.renderMangaBookshelf === 'function') {
+            window.renderMangaBookshelf();
+        }
+    };
+}
+if (!window.getNovelBookshelf) {
+    window.getNovelBookshelf = function() {
+        try {
+            const data = localStorage.getItem('web_library_novel_bookshelf');
+            if (data !== null) {
+                let parsed = JSON.parse(data);
+                if (Array.isArray(parsed)) {
+                    const dummyTitles = ["關於我轉生變成史萊姆這檔事", "無職轉生", "刀劍神域", "Re:從零開始的異世界生活"];
+                    return parsed.filter(b => !dummyTitles.includes(b.title));
+                }
+            }
+        } catch (e) {}
+        return [];
+    };
+}
+if (!window.saveNovelBookshelf) {
+    window.saveNovelBookshelf = function(list) {
+        localStorage.setItem('web_library_novel_bookshelf', JSON.stringify(list));
+        if (typeof window.renderNovelBookshelf === 'function') {
+            window.renderNovelBookshelf();
+        }
+    };
+}
+if (!window.toggleNovelBookshelfItem) {
+    window.toggleNovelBookshelfItem = function(title, cover, btnEl) {
+        if (!title) return;
+        let shelf = window.getNovelBookshelf();
+        const exists = shelf.some(b => b.title === title);
+        if (exists) {
+            shelf = shelf.filter(b => b.title !== title);
+            window.saveNovelBookshelf(shelf);
+            if (btnEl) {
+                btnEl.className = "btn btn-xs btn-outline-success rounded-pill px-2";
+                btnEl.innerHTML = `<i class="bi bi-bookmark-plus"></i> + 放進書房`;
+                btnEl.title = "將此小說放進立體書房";
+            }
+            if (typeof showToast === 'function') {
+                showToast(`已將《${title}》移出小說書房`, "bi-trash text-warning");
+            }
+        } else {
+            shelf.unshift({
+                title: title.trim(),
+                cover: cover || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80",
+                tag: "小說"
+            });
+            window.saveNovelBookshelf(shelf);
+            if (btnEl) {
+                btnEl.className = "btn btn-xs btn-success rounded-pill px-2";
+                btnEl.innerHTML = `<i class="bi bi-bookmark-check-fill"></i> 已在書房`;
+                btnEl.title = "已在小說書房中，點擊可移出";
+            }
+            if (typeof showToast === 'function') {
+                showToast(`🎉 成功將《${title}》收藏進小說立體書房！`, "bi-star-fill text-warning");
+            }
+        }
+        if (typeof window.renderNovelBookshelf === 'function') {
+            window.renderNovelBookshelf();
+        }
+    };
+}
+
 // 開啟 Tachimanga 閱覽器
 window.openTachimangaReader = function(title = "", pages = []) {
     if (title && title !== "漫畫閱覽器" && title.trim() !== "") {
@@ -3890,29 +4030,45 @@ window.openTachimangaReader = function(title = "", pages = []) {
     modal.show();
 };
 
-// 渲染純淨待命搜尋畫面
+// 渲染純淨待命搜尋畫面 (3D 擬真立體書架)
 function renderMangaStandby() {
     const indicatorEl = document.getElementById("mangaPageIndicator");
     const wrapper = document.getElementById("mangaPageWrapper");
     if (indicatorEl) indicatorEl.textContent = "";
     if (wrapper) {
         wrapper.innerHTML = `
-            <div class="text-center py-5 my-5 px-3" id="tachimangaPlaceholder" style="max-width: 500px; margin: 0 auto; color: #cbd5e1;">
-                <i class="bi bi-book fs-1 d-block mb-3 text-primary opacity-75"></i>
-                <h5 class="fw-bold text-white mb-1">Tachimanga 條漫閱覽器（待命狀態）</h5>
-                <p class="small mb-3" style="color: #cbd5e1;">輸入漫畫作品名稱即可全網檢索章節並開啟無縫條漫閱讀</p>
-                
-                <div class="input-group input-group-sm shadow-sm">
-                    <span class="input-group-text bg-dark text-white-50 border-secondary"><i class="bi bi-search"></i></span>
-                    <input type="text" id="mangaStandbySearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋漫畫名稱..." onkeydown="if(event.key==='Enter') searchMangaFromStandby()">
-                    <button class="btn btn-primary px-3 fw-semibold" type="button" onclick="searchMangaFromStandby()">
-                        搜尋漫畫
-                    </button>
+            <div class="bookshelf-container py-4 text-start w-100" id="tachimangaPlaceholder">
+                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2 px-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-collection-fill fs-4 text-primary"></i>
+                        <div>
+                            <h5 class="fw-bold text-white mb-0">條漫立體藏書閣</h5>
+                            <span class="text-white-50 small">點選書本立即開卷 · 搜尋漫畫即可收入書架</span>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <div class="input-group input-group-sm" style="width: 260px;">
+                            <input type="text" id="mangaStandbySearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋漫畫加入書架..." onkeydown="if(event.key==='Enter') searchMangaFromStandby()">
+                            <button class="btn btn-primary" type="button" onclick="searchMangaFromStandby()"><i class="bi bi-search"></i> 搜尋</button>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- 書架層架 -->
+                <div class="bookshelf-shelf">
+                    <div class="bookshelf-books-row" id="mangaBookshelfGrid">
+                        <!-- 由 JS 動態注入 3D 漫畫書本 -->
+                    </div>
+                    <div class="bookshelf-plank"></div>
+                </div>
+                
                 <!-- 漫畫閱讀歷史紀錄區 -->
-                <div id="mangaRecentHistoryBox" class="mt-3 text-start w-100" style="display: none;"></div>
+                <div id="mangaRecentHistoryBox" class="mt-2 text-start w-100" style="display: none;"></div>
             </div>
         `;
+        if (typeof window.renderMangaBookshelf === 'function') {
+            window.renderMangaBookshelf();
+        }
         if (typeof window.renderMangaHistoryStandby === 'function') {
             window.renderMangaHistoryStandby();
         }
@@ -4018,6 +4174,11 @@ function renderMangaSearchResults(results, q) {
             ? `<span class="badge bg-primary bg-opacity-75 text-light px-2 py-0 border border-primary border-opacity-50" style="font-size: 0.72rem; vertical-align: middle;"><i class="bi bi-c-circle me-1"></i>CopyManga</span>`
             : `<span class="badge bg-warning bg-opacity-75 text-dark px-2 py-0 border border-warning border-opacity-50" style="font-size: 0.72rem; vertical-align: middle;"><i class="bi bi-box-seam me-1"></i>包子漫畫</span>`;
 
+        const inShelf = (typeof window.getMangaBookshelf === 'function') && window.getMangaBookshelf().some(b => b.title === m.title);
+        const shelfBtnClass = inShelf ? "btn-primary" : "btn-outline-primary";
+        const shelfBtnText = inShelf ? '<i class="bi bi-bookmark-check-fill"></i> 已在書架' : '<i class="bi bi-bookmark-plus"></i> + 放進書架';
+        const shelfBtnTitle = inShelf ? '已在條漫書架中，點擊可移出' : '將此漫畫放進條漫立體書架';
+
         card.innerHTML = `
             <img src="${escapeHtml(coverUrl)}" class="rounded shadow-sm" alt="${escapeHtml(m.title)}" style="width: 54px; height: 72px; object-fit: cover;" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80'">
             <div class="overflow-hidden flex-grow-1">
@@ -4033,8 +4194,8 @@ function renderMangaSearchResults(results, q) {
             </div>
             <div class="d-flex flex-column align-items-end gap-1 flex-shrink-0">
                 <div class="d-flex align-items-center gap-1">
-                    <button class="btn btn-xs btn-outline-success rounded-pill px-2" onclick="addMangaSearchResultToLibrary('${escapeHtml(m.title)}', '${escapeHtml(coverUrl)}', '${escapeHtml(m.id)}')" title="收藏作品至個人圖書館">
-                        <i class="bi bi-bookmark-plus"></i> +收藏
+                    <button class="btn btn-xs ${shelfBtnClass} rounded-pill px-2" onclick="toggleMangaBookshelfItem('${escapeHtml(m.title)}', '${escapeHtml(coverUrl)}', this)" title="${shelfBtnTitle}">
+                        ${shelfBtnText}
                     </button>
                     <div class="dropdown d-inline-block">
                         <button class="btn btn-xs btn-outline-info dropdown-toggle rounded-pill px-2 bookmark-watch-status-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="檢視或更改 Bangumi 閱讀狀態">
@@ -4513,6 +4674,11 @@ function renderNovelSearchResults(novels) {
             ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle small me-1">📚 Bilinovel</span>'
             : '<span class="badge bg-success-subtle text-success border border-success-subtle small me-1">📖 Wenku8</span>';
 
+        const inShelf = (typeof window.getNovelBookshelf === 'function') && window.getNovelBookshelf().some(b => b.title === n.title);
+        const shelfBtnClass = inShelf ? "btn-success" : "btn-outline-success";
+        const shelfBtnText = inShelf ? '<i class="bi bi-bookmark-check-fill me-1"></i> 已在書房' : '<i class="bi bi-bookmark-plus me-1"></i> + 放進書房';
+        const shelfBtnTitle = inShelf ? '已在小說書房中，點擊可移出' : '將此小說放進立體書房';
+
         return `
         <div class="card bg-black bg-opacity-50 border-secondary mb-3 hover-shadow transition-all">
             <div class="row g-0 align-items-center">
@@ -4540,9 +4706,14 @@ function renderNovelSearchResults(novels) {
                             <span><i class="bi bi-list-ol text-success"></i> 共 ${n.chapterCount || '多'} 章</span>
                         </div>
                         <p class="card-text small text-truncate mb-2" style="max-width: 480px; color: #94a3b8;">${escapeHtml(n.intro || '')}</p>
-                        <button class="btn btn-sm btn-success rounded-pill px-3" onclick="selectNovel('${escapeHtml(n.id)}', '${escapeHtml(n.title)}', '${escapeHtml(n.cover || '')}', '${escapeHtml(n.author || '')}', '${escapeHtml(n.intro || '')}')">
-                            <i class="bi bi-book-half me-1"></i> 開始閱讀 / 選集
-                        </button>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <button class="btn btn-sm btn-success rounded-pill px-3" onclick="selectNovel('${escapeHtml(n.id)}', '${escapeHtml(n.title)}', '${escapeHtml(n.cover || '')}', '${escapeHtml(n.author || '')}', '${escapeHtml(n.intro || '')}')">
+                                <i class="bi bi-book-half me-1"></i> 開始閱讀 / 選集
+                            </button>
+                            <button class="btn btn-sm ${shelfBtnClass} rounded-pill px-3" onclick="toggleNovelBookshelfItem('${escapeHtml(n.title)}', '${escapeHtml(n.cover || '')}', this)" title="${shelfBtnTitle}">
+                                ${shelfBtnText}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
