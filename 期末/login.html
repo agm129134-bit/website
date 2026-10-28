@@ -356,13 +356,24 @@
                 }
             }
 
-            // 清理本機過去誤存之帶有中文後綴的重複新帳號
+            // 讀取永久刪除黑名單
+            let deletedUsers = [];
+            try {
+                const rawDeleted = localStorage.getItem('deletedUsers');
+                if (rawDeleted) deletedUsers = JSON.parse(rawDeleted);
+                if (!Array.isArray(deletedUsers)) deletedUsers = [];
+            } catch (e) {
+                deletedUsers = [];
+            }
+
+            // 清理本機過去誤存之帶有中文後綴的重複新帳號與已刪除帳號
             list = list.filter(u => {
                 const un = (u.username || '').toLowerCase();
+                if (deletedUsers.some(d => d.toLowerCase() === un)) return false;
                 return un !== 'jyun專案開發者' && un !== 'test1測試帳號' && !un.includes('專案開發者') && !un.includes('測試帳號');
             });
 
-            // 專案核心預設與老用戶帳號清單 (包含 jyun 與 test1)
+            // 專案核心預設帳號清單 (管理員、學生與核心老用戶 jyun)
             const coreDefaults = [
                 {
                     username: 'jyun',
@@ -385,28 +396,22 @@
                     name: '學生 (Student)',
                     role: '學生研究員',
                     createdAt: new Date().toISOString()
-                },
-                {
-                    username: 'test1',
-                    password: '',
-                    isLegacy: true,
-                    name: 'Test1 (測試帳號)',
-                    role: '測試會員',
-                    createdAt: new Date().toISOString()
                 }
             ];
 
-            // 智慧合併：若核心帳號尚未存在於 list 中，自動補齊
+            // 智慧合併：若核心帳號尚未存在於 list 中且未被使用者刪除，自動補齊
             coreDefaults.forEach(def => {
-                const existing = list.find(u => u.username.toLowerCase() === def.username.toLowerCase());
+                const defUser = def.username.toLowerCase();
+                if (deletedUsers.some(d => d.toLowerCase() === defUser)) return;
+                const existing = list.find(u => (u.username || '').toLowerCase() === defUser);
                 if (!existing) {
                     list.unshift(def);
                 }
             });
 
-            // 檢查本機先前登入過的 web_library_user (例如 jyun)，若尚未收錄自動納入
+            // 檢查本機先前登入過的 web_library_user，若尚未收錄且未被刪除則納入
             const legacyUser = localStorage.getItem('web_library_user');
-            if (legacyUser && !list.some(u => u.username.toLowerCase() === legacyUser.toLowerCase())) {
+            if (legacyUser && !deletedUsers.some(d => d.toLowerCase() === legacyUser.toLowerCase()) && !list.some(u => (u.username || '').toLowerCase() === legacyUser.toLowerCase())) {
                 list.unshift({
                     username: legacyUser,
                     password: '',
@@ -428,10 +433,20 @@
                 if (!res.ok) return;
                 const data = await res.json();
                 if (data.success && Array.isArray(data.users)) {
+                    let deletedUsers = [];
+                    try {
+                        const rawDeleted = localStorage.getItem('deletedUsers');
+                        if (rawDeleted) deletedUsers = JSON.parse(rawDeleted);
+                        if (!Array.isArray(deletedUsers)) deletedUsers = [];
+                    } catch (e) {
+                        deletedUsers = [];
+                    }
+
                     const list = getRegisteredUsers();
                     let updated = false;
                     data.users.forEach(u => {
                         if (!u || u.includes('專案開發者') || u.includes('測試帳號')) return;
+                        if (deletedUsers.some(d => d.toLowerCase() === u.toLowerCase())) return;
                         if (!list.some(item => item.username.toLowerCase() === u.toLowerCase())) {
                             list.push({
                                 username: u,

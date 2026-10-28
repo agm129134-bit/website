@@ -276,23 +276,14 @@ async function handleSyncRoute(req, res) {
                 const filePath = getUserFilePath(username);
 
                 if (!fs.existsSync(filePath)) {
-                    // 全新或已刪除帳號預設為空書籤庫，絕不自動帶入其他帳號書籤
-                    const newSeed = {
-                        user: sanitizeUsername(username),
-                        count: 0,
-                        bookmarks: [],
-                        updatedAt: new Date().toISOString()
-                    };
-                    try {
-                        fs.writeFileSync(filePath, JSON.stringify(newSeed, null, 2), 'utf-8');
-                    } catch(e) {}
+                    // 全新或已刪除帳號預設為空書籤庫，絕不自動在磁碟建立幽靈檔案，亦不自動帶入其他帳號書籤
                     return sendJson(res, 200, {
                         success: true,
                         user: sanitizeUsername(username),
                         count: 0,
                         bookmarks: [],
                         isNewUser: true,
-                        message: '帳號初始為純淨空書籤'
+                        message: '帳號無伺服器端存檔'
                     });
                 }
 

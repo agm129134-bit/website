@@ -142,8 +142,19 @@ window.confirmDeleteCurrentAccount = async function() {
         // 1. 向伺服器發送刪除請求
         await fetch(`/api/user/delete?user=${encodeURIComponent(user)}`, { method: 'POST' });
         
-        // 2. 清除本機 registeredUsers 清單中的此帳號
+        // 2. 清除本機 registeredUsers 清單中的此帳號，並加入永久刪除黑名單
         try {
+            let deletedUsers = [];
+            try {
+                const rawDeleted = localStorage.getItem('deletedUsers');
+                if (rawDeleted) deletedUsers = JSON.parse(rawDeleted);
+                if (!Array.isArray(deletedUsers)) deletedUsers = [];
+            } catch (e) { deletedUsers = []; }
+            if (!deletedUsers.some(d => d.toLowerCase() === user.toLowerCase())) {
+                deletedUsers.push(user);
+                localStorage.setItem('deletedUsers', JSON.stringify(deletedUsers));
+            }
+
             const rawUsers = localStorage.getItem('registeredUsers');
             if (rawUsers) {
                 let users = JSON.parse(rawUsers);
@@ -7337,6 +7348,14 @@ window.clearMangaHistory = function() {
     showToast("已清除漫畫閱讀歷史！", "bi-trash text-secondary");
 };
 
+// 相容性全域函式守護 (預防歷史模組與 ACG 擴充調用 ReferenceError)
+window.saveBookmarksLocally = function() {
+    saveToStorage(true);
+};
+window.renderCategoryTabs = function() {
+    updateUI();
+};
+
 // 匯入書籤 JSON 支援
 window.handleImportBookmarks = function(event) {
     const file = event.target.files && event.target.files[0];
@@ -7361,11 +7380,10 @@ window.handleImportBookmarks = function(event) {
 
             let addedCount = 0;
             let updatedCount = 0;
-            const currentUser = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser') || 'default';
 
             importedList.forEach(item => {
                 if (!item || !item.url) return;
-                const existingIdx = state.bookmarks.findIndex(b => b.id === item.id || (b.url && b.url === item.url));
+                const existingIdx = state.bookmarks.findIndex(b => (item.id && b.id === item.id) || (b.url && b.url === item.url));
                 const normalizedItem = {
                     id: item.id || ('bm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5)),
                     title: item.title || item.name || '未命名書籤',
@@ -7387,20 +7405,11 @@ window.handleImportBookmarks = function(event) {
                 }
             });
 
-            saveBookmarksLocally();
-            renderBookmarks();
-            renderCategoryTabs();
+            // 1. 本地儲存與伺服器同步
+            saveToStorage(true);
 
-            // 跨裝置同步至後端伺服器 (若伺服器已開啟)
-            try {
-                await fetch('/api/bookmarks/sync', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user: currentUser, bookmarks: state.bookmarks })
-                });
-            } catch(err) {
-                console.log('後端離線或無須即時同步:', err.message);
-            }
+            // 2. 刷新整體 UI、統計數字與分類籤
+            updateUI();
 
             showToast(`🎉 成功匯入書籤！新增 ${addedCount} 筆，更新 ${updatedCount} 筆`, "bi-file-earmark-check-fill text-success");
         } catch(err) {
