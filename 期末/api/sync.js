@@ -205,6 +205,26 @@ async function handleSyncRoute(req, res) {
                 const filePath = getUserFilePath(username);
 
                 if (!fs.existsSync(filePath)) {
+                    // 自動使用 master 範本 bookmarks_jyun.json 種子進行初始化繼承
+                    const masterPath = path.join(DATA_DIR, 'bookmarks_jyun.json');
+                    if (fs.existsSync(masterPath)) {
+                        try {
+                            const masterData = JSON.parse(fs.readFileSync(masterPath, 'utf-8'));
+                            const newSeed = {
+                                user: sanitizeUsername(username),
+                                count: masterData.count || (masterData.bookmarks || []).length,
+                                bookmarks: masterData.bookmarks || []
+                            };
+                            fs.writeFileSync(filePath, JSON.stringify(newSeed, null, 2), 'utf-8');
+                            return sendJson(res, 200, {
+                                success: true,
+                                user: sanitizeUsername(username),
+                                count: newSeed.count,
+                                bookmarks: newSeed.bookmarks,
+                                updatedAt: new Date().toISOString()
+                            });
+                        } catch(e) {}
+                    }
                     return sendJson(res, 200, {
                         success: true,
                         user: sanitizeUsername(username),
