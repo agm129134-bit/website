@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登入 - Web Library 個人化網頁收藏圖書館</title>
+    <title>登入 / 註冊 - Web Library 個人化網頁收藏圖書館</title>
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- GSAP 3 專業動態庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
     <!-- Custom Style Sheet -->
     <link rel="stylesheet" href="css/style.css">
 
@@ -30,7 +32,7 @@
             border: 1px solid #e2e8f0;
             border-radius: 14px;
             box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
-            padding: 36px 32px;
+            padding: 32px 28px;
         }
 
         .brand-icon {
@@ -44,6 +46,43 @@
             justify-content: center;
             font-size: 20px;
             margin-bottom: 12px;
+        }
+
+        /* 登入 / 註冊 分頁切換藥丸列 */
+        .auth-nav-tabs {
+            background-color: #f1f5f9;
+            border-radius: 10px;
+            padding: 4px;
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+        }
+
+        .auth-tab-btn {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #64748b;
+            border-radius: 8px;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .auth-tab-btn.active {
+            background-color: #ffffff;
+            color: #0f172a;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+        }
+
+        .auth-tab-btn:hover:not(.active) {
+            color: #0f172a;
         }
 
         .form-label {
@@ -74,13 +113,6 @@
             color: #94a3b8;
         }
 
-        .input-group-text {
-            background-color: #f8fafc;
-            border: 1px solid #cbd5e1;
-            color: #64748b;
-            border-radius: 8px;
-        }
-
         .btn-login {
             background-color: #0f172a;
             color: #ffffff;
@@ -99,8 +131,22 @@
             box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
         }
 
-        .btn-login:active {
-            transform: translateY(0);
+        .btn-register {
+            background-color: #2563eb;
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 11px;
+            border-radius: 8px;
+            border: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-register:hover {
+            background-color: #1d4ed8;
+            color: #ffffff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
         }
 
         .demo-chip {
@@ -120,19 +166,13 @@
             color: #0f172a;
             border-color: #cbd5e1;
         }
-
-        .demo-chip.active-chip {
-            background-color: #0f172a;
-            color: #ffffff;
-            border-color: #0f172a;
-        }
     </style>
 </head>
 <body>
 
     <div class="login-card">
         <!-- 品牌與標題 -->
-        <div class="text-center mb-4">
+        <div class="text-center mb-3">
             <div class="brand-icon">
                 <i class="bi bi-bookmark-fill"></i>
             </div>
@@ -140,8 +180,18 @@
             <p class="text-secondary small mb-0">個人化網頁收藏圖書館 · 期末專案</p>
         </div>
 
-        <!-- 一鍵填入展示帳號 -->
-        <div class="mb-3 p-2 bg-light rounded-2 border">
+        <!-- 登入 / 註冊 雙模式切換分頁 -->
+        <div class="auth-nav-tabs" id="authNavTabs">
+            <button type="button" class="auth-tab-btn active" id="tabLoginBtn" onclick="switchAuthMode('login')">
+                <i class="bi bi-box-arrow-in-right"></i> 會員登入
+            </button>
+            <button type="button" class="auth-tab-btn" id="tabRegisterBtn" onclick="switchAuthMode('register')">
+                <i class="bi bi-person-plus-fill"></i> 註冊新帳號
+            </button>
+        </div>
+
+        <!-- 一鍵填入展示帳號 (僅於登入分頁呈現) -->
+        <div class="mb-3 p-2 bg-light rounded-2 border" id="demoAccountsBox">
             <div class="text-secondary small mb-2 fw-semibold d-flex align-items-center justify-content-between">
                 <span><i class="bi bi-person-badge"></i> 評分展示帳號：</span>
                 <span class="text-muted" style="font-size: 0.75rem;">點擊自動帶入</span>
@@ -156,17 +206,17 @@
             </div>
         </div>
 
-        <!-- 錯誤提示 -->
+        <!-- 錯誤或警告提示框 -->
         <div id="loginAlertBox" class="alert alert-danger py-2 px-3 small d-none rounded-2 mb-3">
             <i class="bi bi-exclamation-circle-fill me-1"></i> <span id="loginAlertText">請填寫完整的帳號與密碼</span>
         </div>
 
-        <!-- 登入表單 -->
+        <!-- ==================== 1. 登入表單 (Login Form) ==================== -->
         <form id="loginForm" novalidate>
             <!-- 帳號 -->
             <div class="mb-3">
                 <label for="usernameInput" class="form-label">使用者帳號</label>
-                <input type="text" class="form-control" id="usernameInput" placeholder="請輸入帳號 (例如: admin)" required autofocus autocomplete="username">
+                <input type="text" class="form-control" id="usernameInput" placeholder="請輸入註冊帳號 (例如: admin)" required autofocus autocomplete="username">
             </div>
 
             <!-- 密碼 -->
@@ -196,10 +246,64 @@
                 <span id="submitBtnText"><i class="bi bi-box-arrow-in-right"></i> 立即登入</span>
             </button>
 
+            <!-- 切換註冊引導 -->
+            <div class="text-center mt-3 pt-2">
+                <span class="text-muted small">還沒有專屬帳號？</span>
+                <button type="button" class="btn btn-link text-primary text-decoration-none small p-0 fw-semibold" onclick="switchAuthMode('register')">
+                    立即註冊一個 →
+                </button>
+            </div>
+
             <!-- 訪客體驗 -->
-            <div class="text-center mt-3 pt-2 border-top">
+            <div class="text-center mt-2 pt-2 border-top">
                 <button type="button" class="btn btn-link text-secondary text-decoration-none small p-0" onclick="guestLogin()">
                     訪客快速體驗通道 →
+                </button>
+            </div>
+        </form>
+
+        <!-- ==================== 2. 註冊表單 (Register Form) ==================== -->
+        <form id="registerForm" class="d-none" novalidate>
+            <!-- 註冊帳號 -->
+            <div class="mb-3">
+                <label for="regUsernameInput" class="form-label">設定使用者帳號 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="regUsernameInput" placeholder="請設定帳號 (至少3碼，英文/數字)" required autocomplete="username">
+            </div>
+
+            <!-- 顯示暱稱 -->
+            <div class="mb-3">
+                <label for="regNameInput" class="form-label">顯示暱稱 / 姓名 <span class="text-muted small fw-normal">(選填)</span></label>
+                <input type="text" class="form-control" id="regNameInput" placeholder="例如: 小明 / ACG同好 (未填同帳號)">
+            </div>
+
+            <!-- 註冊密碼 -->
+            <div class="mb-3">
+                <label for="regPasswordInput" class="form-label">設定登入密碼 <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <input type="password" class="form-control border-end-0" id="regPasswordInput" placeholder="請設定密碼 (至少4碼)" required autocomplete="new-password">
+                    <button class="btn btn-outline-secondary border-start-0 bg-white" type="button" id="toggleRegPasswordBtn" title="顯示或隱藏密碼" style="border-color: #cbd5e1;">
+                        <i class="bi bi-eye-slash text-secondary" id="toggleRegPasswordIcon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 確認密碼 -->
+            <div class="mb-4">
+                <label for="regConfirmPasswordInput" class="form-label">再次確認密碼 <span class="text-danger">*</span></label>
+                <input type="password" class="form-control" id="regConfirmPasswordInput" placeholder="請再次輸入上方密碼" required autocomplete="new-password">
+            </div>
+
+            <!-- 註冊按鈕 -->
+            <button type="submit" class="btn btn-register w-100 d-flex align-items-center justify-content-center gap-2" id="submitRegBtn">
+                <span id="submitRegSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                <span id="submitRegBtnText"><i class="bi bi-person-check-fill"></i> 立即註冊並進入</span>
+            </button>
+
+            <!-- 返回登入引導 -->
+            <div class="text-center mt-3 pt-2 border-top">
+                <span class="text-muted small">已經擁有帳號？</span>
+                <button type="button" class="btn btn-link text-dark text-decoration-none small p-0 fw-semibold" onclick="switchAuthMode('login')">
+                    ← 返回登入頁面
                 </button>
             </div>
         </form>
@@ -238,32 +342,111 @@
             }
         })();
 
-        // 2. 密碼切換顯示
-        const toggleBtn = document.getElementById('togglePasswordBtn');
-        const pwdInput = document.getElementById('passwordInput');
-        const eyeIcon = document.getElementById('togglePasswordIcon');
-        
-        toggleBtn.addEventListener('click', () => {
-            const isPassword = pwdInput.type === 'password';
-            pwdInput.type = isPassword ? 'text' : 'password';
-            eyeIcon.className = isPassword ? 'bi bi-eye text-primary' : 'bi bi-eye-slash text-secondary';
-        });
+        // 2. 初始化與取得已註冊帳號列表 (Persistent in localStorage)
+        function getRegisteredUsers() {
+            const KEY = 'registeredUsers';
+            const stored = localStorage.getItem(KEY);
+            if (stored) {
+                try {
+                    const list = JSON.parse(stored);
+                    if (Array.isArray(list) && list.length > 0) {
+                        return list;
+                    }
+                } catch (e) {
+                    console.error("解析使用者列表失敗，重建預設值", e);
+                }
+            }
+            // 預設內建展示帳號
+            const defaults = [
+                {
+                    username: 'admin',
+                    password: '123456',
+                    name: '管理員 (Admin)',
+                    role: '系統管理員',
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    username: 'student',
+                    password: 'web2026',
+                    name: '學生 (Student)',
+                    role: '學生研究員',
+                    createdAt: new Date().toISOString()
+                }
+            ];
+            localStorage.setItem(KEY, JSON.stringify(defaults));
+            return defaults;
+        }
 
-        // 3. 一鍵填入展示帳號
+        // 3. 雙模式切換 (登入 / 註冊)
+        function switchAuthMode(mode) {
+            hideAlert();
+            const isLogin = mode === 'login';
+            const tabLogin = document.getElementById('tabLoginBtn');
+            const tabReg = document.getElementById('tabRegisterBtn');
+            const loginForm = document.getElementById('loginForm');
+            const regForm = document.getElementById('registerForm');
+            const demoBox = document.getElementById('demoAccountsBox');
+
+            if (isLogin) {
+                tabLogin.classList.add('active');
+                tabReg.classList.remove('active');
+                demoBox.classList.remove('d-none');
+                loginForm.classList.remove('d-none');
+                regForm.classList.add('d-none');
+                document.getElementById('usernameInput').focus();
+
+                if (typeof gsap !== 'undefined') {
+                    gsap.fromTo(loginForm, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.25, ease: "power2.out" });
+                }
+            } else {
+                tabReg.classList.add('active');
+                tabLogin.classList.remove('active');
+                demoBox.classList.add('d-none');
+                loginForm.classList.add('d-none');
+                regForm.classList.remove('d-none');
+                document.getElementById('regUsernameInput').focus();
+
+                if (typeof gsap !== 'undefined') {
+                    gsap.fromTo(regForm, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.25, ease: "power2.out" });
+                }
+            }
+        }
+
+        // 4. 密碼切換顯示/隱藏
+        function setupPasswordToggle(btnId, inputId, iconId) {
+            const btn = document.getElementById(btnId);
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+            if (!btn || !input || !icon) return;
+
+            btn.addEventListener('click', () => {
+                const isPassword = input.type === 'password';
+                input.type = isPassword ? 'text' : 'password';
+                icon.className = isPassword ? 'bi bi-eye text-primary' : 'bi bi-eye-slash text-secondary';
+            });
+        }
+        setupPasswordToggle('togglePasswordBtn', 'passwordInput', 'togglePasswordIcon');
+        setupPasswordToggle('toggleRegPasswordBtn', 'regPasswordInput', 'toggleRegPasswordIcon');
+
+        // 5. 一鍵填入展示帳號
         function fillAccount(username, password) {
+            switchAuthMode('login');
             document.getElementById('usernameInput').value = username;
             document.getElementById('passwordInput').value = password;
             hideAlert();
-            showToast(`已自動帶入帳號密碼 (${username})`, "bi-check-circle text-success");
-            pwdInput.focus();
+            showToast(`已自動帶入展示帳號 (${username})`, "bi-check-circle text-success");
+            document.getElementById('passwordInput').focus();
         }
 
-        // 4. 錯誤提示與 Toast
+        // 6. 錯誤提示與 Toast 訊息
         function showAlert(msg) {
             const alertBox = document.getElementById('loginAlertBox');
             const alertText = document.getElementById('loginAlertText');
-            alertText.textContent = msg;
+            alertText.innerHTML = msg;
             alertBox.classList.remove('d-none');
+            if (typeof gsap !== 'undefined') {
+                gsap.fromTo(alertBox, { scale: 0.95, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.2, ease: "power2.out" });
+            }
         }
 
         function hideAlert() {
@@ -275,11 +458,11 @@
             const toastEl = document.getElementById('loginToast');
             const toastMsg = document.getElementById('toastMessage');
             toastMsg.innerHTML = `<i class="bi ${iconClass} fs-5"></i> <span>${message}</span>`;
-            const toast = new bootstrap.Toast(toastEl, { delay: 2500 });
+            const toast = new bootstrap.Toast(toastEl, { delay: 2600 });
             toast.show();
         }
 
-        // 5. 訪客快速通道
+        // 7. 訪客快速體驗
         function guestLogin() {
             const guestUser = {
                 username: "guest",
@@ -288,13 +471,14 @@
                 loginTime: new Date().toISOString()
             };
             sessionStorage.setItem('currentUser', JSON.stringify(guestUser));
+            localStorage.setItem('web_library_user', 'guest');
             showToast("以訪客身分登入，正在跳轉...", "bi-person-check text-info");
             setTimeout(() => {
                 window.location.href = 'index.html';
             }, 500);
         }
 
-        // 6. 表單送出
+        // ==================== 8. 登入表單提交處理 (嚴格檢查註冊帳密) ====================
         const loginForm = document.getElementById('loginForm');
         loginForm.addEventListener('submit', function (e) {
             e.preventDefault();
@@ -316,39 +500,45 @@
                 return;
             }
 
-            if (password.length < 4) {
-                showAlert('密碼長度不得少於 4 碼');
+            // 讀取所有已註冊帳號
+            const registeredUsers = getRegisteredUsers();
+            const matchedUser = registeredUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
+
+            // ⚠️ 關鍵防護：檢查帳號是否存在
+            if (!matchedUser) {
+                showAlert(`帳號「<strong>${escapeHtml(username)}</strong>」尚未註冊！<br><span class="mt-1 d-inline-block">👉 請點擊上方「<strong>註冊新帳號</strong>」建立專屬個人檔案。</span>`);
+                document.getElementById('usernameInput').focus();
+                return;
+            }
+
+            // ⚠️ 關鍵防護：檢查密碼是否相符
+            if (matchedUser.password !== password) {
+                showAlert('密碼不正確，請重新輸入！(可點擊上方一鍵帶入展示帳密)');
                 document.getElementById('passwordInput').focus();
                 return;
             }
 
+            // 驗證通過，執行登入程序
             const submitBtn = document.getElementById('submitLoginBtn');
             const spinner = document.getElementById('submitSpinner');
             const btnText = document.getElementById('submitBtnText');
             submitBtn.disabled = true;
             spinner.classList.remove('d-none');
-            btnText.textContent = "驗證中...";
+            btnText.textContent = "驗證成功，正在進入...";
 
             setTimeout(() => {
-                let role = "一般會員";
-                let displayName = username;
-
-                if (username.toLowerCase() === 'admin') {
-                    role = "系統管理員";
-                    displayName = "管理員 (Admin)";
-                } else if (username.toLowerCase() === 'student') {
-                    role = "學生研究員";
-                    displayName = "學生 (Student)";
-                }
+                const displayName = matchedUser.name || matchedUser.username;
+                const role = matchedUser.role || "一般會員";
 
                 const userInfo = {
-                    username: username,
+                    username: matchedUser.username,
                     name: displayName,
                     role: role,
                     rememberMe: rememberMe,
                     loginTime: new Date().toISOString()
                 };
 
+                localStorage.setItem('web_library_user', matchedUser.username);
                 if (rememberMe) {
                     localStorage.setItem('currentUser', JSON.stringify(userInfo));
                     sessionStorage.removeItem('currentUser');
@@ -362,8 +552,117 @@
                 setTimeout(() => {
                     window.location.href = 'index.html';
                 }, 500);
+            }, 350);
+        });
+
+        // ==================== 9. 註冊表單提交處理 (新增帳號與持久化) ====================
+        const registerForm = document.getElementById('registerForm');
+        registerForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            hideAlert();
+
+            const regUsername = document.getElementById('regUsernameInput').value.trim();
+            const regName = document.getElementById('regNameInput').value.trim() || regUsername;
+            const regPassword = document.getElementById('regPasswordInput').value.trim();
+            const regConfirmPassword = document.getElementById('regConfirmPasswordInput').value.trim();
+
+            if (!regUsername) {
+                showAlert('請設定使用者帳號');
+                document.getElementById('regUsernameInput').focus();
+                return;
+            }
+
+            if (regUsername.length < 3) {
+                showAlert('帳號長度不得少於 3 個字元');
+                document.getElementById('regUsernameInput').focus();
+                return;
+            }
+
+            // 限制帳號字元避免特殊符號破壞儲存
+            if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(regUsername)) {
+                showAlert('帳號僅支援中英文字母、數字與底線');
+                document.getElementById('regUsernameInput').focus();
+                return;
+            }
+
+            if (!regPassword) {
+                showAlert('請設定登入密碼');
+                document.getElementById('regPasswordInput').focus();
+                return;
+            }
+
+            if (regPassword.length < 4) {
+                showAlert('密碼長度不得少於 4 碼');
+                document.getElementById('regPasswordInput').focus();
+                return;
+            }
+
+            if (regPassword !== regConfirmPassword) {
+                showAlert('兩次輸入的密碼不一致，請重新確認！');
+                document.getElementById('regConfirmPasswordInput').focus();
+                return;
+            }
+
+            // 檢查是否重複註冊
+            const registeredUsers = getRegisteredUsers();
+            const isDuplicate = registeredUsers.some(u => u.username.toLowerCase() === regUsername.toLowerCase());
+
+            if (isDuplicate) {
+                showAlert(`帳號「<strong>${escapeHtml(regUsername)}</strong>」已經被註冊過了，請更換其他帳號！`);
+                document.getElementById('regUsernameInput').focus();
+                return;
+            }
+
+            // 建立新使用者並寫入
+            const submitRegBtn = document.getElementById('submitRegBtn');
+            const submitRegSpinner = document.getElementById('submitRegSpinner');
+            const submitRegBtnText = document.getElementById('submitRegBtnText');
+            submitRegBtn.disabled = true;
+            submitRegSpinner.classList.remove('d-none');
+            submitRegBtnText.textContent = "註冊中...";
+
+            const newUser = {
+                username: regUsername,
+                password: regPassword,
+                name: regName,
+                role: '註冊會員',
+                createdAt: new Date().toISOString()
+            };
+
+            registeredUsers.push(newUser);
+            localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+
+            // 註冊成功後自動登入
+            setTimeout(() => {
+                const userInfo = {
+                    username: newUser.username,
+                    name: newUser.name,
+                    role: newUser.role,
+                    rememberMe: true,
+                    loginTime: new Date().toISOString()
+                };
+
+                localStorage.setItem('web_library_user', newUser.username);
+                localStorage.setItem('currentUser', JSON.stringify(userInfo));
+
+                showToast(`🎉 註冊成功！歡迎加入，${newUser.name}！`, "bi-check-circle-fill text-success");
+
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 600);
             }, 400);
         });
+
+        // 輔助防 XSS
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
     </script>
 </body>
 </html>
