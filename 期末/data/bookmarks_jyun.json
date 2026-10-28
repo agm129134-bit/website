@@ -1,7 +1,22 @@
 {
   "user": "jyun",
-  "count": 31,
+  "count": 32,
   "bookmarks": [
+    {
+      "id": "bm_1793189961536_33mh",
+      "title": "ai-test-case/README.md at main · ruanyf/ai-test-case",
+      "url": "https://github.com/ruanyf/ai-test-case/blob/main/README.md#Case02",
+      "category": "web",
+      "tags": [
+        "GitHub",
+        "開源項目"
+      ],
+      "cover": "https://opengraph.githubassets.com/1/ruanyf/ai-test-case",
+      "desc": "",
+      "pinned": false,
+      "clicks": 0,
+      "createdAt": "2026-10-28T12:19:21.536Z"
+    },
     {
       "id": "bm_1793188998445_9c76",
       "title": "greensock/GSAP: GSAP (GreenSock Animation Platform), a JavaScript animation library for the modern web",
@@ -481,5 +496,5 @@
       "createdAt": "2026-10-25T06:26:40.071Z"
     }
   ],
-  "updatedAt": "2026-10-28T12:03:18.688Z"
+  "updatedAt": "2026-10-28T12:19:21.780Z"
 }
