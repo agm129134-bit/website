@@ -1,10 +1,12 @@
 /**
  * Docker 控制模組 - 提供前端一鍵部署、啟動、關閉、重啟與移除容器 API
+ * 顯式指定 -p web-library 專案名稱，徹底杜絕 Windows 中文目錄名 (期末) 引發之 "project name must not be empty" 錯誤！
  */
 const { exec } = require('child_process');
 const path = require('path');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
+const COMPOSE_BASE = 'docker compose -p web-library';
 
 function handleDockerRoute(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -60,19 +62,19 @@ function handleDockerRoute(req, res) {
 
                 switch (action) {
                     case 'up':
-                        cmd = 'docker compose up -d --build';
+                        cmd = `${COMPOSE_BASE} up -d --build`;
                         break;
                     case 'start':
-                        cmd = 'docker compose start';
+                        cmd = `${COMPOSE_BASE} start`;
                         break;
                     case 'stop':
-                        cmd = 'docker compose stop';
+                        cmd = `${COMPOSE_BASE} stop`;
                         break;
                     case 'restart':
-                        cmd = 'docker compose restart';
+                        cmd = `${COMPOSE_BASE} restart`;
                         break;
                     case 'down':
-                        cmd = 'docker compose down';
+                        cmd = `${COMPOSE_BASE} down`;
                         break;
                     default:
                         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });

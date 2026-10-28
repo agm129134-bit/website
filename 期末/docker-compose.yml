@@ -1,4 +1,4 @@
-version: '3.8'
+name: web-library
 
 services:
   web-library:
@@ -6,7 +6,7 @@ services:
     container_name: web-library
     restart: unless-stopped
     ports:
-      # 外部映射端口改為 8090，避開 8000、8080 與 3000 端口衝突
+      # 外部映射端口為 8090，避開 8000、8080 與 3000 端口衝突
       - "8090:8090"
     volumes:
       # 掛載本地 data 資料夾至容器內部，實現書籤與用戶資料永久持久化
