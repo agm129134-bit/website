@@ -604,7 +604,7 @@ window.resetAllFilters = function() {
 };
 
 // 收藏卡片生成渲染
-function renderBookmarks() {
+function renderBookmarks(skipAnimation = false) {
     const container = document.getElementById("bookmarkContainer");
     const emptyState = document.getElementById("emptyState");
     const items = getFilteredAndSortedBookmarks();
@@ -783,7 +783,7 @@ function renderBookmarks() {
     });
 
     // GSAP 3 物理交錯彈入動畫 (Stagger In & Smooth Damping)
-    if (typeof gsap !== 'undefined') {
+    if (!skipAnimation && typeof gsap !== 'undefined') {
         const isList = state.viewMode === "list";
         if (isList) {
             gsap.fromTo("#bookmarkContainer .bookmark-card", 
@@ -921,38 +921,69 @@ function setupEventListeners() {
             document.body.classList.remove("list-view-mode");
         }
 
-        // 帶有 GSAP 物理轉場效果的視圖切換器
+        // 帶有 GSAP 容器無縫轉場效果的視圖切換器 (徹底杜絕卡頓與跑版破格)
+        let isSwitchingView = false;
         const switchViewWithAnimation = (targetMode) => {
-            if (state.viewMode === targetMode) return;
-            state.viewMode = targetMode;
-            localStorage.setItem("web_library_view_mode", targetMode);
+            if (state.viewMode === targetMode || isSwitchingView) return;
+            isSwitchingView = true;
 
+            const container = document.getElementById("bookmarkContainer");
+
+            // 1. 立即更新按鈕狀態 (給予使用者即時點擊反饋)
             if (targetMode === "list") {
                 listBtn.classList.add("active");
                 gridBtn.classList.remove("active");
-                document.body.classList.add("list-view-mode");
             } else {
                 gridBtn.classList.add("active");
                 listBtn.classList.remove("active");
-                document.body.classList.remove("list-view-mode");
             }
 
-            const cards = document.querySelectorAll("#bookmarkContainer .bookmark-card");
-            if (typeof gsap !== 'undefined' && cards.length > 0) {
-                // 退場過渡動畫 (Animate-out)
-                gsap.to(cards, {
+            if (typeof gsap !== 'undefined' && container && container.children.length > 0) {
+                // 2. 容器快速平滑淡出 (0.12s 毫無卡頓)
+                gsap.to(container, {
                     opacity: 0,
-                    y: targetMode === "list" ? -12 : 12,
-                    scale: 0.95,
-                    duration: 0.16,
-                    stagger: 0.015,
+                    y: targetMode === "list" ? -8 : 8,
+                    duration: 0.12,
                     ease: "power2.in",
                     onComplete: () => {
-                        renderBookmarks();
+                        // 3. 在完全隱形狀態下切換模式，絕不破版！
+                        state.viewMode = targetMode;
+                        localStorage.setItem("web_library_view_mode", targetMode);
+                        if (targetMode === "list") {
+                            document.body.classList.add("list-view-mode");
+                        } else {
+                            document.body.classList.remove("list-view-mode");
+                        }
+
+                        // 4. 重繪新版面
+                        renderBookmarks(true);
+
+                        // 5. 容器流暢滑入進場 (0.2s 絲滑銜接)
+                        gsap.fromTo(container,
+                            { opacity: 0, y: targetMode === "list" ? 8 : -8 },
+                            {
+                                opacity: 1,
+                                y: 0,
+                                duration: 0.22,
+                                ease: "power2.out",
+                                clearProps: "all",
+                                onComplete: () => {
+                                    isSwitchingView = false;
+                                }
+                            }
+                        );
                     }
                 });
             } else {
+                state.viewMode = targetMode;
+                localStorage.setItem("web_library_view_mode", targetMode);
+                if (targetMode === "list") {
+                    document.body.classList.add("list-view-mode");
+                } else {
+                    document.body.classList.remove("list-view-mode");
+                }
                 renderBookmarks();
+                isSwitchingView = false;
             }
         };
 
@@ -4114,6 +4145,247 @@ if (!window.saveNovelBookshelf) {
         }
     };
 }
+
+// ============================================================
+// 3D 擬真立體書架全域核心引擎 (支援琴鍵式相鄰波浪聯動 & 3D 抽書起伏)
+// ============================================================
+function bindBookshelfWaveEffect(bookEl) {
+    if (!bookEl || typeof gsap === 'undefined') return;
+
+    bookEl.addEventListener('mouseenter', () => {
+        // 1. 當前書本：3D 拔起 + 微傾角 + 深度投影
+        gsap.to(bookEl, {
+            y: -22,
+            scale: 1.1,
+            rotateY: -8,
+            rotateZ: -1.5,
+            duration: 0.35,
+            ease: "back.out(2)",
+            overwrite: "auto"
+        });
+
+        // 2. 琴鍵式相鄰波浪：前一本微幅起伏
+        const prev = bookEl.previousElementSibling;
+        if (prev && prev.classList.contains("bookshelf-book")) {
+            gsap.to(prev, {
+                y: -8,
+                scale: 1.03,
+                rotateY: -3,
+                duration: 0.28,
+                ease: "power1.out",
+                overwrite: "auto"
+            });
+        }
+
+        // 3. 琴鍵式相鄰波浪：後一本微幅起伏
+        const next = bookEl.nextElementSibling;
+        if (next && next.classList.contains("bookshelf-book")) {
+            gsap.to(next, {
+                y: -8,
+                scale: 1.03,
+                rotateY: 3,
+                duration: 0.28,
+                ease: "power1.out",
+                overwrite: "auto"
+            });
+        }
+    });
+
+    bookEl.addEventListener('mouseleave', () => {
+        // 當前書本彈簧復位
+        gsap.to(bookEl, {
+            y: 0,
+            scale: 1,
+            rotateY: 0,
+            rotateZ: 0,
+            duration: 0.35,
+            ease: "power2.out",
+            overwrite: "auto"
+        });
+
+        // 前一本復位
+        const prev = bookEl.previousElementSibling;
+        if (prev && prev.classList.contains("bookshelf-book")) {
+            gsap.to(prev, {
+                y: 0,
+                scale: 1,
+                rotateY: 0,
+                duration: 0.3,
+                ease: "power2.out",
+                overwrite: "auto"
+            });
+        }
+
+        // 後一本復位
+        const next = bookEl.nextElementSibling;
+        if (next && next.classList.contains("bookshelf-book")) {
+            gsap.to(next, {
+                y: 0,
+                scale: 1,
+                rotateY: 0,
+                duration: 0.3,
+                ease: "power2.out",
+                overwrite: "auto"
+            });
+        }
+    });
+}
+
+// 渲染條漫立體書架
+window.renderMangaBookshelf = function() {
+    const grid = document.getElementById("mangaBookshelfGrid");
+    if (!grid) return;
+    const shelf = window.getMangaBookshelf();
+    grid.innerHTML = "";
+
+    if (shelf.length === 0) {
+        grid.innerHTML = `
+            <div class="text-white-50 py-5 small text-center w-100 d-flex flex-column align-items-center justify-content-center">
+                <i class="bi bi-collection fs-1 text-primary opacity-50 mb-2"></i>
+                <div class="fw-semibold fs-6 text-white mb-1">條漫書架目前尚無藏書</div>
+                <div class="text-white-50 small mb-3">可在上方搜尋漫畫或選集抽屜點擊「+ 放進書架」，即可將喜愛的作品陳列於此！</div>
+                <button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="openMangaSearchModal('')">
+                    <i class="bi bi-search me-1"></i> 前往搜尋漫畫
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    shelf.forEach(book => {
+        const bookEl = document.createElement("div");
+        bookEl.className = "bookshelf-book";
+        bookEl.innerHTML = `
+            <span class="bookshelf-badge bg-primary text-white">${escapeHtml(book.tag || '條漫')}</span>
+            <button type="button" class="bookshelf-remove-btn" title="移出書架" onclick="event.stopPropagation(); removeBookFromMangaShelf('${escapeHtml(book.title)}')">✕</button>
+            <div class="bookshelf-book-cover-wrap">
+                <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80'">
+            </div>
+            <div class="bookshelf-book-title" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
+            <div class="bookshelf-book-sub">點擊開卷</div>
+        `;
+        bookEl.onclick = () => {
+            if (typeof window.openMangaSearchModal === 'function') {
+                window.openMangaSearchModal(book.title);
+            }
+        };
+        bindBookshelfWaveEffect(bookEl);
+        grid.appendChild(bookEl);
+    });
+
+    if (typeof gsap !== 'undefined') {
+        gsap.from("#mangaBookshelfGrid .bookshelf-book", {
+            y: 35,
+            opacity: 0,
+            rotateY: -15,
+            scale: 0.9,
+            stagger: 0.06,
+            duration: 0.45,
+            ease: "back.out(1.5)"
+        });
+    }
+};
+
+window.removeBookFromMangaShelf = function(title) {
+    let shelf = window.getMangaBookshelf();
+    shelf = shelf.filter(b => b.title !== title);
+    window.saveMangaBookshelf(shelf);
+    if (typeof showToast === 'function') {
+        showToast(`已將《${title}》移出條漫書架`, "bi-trash text-warning");
+    }
+};
+
+// 渲染小說立體書架
+window.renderNovelBookshelf = function() {
+    const grid = document.getElementById("novelBookshelfGrid");
+    if (!grid) return;
+    const shelf = window.getNovelBookshelf();
+    grid.innerHTML = "";
+
+    if (shelf.length === 0) {
+        grid.innerHTML = `
+            <div class="text-muted py-5 small text-center w-100 d-flex flex-column align-items-center justify-content-center">
+                <i class="bi bi-book-half fs-1 text-success opacity-50 mb-2"></i>
+                <div class="fw-semibold fs-6 text-dark mb-1">小說書房目前尚無藏書</div>
+                <div class="text-muted small mb-3">可在上方搜尋輕小說或選集抽屜點擊「+ 放進書房」，即可將喜愛的作品陳列於此！</div>
+                <button class="btn btn-sm btn-outline-success rounded-pill px-3" onclick="openNovelSearchModal('')">
+                    <i class="bi bi-search me-1"></i> 前往搜尋小說
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    shelf.forEach(book => {
+        const bookEl = document.createElement("div");
+        bookEl.className = "bookshelf-book";
+        bookEl.innerHTML = `
+            <span class="bookshelf-badge bg-success text-white">${escapeHtml(book.tag || '小說')}</span>
+            <button type="button" class="bookshelf-remove-btn" title="移出書房" onclick="event.stopPropagation(); removeBookFromNovelShelf('${escapeHtml(book.title)}')">✕</button>
+            <div class="bookshelf-book-cover-wrap">
+                <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80'">
+            </div>
+            <div class="bookshelf-book-title text-dark" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
+            <div class="bookshelf-book-sub">點擊翻閱</div>
+        `;
+        bookEl.onclick = () => {
+            if (typeof window.openNovelSearchModal === 'function') {
+                window.openNovelSearchModal(book.title);
+            }
+        };
+        bindBookshelfWaveEffect(bookEl);
+        grid.appendChild(bookEl);
+    });
+
+    if (typeof gsap !== 'undefined') {
+        gsap.from("#novelBookshelfGrid .bookshelf-book", {
+            y: 35,
+            opacity: 0,
+            rotateY: -15,
+            scale: 0.9,
+            stagger: 0.06,
+            duration: 0.45,
+            ease: "back.out(1.5)"
+        });
+    }
+};
+
+window.removeBookFromNovelShelf = function(title) {
+    let shelf = window.getNovelBookshelf();
+    shelf = shelf.filter(b => b.title !== title);
+    window.saveNovelBookshelf(shelf);
+    if (typeof showToast === 'function') {
+        showToast(`已將《${title}》移出小說書房`, "bi-trash text-warning");
+    }
+};
+
+// 監聽 Modal 開啟自動觸發書架渲染與 GSAP 彈性擺入
+document.addEventListener("DOMContentLoaded", () => {
+    const mangaModal = document.getElementById("mangaReaderModal");
+    if (mangaModal) {
+        mangaModal.addEventListener('shown.bs.modal', () => {
+            if (typeof window.renderMangaBookshelf === 'function') {
+                window.renderMangaBookshelf();
+            }
+        });
+    }
+
+    const novelModal = document.getElementById("novelReaderModal");
+    if (novelModal) {
+        novelModal.addEventListener('shown.bs.modal', () => {
+            if (typeof window.renderNovelBookshelf === 'function') {
+                window.renderNovelBookshelf();
+            }
+        });
+    }
+
+    // 初次載入渲染待命書架
+    setTimeout(() => {
+        if (typeof window.renderMangaBookshelf === 'function') window.renderMangaBookshelf();
+        if (typeof window.renderNovelBookshelf === 'function') window.renderNovelBookshelf();
+    }, 200);
+});
+
 if (!window.toggleNovelBookshelfItem) {
     window.toggleNovelBookshelfItem = function(title, cover, btnEl) {
         if (!title) return;
