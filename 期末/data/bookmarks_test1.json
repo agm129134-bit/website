@@ -1,0 +1,23 @@
+{
+  "user": "test1",
+  "count": 1,
+  "bookmarks": [
+    {
+      "id": "bm_1793158993660_7o01",
+      "title": "Gemini 同款彩虹光晕按钮｜纯 CSS 不用 JavaScript｜conic-gradient + @property 教程",
+      "url": "https://www.bilibili.com/video/BV1P1J26oEnN/?spm_id_from=333.1007.top_right_bar_window_default_collection.content.click&vd_source=e998dfa0046c15728462b51767d2c101",
+      "category": "video",
+      "tags": [
+        "Bilibili",
+        "B站",
+        "影音影片"
+      ],
+      "cover": "https://i2.hdslb.com/bfs/archive/57fb1c78f25c626809d409c1efa4c7e1c9597c2c.jpg@1200w_630h",
+      "desc": "Gemini 同款彩虹光晕按钮｜纯 CSS 不用 JavaScript｜conic-gradient + @property 教程共计2条视频，包括：普通话、粤语等，UP主更多精彩视频，请关注UP账号。",
+      "pinned": false,
+      "clicks": 0,
+      "createdAt": "2026-10-28T03:43:13.660Z"
+    }
+  ],
+  "updatedAt": "2026-10-28T03:43:13.921Z"
+}
