@@ -29633,67 +29633,114 @@ let lastDockerOutput = { cmd: '', output: '', status: '' };
 
 
 window.checkDockerStatus = async function(isManual = false) {
-
     const badge = document.getElementById("dockerStatusBadge");
-
-    if (!badge) return;
+    const navBadge = document.getElementById("navDockerBadge");
+    const dropdownWrapper = document.getElementById("dockerDropdownWrapper");
 
     try {
-
         const res = await fetch('/api/docker/status');
-
         if (!res.ok) throw new Error('伺服器未運行');
-
         const data = await res.json();
 
-        if (data.inContainer) {
+        // 偵測是否運行在 8095 Docker 容器環境
+        const isPort8095 = window.location.port === '8095';
+        const inDocker = !!(data.inContainer || isPort8095);
 
-            badge.className = "badge bg-success rounded-pill";
+        if (inDocker && dropdownWrapper) {
+            // 在 8095 Docker 容器環境：不顯示管理按鈕，僅顯示「🟢 容器運行中 (In Docker)」與「前往 8090 (檢查是否開啟)」
+            let port8090Active = false;
+            try {
+                // 探測宿主機 8090 是否開啟 (設定 1.5 秒超時)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 1500);
+                const probeRes = await fetch('http://localhost:8090/api/docker/status', {
+                    method: 'GET',
+                    mode: 'no-cors',
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                port8090Active = true;
+            } catch (err) {
+                port8090Active = false;
+            }
 
-            badge.textContent = "容器運行中 (In Docker)";
+            dropdownWrapper.innerHTML = `
+                <div class="dropdown">
+                    <button class="btn btn-outline-success btn-sm d-flex align-items-center gap-1.5 px-2.5 py-1.5 dropdown-toggle" type="button" id="dockerMenuBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Docker 容器運行中">
+                        <i class="bi bi-hdd-network-fill text-success"></i>
+                        <span class="d-none d-xl-inline">Docker</span>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill fs-xs">In Docker</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="dockerMenuBtn" style="min-width: 270px;">
+                        <li><h6 class="dropdown-header d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-box-seam me-1"></i> 當前容器狀態</span>
+                            <span class="badge bg-success rounded-pill">運行中</span>
+                        </h6></li>
+                        <li class="px-3 py-2 text-muted small border-bottom">
+                            <div class="fw-semibold text-dark"><i class="bi bi-check-circle-fill text-success me-1"></i> 🟢 容器運行中 (In Docker)</div>
+                            <div class="fs-xs mt-1">目前正透過 Port 8095 Docker 容器瀏覽本圖書館。</div>
+                        </li>
+                        <li><h6 class="dropdown-header mt-1">宿主機本地伺服器 (Port 8090)</h6></li>
+                        <li>
+                            ${port8090Active ? `
+                                <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-primary" href="http://localhost:8090" target="_blank">
+                                    <i class="bi bi-box-arrow-up-right fs-6"></i>
+                                    <div>
+                                        <div class="fw-semibold">前往 8090 原生首頁</div>
+                                        <div class="text-success fs-xs"><i class="bi bi-record-fill"></i> 🟢 8090 伺服器正在運行</div>
+                                    </div>
+                                </a>
+                            ` : `
+                                <div class="dropdown-item d-flex align-items-center gap-2 py-2 text-muted" style="cursor: default; opacity: 0.85;">
+                                    <i class="bi bi-slash-circle text-danger fs-6"></i>
+                                    <div>
+                                        <div class="fw-semibold text-secondary">前往 8090 (目前未開啟)</div>
+                                        <div class="text-danger fs-xs"><i class="bi bi-x-circle-fill"></i> 🔴 8090 本機尚未啟動 node</div>
+                                    </div>
+                                </div>
+                            `}
+                        </li>
+                        <li><hr class="dropdown-divider my-1"></li>
+                        <li class="px-3 py-1.5 text-secondary fs-xs">
+                            <i class="bi bi-info-circle me-1"></i>如需關閉此容器，請在終端機輸入：<br>
+                            <code class="text-dark bg-light px-1 py-0.5 rounded border">docker compose -p web-library stop</code>
+                        </li>
+                    </ul>
+                </div>
+            `;
+            return;
+        }
 
-            const navBadge = document.getElementById("navDockerBadge");
-
-            if (navBadge) navBadge.textContent = "In Docker";
-
-        } else if (data.running) {
-
-            badge.className = "badge bg-success rounded-pill";
-
-            badge.textContent = "運行中 (Running)";
-
-        } else if (data.exists) {
-
-            badge.className = "badge bg-warning text-dark rounded-pill";
-
-            badge.textContent = "已停止 (Stopped)";
-
-        } else {
-
-            badge.className = "badge bg-secondary rounded-pill";
-
-            badge.textContent = "未建立 (Not Built)";
-
+        // 一般 8090 宿主機環境：顯示完整的 Docker 管理控制台
+        if (badge) {
+            if (data.inContainer) {
+                badge.className = "badge bg-success rounded-pill";
+                badge.textContent = "容器運行中 (In Docker)";
+            } else if (data.running) {
+                badge.className = "badge bg-success rounded-pill";
+                badge.textContent = "運行中 (Running)";
+            } else if (data.exists) {
+                badge.className = "badge bg-warning text-dark rounded-pill";
+                badge.textContent = "已停止 (Stopped)";
+            } else {
+                badge.className = "badge bg-secondary rounded-pill";
+                badge.textContent = "未建立 (Not Built)";
+            }
+        }
+        if (navBadge) {
+            navBadge.textContent = data.running ? "8095 (Up)" : "8095";
         }
 
         if (isManual && typeof showToast === 'function') {
-
-            showToast(`Docker 狀態：${badge.textContent}`, "bi-box-seam text-primary");
-
+            showToast(`Docker 狀態：${badge ? badge.textContent : '檢測完成'}`, "bi-box-seam text-primary");
         }
-
     } catch (e) {
-
-        badge.className = "badge bg-secondary rounded-pill";
-
-        badge.textContent = "離線 (8095)";
-
+        if (badge) {
+            badge.className = "badge bg-secondary rounded-pill";
+            badge.textContent = "離線 (8095)";
+        }
     }
-
 };
-
-
-
 window.executeDockerAction = async function(action) {
 
     const actionNames = {
