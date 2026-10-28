@@ -2073,7 +2073,7 @@
             }
         };
 
-        // 渲染小說立體書架
+        // 渲染小說立體書架 (智能分流：本機開卷 vs 線上搜尋)
         window.renderNovelBookshelf = function() {
             const grid = document.getElementById("novelBookshelfGrid");
             if (!grid) return;
@@ -2097,25 +2097,55 @@
             shelf.forEach(book => {
                 const bookEl = document.createElement("div");
                 bookEl.className = "bookshelf-book";
+                const isLocal = !!(book.isLocal || book.source === 'local' || (book.tag && book.tag.includes('本機')));
+                const badgeClass = isLocal ? "bg-info text-dark fw-bold" : "bg-success text-white";
+                const badgeText = isLocal ? "本機上傳" : "線上輕小說";
+                const subText = isLocal ? "點擊開卷 (本機)" : "點擊翻閱 (線上)";
+
                 bookEl.innerHTML = `
-                    <span class="bookshelf-badge bg-success text-white">${escapeHtml(book.tag || '小說')}</span>
+                    <span class="bookshelf-badge ${badgeClass}">${escapeHtml(book.tag || badgeText)}</span>
                     <button type="button" class="bookshelf-remove-btn" title="移出書房" onclick="event.stopPropagation(); removeBookFromNovelShelf('${escapeHtml(book.title)}')">✕</button>
                     <div class="bookshelf-book-cover-wrap">
                         <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80'">
                     </div>
                     <div class="bookshelf-book-title text-dark" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
-                    <div class="bookshelf-book-sub">點擊翻閱</div>
+                    <div class="bookshelf-book-sub ${isLocal ? 'text-primary fw-semibold' : ''}">${subText}</div>
                 `;
-                bookEl.onclick = () => {
-                    if (typeof window.openNovelSearchModal === 'function') {
-                        window.openNovelSearchModal(book.title);
+
+                bookEl.onclick = async () => {
+                    if (isLocal) {
+                        const bookId = book.id || ('local_' + book.title.replace(/\s+/g, '_'));
+                        let localData = typeof getLocalNovelFromDB === 'function' ? await getLocalNovelFromDB(bookId) : null;
+                        if (!localData && window.novelState && window.novelState.currentNovel && window.novelState.currentNovel.title === book.title) {
+                            localData = { title: book.title, chapters: window.novelState.chapters };
+                        }
+
+                        if (localData && Array.isArray(localData.chapters) && localData.chapters.length > 0) {
+                            if (typeof loadLocalBookIntoReader === 'function') {
+                                loadLocalBookIntoReader(localData.title, localData.chapters, bookId);
+                            }
+                            const placeholder = document.getElementById("legadoPlaceholder");
+                            if (placeholder) placeholder.style.display = "none";
+                            const readingArea = document.getElementById("novelReadingArea");
+                            if (readingArea) readingArea.style.display = "block";
+                        } else {
+                            if (typeof showToast === 'function') {
+                                showToast(`⚠️ 未找到《${book.title}》內容，請重新上傳`, "bi-exclamation-triangle text-warning");
+                            }
+                        }
+                    } else {
+                        if (typeof window.openNovelSearchModal === 'function') {
+                            window.openNovelSearchModal(book.title);
+                        }
                     }
                 };
-                bindBookshelfWaveEffect(bookEl);
+
+                if (typeof bindBookshelfWaveEffect === 'function') {
+                    bindBookshelfWaveEffect(bookEl);
+                }
                 grid.appendChild(bookEl);
             });
 
-            // GSAP 3D 擺入動態
             if (typeof gsap !== 'undefined') {
                 gsap.from("#novelBookshelfGrid .bookshelf-book", {
                     y: 35,
@@ -2129,8 +2159,7 @@
             }
         };
 
-        // 移出小說書房
-        window.removeBookFromNovelShelf = function(title) {
+        window.removeBookFromNovelShelf = functionwindow.removeBookFromNovelShelf = function(title) {
             let shelf = getNovelBookshelf();
             shelf = shelf.filter(b => b.title !== title);
             saveNovelBookshelf(shelf);
@@ -2176,8 +2205,8 @@
             }
         };
 
-        // 當前小說一鍵收進書房
-        window.toggleCurrentNovelToBookshelf = function() {
+        // 當前小說一鍵收進書房 (智能區分本機與線上)
+        window.toggleCurrentNovelToBookshelf = async function() {
             if (!novelState.currentNovel || !novelState.currentNovel.title) {
                 if (typeof showToast === 'function') {
                     showToast("目前尚未開啟任何小說！", "bi-exclamation-circle text-info");
@@ -2192,14 +2221,31 @@
                 }
                 return;
             }
+
+            const isLocal = !!cur.isLocal;
+            const bookId = cur.id || (isLocal ? ('local_' + cur.title.replace(/\s+/g, '_')) : ('online_' + cur.title));
+
+            if (isLocal && novelState.chapters && novelState.chapters.length > 0 && typeof saveLocalNovelToDB === 'function') {
+                await saveLocalNovelToDB({
+                    id: bookId,
+                    title: cur.title,
+                    chapters: novelState.chapters,
+                    isLocal: true,
+                    updatedAt: new Date().toISOString()
+                });
+            }
+
             shelf.unshift({
+                id: bookId,
                 title: cur.title,
                 cover: cur.cover || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80",
-                tag: "已收藏"
+                tag: isLocal ? "本機上傳" : "線上輕小說",
+                isLocal: isLocal,
+                source: isLocal ? "local" : "online"
             });
             saveNovelBookshelf(shelf);
             if (typeof showToast === 'function') {
-                showToast(`🎉 成功將《${cur.title}》收藏進小說立體書房！`, "bi-star-fill text-warning");
+                showToast(`🎉 成功將${isLocal ? '本機小說' : '線上小說'}《${cur.title}》收藏進小說立體書房！`, "bi-star-fill text-warning");
             }
         };
     </script>

@@ -4295,11 +4295,11 @@ window.removeBookFromMangaShelf = function(title) {
     }
 };
 
-// 渲染小說立體書架
+// 渲染小說立體書架 (智能區分本機上傳與線上搜尋開卷)
 window.renderNovelBookshelf = function() {
     const grid = document.getElementById("novelBookshelfGrid");
     if (!grid) return;
-    const shelf = window.getNovelBookshelf();
+    const shelf = window.getNovelBookshelf ? window.getNovelBookshelf() : [];
     grid.innerHTML = "";
 
     if (shelf.length === 0) {
@@ -4307,10 +4307,15 @@ window.renderNovelBookshelf = function() {
             <div class="text-muted py-5 small text-center w-100 d-flex flex-column align-items-center justify-content-center">
                 <i class="bi bi-book-half fs-1 text-success opacity-50 mb-2"></i>
                 <div class="fw-semibold fs-6 text-dark mb-1">小說書房目前尚無藏書</div>
-                <div class="text-muted small mb-3">可在上方搜尋輕小說或選集抽屜點擊「+ 放進書房」，即可將喜愛的作品陳列於此！</div>
-                <button class="btn btn-sm btn-outline-success rounded-pill px-3" onclick="openNovelSearchModal('')">
-                    <i class="bi bi-search me-1"></i> 前往搜尋小說
-                </button>
+                <div class="text-muted small mb-3">可在上方搜尋輕小說或點擊「上傳電子書」，即可將喜愛的作品陳列於此！</div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-success rounded-pill px-3" onclick="openNovelSearchModal('')">
+                        <i class="bi bi-search me-1"></i> 搜尋線上小說
+                    </button>
+                    <button class="btn btn-sm btn-success rounded-pill px-3" onclick="document.getElementById('novelLocalFileInput').click()">
+                        <i class="bi bi-upload me-1"></i> 上傳本機小說
+                    </button>
+                </div>
             </div>
         `;
         return;
@@ -4319,21 +4324,53 @@ window.renderNovelBookshelf = function() {
     shelf.forEach(book => {
         const bookEl = document.createElement("div");
         bookEl.className = "bookshelf-book";
+        const isLocal = !!(book.isLocal || book.source === 'local' || (book.tag && book.tag.includes('本機')));
+        const badgeClass = isLocal ? "bg-info text-dark fw-bold" : "bg-success text-white";
+        const badgeText = isLocal ? "本機上傳" : "線上輕小說";
+        const subText = isLocal ? "點擊開卷 (本機)" : "點擊翻閱 (線上)";
+
         bookEl.innerHTML = `
-            <span class="bookshelf-badge bg-success text-white">${escapeHtml(book.tag || '小說')}</span>
+            <span class="bookshelf-badge ${badgeClass}">${escapeHtml(book.tag || badgeText)}</span>
             <button type="button" class="bookshelf-remove-btn" title="移出書房" onclick="event.stopPropagation(); removeBookFromNovelShelf('${escapeHtml(book.title)}')">✕</button>
             <div class="bookshelf-book-cover-wrap">
                 <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80'">
             </div>
             <div class="bookshelf-book-title text-dark" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
-            <div class="bookshelf-book-sub">點擊翻閱</div>
+            <div class="bookshelf-book-sub ${isLocal ? 'text-primary fw-semibold' : ''}">${subText}</div>
         `;
-        bookEl.onclick = () => {
-            if (typeof window.openNovelSearchModal === 'function') {
-                window.openNovelSearchModal(book.title);
+
+        bookEl.onclick = async () => {
+            if (isLocal) {
+                // 本機電子書開卷邏輯：自 IndexedDB 讀取完整章節
+                const bookId = book.id || ('local_' + book.title.replace(/\s+/g, '_'));
+                let localData = await getLocalNovelFromDB(bookId);
+                
+                // 若未找到，嘗試按標題查詢
+                if (!localData && window.novelState && window.novelState.currentNovel && window.novelState.currentNovel.title === book.title) {
+                    localData = { title: book.title, chapters: window.novelState.chapters };
+                }
+
+                if (localData && Array.isArray(localData.chapters) && localData.chapters.length > 0) {
+                    loadLocalBookIntoReader(localData.title, localData.chapters, bookId);
+                    // 切換為閱讀中畫面
+                    const placeholder = document.getElementById("legadoPlaceholder");
+                    if (placeholder) placeholder.style.display = "none";
+                    const readingArea = document.getElementById("novelReadingArea");
+                    if (readingArea) readingArea.style.display = "block";
+                } else {
+                    showToast(`⚠️ 未在本地快取找到《${book.title}》的內容，請點擊「上傳電子書」重新載入！`, "bi-exclamation-triangle text-warning");
+                }
+            } else {
+                // 線上小說：開啟搜尋與選集抽屜
+                if (typeof window.openNovelSearchModal === 'function') {
+                    window.openNovelSearchModal(book.title);
+                }
             }
         };
-        bindBookshelfWaveEffect(bookEl);
+
+        if (typeof bindBookshelfWaveEffect === 'function') {
+            bindBookshelfWaveEffect(bookEl);
+        }
         grid.appendChild(bookEl);
     });
 
@@ -4350,7 +4387,7 @@ window.renderNovelBookshelf = function() {
     }
 };
 
-window.removeBookFromNovelShelf = function(title) {
+window.removeBookFromNovelShelf = functionwindow.removeBookFromNovelShelf = function(title) {
     let shelf = window.getNovelBookshelf();
     shelf = shelf.filter(b => b.title !== title);
     window.saveNovelBookshelf(shelf);
@@ -5671,22 +5708,102 @@ async function parseAndLoadEpubBook(file, bookTitle) {
 }
 
 // 載入本機書籍到閱讀器
-function loadLocalBookIntoReader(bookTitle, chapters) {
+
+// ============================================================
+// 本機小說 IndexedDB 永續存儲引擎 (突破 localStorage 5MB 限制)
+// ============================================================
+const LOCAL_NOVEL_DB_NAME = 'WebLibraryLocalNovels';
+const LOCAL_NOVEL_STORE_NAME = 'novel_chapters';
+
+function getLocalNovelDB() {
+    return new Promise((resolve, reject) => {
+        if (!window.indexedDB) {
+            resolve(null);
+            return;
+        }
+        const req = indexedDB.open(LOCAL_NOVEL_DB_NAME, 1);
+        req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(LOCAL_NOVEL_STORE_NAME)) {
+                db.createObjectStore(LOCAL_NOVEL_STORE_NAME, { keyPath: 'id' });
+            }
+        };
+        req.onsuccess = (e) => resolve(e.target.result);
+        req.onerror = (e) => {
+            console.warn("IndexedDB 開啟失敗:", e.target.error);
+            resolve(null);
+        };
+    });
+}
+
+async function saveLocalNovelToDB(novelData) {
+    try {
+        const db = await getLocalNovelDB();
+        if (!db) {
+            // 優雅降級：若 IndexedDB 不可用則嘗試使用記憶體或 localStorage
+            try { localStorage.setItem('novel_cache_' + novelData.id, JSON.stringify(novelData)); } catch(e){}
+            return;
+        }
+        return new Promise((resolve) => {
+            const tx = db.transaction(LOCAL_NOVEL_STORE_NAME, 'readwrite');
+            const store = tx.objectStore(LOCAL_NOVEL_STORE_NAME);
+            store.put(novelData);
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => resolve(false);
+        });
+    } catch (e) {
+        console.warn("儲存本機小說失敗:", e);
+    }
+}
+
+async function getLocalNovelFromDB(id) {
+    try {
+        const db = await getLocalNovelDB();
+        if (!db) {
+            try {
+                const raw = localStorage.getItem('novel_cache_' + id);
+                return raw ? JSON.parse(raw) : null;
+            } catch(e) { return null; }
+        }
+        return new Promise((resolve) => {
+            const tx = db.transaction(LOCAL_NOVEL_STORE_NAME, 'readonly');
+            const store = tx.objectStore(LOCAL_NOVEL_STORE_NAME);
+            const req = store.get(id);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => resolve(null);
+        });
+    } catch (e) {
+        console.warn("讀取本機小說失敗:", e);
+        return null;
+    }
+}
+
+function loadLocalBookIntoReader(bookTitle, chapters, existingId = null) {
+    const bookId = existingId || ('local_' + bookTitle.replace(/\s+/g, '_'));
     novelState.currentNovel = {
-        id: 'local_' + Date.now(),
+        id: bookId,
         title: bookTitle,
         author: '本機上傳',
-        cover: '',
+        cover: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80',
         intro: `本機上傳電子書《${bookTitle}》，共收錄 ${chapters.length} 個章節。`,
         isLocal: true
     };
     novelState.chapters = chapters;
 
+    // 自動異步持久化至 IndexedDB
+    saveLocalNovelToDB({
+        id: bookId,
+        title: bookTitle,
+        chapters: chapters,
+        isLocal: true,
+        updatedAt: new Date().toISOString()
+    });
+
     const countEl = document.getElementById("novelSelectedChapterCount");
     if (countEl) countEl.textContent = `共 ${chapters.length} 章`;
 
     loadLocalNovelChapter(0);
-    showToast(`📖 已載入《${bookTitle}》，共 ${chapters.length} 章！`, "bi-journal-check text-success");
+    showToast(`📖 已開卷《${bookTitle}》，共 ${chapters.length} 章！`, "bi-journal-check text-success");
 }
 
 // 載入本機特定章節
@@ -8068,4 +8185,53 @@ window.resetDefaultGames = function() {
     localStorage.removeItem('web_library_hidden_default_games');
     showToast("🎉 已成功恢復所有預設遊戲卡片！", "bi-arrow-counterclockwise text-success");
     window.renderGameHubGrid();
+};
+
+
+// 當前小說一鍵收進書房 (全域通用：支援線上與本機電子書)
+window.toggleCurrentNovelToBookshelf = async function() {
+    if (!novelState.currentNovel || !novelState.currentNovel.title) {
+        if (typeof showToast === 'function') {
+            showToast("目前尚未開啟任何小說！", "bi-exclamation-circle text-info");
+        }
+        return;
+    }
+    const cur = novelState.currentNovel;
+    let shelf = window.getNovelBookshelf ? window.getNovelBookshelf() : [];
+    if (shelf.some(b => b.title === cur.title)) {
+        if (typeof showToast === 'function') {
+            showToast(`《${cur.title}》已在您的小說書房中！`, "bi-bookmark-check text-success");
+        }
+        return;
+    }
+
+    const isLocal = !!cur.isLocal;
+    const bookId = cur.id || (isLocal ? ('local_' + cur.title.replace(/\s+/g, '_')) : ('online_' + cur.title));
+
+    // 若為本機上傳，確保完整章節寫入 IndexedDB
+    if (isLocal && novelState.chapters && novelState.chapters.length > 0) {
+        await saveLocalNovelToDB({
+            id: bookId,
+            title: cur.title,
+            chapters: novelState.chapters,
+            isLocal: true,
+            updatedAt: new Date().toISOString()
+        });
+    }
+
+    shelf.unshift({
+        id: bookId,
+        title: cur.title,
+        cover: cur.cover || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80",
+        tag: isLocal ? "本機上傳" : "線上輕小說",
+        isLocal: isLocal,
+        source: isLocal ? "local" : (cur.source || "online")
+    });
+
+    if (window.saveNovelBookshelf) {
+        window.saveNovelBookshelf(shelf);
+    }
+    if (typeof showToast === 'function') {
+        showToast(`🎉 成功將${isLocal ? '本機小說' : '線上小說'}《${cur.title}》收藏進小說立體書房！`, "bi-star-fill text-warning");
+    }
 };
