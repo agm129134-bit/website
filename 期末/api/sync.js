@@ -176,7 +176,8 @@ async function handleSyncRoute(req, res) {
                     files.forEach(f => {
                         if (f.startsWith('bookmarks_') && f.endsWith('.json')) {
                             const u = f.replace('bookmarks_', '').replace('.json', '');
-                            if (u && !userList.includes(u)) {
+                            // 過濾帶有中文後綴的重複錯誤檔案
+                            if (u && !u.includes('專案開發者') && !u.includes('測試帳號') && !userList.includes(u)) {
                                 userList.push(u);
                             }
                         }
@@ -187,6 +188,40 @@ async function handleSyncRoute(req, res) {
             } catch (e) {
                 return sendJson(res, 200, { success: true, users: ['jyun', 'test1', 'admin', 'student'] });
             }
+        }
+
+        // ==========================================
+        // 0.5 刪除使用者帳號及其所有雲端書籤 /api/user/delete
+        // ==========================================
+        if (pathname === '/api/user/delete') {
+            let username = query.user;
+            if (!username && (req.method === 'POST' || req.method === 'DELETE')) {
+                const body = await parseRequestBody(req);
+                username = body.user || body.username;
+            }
+            if (!username) {
+                return sendJson(res, 400, { success: false, error: '缺少 user 參數' });
+            }
+
+            const cleanUser = sanitizeUsername(username);
+            const filePath = getUserFilePath(cleanUser);
+
+            let deleted = false;
+            if (fs.existsSync(filePath)) {
+                try {
+                    fs.unlinkSync(filePath);
+                    deleted = true;
+                } catch (e) {
+                    return sendJson(res, 500, { success: false, error: '刪除檔案失敗: ' + e.message });
+                }
+            }
+
+            return sendJson(res, 200, {
+                success: true,
+                user: cleanUser,
+                deletedFile: deleted,
+                message: `帳號 [${cleanUser}] 及其伺服器端資料已成功刪除！`
+            });
         }
 
         // ==========================================

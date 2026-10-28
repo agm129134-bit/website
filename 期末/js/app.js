@@ -91,13 +91,24 @@ function loadFromStorage() {
     if (authUserStr) {
         try {
             const authUser = JSON.parse(authUserStr);
-            if (authUser && (authUser.name || authUser.username)) {
-                state.currentUser = authUser.name || authUser.username;
+            if (authUser) {
+                // 關鍵修復：state.currentUser 永遠使用純淨的 username (如 'jyun', 'admin', 'student') 作為伺服器同步識別碼！
+                let rawU = (authUser.username || authUser.name || "").trim();
+                let cleanU = rawU.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '').trim();
+                if (cleanU.startsWith('Jyun') || cleanU.startsWith('jyun')) state.currentUser = 'jyun';
+                else if (cleanU.startsWith('Test1') || cleanU.startsWith('test1')) state.currentUser = 'test1';
+                else if (cleanU.startsWith('admin')) state.currentUser = 'admin';
+                else if (cleanU.startsWith('student')) state.currentUser = 'student';
+                else if (authUser.username) state.currentUser = authUser.username.toLowerCase().trim();
+                else state.currentUser = cleanU.toLowerCase();
+
+                state.displayUserName = authUser.name || authUser.username || state.currentUser;
             }
         } catch (e) {}
     } else {
         const savedUser = localStorage.getItem("web_library_user");
-        if (savedUser) state.currentUser = savedUser;
+        if (savedUser) state.currentUser = savedUser.toLowerCase().trim();
+        state.displayUserName = state.currentUser;
     }
 
     const savedToken = localStorage.getItem("web_library_token");
@@ -113,6 +124,52 @@ window.logoutUser = function() {
         setTimeout(() => {
             window.location.replace("login.html");
         }, 500);
+    }
+};
+
+// 刪除當前帳號函數 (雙重確認 + 伺服器端資料徹底刪除)
+window.confirmDeleteCurrentAccount = async function() {
+    const user = state.currentUser;
+    if (!user || user === "訪客") {
+        showToast("訪客帳號無需刪除", "bi-info-circle text-info");
+        return;
+    }
+
+    const confirmMsg = `⚠️ 警告：確定要徹底刪除當前帳號【${user}】嗎？\n\n• 將永久清空該帳號的所有書籤收藏與雲端備份。\n• 此操作無法復原！\n\n請點擊「確定」執行刪除。`;
+    if (!confirm(confirmMsg)) return;
+
+    try {
+        // 1. 向伺服器發送刪除請求
+        await fetch(`/api/user/delete?user=${encodeURIComponent(user)}`, { method: 'POST' });
+        
+        // 2. 清除本機 registeredUsers 清單中的此帳號
+        try {
+            const rawUsers = localStorage.getItem('registeredUsers');
+            if (rawUsers) {
+                let users = JSON.parse(rawUsers);
+                if (Array.isArray(users)) {
+                    users = users.filter(u => (u.username || '').toLowerCase() !== user.toLowerCase() && (u.name || '').toLowerCase() !== user.toLowerCase());
+                    localStorage.setItem('registeredUsers', JSON.stringify(users));
+                }
+            }
+        } catch (e) {}
+
+        // 3. 清理本機當前快取
+        localStorage.removeItem("currentUser");
+        sessionStorage.removeItem("currentUser");
+        localStorage.removeItem("web_library_user");
+        localStorage.removeItem("web_library_bookmarks");
+        localStorage.removeItem("web_library_token");
+
+        showToast(`帳號【${user}】已永久刪除，正在返回登入頁面...`, "bi-trash-fill text-danger");
+        setTimeout(() => {
+            window.location.replace("login.html");
+        }, 800);
+    } catch (err) {
+        console.error("刪除帳號失敗:", err);
+        localStorage.removeItem("currentUser");
+        sessionStorage.removeItem("currentUser");
+        window.location.replace("login.html");
     }
 };
 
@@ -371,7 +428,7 @@ function updateUI() {
     renderTagChips();
     renderBookmarks();
     const navUsername = document.getElementById("navUsername");
-    if (navUsername) navUsername.textContent = state.currentUser;
+    if (navUsername) navUsername.textContent = state.displayUserName || state.currentUser;
     const userApiTokenInput = document.getElementById("userApiTokenInput");
     if (userApiTokenInput) userApiTokenInput.value = state.apiToken;
 }
@@ -622,9 +679,10 @@ function renderBookmarks() {
         col.innerHTML = `
             <div class="card bookmark-card shadow-sm h-100 position-relative ${batchSelectedClass}" ${cardClickAttr} ${cardCursorStyle}>
                 ${checkboxHtml}
-                <!-- 封面圖區域 -->
-                <div class="card-cover-wrapper">
+                <!-- 封面圖區域 (點擊放大查看大圖) -->
+                <div class="card-cover-wrapper" onclick="event.stopPropagation(); openImagePreview('${escapeHtml(coverSrc)}', '${escapeHtml(item.title)}')">
                     <img src="${escapeHtml(coverSrc)}" class="card-cover-img" alt="${escapeHtml(item.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='${fallbackCover}'">
+                    <div class="cover-zoom-badge" title="點擊放大預覽圖片"><i class="bi bi-arrows-fullscreen"></i></div>
                     
                     ${item.pinned ? `<div class="pin-badge"><i class="bi bi-pin-angle-fill"></i> 置頂</div>` : ''}
 
@@ -729,6 +787,32 @@ function renderBookmarks() {
         );
     }
 }
+
+// ==========================================
+// 圖片大圖檢視器 (Lightbox Image Preview)
+// ==========================================
+window.openImagePreview = function(imgSrc, title = '圖片預覽') {
+    if (!imgSrc) return;
+    const modalEl = document.getElementById('imagePreviewModal');
+    if (!modalEl) return;
+    const imgEl = document.getElementById('imagePreviewImg');
+    const titleEl = document.getElementById('imagePreviewTitle');
+    const openTabBtn = document.getElementById('imagePreviewOpenTabBtn');
+    
+    if (imgEl) imgEl.src = imgSrc;
+    if (titleEl) titleEl.textContent = title || "圖片預覽";
+    if (openTabBtn) openTabBtn.href = imgSrc;
+    
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+
+    if (typeof gsap !== 'undefined') {
+        gsap.fromTo("#imagePreviewImg", 
+            { scale: 0.88, opacity: 0 }, 
+            { scale: 1, opacity: 1, duration: 0.28, ease: "back.out(1.4)" }
+        );
+    }
+};
 
 // ==========================================
 // 5. 使用者互動事件 (Actions & Events)

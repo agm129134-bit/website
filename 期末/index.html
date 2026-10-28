@@ -88,7 +88,8 @@
                             <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" id="importDataBtn" onclick="document.getElementById('importBookmarksInput').click(); return false;"><i class="bi bi-file-earmark-arrow-up text-muted"></i> 匯入書籤 (JSON)</a></li>
                             <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" id="resetDemoBtn"><i class="bi bi-arrow-counterclockwise text-muted"></i> 重置清空資料</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item d-flex align-items-center gap-2 text-danger fw-semibold" href="#" onclick="logoutUser()"><i class="bi bi-box-arrow-right"></i> 登出帳號 (Logout)</a></li>
+                            <li><a class="dropdown-item d-flex align-items-center gap-2 text-warning fw-semibold" href="#" onclick="logoutUser()"><i class="bi bi-box-arrow-right"></i> 登出帳號 (Logout)</a></li>
+                            <li><a class="dropdown-item d-flex align-items-center gap-2 text-danger fw-semibold" href="#" onclick="confirmDeleteCurrentAccount(); return false;"><i class="bi bi-person-x-fill"></i> 刪除此帳號 (Delete Account)</a></li>
                         </ul>
                         <!-- 隱藏書籤匯入上傳元件 -->
                         <input type="file" id="importBookmarksInput" accept=".json,application/json" style="display: none;" onchange="handleImportBookmarks(event)">
@@ -1493,6 +1494,33 @@
                     <button type="button" class="btn btn-primary rounded-pill px-4" onclick="applyBatchTags()">
                         <i class="bi bi-check-lg"></i> 確認套用
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3.8 圖片預覽放大檢視 Modal (Lightbox Image Viewer) -->
+    <div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-labelledby="imagePreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content bg-dark text-white border-secondary rounded-4 shadow-lg overflow-hidden">
+                <div class="modal-header border-bottom border-secondary py-2 px-3 bg-black d-flex align-items-center">
+                    <div class="d-flex align-items-center gap-2 text-truncate me-2">
+                        <i class="bi bi-image text-primary"></i>
+                        <h6 class="modal-title fw-bold mb-0 text-truncate text-white" id="imagePreviewTitle">圖片預覽</h6>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 ms-auto flex-shrink-0">
+                        <a id="imagePreviewOpenTabBtn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-light rounded-pill px-3 py-1" title="在新分頁開啟原圖" style="font-size: 0.8rem;">
+                            <i class="bi bi-box-arrow-up-right me-1"></i> 原圖
+                        </a>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="關閉"></button>
+                    </div>
+                </div>
+                <div class="modal-body p-0 text-center bg-black d-flex align-items-center justify-content-center" style="min-height: 380px; max-height: 80vh; overflow: auto; cursor: zoom-out;" onclick="bootstrap.Modal.getInstance(document.getElementById('imagePreviewModal')).hide()">
+                    <img id="imagePreviewImg" src="" alt="預覽大圖" class="img-fluid rounded-bottom-4 shadow" style="max-height: 78vh; object-fit: contain; transition: transform 0.25s ease;" onclick="event.stopPropagation()">
+                </div>
+                <div class="modal-footer border-top border-secondary py-2 px-3 bg-dark d-flex justify-content-between">
+                    <span class="text-white-50 small" id="imagePreviewMeta"><i class="bi bi-info-circle me-1"></i>點擊空白處或按 ESC 鍵可關閉大圖預覽</span>
+                    <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3" data-bs-dismiss="modal">關閉</button>
                 </div>
             </div>
         </div>

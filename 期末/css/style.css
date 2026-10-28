@@ -258,6 +258,33 @@ body {
   background-color: var(--bg-subtle);
   overflow: hidden;
   border-bottom: 1px solid var(--border);
+  cursor: zoom-in;
+}
+
+.cover-zoom-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.68);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.card-cover-wrapper:hover .cover-zoom-badge {
+  opacity: 1;
+  transform: scale(1.05);
 }
 
 .card-cover-img {
