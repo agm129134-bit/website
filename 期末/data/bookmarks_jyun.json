@@ -1,7 +1,19 @@
 {
   "user": "jyun",
-  "count": 32,
+  "count": 33,
   "bookmarks": [
+    {
+      "id": "bm_1793202626356_zqjo",
+      "title": "115 學年「就要桃花源」企劃比賽辦法",
+      "url": "https://ge.nutc.edu.tw/p/406-1089-136662,r135.php",
+      "category": "web",
+      "tags": [],
+      "cover": "https://ge.nutc.edu.tw/var/file/89/1089/msys_1089_2654291_96992.png",
+      "desc": "請填寫網站簡述",
+      "pinned": false,
+      "clicks": 0,
+      "createdAt": "2026-10-28T15:50:26.356Z"
+    },
     {
       "id": "bm_1793189961536_33mh",
       "title": "ai-test-case/README.md at main · ruanyf/ai-test-case",
@@ -496,5 +508,5 @@
       "createdAt": "2026-10-25T06:26:40.071Z"
     }
   ],
-  "updatedAt": "2026-10-28T12:49:00.623Z"
+  "updatedAt": "2026-10-28T15:50:26.602Z"
 }
