@@ -1,3242 +1,6530 @@
-/* ============================================================
-
-   Web Library — 極簡沉穩風格 (Qwen 3.8 27B 設計，Antigravity 審查與修復)
-
-   設計語言：Notion / Linear / GitHub
-
-   低飽和、微陰影、1px 細邊框、克制圓角、拒絕花俏 AI 漸層
-
-   ============================================================ */
-
-/* ---------- 1. 設計變數 ---------- */
-
-:root {
-
-  /* 畫布與背景色 */
-
-  --bg-page: #f8fafc;
-
-  --bg-surface: #ffffff;
-
-  --bg-subtle: #f1f5f9;
-
-  --bg-hover: #f1f5f9;
-
-  /* 邊框系統 (1px 精緻感) */
-
-  --border: #e2e8f0;
-
-  --border-strong: #cbd5e1;
-
-  --border-focus: #94a3b8;
-
-  /* 文字階層 */
-
-  --text-primary: #0f172a;
-
-  --text-secondary: #475569;
-
-  --text-tertiary: #94a3b8;
-
-  /* 低飽和度分類色調 */
-
-  --cat-web-bg: #f0f7ff;
-
-  --cat-web-text: #1d4ed8;
-
-  --cat-web-border: #bfdbfe;
-
-  --cat-video-bg: #fff1f2;
-
-  --cat-video-text: #be123c;
-
-  --cat-video-border: #fecdd3;
-
-  --cat-res-bg: #f0fdf4;
-
-  --cat-res-text: #15803d;
-
-  --cat-res-border: #bbf7d0;
-
-  /* 精緻微陰影 */
-
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
-
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
-
-  --shadow-md: 0 6px 16px -2px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-
-  /* 幾何圓角 */
-
-  --radius-sm: 6px;
-
-  --radius-md: 10px;
-
-  --radius-lg: 14px;
-
-  /* 動畫時間 */
-
-  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-
-}
-
-/* ---------- 2. 基礎全域排版 ---------- */
-
-body {
-
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
-
-  background-color: var(--bg-page);
-
-  color: var(--text-primary);
-
-  line-height: 1.6;
-
-  font-size: 14px;
-
-  -webkit-font-smoothing: antialiased;
-
-  -moz-osx-font-smoothing: grayscale;
-
-}
-
-/* 工具字級 */
-
-.fs-xs {
-
-  font-size: 0.75rem;
-
-  letter-spacing: 0.02em;
-
-}
-
-.max-w-lg {
-
-  max-width: 520px;
-
-}
-
-/* ---------- 3. 導覽列 (Navbar) ---------- */
-
-.navbar {
-
-  background-color: #ffffff !important;
-
-  border-bottom: 1px solid var(--border);
-
-}
-
-.navbar-brand {
-
-  display: flex;
-
-  align-items: center;
-
-  gap: 10px;
-
-  font-size: 1rem;
-
-  font-weight: 600;
-
-  color: var(--text-primary) !important;
-
-  letter-spacing: -0.01em;
-
-}
-
-.navbar-brand .brand-icon {
-
-  width: 32px;
-
-  height: 32px;
-
-  border-radius: var(--radius-sm);
-
-  background: var(--bg-subtle);
-
-  border: 1px solid var(--border);
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  font-size: 1rem;
-
-  color: var(--text-primary);
-
-}
-
-/* 頂部導航與流體自適應置中搜尋框 (徹底杜絕按鍵重疊跑版) */
-.navbar .container-fluid {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.navbar-brand {
-  flex-shrink: 0;
-}
-
-.navbar-search-wrapper {
-  flex: 1 1 360px;
-  max-width: 440px;
-  min-width: 140px;
-  margin: 0 12px;
-  transition: all 0.2s ease;
-}
-
-@media (max-width: 991.98px) {
-  .navbar-search-wrapper {
-    margin: 8px 0;
-    max-width: 100%;
-  }
-}
-
-.navbar-actions-group {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.search-input-group {
-
-  border: 1px solid var(--border);
-
-  border-radius: var(--radius-pill);
-
-  background: #f8fafc;
-
-  overflow: hidden;
-
-  transition: all 0.2s ease;
-
-  height: 38px;
-
-}
-
-.search-input-group:hover {
-
-  background: #ffffff;
-
-  border-color: #cbd5e1;
-
-}
-
-.search-input-group:focus-within {
-
-  background: #ffffff;
-
-  border-color: var(--primary);
-
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
-
-}
-
-.search-input-group input {
-
-  font-size: 0.88rem;
-
-  color: var(--text-primary);
-
-  background: transparent;
-
-  border: none;
-
-}
-
-.search-input-group input:focus {
-
-  box-shadow: none;
-
-  background: transparent;
-
-}
-
-/* ---------- 4. 頂部統計指標卡片 (去除鮮豔漸層，改為極簡邊框) ---------- */
-
-.stat-card {
-
-  background: var(--bg-surface) !important;
-
-  border: 1px solid var(--border) !important;
-
-  border-radius: var(--radius-md);
-
-  box-shadow: var(--shadow-xs) !important;
-
-  transition: var(--transition);
-
-}
-
-.stat-card:hover {
-
-  border-color: var(--border-strong) !important;
-
-  box-shadow: var(--shadow-sm) !important;
-
-}
-
-/* 覆蓋先前的漸層 Class，維持低調質感 */
-
-.bg-gradient-web,
-
-.bg-gradient-video,
-
-.bg-gradient-res {
-
-  background: var(--bg-surface) !important;
-
-}
-
-.stat-card span.fw-semibold {
-
-  color: var(--text-secondary) !important;
-
-  font-size: 0.8rem;
-
-}
-
-.stat-card h3 {
-
-  color: var(--text-primary) !important;
-
-  font-size: 1.5rem;
-
-  font-weight: 700;
-
-}
-
-.stat-icon {
-
-  width: 40px;
-
-  height: 40px;
-
-  border-radius: var(--radius-sm);
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  font-size: 1.15rem;
-
-  background: var(--bg-subtle) !important;
-
-  border: 1px solid var(--border);
-
-  box-shadow: none !important;
-
-}
-
-.bg-gradient-web .stat-icon { color: var(--cat-web-text) !important; }
-
-.bg-gradient-video .stat-icon { color: var(--cat-video-text) !important; }
-
-.bg-gradient-res .stat-icon { color: var(--cat-res-text) !important; }
-
-/* ---------- 5. 分類導航與標籤 Chips ---------- */
-
-.category-pills .nav-link {
-
-  color: var(--text-secondary);
-
-  font-weight: 500;
-
-  font-size: 0.86rem;
-
-  padding: 0.4rem 0.9rem;
-
-  border-radius: var(--radius-sm);
-
-  background-color: transparent;
-
-  border: 1px solid transparent;
-
-  transition: var(--transition);
-
-}
-
-.category-pills .nav-link:hover {
-
-  background-color: var(--bg-hover);
-
-  color: var(--text-primary);
-
-}
-
-.category-pills .nav-link.active {
-
-  background-color: #0f172a;
-
-  color: #ffffff;
-
-  border-color: #0f172a;
-
-  box-shadow: var(--shadow-xs);
-
-}
-
-.category-pills .nav-link.active .badge {
-
-  background-color: rgba(255, 255, 255, 0.2) !important;
-
-  color: #ffffff !important;
-
-}
-
-/* 標籤 Chips */
-
-.tag-chip {
-
-  background-color: var(--bg-surface);
-
-  border: 1px solid var(--border);
-
-  color: var(--text-secondary);
-
-  font-size: 0.78rem;
-
-  padding: 0.2rem 0.65rem;
-
-  border-radius: var(--radius-sm);
-
-  transition: var(--transition);
-
-}
-
-.tag-chip:hover {
-
-  background-color: var(--bg-hover);
-
-  border-color: var(--border-strong);
-
-  color: var(--text-primary);
-
-}
-
-.tag-chip.active {
-
-  background-color: #0f172a;
-
-  color: #ffffff;
-
-  border-color: #0f172a;
-
-  box-shadow: none;
-
-}
-
-.btn-xs {
-
-  padding: 0.15rem 0.5rem;
-
-  font-size: 0.75rem;
-
-}
-
-/* ---------- 6. 收藏卡片 (Cards) ---------- */
-
-.bookmark-card {
-
-  background: var(--bg-surface);
-
-  border: 1px solid var(--border);
-
-  border-radius: var(--radius-md);
-
-  box-shadow: var(--shadow-xs);
-
-  overflow: hidden;
-
-  transition: var(--transition);
-
-  display: flex;
-
-  flex-direction: column;
-
-}
-
-.bookmark-card:hover {
-
-  border-color: var(--border-strong);
-
-  box-shadow: var(--shadow-md) !important;
-
-  transform: translateY(-2px);
-
-}
-
-/* 封面圖 */
-
-.card-cover-wrapper {
-
-  position: relative;
-
-  width: 100%;
-
-  aspect-ratio: 16 / 9;
-
-  background-color: var(--bg-subtle);
-
-  overflow: hidden;
-
-  border-bottom: 1px solid var(--border);
-
-  cursor: zoom-in;
-
-}
-
-.cover-zoom-badge {
-
-  position: absolute;
-
-  bottom: 8px;
-
-  right: 8px;
-
-  background: rgba(0, 0, 0, 0.68);
-
-  color: #ffffff;
-
-  border: 1px solid rgba(255, 255, 255, 0.25);
-
-  border-radius: 50%;
-
-  width: 28px;
-
-  height: 28px;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  font-size: 0.75rem;
-
-  opacity: 0;
-
-  transform: scale(0.85);
-
-  transition: opacity 0.2s ease, transform 0.2s ease;
-
-  z-index: 5;
-
-  pointer-events: none;
-
-}
-
-.card-cover-wrapper:hover .cover-zoom-badge {
-
-  opacity: 1;
-
-  transform: scale(1.05);
-
-}
-
-.card-cover-img {
-
-  width: 100%;
-
-  height: 100%;
-
-  object-fit: cover;
-
-  transition: transform 0.3s ease;
-
-}
-
-.bookmark-card:hover .card-cover-img {
-
-  transform: scale(1.02);
-
-}
-
-/* 置頂標籤 */
-
-.pin-badge {
-
-  position: absolute;
-
-  top: 8px;
-
-  left: 8px;
-
-  background: rgba(15, 23, 42, 0.85);
-
-  backdrop-filter: blur(4px);
-
-  color: #fef08a;
-
-  padding: 0.15rem 0.5rem;
-
-  border-radius: var(--radius-sm);
-
-  font-size: 0.72rem;
-
-  font-weight: 500;
-
-}
-
-/* 分類徽章 (低對比極簡風) */
-
-.category-floating-badge {
-
-  position: absolute;
-
-  top: 8px;
-
-  right: 8px;
-
-  font-size: 0.72rem;
-
-  font-weight: 500;
-
-  border-radius: var(--radius-sm);
-
-  padding: 0.2rem 0.55rem;
-
-  backdrop-filter: blur(6px);
-
-}
-
-.badge-cat-web {
-
-  background: var(--cat-web-bg);
-
-  color: var(--cat-web-text);
-
-  border: 1px solid var(--cat-web-border);
-
-}
-
-.badge-cat-anime {
-
-  background: rgba(220, 38, 38, 0.9);
-
-  color: #ffffff;
-
-  border: 1px solid rgba(185, 28, 28, 0.8);
-
-  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.35);
-
-}
-
-.badge-cat-video {
-
-  background: var(--cat-video-bg);
-
-  color: var(--cat-video-text);
-
-  border: 1px solid var(--cat-video-border);
-
-}
-
-.badge-cat-resource {
-
-  background: var(--cat-res-bg);
-
-  color: var(--cat-res-text);
-
-  border: 1px solid var(--cat-res-border);
-
-}
-
-/* 卡片主體文字排版 */
-
-.card-content-body {
-
-  padding: 1rem;
-
-  display: flex;
-
-  flex-direction: column;
-
-  flex-grow: 1;
-
-}
-
-.card-site-meta {
-
-  display: flex;
-
-  align-items: center;
-
-  gap: 0.45rem;
-
-  font-size: 0.78rem;
-
-  color: var(--text-tertiary);
-
-  margin-bottom: 0.4rem;
-
-}
-
-.site-favicon {
-
-  width: 14px;
-
-  height: 14px;
-
-  border-radius: 2px;
-
-  object-fit: contain;
-
-}
-
-.card-title-text {
-
-  font-size: 0.95rem;
-
-  font-weight: 600;
-
-  line-height: 1.45;
-
-  color: var(--text-primary);
-
-  display: -webkit-box;
-
-  -webkit-line-clamp: 2;
-
-  -webkit-box-orient: vertical;
-
-  overflow: hidden;
-
-  margin-bottom: 0.45rem;
-
-}
-
-.card-desc-text {
-
-  font-size: 0.82rem;
-
-  color: var(--text-secondary);
-
-  line-height: 1.5;
-
-  display: -webkit-box;
-
-  -webkit-line-clamp: 2;
-
-  -webkit-box-orient: vertical;
-
-  overflow: hidden;
-
-  margin-bottom: 0.75rem;
-
-  flex-grow: 1;
-
-}
-
-/* 標籤微標記 */
-
-.card-tags {
-
-  display: flex;
-
-  flex-wrap: wrap;
-
-  gap: 0.3rem;
-
-  margin-bottom: 0.85rem;
-
-}
-
-.tag-badge {
-
-  background: var(--bg-subtle);
-
-  color: var(--text-secondary);
-
-  border: 1px solid var(--border);
-
-  font-size: 0.7rem;
-
-  padding: 0.1rem 0.45rem;
-
-  border-radius: var(--radius-sm);
-
-  font-weight: 400;
-
-}
-
-/* 卡片操作欄 */
-
-.card-actions-footer {
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: space-between;
-
-  padding-top: 0.65rem;
-
-  border-top: 1px solid var(--border);
-
-}
-
-.action-jump-btn {
-
-  font-size: 0.8rem;
-
-  font-weight: 500;
-
-  padding: 0.32rem 0.75rem;
-
-  border-radius: var(--radius-sm);
-
-  background-color: var(--text-primary);
-
-  border-color: var(--text-primary);
-
-}
-
-.action-jump-btn:hover {
-
-  background-color: #334155;
-
-  border-color: #334155;
-
-}
-
-.click-counter-badge {
-
-  font-size: 0.72rem;
-
-  color: var(--text-tertiary);
-
-  display: flex;
-
-  align-items: center;
-
-  gap: 0.25rem;
-
-}
-
-/* ---------- 7. 清單檢視模式 (List View) ---------- */
-
-.list-view-mode .bookmark-col {
-
-  width: 100% !important;
-
-}
-
-.list-view-mode .bookmark-card {
-
-  flex-direction: row;
-
-  align-items: stretch;
-
-}
-
-.list-view-mode .card-cover-wrapper {
-
-  width: 170px;
-
-  min-width: 170px;
-
-  height: auto;
-
-  aspect-ratio: auto;
-
-  border-bottom: none;
-
-  border-right: 1px solid var(--border);
-
-}
-
-@media (max-width: 768px) {
-
-  .list-view-mode .bookmark-card {
-
-    flex-direction: column;
-
-  }
-
-  .list-view-mode .card-cover-wrapper {
-
-    width: 100%;
-
-    aspect-ratio: 16/9;
-
-    border-right: none;
-
-    border-bottom: 1px solid var(--border);
-
-  }
-
-}
-
-/* ============================================================
-
-   ACG 專用樣式 (Kazumi 劇院 / Tachimanga 條漫 / Legado 小說)
-
-   ============================================================ */
-
-/* 1. Kazumi 彈幕動畫與浮層層級保證 (浮於 iframe / video 之上) */
-
-@keyframes danmakuFly {
-
-  0% {
-
-    left: 100%;
-
-    transform: translateX(0);
-
-  }
-
-  100% {
-
-    left: 0;
-
-    transform: translateX(-100%);
-
-  }
-
-}
-
-/* ============================================================
-
-   容器全螢幕播放器 (Container Fullscreen + 彈幕層級保證)
-
-   ============================================================ */
-
-#kazumiScreenContainer:fullscreen,
-
-#kazumiScreenContainer:-webkit-full-screen,
-
-#kazumiScreenContainer.is-fullscreen {
-
-  width: 100vw !important;
-
-  height: 100vh !important;
-
-  max-width: 100vw !important;
-
-  max-height: 100vh !important;
-
-  background: #000000 !important;
-
-  display: flex !important;
-
-  flex-direction: column !important;
-
-  position: fixed !important;
-
-  inset: 0 !important;
-
-  z-index: 99999 !important;
-
-  overflow: hidden !important;
-
-}
-
-/* 全螢幕模式下 Wrapper 與 Video 100% 填滿整個視窗，解除 490px/500px 限制 */
-
-#kazumiScreenContainer:fullscreen #kazumiIframeWrapper,
-
-#kazumiScreenContainer:-webkit-full-screen #kazumiIframeWrapper,
-
-#kazumiScreenContainer.is-fullscreen #kazumiIframeWrapper {
-
-  width: 100vw !important;
-
-  height: 100vh !important;
-
-  max-width: 100vw !important;
-
-  max-height: 100vh !important;
-
-  position: absolute !important;
-
-  inset: 0 !important;
-
-  z-index: 1 !important;
-
-  overflow: hidden !important;
-
-  margin: 0 !important;
-
-  padding: 0 !important;
-
-  background: #000000 !important;
-
-}
-
-#kazumiScreenContainer:fullscreen #kazumiVideoPlayer,
-
-#kazumiScreenContainer:-webkit-full-screen #kazumiVideoPlayer,
-
-#kazumiScreenContainer.is-fullscreen #kazumiVideoPlayer {
-
-  width: 100vw !important;
-
-  height: 100vh !important;
-
-  max-width: 100vw !important;
-
-  max-height: 100vh !important;
-
-  position: absolute !important;
-
-  inset: 0 !important;
-
-  z-index: 1 !important;
-
-  object-fit: contain !important;
-
-  background: #000000 !important;
-
-  border: none !important;
-
-}
-
-/* Bilibili 專屬純淨化：一般模式與全螢幕模式精準裁切頂部標題/頭像 (46px) 與底部控制欄 (60px) */
-
-#kazumiIframeWrapper.is-bilibili #kazumiIframePlayer {
-
-  width: 100% !important;
-
-  height: calc(100% + 106px) !important;
-
-  margin-top: -46px !important;
-
-  margin-bottom: -60px !important;
-
-  border: none !important;
-
-}
-
-#kazumiScreenContainer:fullscreen #kazumiIframeWrapper.is-bilibili #kazumiIframePlayer,
-
-#kazumiScreenContainer:-webkit-full-screen #kazumiIframeWrapper.is-bilibili #kazumiIframePlayer,
-
-#kazumiScreenContainer.is-fullscreen #kazumiIframeWrapper.is-bilibili #kazumiIframePlayer {
-
-  width: 100vw !important;
-
-  height: calc(100vh + 106px) !important;
-
-  max-height: none !important;
-
-  margin-top: -46px !important;
-
-  margin-bottom: -60px !important;
-
-  position: absolute !important;
-
-  left: 0 !important;
-
-  right: 0 !important;
-
-  border: none !important;
-
-}
-
-/* 動漫外嵌播放器專屬純淨化：精準裁切頂部標題與底部第三方原生控制欄，只保留純淨影片本體 */
-
-#kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer {
-
-  width: 100% !important;
-
-  height: calc(100% + 108px) !important;
-
-  margin-top: -48px !important;
-
-  margin-bottom: -60px !important;
-
-  border: none !important;
-
-}
-
-#kazumiScreenContainer:fullscreen #kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer,
-
-#kazumiScreenContainer:-webkit-full-screen #kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer,
-
-#kazumiScreenContainer.is-fullscreen #kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer {
-
-  width: 100vw !important;
-
-  height: calc(100vh + 108px) !important;
-
-  max-height: none !important;
-
-  margin-top: -48px !important;
-
-  margin-bottom: -60px !important;
-
-  position: absolute !important;
-
-  left: 0 !important;
-
-  right: 0 !important;
-
-  border: none !important;
-
-}
-
-/* 非純淨模式內嵌播放器 (YouTube / 通用源)：自適應滿版，不額外裁切畫面 */
-
-#kazumiIframeWrapper:not(.is-bilibili):not(.is-pure-anime) #kazumiIframePlayer {
-
-  width: 100% !important;
-
-  height: 100% !important;
-
-  margin: 0 !important;
-
-  border: none !important;
-
-}
-
-#kazumiScreenContainer:fullscreen #kazumiIframeWrapper:not(.is-bilibili):not(.is-pure-anime) #kazumiIframePlayer,
-
-#kazumiScreenContainer:-webkit-full-screen #kazumiIframeWrapper:not(.is-bilibili):not(.is-pure-anime) #kazumiIframePlayer,
-
-#kazumiScreenContainer.is-fullscreen #kazumiIframeWrapper:not(.is-bilibili):not(.is-pure-anime) #kazumiIframePlayer {
-
-  width: 100vw !important;
-
-  height: 100vh !important;
-
-  max-height: 100vh !important;
-
-  margin: 0 !important;
-
-  position: absolute !important;
-
-  inset: 0 !important;
-
-  border: none !important;
-
-}
-
-/* 全螢幕模式下彈幕覆蓋於最上方 (確保彈幕在全螢幕下 100% 飄過) */
-
-#kazumiScreenContainer:fullscreen #danmakuOverlay,
-
-#kazumiScreenContainer:-webkit-full-screen #danmakuOverlay,
-
-#kazumiScreenContainer.is-fullscreen #danmakuOverlay {
-
-  position: absolute !important;
-
-  inset: 0 !important;
-
-  width: 100vw !important;
-
-  height: 100vh !important;
-
-  z-index: 50 !important;
-
-  pointer-events: none !important;
-
-  overflow: hidden !important;
-
-}
-
-/* 全螢幕頂部懸浮控制列 */
-
-#kazumiScreenContainer:fullscreen #kazumiFsTopBar,
-
-#kazumiScreenContainer:-webkit-full-screen #kazumiFsTopBar,
-
-#kazumiScreenContainer.is-fullscreen #kazumiFsTopBar {
-
-  display: flex !important;
-
-  z-index: 95 !important;
-
-  pointer-events: auto !important;
-
-  background: linear-gradient(to bottom, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.4) 70%, transparent 100%) !important;
-
-  padding: 12px 24px !important;
-
-  backdrop-filter: blur(6px);
-
-  -webkit-backdrop-filter: blur(6px);
-
-}
-
-/* 全螢幕底部懸浮控制軸與彈幕輸入 (最高層級 z-index: 95，保證點擊無任何遮蔽) */
-
-#kazumiScreenContainer #danmakuTimelineBar,
-
-#kazumiScreenContainer:fullscreen #danmakuTimelineBar,
-
-#kazumiScreenContainer:-webkit-full-screen #danmakuTimelineBar,
-
-#kazumiScreenContainer.is-fullscreen #danmakuTimelineBar {
-
-  position: absolute !important;
-
-  bottom: 0 !important;
-
-  left: 0 !important;
-
-  right: 0 !important;
-
-  z-index: 95 !important;
-
-  pointer-events: auto !important;
-
-  background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 75%, transparent 100%) !important;
-
-  padding: 12px 24px !important;
-
-  border-top: none !important;
-
-  backdrop-filter: blur(6px);
-
-  -webkit-backdrop-filter: blur(6px);
-
-}
-
-#kazumiScreenContainer:fullscreen #kazumiFsDanmakuBar,
-
-#kazumiScreenContainer:-webkit-full-screen #kazumiFsDanmakuBar,
-
-#kazumiScreenContainer.is-fullscreen #kazumiFsDanmakuBar {
-
-  display: flex !important;
-
-}
-
-#kazumiScreenContainer:fullscreen #kazumiFsDrawerBtn,
-
-#kazumiScreenContainer:-webkit-full-screen #kazumiFsDrawerBtn,
-
-#kazumiScreenContainer.is-fullscreen #kazumiFsDrawerBtn {
-
-  display: inline-block !important;
-
-}
-
-/* 全螢幕滑鼠上下懸浮感應區 (Hover Zones) 與中央滾輪事件代理層 */
-
-.kazumi-fs-hover-zone {
-
-  position: absolute;
-
-  left: 0;
-
-  width: 100%;
-
-  pointer-events: none;
-
-  z-index: 70;
-
-  background: transparent;
-
-  display: none;
-
-}
-
-.kazumi-fs-hover-top {
-
-  top: 0;
-
-  height: 90px;
-
-}
-
-.kazumi-fs-hover-bottom {
-
-  bottom: 0;
-
-  height: 100px;
-
-}
-
-.kazumi-fs-screen-overlay {
-
-  position: absolute;
-
-  top: 0;
-
-  left: 0;
-
-  width: 100%;
-
-  height: 100%;
-
-  pointer-events: none;
-
-  z-index: 65;
-
-  background: transparent;
-
-  display: none;
-
-  cursor: default;
-
-}
-
-#animePlayerModal.show #kazumiScreenContainer:not(.is-standby) .kazumi-fs-hover-bottom,
-
-#kazumiScreenContainer:fullscreen .kazumi-fs-hover-zone,
-
-#kazumiScreenContainer:-webkit-full-screen .kazumi-fs-hover-zone,
-
-#kazumiScreenContainer.is-fullscreen .kazumi-fs-hover-zone {
-
-  display: block !important;
-
-}
-
-#animePlayerModal.show #kazumiScreenContainer:not(.is-standby) .kazumi-fs-screen-overlay,
-
-#kazumiScreenContainer:fullscreen .kazumi-fs-screen-overlay,
-
-#kazumiScreenContainer:-webkit-full-screen .kazumi-fs-screen-overlay,
-
-#kazumiScreenContainer.is-fullscreen .kazumi-fs-screen-overlay {
-
-  display: block !important;
-
-  pointer-events: auto !important;
-
-}
-
-/* 滑鼠閒置自動隱藏控制列：僅在全螢幕下隱藏游標，非全螢幕下保留游標 */
-
-#kazumiScreenContainer:fullscreen.fs-controls-hidden,
-
-#kazumiScreenContainer:fullscreen.fs-controls-hidden *,
-
-#kazumiScreenContainer:-webkit-full-screen.fs-controls-hidden,
-
-#kazumiScreenContainer:-webkit-full-screen.fs-controls-hidden *,
-
-#kazumiScreenContainer.is-fullscreen.fs-controls-hidden,
-
-#kazumiScreenContainer.is-fullscreen.fs-controls-hidden * {
-
-  cursor: none !important;
-
-}
-
-/* 控制列隱藏時，感應區開啟事件捕獲以便瞬間喚醒 */
-
-#kazumiScreenContainer.fs-controls-hidden .kazumi-fs-hover-zone,
-
-#kazumiScreenContainer.fs-controls-hidden .kazumi-fs-screen-overlay {
-
-  pointer-events: auto !important;
-
-}
-
-#kazumiScreenContainer:fullscreen.fs-controls-hidden .kazumi-fs-hover-zone,
-
-#kazumiScreenContainer:fullscreen.fs-controls-hidden .kazumi-fs-screen-overlay,
-
-#kazumiScreenContainer.is-fullscreen.fs-controls-hidden .kazumi-fs-hover-zone,
-
-#kazumiScreenContainer.is-fullscreen.fs-controls-hidden .kazumi-fs-screen-overlay {
-
-  cursor: none !important;
-
-}
-
-#kazumiScreenContainer.fs-controls-hidden #kazumiFsTopBar {
-
-  opacity: 0 !important;
-
-  pointer-events: none !important;
-
-  transform: translateY(-24px);
-
-}
-
-#kazumiScreenContainer.fs-controls-hidden #danmakuTimelineBar {
-
-  opacity: 0 !important;
-
-  pointer-events: none !important;
-
-  transform: translateY(24px) !important;
-
-}
-
-#kazumiScreenContainer.fs-controls-hidden #kazumiFsEpisodeDrawer {
-
-  opacity: 0 !important;
-
-  pointer-events: none !important;
-
-}
-
-/* 待命模式狀態防護：待命模式絕對不允許覆蓋層遮擋搜尋輸入框與按鈕 */
-
-#kazumiTheaterPlaceholder {
-
-  z-index: 90 !important;
-
-  pointer-events: auto !important;
-
-}
-
-/* 跨域防內嵌阻擋卡片防護：確保按鈕永遠可點擊，不被透明事件代理層攔截 */
-
-#kazumiBlockedFallback {
-
-  z-index: 92 !important;
-
-  pointer-events: auto !important;
-
-}
-
-#kazumiBlockedFallback * {
-
-  pointer-events: auto !important;
-
-}
-
-#kazumiScreenContainer.has-blocked-fallback .kazumi-fs-screen-overlay {
-
-  display: none !important;
-
-  pointer-events: none !important;
-
-}
-
-#kazumiScreenContainer.is-standby .kazumi-fs-screen-overlay,
-
-#kazumiScreenContainer.is-standby .kazumi-fs-hover-zone {
-
-  display: none !important;
-
-  pointer-events: none !important;
-
-}
-
-#kazumiScreenContainer.is-standby #danmakuTimelineBar {
-
-  opacity: 1 !important;
-
-  pointer-events: auto !important;
-
-  transform: none !important;
-
-}
-
-.kazumi-fs-bar, #danmakuTimelineBar, #kazumiFsEpisodeDrawer {
-
-  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-
-}
-
-#danmakuOverlay {
-
-  position: absolute;
-
-  top: 0;
-
-  left: 0;
-
-  width: 100%;
-
-  height: 100%;
-
-  z-index: 20 !important;
-
-  pointer-events: none !important;
-
-  overflow: hidden;
-
-  --danmaku-font-size: 24px;
-
-  --danmaku-opacity: 1;
-
-  --danmaku-line-height: 1.6;
-
-  --danmaku-duration: 8s;
-
-}
-
-.danmaku-bullet {
-
-  position: absolute;
-
-  white-space: nowrap;
-
-  font-weight: 700;
-
-  font-size: var(--danmaku-font-size, 24px);
-
-  opacity: var(--danmaku-opacity, 1);
-
-  line-height: var(--danmaku-line-height, 1.6);
-
-  color: #ffffff;
-
-  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.95), 0 0 5px rgba(0, 0, 0, 0.8);
-
-  pointer-events: none;
-
-  animation: danmakuFly var(--danmaku-duration, 8s) linear forwards;
-
-  will-change: transform, left;
-
-  z-index: 25 !important;
-
-}
-
-/* 頂部與底部固定彈幕 */
-
-.danmaku-bullet.danmaku-top {
-
-  left: 50% !important;
-
-  transform: translateX(-50%) !important;
-
-  animation: danmakuFade var(--danmaku-duration, 5s) linear forwards !important;
-
-}
-
-.danmaku-bullet.danmaku-bottom {
-
-  left: 50% !important;
-
-  transform: translateX(-50%) !important;
-
-  animation: danmakuFade var(--danmaku-duration, 5s) linear forwards !important;
-
-}
-
-@keyframes danmakuFade {
-
-  0%, 85% { opacity: var(--danmaku-opacity, 1); }
-
-  100% { opacity: 0; }
-
-}
-
-/* 影片暫停時彈幕凍結靜止 (暫停飄動與生成) */
-
-#danmakuOverlay.danmaku-paused .danmaku-bullet,
-
-.danmaku-paused .danmaku-bullet {
-
-  animation-play-state: paused !important;
-
-}
-
-/* Kazumi 彈幕設定面板樣式 */
-
-.danmaku-settings-panel {
-
-  background: #14171a;
-
-  border-radius: 1rem;
-
-  border: 1px solid rgba(255, 255, 255, 0.12);
-
-  color: #e2e8f0;
-
-}
-
-.danmaku-settings-tabs .nav-link {
-
-  color: #94a3b8;
-
-  border-radius: 9999px;
-
-  padding: 0.35rem 1.25rem;
-
-  font-size: 0.875rem;
-
-  font-weight: 600;
-
-  transition: all 0.2s ease;
-
-}
-
-.danmaku-settings-tabs .nav-link.active {
-
-  background: #22c55e !important;
-
-  color: #052e16 !important;
-
-}
-
-.danmaku-setting-item {
-
-  background: rgba(255, 255, 255, 0.03);
-
-  border-radius: 0.75rem;
-
-  padding: 0.85rem 1rem;
-
-  border: 1px solid rgba(255, 255, 255, 0.05);
-
-}
-
-.danmaku-range-val {
-
-  min-width: 48px;
-
-  text-align: right;
-
-  font-variant-numeric: tabular-nums;
-
-  font-weight: 600;
-
-  color: #4ade80;
-
-}
-
-.ep-btn {
-
-  min-width: 76px;
-
-  font-size: 0.8rem;
-
-  border-radius: 6px;
-
-}
-
-/* 2. Tachimanga 條漫樣式 */
-
-.manga-page-img {
-
-  display: block;
-
-  width: 100%;
-
-  height: auto;
-
-  margin: 0 auto 6px auto;
-
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-
-  border-radius: 2px;
-
-}
-
-/* 3. Legado 小說三種主題與自訂字色支援 */
-
-.novel-theme-sepia,
-
-#novelReaderModal .novel-theme-sepia,
-
-#novelReaderModal .novel-theme-sepia #novelReadingArea,
-
-#novelReaderModal .novel-theme-sepia #novelChapterHeading,
-
-#novelReaderModal .novel-theme-sepia #novelChapterParagraphs,
-
-#novelReaderModal .novel-theme-sepia #novelChapterParagraphs p {
-
-  background-color: #f6f1e7;
-
-  color: #2d241e !important;
-
-}
-
-.novel-theme-sepia .modal-header,
-
-#novelReaderModal .novel-theme-sepia .modal-header {
-
-  background-color: #f1ebd8 !important;
-
-  color: #2d241e !important;
-
-}
-
-.novel-theme-sepia .border-top,
-
-.novel-theme-sepia .border-bottom {
-
-  border-color: #e5dac9 !important;
-
-}
-
-.novel-theme-sepia #legadoPlaceholder h5 {
-
-  color: #2d241e !important;
-
-  text-shadow: none !important;
-
-}
-
-.novel-theme-sepia #legadoPlaceholder p,
-
-.novel-theme-sepia #legadoPlaceholder .text-muted,
-
-.novel-theme-sepia .text-secondary {
-
-  color: #574c43 !important;
-
-}
-
-.novel-theme-white,
-
-#novelReaderModal .novel-theme-white,
-
-#novelReaderModal .novel-theme-white #novelReadingArea,
-
-#novelReaderModal .novel-theme-white #novelChapterHeading,
-
-#novelReaderModal .novel-theme-white #novelChapterParagraphs,
-
-#novelReaderModal .novel-theme-white #novelChapterParagraphs p {
-
-  background-color: #ffffff;
-
-  color: #1e293b !important;
-
-}
-
-.novel-theme-white .modal-header,
-
-#novelReaderModal .novel-theme-white .modal-header {
-
-  background-color: #ffffff !important;
-
-  color: #1e293b !important;
-
-}
-
-.novel-theme-white .border-top,
-
-.novel-theme-white .border-bottom {
-
-  border-color: #e2e8f0 !important;
-
-}
-
-.novel-theme-white #legadoPlaceholder h5 {
-
-  color: #0f172a !important;
-
-  text-shadow: none !important;
-
-}
-
-.novel-theme-white #legadoPlaceholder p,
-
-.novel-theme-white #legadoPlaceholder .text-muted,
-
-.novel-theme-white .text-secondary {
-
-  color: #475569 !important;
-
-}
-
-.novel-theme-dark,
-
-#novelReaderModal .novel-theme-dark,
-
-#novelReaderModal .novel-theme-dark #novelReadingArea,
-
-#novelReaderModal .novel-theme-dark #novelChapterHeading,
-
-#novelReaderModal .novel-theme-dark #novelChapterParagraphs,
-
-#novelReaderModal .novel-theme-dark #novelChapterParagraphs p {
-
-  background-color: #18181b;
-
-  color: #e4e4e7 !important;
-
-}
-
-.novel-theme-dark .modal-header,
-
-#novelReaderModal .novel-theme-dark .modal-header {
-
-  background-color: #18181b !important;
-
-  color: #e4e4e7 !important;
-
-}
-
-.novel-theme-dark .border-top,
-
-.novel-theme-dark .border-bottom {
-
-  border-color: #27272a !important;
-
-}
-
-.novel-theme-dark #legadoPlaceholder h5 {
-
-  color: #ffffff !important;
-
-}
-
-.novel-theme-dark #legadoPlaceholder p,
-
-.novel-theme-dark #legadoPlaceholder .text-muted,
-
-.novel-theme-dark .text-secondary {
-
-  color: #cbd5e1 !important;
-
-}
-
-.novel-theme-dark .form-control {
-
-  background-color: #27272a !important;
-
-  color: #f4f4f5 !important;
-
-  border-color: #3f3f46 !important;
-
-}
-
-.novel-theme-dark .input-group-text {
-
-  background-color: #27272a !important;
-
-  color: #a1a1aa !important;
-
-  border-color: #3f3f46 !important;
-
-}
-
-.novel-paragraphs p {
-
-  text-indent: 2em;
-
-  margin-bottom: 1.5rem;
-
-  line-height: 2.2;
-
-}
-
-/* 支援使用者自訂小說字體顏色動態變數覆蓋 */
-
-.novel-custom-color #novelReadingArea,
-
-.novel-custom-color #novelChapterHeading,
-
-.novel-custom-color #novelChapterParagraphs,
-
-.novel-custom-color #novelChapterParagraphs p {
-
-  color: var(--novel-custom-text-color) !important;
-
-}
-
-/* 4. Bangumi 新番時間表卡片 */
-
-.bgm-anime-card {
-
-  background: var(--bg-surface);
-
-  border: 1px solid var(--border);
-
-  border-radius: var(--radius-md);
-
-  overflow: hidden;
-
-  transition: var(--transition);
-
-  height: 100%;
-
-  display: flex;
-
-  flex-direction: column;
-
-}
-
-.bgm-anime-card:hover {
-
-  border-color: var(--border-strong);
-
-  transform: translateY(-3px);
-
-  box-shadow: var(--shadow-md) !important;
-
-}
-
-.bgm-anime-cover-box {
-
-  position: relative;
-
-  width: 100%;
-
-  aspect-ratio: 2 / 3;
-
-  background-color: var(--bg-subtle);
-
-  overflow: hidden;
-
-}
-
-.bgm-anime-cover-img {
-
-  width: 100%;
-
-  height: 100%;
-
-  object-fit: cover;
-
-}
-
-.bgm-rating-badge {
-
-  position: absolute;
-
-  top: 8px;
-
-  right: 8px;
-
-  background: rgba(15, 23, 42, 0.85);
-
-  color: #fbbf24;
-
-  font-size: 0.75rem;
-
-  font-weight: 600;
-
-  padding: 0.15rem 0.5rem;
-
-  border-radius: var(--radius-sm);
-
-  backdrop-filter: blur(4px);
-
-}
-
-/* ==========================================
-
-   8. 批量管理 (Batch Edit Mode) 樣式
-
-   ========================================== */
-
-.batch-action-bar {
-
-  z-index: 1045;
-
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-
-  box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.3);
-
-  animation: batchSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-
-}
-
-@keyframes batchSlideUp {
-
-  from {
-
-    transform: translateY(100%);
-
-    opacity: 0;
-
-  }
-
-  to {
-
-    transform: translateY(0);
-
-    opacity: 1;
-
-  }
-
-}
-
-.bookmark-card.batch-selected {
-
-  outline: 2px solid #2563eb !important;
-
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.18) !important;
-
-  background-color: #f8faff !important;
-
-}
-
-.bookmark-batch-checkbox {
-
-  z-index: 5;
-
-  cursor: pointer;
-
-}
-
-.bookmark-batch-checkbox .form-check-input {
-
-  width: 1.35rem;
-
-  height: 1.35rem;
-
-  cursor: pointer;
-
-  border: 2px solid rgba(0, 0, 0, 0.25);
-
-}
-
-.bookmark-batch-checkbox .form-check-input:checked {
-
-  background-color: #2563eb;
-
-  border-color: #2563eb;
-
-}
-
-/* ============================================================
-
-   9. 深色背景與 ACG 模態框高對比度文字增強 (WCAG AA 4.5:1+)
-
-   針對 Kazumi 播放來源、Tachimanga 條漫、Legado 小說、動漫劇院、側邊抽屜
-
-   ============================================================ */
-
-/* 模態框與全螢幕閱覽器深色容器文字亮化 */
-
-.modal-content.bg-dark,
-
-.modal-content.bg-black,
-
-.offcanvas.bg-dark,
-
-.offcanvas.bg-black,
-
-#kazumiSourceModal .modal-content,
-
-#animePlayerModal .modal-content,
-
-#mangaReaderModal .modal-content,
-
-#tachimangaReaderModal .modal-content,
-
-#legadoReaderModal .modal-content,
-
-#mangaSourceModal .modal-content,
-
-#novelSourceModal .modal-content,
-
-#mangaSearchDrawer,
-
-#novelSearchDrawer {
-
-  color: #f1f5f9 !important;
-
-}
-
-/* 深色容器內的所有次要文字與說明文字全面調亮為高對比淺灰色 (#cbd5e1 / #94a3b8) */
-
-.modal-content.bg-dark .text-secondary,
-
-.modal-content.bg-dark .text-muted,
-
-.modal-content.bg-black .text-secondary,
-
-.modal-content.bg-black .text-muted,
-
-.offcanvas.bg-dark .text-secondary,
-
-.offcanvas.bg-dark .text-muted,
-
-#kazumiSourceModal .text-secondary,
-
-#kazumiSourceModal .text-muted,
-
-#animePlayerModal .text-secondary,
-
-#animePlayerModal .text-muted,
-
-#mangaReaderModal .text-secondary,
-
-#mangaReaderModal .text-muted,
-
-#mangaSourceModal .text-secondary,
-
-#mangaSourceModal .text-muted,
-
-#novelSourceModal .text-secondary,
-
-#novelSourceModal .text-muted,
-
-#tachimangaReaderModal .text-secondary,
-
-#tachimangaReaderModal .text-muted,
-
-#legadoReaderModal .text-secondary,
-
-#legadoReaderModal .text-muted,
-
-#mangaSearchDrawer .text-secondary,
-
-#mangaSearchDrawer .text-muted,
-
-#novelSearchDrawer .text-secondary,
-
-#novelSearchDrawer .text-muted,
-
-#tachimangaPlaceholder .text-secondary,
-
-#tachimangaPlaceholder p,
-
-#kazumiTheaterPlaceholder .text-secondary,
-
-#kazumiTheaterPlaceholder p {
-
-  color: #cbd5e1 !important; /* 對比度由原先 2.8:1 飆升至 10.5:1 */
-
-}
-
-/* 深色容器內的不透明度過低修正 (避免文字發黑沉底) */
-
-.modal-content.bg-dark .opacity-75,
-
-.modal-content.bg-dark .opacity-50,
-
-.modal-content.bg-black .opacity-75,
-
-.modal-content.bg-black .opacity-50,
-
-.offcanvas.bg-dark .opacity-75,
-
-.offcanvas.bg-dark .opacity-50,
-
-#kazumiSourceModal .opacity-75,
-
-#kazumiSourceModal .opacity-50,
-
-#tachimangaPlaceholder .opacity-75,
-
-#legadoPlaceholder .opacity-75,
-
-#kazumiTheaterPlaceholder .opacity-75 {
-
-  opacity: 0.95 !important;
-
-}
-
-/* 深色容器內的微型副標題與描述 */
-
-#kazumiSourceModal small,
-
-#kazumiSourceList small,
-
-#mangaSearchResultsContainer small,
-
-#novelSearchResultsContainer small {
-
-  color: #cbd5e1 !important;
-
-  font-weight: 500;
-
-}
-
-/* 深色容器內的輸入框 placeholder 調亮 (原先暗灰在黑底看不見) */
-
-.modal-content.bg-dark ::placeholder,
-
-.modal-content.bg-black ::placeholder,
-
-.offcanvas.bg-dark ::placeholder,
-
-#kazumiSourceModal input::placeholder,
-
-#animePlayerModal input::placeholder,
-
-#mangaReaderModal input::placeholder,
-
-#novelReaderModal input::placeholder,
-
-#tachimangaReaderModal input::placeholder,
-
-#legadoReaderModal input::placeholder,
-
-#mangaSourceModal input::placeholder,
-
-#novelSourceModal input::placeholder,
-
-#mangaSearchDrawer input::placeholder,
-
-#novelSearchDrawer input::placeholder,
-
-#theaterStandbySearchInput::placeholder,
-
-#mangaStandbySearchInput::placeholder,
-
-#novelStandbySearchInput::placeholder,
-
-#kazumiModalKeywordInput::placeholder {
-
-  color: #94a3b8 !important; /* 明顯清晰的占位提示 */
-
-  opacity: 1 !important;
-
-}
-
-/* 深色徽章 (Badges) 高對比度與半透明邊框 (WCAG AA 4.5:1+) */
-
-.modal-content.bg-dark .badge.bg-secondary-subtle,
-
-.modal-content.bg-black .badge.bg-secondary-subtle,
-
-.offcanvas.bg-dark .badge.bg-secondary-subtle,
-
-#kazumiSourceSummary,
-
-#mangaSelectedChapterCount,
-
-#novelSelectedChapterCount {
-
-  background-color: rgba(255, 255, 255, 0.2) !important;
-
-  color: #ffffff !important;
-
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
-
-  font-weight: 600;
-
-  letter-spacing: 0.02em;
-
-}
-
-/* Tachimanga 閱覽器頂部章節徽章高對比度修正 (徹底解決淺藍底白字失明問題) */
-
-#mangaCurrentChapterBadge {
-
-  background-color: #2563eb !important;
-
-  color: #ffffff !important;
-
-  border: 1px solid rgba(255, 255, 255, 0.35) !important;
-
-  font-weight: 600 !important;
-
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-
-}
-
-#mangaPageIndicator {
-
-  background-color: #334155 !important;
-
-  color: #f8fafc !important;
-
-  border: 1px solid rgba(255, 255, 255, 0.25) !important;
-
-  font-weight: 500 !important;
-
-}
-
-/* Legado 小說閱讀器頂部章節徽章高對比度修正 */
-
-#novelChapterBadge {
-
-  background-color: #16a34a !important;
-
-  color: #ffffff !important;
-
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
-
-  font-weight: 600 !important;
-
-}
-
-/* 多層 Modal 疊加層級 (避免來源/選集抽屜被全螢幕閱覽器遮擋) */
-
-#mangaSourceModal,
-
-#novelSourceModal,
-
-#kazumiSourceModal {
-
-  z-index: 1065 !important;
-
-}
-
-/* 深色卡片邊框與分隔線清晰化 */
-
-.modal-content.bg-dark .border-secondary,
-
-.modal-content.bg-black .border-secondary,
-
-.offcanvas.bg-dark .border-secondary,
-
-#kazumiSourceList .border-secondary {
-
-  border-color: rgba(255, 255, 255, 0.18) !important;
-
-}
-
-/* Kazumi 來源與選集卡片背景與文字加強 */
-
-#kazumiSourceList .bg-black.bg-opacity-40,
-
-#kazumiSourceList .bg-dark.bg-opacity-50 {
-
-  background-color: rgba(30, 41, 59, 0.75) !important; /* 改用藍黑底，層次分明 */
-
-  border: 1px solid rgba(255, 255, 255, 0.16) !important;
-
-}
-
-#kazumiSourceList .text-light {
-
-  color: #f8fafc !important;
-
-  font-weight: 600 !important;
-
-}
-
-/* 劇集選集按鈕亮化與對比 */
-
-#kazumiSourceList .btn-outline-light {
-
-  border-color: rgba(255, 255, 255, 0.35) !important;
-
-  color: #f8fafc !important;
-
-  background-color: rgba(255, 255, 255, 0.08);
-
-}
-
-#kazumiSourceList .btn-outline-light:hover {
-
-  background-color: #2563eb !important;
-
-  border-color: #2563eb !important;
-
-  color: #ffffff !important;
-
-}
-
-/* 待命狀態大標題與圖標清晰度提升 (針對固定深色之 Tachimanga 與 Kazumi 劇院) */
-
-#tachimangaPlaceholder h5,
-
-#kazumiTheaterPlaceholder h5 {
-
-  color: #ffffff !important;
-
-  font-size: 1.35rem;
-
-  letter-spacing: 0.03em;
-
-  margin-bottom: 0.5rem !important;
-
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
-
-}
-
-#tachimangaPlaceholder p,
-
-#kazumiTheaterPlaceholder p {
-
-  color: #cbd5e1 !important;
-
-  font-size: 0.95rem;
-
-  line-height: 1.6;
-
-}
-
-/* ============================================================
-
-   10. 動漫劇院右側選集與彈幕欄排版防護 (防止水平退化與擠壓跑版)
-
-   ============================================================ */
-
-.kazumi-theater-sidebar {
-
-  display: flex !important;
-
-  flex-direction: column !important;
-
-  min-height: 480px;
-
-}
-
-.episode-list-container {
-
-  display: flex !important;
-
-  flex-direction: column !important;
-
-  flex: 1 1 auto;
-
-  min-height: 0;
-
-  overflow-y: auto !important;
-
-  overflow-x: hidden !important;
-
-  scrollbar-width: thin;
-
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-
-}
-
-.episode-list-container::-webkit-scrollbar {
-
-  width: 6px;
-
-}
-
-.episode-list-container::-webkit-scrollbar-thumb {
-
-  background-color: rgba(255, 255, 255, 0.25);
-
-  border-radius: 3px;
-
-}
-
-.episode-list-container .btn,
-
-.episode-list-container .ep-btn {
-
-  width: 100% !important;
-
-  text-align: left !important;
-
-  white-space: nowrap !important;
-
-  overflow: hidden !important;
-
-  text-overflow: ellipsis !important;
-
-  display: flex !important;
-
-  align-items: center !important;
-
-  gap: 0.5rem;
-
-  padding: 0.5rem 0.85rem !important;
-
-  font-size: 0.875rem !important;
-
-  flex-shrink: 0;
-
-  margin-bottom: 0.35rem;
-
-  border-radius: 0.375rem;
-
-}
-
-.episode-list-container .ep-btn.btn-outline-secondary {
-
-  color: #e2e8f0 !important;
-
-  border-color: rgba(255, 255, 255, 0.15) !important;
-
-  background-color: rgba(255, 255, 255, 0.04);
-
-}
-
-.episode-list-container .ep-btn.btn-outline-secondary:hover {
-
-  background-color: rgba(37, 99, 235, 0.2) !important;
-
-  border-color: #2563eb !important;
-
-  color: #ffffff !important;
-
-}
-
-.episode-list-container .ep-btn.btn-primary.active {
-
-  background-color: #2563eb !important;
-
-  border-color: #2563eb !important;
-
-  color: #ffffff !important;
-
-  font-weight: 600;
-
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
-
-}
-
-/* 提高彈幕設置面板所有輸入框 placeholder 的可讀性 (圖1字體修復) */
-
-.danmaku-settings-panel input::placeholder,
-
-#animePlayerModal input::placeholder,
-
-#dandanConfigCollapse input::placeholder,
-
-#dmkBlockWords::placeholder {
-
-  color: rgba(255, 255, 255, 0.72) !important;
-
-  opacity: 1 !important;
-
-}
-
-/* 側邊欄彈幕與選集 Tab 樣式 */
-
-.theater-sidebar-tab.active {
-
-  background-color: #2563eb !important;
-
-  color: #ffffff !important;
-
-}
-
-/* 動漫劇院純淨化：強制隱藏 HTML5 原生 controls (避免任何雙層進度條/控制項重疊) */
-
-#kazumiVideoPlayer::-webkit-media-controls,
-
-#kazumiVideoPlayer::-webkit-media-controls-enclosure,
-
-#kazumiVideoPlayer::-webkit-media-controls-panel,
-
-#kazumiVideoPlayer::-webkit-media-controls-play-button,
-
-#kazumiVideoPlayer::-webkit-media-controls-timeline,
-
-#kazumiVideoPlayer::-webkit-media-controls-current-time-display,
-
-#kazumiVideoPlayer::-webkit-media-controls-time-remaining-display,
-
-#kazumiVideoPlayer::-webkit-media-controls-mute-button,
-
-#kazumiVideoPlayer::-webkit-media-controls-volume-slider,
-
-#kazumiVideoPlayer::-webkit-media-controls-fullscreen-button {
-
-  display: none !important;
-
-  -webkit-appearance: none !important;
-
-  opacity: 0 !important;
-
-  pointer-events: none !important;
-
-}
-
-/* 改善 Bangumi 狀態同步下拉選單可讀性 (圖3修復) */
-
-.dropdown-menu-dark .dropdown-header {
-
-  color: #38bdf8 !important;
-
-  font-weight: 700 !important;
-
-  letter-spacing: 0.5px;
-
-}
-
-/* 標記按鈕高對比度修復 (避免文字看不清) */
-
-.bookmark-watch-status-btn {
-
-  background: rgba(14, 165, 233, 0.15) !important;
-
-  color: #0284c7 !important;
-
-  border: 1px solid #38bdf8 !important;
-
-  font-weight: 600 !important;
-
-}
-
-[data-theme="dark"] .bookmark-watch-status-btn {
-
-  color: #38bdf8 !important;
-
-}
-
-/* ==================== 獨立觀看歷史專區樣式 ==================== */
-
-.watch-history-card {
-
-  transition: transform 0.22s ease, box-shadow 0.22s ease;
-
-  border: 1px solid rgba(0, 0, 0, 0.08);
-
-  background: #ffffff;
-
-  overflow: hidden;
-
-  border-radius: 12px;
-
-}
-
-[data-theme="dark"] .watch-history-card {
-
-  background: #1e293b;
-
-  border-color: rgba(255, 255, 255, 0.08);
-
-}
-
-.watch-history-card:hover {
-
-  transform: translateY(-4px);
-
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
-
-}
-
-.watch-history-cover-wrap {
-
-  position: relative;
-
-  width: 100%;
-
-  aspect-ratio: 16 / 9;
-
-  background: #0f172a;
-
-  overflow: hidden;
-
-}
-
-.watch-history-cover {
-
-  width: 100%;
-
-  height: 100%;
-
-  object-fit: cover;
-
-  transition: transform 0.3s ease;
-
-}
-
-.watch-history-card:hover .watch-history-cover {
-
-  transform: scale(1.05);
-
-}
-
-.watch-history-badge {
-
-  position: absolute;
-
-  top: 8px;
-
-  left: 8px;
-
-  z-index: 2;
-
-  font-size: 0.72rem;
-
-  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-
-}
-
-.watch-history-del-btn {
-
-  position: absolute;
-
-  top: 6px;
-
-  right: 6px;
-
-  z-index: 3;
-
-  width: 24px;
-
-  height: 24px;
-
-  padding: 0;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  border-radius: 50%;
-
-  background: rgba(0,0,0,0.65);
-
-  color: #ffffff;
-
-  border: none;
-
-  font-size: 0.75rem;
-
-  opacity: 0.75;
-
-  transition: opacity 0.2s, background 0.2s;
-
-}
-
-.watch-history-del-btn:hover {
-
-  background: #ef4444;
-
-  opacity: 1;
-
-  color: #ffffff;
-
-}
-
-.watch-history-progress-bar {
-
-  position: absolute;
-
-  bottom: 0;
-
-  left: 0;
-
-  right: 0;
-
-  height: 4px;
-
-  background: rgba(255, 255, 255, 0.2);
-
-}
-
-.watch-history-progress-fill {
-
-  height: 100%;
-
-  background: #ef4444;
-
-  transition: width 0.3s ease;
-
-}
-
-/* 動漫劇院超大沉浸式對話框與側邊欄寬度優化 */
-
-.modal-dialog-theater {
-
-  max-width: 94vw !important;
-
-  width: 94vw !important;
-
-  margin-left: auto !important;
-
-  margin-right: auto !important;
-
-}
-
-@media (min-width: 1400px) {
-
-  .modal-dialog-theater {
-
-    max-width: 1360px !important;
-
-  }
-
-}
-
-.kazumi-theater-sidebar {
-
-  min-width: 350px;
-
-}
-
-/* 動漫劇院待命狀態側邊欄觀看紀錄與自適應滾動條 */
-
-#animeRecentHistoryBox {
-
-  scrollbar-width: thin;
-
-  scrollbar-color: rgba(239, 68, 68, 0.5) rgba(0, 0, 0, 0.3);
-
-}
-
-#animeRecentHistoryBox::-webkit-scrollbar {
-
-  width: 6px;
-
-}
-
-#animeRecentHistoryBox::-webkit-scrollbar-track {
-
-  background: rgba(0, 0, 0, 0.2);
-
-  border-radius: 4px;
-
-}
-
-#animeRecentHistoryBox::-webkit-scrollbar-thumb {
-
-  background: rgba(239, 68, 68, 0.5);
-
-  border-radius: 4px;
-
-}
-
-#animeRecentHistoryBox::-webkit-scrollbar-thumb:hover {
-
-  background: rgba(239, 68, 68, 0.8);
-
-}
-
-/* 多層模態框疊加層級修復：播放歷史 Modal 置於動漫劇院上方 */
-
-#watchHistoryModal {
-
-  z-index: 1070 !important;
-
-}
-
-body.has-multi-modal .modal-backdrop:last-of-type {
-
-  z-index: 1065 !important;
-
-}
-
-/* 劇院側邊欄「最近觀看紀錄」懸浮視窗 (Floating Glass Panel) */
-
-.theater-floating-history-panel {
-
-  position: absolute;
-
-  top: 48px;
-
-  right: 12px;
-
-  left: 12px;
-
-  z-index: 1050;
-
-  background: rgba(15, 23, 42, 0.96);
-
-  backdrop-filter: blur(16px);
-
-  -webkit-backdrop-filter: blur(16px);
-
-  border: 1px solid rgba(239, 68, 68, 0.45);
-
-  border-radius: 14px;
-
-  padding: 12px;
-
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 16px rgba(239, 68, 68, 0.2);
-
-  animation: floatingPanelSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-
-}
-
-@keyframes floatingPanelSlideIn {
-
-  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
-
-  to { opacity: 1; transform: translateY(0) scale(1); }
-
-}
-
-/* 高對比亮珊瑚紅集數文字樣式，暗黑背景下清晰可見 */
-
-.history-ep-title-badge {
-
-  color: #f87171 !important;
-
-  font-weight: 500;
-
-  font-size: 0.75rem;
-
-}
-
-/* ACG 專區最近觀看紀錄緊湊精緻網格樣式 */
-
-.watch-history-card-compact {
-
-  border-radius: 10px;
-
-}
-
-.watch-history-card-compact .card-body {
-
-  padding: 8px 10px !important;
-
-}
-
-.watch-history-card-compact h6 {
-
-  font-size: 0.84rem !important;
-
-}
-
-.watch-history-card-compact .btn-sm {
-
-  font-size: 0.75rem !important;
-
-  padding: 2px 8px !important;
-
-}
-
-/* 劇院播放容器影廳黑邊比例微調：保留電影級黑邊氛圍，消除過度留白空隙 */
-
-#kazumiScreenContainer {
-
-  min-height: 480px;
-
-  max-height: 520px;
-
-}
-
-#kazumiIframeWrapper {
-
-  height: 480px !important;
-
-  max-height: 500px !important;
-
-}
-
-/* 小說閱讀器待命狀態：本機電子書拖曳上傳區 */
-
-.novel-upload-dropzone {
-
-  border: 2px dashed rgba(25, 135, 84, 0.45);
-
-  border-radius: 1rem;
-
-  background-color: rgba(25, 135, 84, 0.05);
-
-  transition: all 0.25s ease;
-
-  cursor: pointer;
-
-}
-
-.novel-upload-dropzone:hover,
-
-.novel-upload-dropzone.dragover {
-
-  border-color: #198754;
-
-  background-color: rgba(25, 135, 84, 0.12);
-
-  transform: translateY(-2px);
-
-}
-
-/* 主頁響應式設計 (RWD) 強化 */
-
-@media (max-width: 768px) {
-
-  .category-pills {
-
-    flex-wrap: nowrap !important;
-
-    overflow-x: auto !important;
-
-    padding-bottom: 6px !important;
-
-    -webkit-overflow-scrolling: touch;
-
-    scrollbar-width: none;
-
-  }
-
-  .category-pills::-webkit-scrollbar {
-
-    display: none;
-
-  }
-
-  .category-pills .nav-link {
-
-    white-space: nowrap !important;
-
-  }
-
-  .search-input-group {
-
-    width: 100% !important;
-
-  }
-
-}
-
-/* ============================================================
-
-   3D 擬真立體書架樣式 (Bookshelf System - Manga & Novel)
-
-   ============================================================ */
-
-.bookshelf-container {
-
-    perspective: 1200px;
-
-    width: 100%;
-
-}
-
-.bookshelf-shelf {
-
-    position: relative;
-
-    padding-bottom: 24px;
-
-    margin-bottom: 20px;
-
-    perspective: 1000px;
-
-}
-
-.bookshelf-books-row {
-
-    display: flex;
-
-    flex-wrap: wrap;
-
-    justify-content: center;
-
-    gap: 22px 28px;
-
-    align-items: flex-end;
-
-    padding: 12px 18px 2px 18px;
-
-    z-index: 2;
-
-    position: relative;
-
-    min-height: 200px;
-
-}
-
-.bookshelf-book {
-
-    position: relative;
-
-    width: 130px;
-
-    cursor: pointer;
-
-    transform-style: preserve-3d;
-
-    transition: box-shadow 0.3s ease, border-color 0.3s ease;
-
-    will-change: transform;
-
-    text-align: center;
-
-}
-
-.bookshelf-book-cover-wrap {
-
-    position: relative;
-
-    width: 100%;
-
-    aspect-ratio: 2 / 3;
-
-    border-radius: 4px 8px 8px 4px;
-
-    overflow: hidden;
-
-    box-shadow: -5px 8px 18px rgba(0, 0, 0, 0.55), 0 2px 4px rgba(0, 0, 0, 0.3);
-
-    background: #1e293b;
-
-    border: 1px solid rgba(255, 255, 255, 0.12);
-
-    transition: box-shadow 0.3s ease, border-color 0.3s ease;
-
-}
-
-.bookshelf-book-cover-wrap img {
-
-    width: 100%;
-
-    height: 100%;
-
-    object-fit: cover;
-
-    display: block;
-
-}
-
-/* 模擬書脊光影與厚度折痕 */
-
-.bookshelf-book-cover-wrap::before {
-
-    content: '';
-
-    position: absolute;
-
-    top: 0;
-
-    left: 0;
-
-    bottom: 0;
-
-    width: 20px;
-
-    background: linear-gradient(to right, rgba(0, 0, 0, 0.55) 0%, rgba(255, 255, 255, 0.22) 20%, rgba(0, 0, 0, 0.25) 50%, transparent 100%);
-
-    pointer-events: none;
-
-    z-index: 3;
-
-}
-
-/* 書側頁邊立體感 */
-
-.bookshelf-book-cover-wrap::after {
-
-    content: '';
-
-    position: absolute;
-
-    top: 3px;
-
-    right: 0;
-
-    bottom: 3px;
-
-    width: 4px;
-
-    background: repeating-linear-gradient(to bottom, #f1f5f9, #f1f5f9 1px, #94a3b8 1px, #94a3b8 2px);
-
-    border-radius: 0 2px 2px 0;
-
-    z-index: 2;
-
-}
-
-.bookshelf-badge {
-
-    position: absolute;
-
-    top: 6px;
-
-    left: 6px;
-
-    font-size: 0.65rem;
-
-    padding: 2px 6px;
-
-    border-radius: 4px;
-
-    z-index: 4;
-
-    backdrop-filter: blur(4px);
-
-}
-
-.bookshelf-remove-btn {
-
-    position: absolute;
-
-    top: 5px;
-
-    right: 5px;
-
-    width: 22px;
-
-    height: 22px;
-
-    background: rgba(0, 0, 0, 0.65);
-
-    color: #ffffff;
-
-    border: none;
-
-    border-radius: 50%;
-
-    display: flex;
-
-    align-items: center;
-
-    justify-content: center;
-
-    font-size: 11px;
-
-    opacity: 0;
-
-    transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
-
-    z-index: 5;
-
-    cursor: pointer;
-
-}
-
-.bookshelf-book:hover .bookshelf-remove-btn {
-
-    opacity: 1;
-
-}
-
-.bookshelf-remove-btn:hover {
-
-    background: #ef4444;
-
-    transform: scale(1.15);
-
-}
-
-.bookshelf-book-title {
-
-    font-size: 0.8rem;
-
-    font-weight: 600;
-
-    color: #e2e8f0;
-
-    margin-top: 8px;
-
-    white-space: nowrap;
-
-    overflow: hidden;
-
-    text-overflow: ellipsis;
-
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-
-}
-
-.bookshelf-book-sub {
-
-    font-size: 0.7rem;
-
-    color: #94a3b8;
-
-    margin-top: -2px;
-
-}
-
-/* 書架立體實木/金屬擱板 (Plank) */
-
-.bookshelf-plank {
-
-    height: 16px;
-
-    width: 100%;
-
-    background: linear-gradient(180deg, #475569 0%, #334155 45%, #1e293b 100%);
-
-    border-radius: 4px;
-
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.28);
-
-    position: relative;
-
-    z-index: 1;
-
-}
-
-.bookshelf-plank::after {
-
-    content: '';
-
-    position: absolute;
-
-    top: 100%;
-
-    left: 12px;
-
-    right: 12px;
-
-    height: 14px;
-
-    background: radial-gradient(ellipse at center top, rgba(0, 0, 0, 0.75) 0%, transparent 75%);
-
-}
-
-.bookshelf-book:hover .bookshelf-book-cover-wrap {
-
-    box-shadow: -12px 24px 38px rgba(0, 0, 0, 0.85), 0 10px 18px rgba(0, 0, 0, 0.55), 0 0 20px rgba(56, 189, 248, 0.25);
-
-    border-color: rgba(255, 255, 255, 0.35);
-
-}
-
+/* ============================================================
+
+
+
+   Web Library — 極簡沉穩風格 (Qwen 3.8 27B 設計，Antigravity 審查與修復)
+
+
+
+   設計語言：Notion / Linear / GitHub
+
+
+
+   低飽和、微陰影、1px 細邊框、克制圓角、拒絕花俏 AI 漸層
+
+
+
+   ============================================================ */
+
+
+
+/* ---------- 1. 設計變數 ---------- */
+
+
+
+:root {
+
+
+
+  /* 畫布與背景色 */
+
+
+
+  --bg-page: #f8fafc;
+
+
+
+  --bg-surface: #ffffff;
+
+
+
+  --bg-subtle: #f1f5f9;
+
+
+
+  --bg-hover: #f1f5f9;
+
+
+
+  /* 邊框系統 (1px 精緻感) */
+
+
+
+  --border: #e2e8f0;
+
+
+
+  --border-strong: #cbd5e1;
+
+
+
+  --border-focus: #94a3b8;
+
+
+
+  /* 文字階層 */
+
+
+
+  --text-primary: #0f172a;
+
+
+
+  --text-secondary: #475569;
+
+
+
+  --text-tertiary: #94a3b8;
+
+
+
+  /* 低飽和度分類色調 */
+
+
+
+  --cat-web-bg: #f0f7ff;
+
+
+
+  --cat-web-text: #1d4ed8;
+
+
+
+  --cat-web-border: #bfdbfe;
+
+
+
+  --cat-video-bg: #fff1f2;
+
+
+
+  --cat-video-text: #be123c;
+
+
+
+  --cat-video-border: #fecdd3;
+
+
+
+  --cat-res-bg: #f0fdf4;
+
+
+
+  --cat-res-text: #15803d;
+
+
+
+  --cat-res-border: #bbf7d0;
+
+
+
+  /* 精緻微陰影 */
+
+
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+
+
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+
+
+
+  --shadow-md: 0 6px 16px -2px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+
+
+
+  /* 幾何圓角 */
+
+
+
+  --radius-sm: 6px;
+
+
+
+  --radius-md: 10px;
+
+
+
+  --radius-lg: 14px;
+
+
+
+  /* 動畫時間 */
+
+
+
+  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+
+
+}
+
+
+
+/* ---------- 2. 基礎全域排版 ---------- */
+
+
+
+body {
+
+
+
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+
+
+
+  background-color: var(--bg-page);
+
+
+
+  color: var(--text-primary);
+
+
+
+  line-height: 1.6;
+
+
+
+  font-size: 14px;
+
+
+
+  -webkit-font-smoothing: antialiased;
+
+
+
+  -moz-osx-font-smoothing: grayscale;
+
+
+
+}
+
+
+
+/* 工具字級 */
+
+
+
+.fs-xs {
+
+
+
+  font-size: 0.75rem;
+
+
+
+  letter-spacing: 0.02em;
+
+
+
+}
+
+
+
+.max-w-lg {
+
+
+
+  max-width: 520px;
+
+
+
+}
+
+
+
+/* ---------- 3. 導覽列 (Navbar) ---------- */
+
+
+
+.navbar {
+
+
+
+  background-color: #ffffff !important;
+
+
+
+  border-bottom: 1px solid var(--border);
+
+
+
+}
+
+
+
+.navbar-brand {
+
+
+
+  display: flex;
+
+
+
+  align-items: center;
+
+
+
+  gap: 10px;
+
+
+
+  font-size: 1rem;
+
+
+
+  font-weight: 600;
+
+
+
+  color: var(--text-primary) !important;
+
+
+
+  letter-spacing: -0.01em;
+
+
+
+}
+
+
+
+.navbar-brand .brand-icon {
+
+
+
+  width: 32px;
+
+
+
+  height: 32px;
+
+
+
+  border-radius: var(--radius-sm);
+
+
+
+  background: var(--bg-subtle);
+
+
+
+  border: 1px solid var(--border);
+
+
+
+  display: flex;
+
+
+
+  align-items: center;
+
+
+
+  justify-content: center;
+
+
+
+  font-size: 1rem;
+
+
+
+  color: var(--text-primary);
+
+
+
+}
+
+
+
+/* 頂部導航與流體自適應置中搜尋框 (徹底杜絕按鍵重疊跑版) */
+
+.navbar .container-fluid {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 12px;
+
+}
+
+
+
+.navbar-brand {
+
+  flex-shrink: 0;
+
+}
+
+
+
+.navbar-collapse {
+
+  flex-grow: 1;
+
+}
+
+
+
+.navbar-search-wrapper {
+
+  position: static !important;
+
+  transform: none !important;
+
+  left: auto !important;
+
+  top: auto !important;
+
+  flex: 1 1 auto;
+
+  max-width: 420px;
+
+  min-width: 130px;
+
+  width: 100%;
+
+  margin: 0 !important;
+
+  transition: max-width 0.2s ease, min-width 0.2s ease;
+
+}
+
+
+
+@media (min-width: 992px) {
+
+  .navbar-search-wrapper {
+
+    margin-left: auto !important;
+
+    margin-right: auto !important;
+
+    max-width: 380px;
+
+  }
+
+}
+
+
+
+@media (min-width: 1400px) {
+
+  .navbar-search-wrapper {
+
+    max-width: 440px;
+
+  }
+
+}
+
+
+
+@media (max-width: 991.98px) {
+
+  .navbar-search-wrapper {
+
+    margin: 8px 0 !important;
+
+    max-width: 100%;
+
+  }
+
+}
+
+
+
+.navbar-actions-group {
+
+  flex-shrink: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 6px;
+
+}
+
+
+
+.search-input-group {
+
+
+
+  border: 1px solid var(--border);
+
+
+
+  border-radius: var(--radius-pill);
+
+
+
+  background: #f8fafc;
+
+
+
+  overflow: hidden;
+
+
+
+  transition: all 0.2s ease;
+
+
+
+  height: 38px;
+
+
+
+}
+
+
+
+.search-input-group:hover {
+
+
+
+  background: #ffffff;
+
+
+
+  border-color: #cbd5e1;
+
+
+
+}
+
+
+
+.search-input-group:focus-within {
+
+
+
+  background: #ffffff;
+
+
+
+  border-color: var(--primary);
+
+
+
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
+
+
+
+}
+
+
+
+.search-input-group input {
+
+
+
+  font-size: 0.88rem;
+
+
+
+  color: var(--text-primary);
+
+
+
+  background: transparent;
+
+
+
+  border: none;
+
+
+
+}
+
+
+
+.search-input-group input:focus {
+
+
+
+  box-shadow: none;
+
+
+
+  background: transparent;
+
+
+
+}
+
+
+
+/* ---------- 4. 頂部統計指標卡片 (去除鮮豔漸層，改為極簡邊框) ---------- */
+
+
+
+.stat-card {
+
+
+
+  background: var(--bg-surface) !important;
+
+
+
+  border: 1px solid var(--border) !important;
+
+
+
+  border-radius: var(--radius-md);
+
+
+
+  box-shadow: var(--shadow-xs) !important;
+
+
+
+  transition: var(--transition);
+
+
+
+}
+
+
+
+.stat-card:hover {
+
+
+
+  border-color: var(--border-strong) !important;
+
+
+
+  box-shadow: var(--shadow-sm) !important;
+
+
+
+}
+
+
+
+/* 覆蓋先前的漸層 Class，維持低調質感 */
+
+
+
+.bg-gradient-web,
+
+
+
+.bg-gradient-video,
+
+
+
+.bg-gradient-res {
+
+
+
+  background: var(--bg-surface) !important;
+
+
+
+}
+
+
+
+.stat-card span.fw-semibold {
+
+
+
+  color: var(--text-secondary) !important;
+
+
+
+  font-size: 0.8rem;
+
+
+
+}
+
+
+
+.stat-card h3 {
+
+
+
+  color: var(--text-primary) !important;
+
+
+
+  font-size: 1.5rem;
+
+
+
+  font-weight: 700;
+
+
+
+}
+
+
+
+.stat-icon {
+
+
+
+  width: 40px;
+
+
+
+  height: 40px;
+
+
+
+  border-radius: var(--radius-sm);
+
+
+
+  display: flex;
+
+
+
+  align-items: center;
+
+
+
+  justify-content: center;
+
+
+
+  font-size: 1.15rem;
+
+
+
+  background: var(--bg-subtle) !important;
+
+
+
+  border: 1px solid var(--border);
+
+
+
+  box-shadow: none !important;
+
+
+
+}
+
+
+
+.bg-gradient-web .stat-icon { color: var(--cat-web-text) !important; }
+
+
+
+.bg-gradient-video .stat-icon { color: var(--cat-video-text) !important; }
+
+
+
+.bg-gradient-res .stat-icon { color: var(--cat-res-text) !important; }
+
+
+
+/* ---------- 5. 分類導航與標籤 Chips ---------- */
+
+
+
+.category-pills .nav-link {
+
+
+
+  color: var(--text-secondary);
+
+
+
+  font-weight: 500;
+
+
+
+  font-size: 0.86rem;
+
+
+
+  padding: 0.4rem 0.9rem;
+
+
+
+  border-radius: var(--radius-sm);
+
+
+
+  background-color: transparent;
+
+
+
+  border: 1px solid transparent;
+
+
+
+  transition: var(--transition);
+
+
+
+}
+
+
+
+.category-pills .nav-link:hover {
+
+
+
+  background-color: var(--bg-hover);
+
+
+
+  color: var(--text-primary);
+
+
+
+}
+
+
+
+.category-pills .nav-link.active {
+
+
+
+  background-color: #0f172a;
+
+
+
+  color: #ffffff;
+
+
+
+  border-color: #0f172a;
+
+
+
+  box-shadow: var(--shadow-xs);
+
+
+
+}
+
+
+
+.category-pills .nav-link.active .badge {
+
+
+
+  background-color: rgba(255, 255, 255, 0.2) !important;
+
+
+
+  color: #ffffff !important;
+
+
+
+}
+
+
+
+/* 標籤 Chips */
+
+
+
+.tag-chip {
+
+
+
+  background-color: var(--bg-surface);
+
+
+
+  border: 1px solid var(--border);
+
+
+
+  color: var(--text-secondary);
+
+
+
+  font-size: 0.78rem;
+
+
+
+  padding: 0.2rem 0.65rem;
+
+
+
+  border-radius: var(--radius-sm);
+
+
+
+  transition: var(--transition);
+
+
+
+}
+
+
+
+.tag-chip:hover {
+
+
+
+  background-color: var(--bg-hover);
+
+
+
+  border-color: var(--border-strong);
+
+
+
+  color: var(--text-primary);
+
+
+
+}
+
+
+
+.tag-chip.active {
+
+
+
+  background-color: #0f172a;
+
+
+
+  color: #ffffff;
+
+
+
+  border-color: #0f172a;
+
+
+
+  box-shadow: none;
+
+
+
+}
+
+
+
+.btn-xs {
+
+
+
+  padding: 0.15rem 0.5rem;
+
+
+
+  font-size: 0.75rem;
+
+
+
+}
+
+
+
+/* ---------- 6. 收藏卡片 (Cards) ---------- */
+
+
+
+.bookmark-card {
+
+
+
+  background: var(--bg-surface);
+
+
+
+  border: 1px solid var(--border);
+
+
+
+  border-radius: var(--radius-md);
+
+
+
+  box-shadow: var(--shadow-xs);
+
+
+
+  overflow: hidden;
+
+
+
+  transition: var(--transition);
+
+
+
+  display: flex;
+
+
+
+  flex-direction: column;
+
+
+
+}
+
+
+
+.bookmark-card:hover {
+
+
+
+  border-color: var(--border-strong);
+
+
+
+  box-shadow: var(--shadow-md) !important;
+
+
+
+  transform: translateY(-2px);
+
+
+
+}
+
+
+
+/* 封面圖 */
+
+
+
+.card-cover-wrapper {
+
+
+
+  position: relative;
+
+
+
+  width: 100%;
+
+
+
+  aspect-ratio: 16 / 9;
+
+
+
+  background-color: var(--bg-subtle);
+
+
+
+  overflow: hidden;
+
+
+
+  border-bottom: 1px solid var(--border);
+
+
+
+  cursor: zoom-in;
+
+
+
+}
+
+
+
+.cover-zoom-badge {
+
+
+
+  position: absolute;
+
+
+
+  bottom: 8px;
+
+
+
+  right: 8px;
+
+
+
+  background: rgba(0, 0, 0, 0.68);
+
+
+
+  color: #ffffff;
+
+
+
+  border: 1px solid rgba(255, 255, 255, 0.25);
+
+
+
+  border-radius: 50%;
+
+
+
+  width: 28px;
+
+
+
+  height: 28px;
+
+
+
+  display: flex;
+
+
+
+  align-items: center;
+
+
+
+  justify-content: center;
+
+
+
+  font-size: 0.75rem;
+
+
+
+  opacity: 0;
+
+
+
+  transform: scale(0.85);
+
+
+
+  transition: opacity 0.2s ease, transform 0.2s ease;
+
+
+
+  z-index: 5;
+
+
+
+  pointer-events: none;
+
+
+
+}
+
+
+
+.card-cover-wrapper:hover .cover-zoom-badge {
+
+
+
+  opacity: 1;
+
+
+
+  transform: scale(1.05);
+
+
+
+}
+
+
+
+.card-cover-img {
+
+
+
+  width: 100%;
+
+
+
+  height: 100%;
+
+
+
+  object-fit: cover;
+
+
+
+  transition: transform 0.3s ease;
+
+
+
+}
+
+
+
+.bookmark-card:hover .card-cover-img {
+
+
+
+  transform: scale(1.02);
+
+
+
+}
+
+
+
+/* 置頂標籤 */
+
+
+
+.pin-badge {
+
+
+
+  position: absolute;
+
+
+
+  top: 8px;
+
+
+
+  left: 8px;
+
+
+
+  background: rgba(15, 23, 42, 0.85);
+
+
+
+  backdrop-filter: blur(4px);
+
+
+
+  color: #fef08a;
+
+
+
+  padding: 0.15rem 0.5rem;
+
+
+
+  border-radius: var(--radius-sm);
+
+
+
+  font-size: 0.72rem;
+
+
+
+  font-weight: 500;
+
+
+
+}
+
+
+
+/* 分類徽章 (低對比極簡風) */
+
+
+
+.category-floating-badge {
+
+
+
+  position: absolute;
+
+
+
+  top: 8px;
+
+
+
+  right: 8px;
+
+
+
+  font-size: 0.72rem;
+
+
+
+  font-weight: 500;
+
+
+
+  border-radius: var(--radius-sm);
+
+
+
+  padding: 0.2rem 0.55rem;
+
+
+
+  backdrop-filter: blur(6px);
+
+
+
+}
+
+
+
+.badge-cat-web {
+
+
+
+  background: var(--cat-web-bg);
+
+
+
+  color: var(--cat-web-text);
+
+
+
+  border: 1px solid var(--cat-web-border);
+
+
+
+}
+
+
+
+.badge-cat-anime {
+
+
+
+  background: rgba(220, 38, 38, 0.9);
+
+
+
+  color: #ffffff;
+
+
+
+  border: 1px solid rgba(185, 28, 28, 0.8);
+
+
+
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.35);
+
+
+
+}
+
+
+
+.badge-cat-video {
+
+
+
+  background: var(--cat-video-bg);
+
+
+
+  color: var(--cat-video-text);
+
+
+
+  border: 1px solid var(--cat-video-border);
+
+
+
+}
+
+
+
+.badge-cat-resource {
+
+
+
+  background: var(--cat-res-bg);
+
+
+
+  color: var(--cat-res-text);
+
+
+
+  border: 1px solid var(--cat-res-border);
+
+
+
+}
+
+
+
+/* 卡片主體文字排版 */
+
+
+
+.card-content-body {
+
+
+
+  padding: 1rem;
+
+
+
+  display: flex;
+
+
+
+  flex-direction: column;
+
+
+
+  flex-grow: 1;
+
+
+
+}
+
+
+
+.card-site-meta {
+
+
+
+  display: flex;
+
+
+
+  align-items: center;
+
+
+
+  gap: 0.45rem;
+
+
+
+  font-size: 0.78rem;
+
+
+
+  color: var(--text-tertiary);
+
+
+
+  margin-bottom: 0.4rem;
+
+
+
+}
+
+
+
+.site-favicon {
+
+
+
+  width: 14px;
+
+
+
+  height: 14px;
+
+
+
+  border-radius: 2px;
+
+
+
+  object-fit: contain;
+
+
+
+}
+
+
+
+.card-title-text {
+
+
+
+  font-size: 0.95rem;
+
+
+
+  font-weight: 600;
+
+
+
+  line-height: 1.45;
+
+
+
+  color: var(--text-primary);
+
+
+
+  display: -webkit-box;
+
+
+
+  -webkit-line-clamp: 2;
+
+
+
+  -webkit-box-orient: vertical;
+
+
+
+  overflow: hidden;
+
+
+
+  margin-bottom: 0.45rem;
+
+
+
+}
+
+
+
+.card-desc-text {
+
+
+
+  font-size: 0.82rem;
+
+
+
+  color: var(--text-secondary);
+
+
+
+  line-height: 1.5;
+
+
+
+  display: -webkit-box;
+
+
+
+  -webkit-line-clamp: 2;
+
+
+
+  -webkit-box-orient: vertical;
+
+
+
+  overflow: hidden;
+
+
+
+  margin-bottom: 0.75rem;
+
+
+
+  flex-grow: 1;
+
+
+
+}
+
+
+
+/* 標籤微標記 */
+
+
+
+.card-tags {
+
+
+
+  display: flex;
+
+
+
+  flex-wrap: wrap;
+
+
+
+  gap: 0.3rem;
+
+
+
+  margin-bottom: 0.85rem;
+
+
+
+}
+
+
+
+.tag-badge {
+
+
+
+  background: var(--bg-subtle);
+
+
+
+  color: var(--text-secondary);
+
+
+
+  border: 1px solid var(--border);
+
+
+
+  font-size: 0.7rem;
+
+
+
+  padding: 0.1rem 0.45rem;
+
+
+
+  border-radius: var(--radius-sm);
+
+
+
+  font-weight: 400;
+
+
+
+}
+
+
+
+/* 卡片操作欄 */
+
+
+
+.card-actions-footer {
+
+
+
+  display: flex;
+
+
+
+  align-items: center;
+
+
+
+  justify-content: space-between;
+
+
+
+  padding-top: 0.65rem;
+
+
+
+  border-top: 1px solid var(--border);
+
+
+
+}
+
+
+
+.action-jump-btn {
+
+
+
+  font-size: 0.8rem;
+
+
+
+  font-weight: 500;
+
+
+
+  padding: 0.32rem 0.75rem;
+
+
+
+  border-radius: var(--radius-sm);
+
+
+
+  background-color: var(--text-primary);
+
+
+
+  border-color: var(--text-primary);
+
+
+
+}
+
+
+
+.action-jump-btn:hover {
+
+
+
+  background-color: #334155;
+
+
+
+  border-color: #334155;
+
+
+
+}
+
+
+
+.click-counter-badge {
+
+
+
+  font-size: 0.72rem;
+
+
+
+  color: var(--text-tertiary);
+
+
+
+  display: flex;
+
+
+
+  align-items: center;
+
+
+
+  gap: 0.25rem;
+
+
+
+}
+
+
+
+/* ---------- 7. 清單檢視模式 (List View) ---------- */
+
+
+
+.list-view-mode .bookmark-col {
+
+
+
+  width: 100% !important;
+
+
+
+}
+
+
+
+.list-view-mode .bookmark-card {
+
+
+
+  flex-direction: row;
+
+
+
+  align-items: stretch;
+
+
+
+}
+
+
+
+.list-view-mode .card-cover-wrapper {
+
+
+
+  width: 170px;
+
+
+
+  min-width: 170px;
+
+
+
+  height: auto;
+
+
+
+  aspect-ratio: auto;
+
+
+
+  border-bottom: none;
+
+
+
+  border-right: 1px solid var(--border);
+
+
+
+}
+
+
+
+@media (max-width: 768px) {
+
+
+
+  .list-view-mode .bookmark-card {
+
+
+
+    flex-direction: column;
+
+
+
+  }
+
+
+
+  .list-view-mode .card-cover-wrapper {
+
+
+
+    width: 100%;
+
+
+
+    aspect-ratio: 16/9;
+
+
+
+    border-right: none;
+
+
+
+    border-bottom: 1px solid var(--border);
+
+
+
+  }
+
+
+
+}
+
+
+
+/* ============================================================
+
+
+
+   ACG 專用樣式 (Kazumi 劇院 / Tachimanga 條漫 / Legado 小說)
+
+
+
+   ============================================================ */
+
+
+
+/* 1. Kazumi 彈幕動畫與浮層層級保證 (浮於 iframe / video 之上) */
+
+
+
+@keyframes danmakuFly {
+
+
+
+  0% {
+
+
+
+    left: 100%;
+
+
+
+    transform: translateX(0);
+
+
+
+  }
+
+
+
+  100% {
+
+
+
+    left: 0;
+
+
+
+    transform: translateX(-100%);
+
+
+
+  }
+
+
+
+}
+
+
+
+/* ============================================================
+
+
+
+   容器全螢幕播放器 (Container Fullscreen + 彈幕層級保證)
+
+
+
+   ============================================================ */
+
+
+
+#kazumiScreenContainer:fullscreen,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen,
+
+
+
+#kazumiScreenContainer.is-fullscreen {
+
+
+
+  width: 100vw !important;
+
+
+
+  height: 100vh !important;
+
+
+
+  max-width: 100vw !important;
+
+
+
+  max-height: 100vh !important;
+
+
+
+  background: #000000 !important;
+
+
+
+  display: flex !important;
+
+
+
+  flex-direction: column !important;
+
+
+
+  position: fixed !important;
+
+
+
+  inset: 0 !important;
+
+
+
+  z-index: 99999 !important;
+
+
+
+  overflow: hidden !important;
+
+
+
+}
+
+
+
+/* 全螢幕模式下 Wrapper 與 Video 100% 填滿整個視窗，解除 490px/500px 限制 */
+
+
+
+#kazumiScreenContainer:fullscreen #kazumiIframeWrapper,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen #kazumiIframeWrapper,
+
+
+
+#kazumiScreenContainer.is-fullscreen #kazumiIframeWrapper {
+
+
+
+  width: 100vw !important;
+
+
+
+  height: 100vh !important;
+
+
+
+  max-width: 100vw !important;
+
+
+
+  max-height: 100vh !important;
+
+
+
+  position: absolute !important;
+
+
+
+  inset: 0 !important;
+
+
+
+  z-index: 1 !important;
+
+
+
+  overflow: hidden !important;
+
+
+
+  margin: 0 !important;
+
+
+
+  padding: 0 !important;
+
+
+
+  background: #000000 !important;
+
+
+
+}
+
+
+
+#kazumiScreenContainer:fullscreen #kazumiVideoPlayer,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen #kazumiVideoPlayer,
+
+
+
+#kazumiScreenContainer.is-fullscreen #kazumiVideoPlayer {
+
+
+
+  width: 100vw !important;
+
+
+
+  height: 100vh !important;
+
+
+
+  max-width: 100vw !important;
+
+
+
+  max-height: 100vh !important;
+
+
+
+  position: absolute !important;
+
+
+
+  inset: 0 !important;
+
+
+
+  z-index: 1 !important;
+
+
+
+  object-fit: contain !important;
+
+
+
+  background: #000000 !important;
+
+
+
+  border: none !important;
+
+
+
+}
+
+
+
+/* Bilibili 專屬純淨化：一般模式與全螢幕模式精準裁切頂部標題/頭像 (46px) 與底部控制欄 (60px) */
+
+
+
+#kazumiIframeWrapper.is-bilibili #kazumiIframePlayer {
+
+
+
+  width: 100% !important;
+
+
+
+  height: calc(100% + 106px) !important;
+
+
+
+  margin-top: -46px !important;
+
+
+
+  margin-bottom: -60px !important;
+
+
+
+  border: none !important;
+
+
+
+}
+
+
+
+#kazumiScreenContainer:fullscreen #kazumiIframeWrapper.is-bilibili #kazumiIframePlayer,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen #kazumiIframeWrapper.is-bilibili #kazumiIframePlayer,
+
+
+
+#kazumiScreenContainer.is-fullscreen #kazumiIframeWrapper.is-bilibili #kazumiIframePlayer {
+
+
+
+  width: 100vw !important;
+
+
+
+  height: calc(100vh + 106px) !important;
+
+
+
+  max-height: none !important;
+
+
+
+  margin-top: -46px !important;
+
+
+
+  margin-bottom: -60px !important;
+
+
+
+  position: absolute !important;
+
+
+
+  left: 0 !important;
+
+
+
+  right: 0 !important;
+
+
+
+  border: none !important;
+
+
+
+}
+
+
+
+/* 動漫外嵌播放器專屬純淨化：精準裁切頂部標題與底部第三方原生控制欄，只保留純淨影片本體 */
+
+
+
+#kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer {
+
+
+
+  width: 100% !important;
+
+
+
+  height: calc(100% + 108px) !important;
+
+
+
+  margin-top: -48px !important;
+
+
+
+  margin-bottom: -60px !important;
+
+
+
+  border: none !important;
+
+
+
+}
+
+
+
+#kazumiScreenContainer:fullscreen #kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen #kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer,
+
+
+
+#kazumiScreenContainer.is-fullscreen #kazumiIframeWrapper.is-pure-anime #kazumiIframePlayer {
+
+
+
+  width: 100vw !important;
+
+
+
+  height: calc(100vh + 108px) !important;
+
+
+
+  max-height: none !important;
+
+
+
+  margin-top: -48px !important;
+
+
+
+  margin-bottom: -60px !important;
+
+
+
+  position: absolute !important;
+
+
+
+  left: 0 !important;
+
+
+
+  right: 0 !important;
+
+
+
+  border: none !important;
+
+
+
+}
+
+
+
+/* 非純淨模式內嵌播放器 (YouTube / 通用源)：自適應滿版，不額外裁切畫面 */
+
+
+
+#kazumiIframeWrapper:not(.is-bilibili):not(.is-pure-anime) #kazumiIframePlayer {
+
+
+
+  width: 100% !important;
+
+
+
+  height: 100% !important;
+
+
+
+  margin: 0 !important;
+
+
+
+  border: none !important;
+
+
+
+}
+
+
+
+#kazumiScreenContainer:fullscreen #kazumiIframeWrapper:not(.is-bilibili):not(.is-pure-anime) #kazumiIframePlayer,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen #kazumiIframeWrapper:not(.is-bilibili):not(.is-pure-anime) #kazumiIframePlayer,
+
+
+
+#kazumiScreenContainer.is-fullscreen #kazumiIframeWrapper:not(.is-bilibili):not(.is-pure-anime) #kazumiIframePlayer {
+
+
+
+  width: 100vw !important;
+
+
+
+  height: 100vh !important;
+
+
+
+  max-height: 100vh !important;
+
+
+
+  margin: 0 !important;
+
+
+
+  position: absolute !important;
+
+
+
+  inset: 0 !important;
+
+
+
+  border: none !important;
+
+
+
+}
+
+
+
+/* 全螢幕模式下彈幕覆蓋於最上方 (確保彈幕在全螢幕下 100% 飄過) */
+
+
+
+#kazumiScreenContainer:fullscreen #danmakuOverlay,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen #danmakuOverlay,
+
+
+
+#kazumiScreenContainer.is-fullscreen #danmakuOverlay {
+
+
+
+  position: absolute !important;
+
+
+
+  inset: 0 !important;
+
+
+
+  width: 100vw !important;
+
+
+
+  height: 100vh !important;
+
+
+
+  z-index: 50 !important;
+
+
+
+  pointer-events: none !important;
+
+
+
+  overflow: hidden !important;
+
+
+
+}
+
+
+
+/* 全螢幕頂部懸浮控制列 */
+
+
+
+#kazumiScreenContainer:fullscreen #kazumiFsTopBar,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen #kazumiFsTopBar,
+
+
+
+#kazumiScreenContainer.is-fullscreen #kazumiFsTopBar {
+
+
+
+  display: flex !important;
+
+
+
+  z-index: 95 !important;
+
+
+
+  pointer-events: auto !important;
+
+
+
+  background: linear-gradient(to bottom, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.4) 70%, transparent 100%) !important;
+
+
+
+  padding: 12px 24px !important;
+
+
+
+  backdrop-filter: blur(6px);
+
+
+
+  -webkit-backdrop-filter: blur(6px);
+
+
+
+}
+
+
+
+/* 全螢幕底部懸浮控制軸與彈幕輸入 (最高層級 z-index: 95，保證點擊無任何遮蔽) */
+
+
+
+#kazumiScreenContainer #danmakuTimelineBar,
+
+
+
+#kazumiScreenContainer:fullscreen #danmakuTimelineBar,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen #danmakuTimelineBar,
+
+
+
+#kazumiScreenContainer.is-fullscreen #danmakuTimelineBar {
+
+
+
+  position: absolute !important;
+
+
+
+  bottom: 0 !important;
+
+
+
+  left: 0 !important;
+
+
+
+  right: 0 !important;
+
+
+
+  z-index: 95 !important;
+
+
+
+  pointer-events: auto !important;
+
+
+
+  background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 75%, transparent 100%) !important;
+
+
+
+  padding: 12px 24px !important;
+
+
+
+  border-top: none !important;
+
+
+
+  backdrop-filter: blur(6px);
+
+
+
+  -webkit-backdrop-filter: blur(6px);
+
+
+
+}
+
+
+
+#kazumiScreenContainer:fullscreen #kazumiFsDanmakuBar,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen #kazumiFsDanmakuBar,
+
+
+
+#kazumiScreenContainer.is-fullscreen #kazumiFsDanmakuBar {
+
+
+
+  display: flex !important;
+
+
+
+}
+
+
+
+#kazumiScreenContainer:fullscreen #kazumiFsDrawerBtn,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen #kazumiFsDrawerBtn,
+
+
+
+#kazumiScreenContainer.is-fullscreen #kazumiFsDrawerBtn {
+
+
+
+  display: inline-block !important;
+
+
+
+}
+
+
+
+/* 全螢幕滑鼠上下懸浮感應區 (Hover Zones) 與中央滾輪事件代理層 */
+
+
+
+.kazumi-fs-hover-zone {
+
+
+
+  position: absolute;
+
+
+
+  left: 0;
+
+
+
+  width: 100%;
+
+
+
+  pointer-events: none;
+
+
+
+  z-index: 70;
+
+
+
+  background: transparent;
+
+
+
+  display: none;
+
+
+
+}
+
+
+
+.kazumi-fs-hover-top {
+
+
+
+  top: 0;
+
+
+
+  height: 90px;
+
+
+
+}
+
+
+
+.kazumi-fs-hover-bottom {
+
+
+
+  bottom: 0;
+
+
+
+  height: 100px;
+
+
+
+}
+
+
+
+.kazumi-fs-screen-overlay {
+
+
+
+  position: absolute;
+
+
+
+  top: 0;
+
+
+
+  left: 0;
+
+
+
+  width: 100%;
+
+
+
+  height: 100%;
+
+
+
+  pointer-events: none;
+
+
+
+  z-index: 65;
+
+
+
+  background: transparent;
+
+
+
+  display: none;
+
+
+
+  cursor: default;
+
+
+
+}
+
+
+
+#animePlayerModal.show #kazumiScreenContainer:not(.is-standby) .kazumi-fs-hover-bottom,
+
+
+
+#kazumiScreenContainer:fullscreen .kazumi-fs-hover-zone,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen .kazumi-fs-hover-zone,
+
+
+
+#kazumiScreenContainer.is-fullscreen .kazumi-fs-hover-zone {
+
+
+
+  display: block !important;
+
+
+
+}
+
+
+
+#animePlayerModal.show #kazumiScreenContainer:not(.is-standby) .kazumi-fs-screen-overlay,
+
+
+
+#kazumiScreenContainer:fullscreen .kazumi-fs-screen-overlay,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen .kazumi-fs-screen-overlay,
+
+
+
+#kazumiScreenContainer.is-fullscreen .kazumi-fs-screen-overlay {
+
+
+
+  display: block !important;
+
+
+
+  pointer-events: auto !important;
+
+
+
+}
+
+
+
+/* 滑鼠閒置自動隱藏控制列：僅在全螢幕下隱藏游標，非全螢幕下保留游標 */
+
+
+
+#kazumiScreenContainer:fullscreen.fs-controls-hidden,
+
+
+
+#kazumiScreenContainer:fullscreen.fs-controls-hidden *,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen.fs-controls-hidden,
+
+
+
+#kazumiScreenContainer:-webkit-full-screen.fs-controls-hidden *,
+
+
+
+#kazumiScreenContainer.is-fullscreen.fs-controls-hidden,
+
+
+
+#kazumiScreenContainer.is-fullscreen.fs-controls-hidden * {
+
+
+
+  cursor: none !important;
+
+
+
+}
+
+
+
+/* 控制列隱藏時，感應區開啟事件捕獲以便瞬間喚醒 */
+
+
+
+#kazumiScreenContainer.fs-controls-hidden .kazumi-fs-hover-zone,
+
+
+
+#kazumiScreenContainer.fs-controls-hidden .kazumi-fs-screen-overlay {
+
+
+
+  pointer-events: auto !important;
+
+
+
+}
+
+
+
+#kazumiScreenContainer:fullscreen.fs-controls-hidden .kazumi-fs-hover-zone,
+
+
+
+#kazumiScreenContainer:fullscreen.fs-controls-hidden .kazumi-fs-screen-overlay,
+
+
+
+#kazumiScreenContainer.is-fullscreen.fs-controls-hidden .kazumi-fs-hover-zone,
+
+
+
+#kazumiScreenContainer.is-fullscreen.fs-controls-hidden .kazumi-fs-screen-overlay {
+
+
+
+  cursor: none !important;
+
+
+
+}
+
+
+
+#kazumiScreenContainer.fs-controls-hidden #kazumiFsTopBar {
+
+
+
+  opacity: 0 !important;
+
+
+
+  pointer-events: none !important;
+
+
+
+  transform: translateY(-24px);
+
+
+
+}
+
+
+
+#kazumiScreenContainer.fs-controls-hidden #danmakuTimelineBar {
+
+
+
+  opacity: 0 !important;
+
+
+
+  pointer-events: none !important;
+
+
+
+  transform: translateY(24px) !important;
+
+
+
+}
+
+
+
+#kazumiScreenContainer.fs-controls-hidden #kazumiFsEpisodeDrawer {
+
+
+
+  opacity: 0 !important;
+
+
+
+  pointer-events: none !important;
+
+
+
+}
+
+
+
+/* 待命模式狀態防護：待命模式絕對不允許覆蓋層遮擋搜尋輸入框與按鈕 */
+
+
+
+#kazumiTheaterPlaceholder {
+
+
+
+  z-index: 90 !important;
+
+
+
+  pointer-events: auto !important;
+
+
+
+}
+
+
+
+/* 跨域防內嵌阻擋卡片防護：確保按鈕永遠可點擊，不被透明事件代理層攔截 */
+
+
+
+#kazumiBlockedFallback {
+
+
+
+  z-index: 92 !important;
+
+
+
+  pointer-events: auto !important;
+
+
+
+}
+
+
+
+#kazumiBlockedFallback * {
+
+
+
+  pointer-events: auto !important;
+
+
+
+}
+
+
+
+#kazumiScreenContainer.has-blocked-fallback .kazumi-fs-screen-overlay {
+
+
+
+  display: none !important;
+
+
+
+  pointer-events: none !important;
+
+
+
+}
+
+
+
+#kazumiScreenContainer.is-standby .kazumi-fs-screen-overlay,
+
+
+
+#kazumiScreenContainer.is-standby .kazumi-fs-hover-zone {
+
+
+
+  display: none !important;
+
+
+
+  pointer-events: none !important;
+
+
+
+}
+
+
+
+#kazumiScreenContainer.is-standby #danmakuTimelineBar {
+
+
+
+  opacity: 1 !important;
+
+
+
+  pointer-events: auto !important;
+
+
+
+  transform: none !important;
+
+
+
+}
+
+
+
+.kazumi-fs-bar, #danmakuTimelineBar, #kazumiFsEpisodeDrawer {
+
+
+
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+
+
+}
+
+
+
+#danmakuOverlay {
+
+
+
+  position: absolute;
+
+
+
+  top: 0;
+
+
+
+  left: 0;
+
+
+
+  width: 100%;
+
+
+
+  height: 100%;
+
+
+
+  z-index: 20 !important;
+
+
+
+  pointer-events: none !important;
+
+
+
+  overflow: hidden;
+
+
+
+  --danmaku-font-size: 24px;
+
+
+
+  --danmaku-opacity: 1;
+
+
+
+  --danmaku-line-height: 1.6;
+
+
+
+  --danmaku-duration: 8s;
+
+
+
+}
+
+
+
+.danmaku-bullet {
+
+
+
+  position: absolute;
+
+
+
+  white-space: nowrap;
+
+
+
+  font-weight: 700;
+
+
+
+  font-size: var(--danmaku-font-size, 24px);
+
+
+
+  opacity: var(--danmaku-opacity, 1);
+
+
+
+  line-height: var(--danmaku-line-height, 1.6);
+
+
+
+  color: #ffffff;
+
+
+
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.95), 0 0 5px rgba(0, 0, 0, 0.8);
+
+
+
+  pointer-events: none;
+
+
+
+  animation: danmakuFly var(--danmaku-duration, 8s) linear forwards;
+
+
+
+  will-change: transform, left;
+
+
+
+  z-index: 25 !important;
+
+
+
+}
+
+
+
+/* 頂部與底部固定彈幕 */
+
+
+
+.danmaku-bullet.danmaku-top {
+
+
+
+  left: 50% !important;
+
+
+
+  transform: translateX(-50%) !important;
+
+
+
+  animation: danmakuFade var(--danmaku-duration, 5s) linear forwards !important;
+
+
+
+}
+
+
+
+.danmaku-bullet.danmaku-bottom {
+
+
+
+  left: 50% !important;
+
+
+
+  transform: translateX(-50%) !important;
+
+
+
+  animation: danmakuFade var(--danmaku-duration, 5s) linear forwards !important;
+
+
+
+}
+
+
+
+@keyframes danmakuFade {
+
+
+
+  0%, 85% { opacity: var(--danmaku-opacity, 1); }
+
+
+
+  100% { opacity: 0; }
+
+
+
+}
+
+
+
+/* 影片暫停時彈幕凍結靜止 (暫停飄動與生成) */
+
+
+
+#danmakuOverlay.danmaku-paused .danmaku-bullet,
+
+
+
+.danmaku-paused .danmaku-bullet {
+
+
+
+  animation-play-state: paused !important;
+
+
+
+}
+
+
+
+/* Kazumi 彈幕設定面板樣式 */
+
+
+
+.danmaku-settings-panel {
+
+
+
+  background: #14171a;
+
+
+
+  border-radius: 1rem;
+
+
+
+  border: 1px solid rgba(255, 255, 255, 0.12);
+
+
+
+  color: #e2e8f0;
+
+
+
+}
+
+
+
+.danmaku-settings-tabs .nav-link {
+
+
+
+  color: #94a3b8;
+
+
+
+  border-radius: 9999px;
+
+
+
+  padding: 0.35rem 1.25rem;
+
+
+
+  font-size: 0.875rem;
+
+
+
+  font-weight: 600;
+
+
+
+  transition: all 0.2s ease;
+
+
+
+}
+
+
+
+.danmaku-settings-tabs .nav-link.active {
+
+
+
+  background: #22c55e !important;
+
+
+
+  color: #052e16 !important;
+
+
+
+}
+
+
+
+.danmaku-setting-item {
+
+
+
+  background: rgba(255, 255, 255, 0.03);
+
+
+
+  border-radius: 0.75rem;
+
+
+
+  padding: 0.85rem 1rem;
+
+
+
+  border: 1px solid rgba(255, 255, 255, 0.05);
+
+
+
+}
+
+
+
+.danmaku-range-val {
+
+
+
+  min-width: 48px;
+
+
+
+  text-align: right;
+
+
+
+  font-variant-numeric: tabular-nums;
+
+
+
+  font-weight: 600;
+
+
+
+  color: #4ade80;
+
+
+
+}
+
+
+
+.ep-btn {
+
+
+
+  min-width: 76px;
+
+
+
+  font-size: 0.8rem;
+
+
+
+  border-radius: 6px;
+
+
+
+}
+
+
+
+/* 2. Tachimanga 條漫樣式 */
+
+
+
+.manga-page-img {
+
+
+
+  display: block;
+
+
+
+  width: 100%;
+
+
+
+  height: auto;
+
+
+
+  margin: 0 auto 6px auto;
+
+
+
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+
+
+
+  border-radius: 2px;
+
+
+
+}
+
+
+
+/* 3. Legado 小說三種主題與自訂字色支援 */
+
+
+
+.novel-theme-sepia,
+
+
+
+#novelReaderModal .novel-theme-sepia,
+
+
+
+#novelReaderModal .novel-theme-sepia #novelReadingArea,
+
+
+
+#novelReaderModal .novel-theme-sepia #novelChapterHeading,
+
+
+
+#novelReaderModal .novel-theme-sepia #novelChapterParagraphs,
+
+
+
+#novelReaderModal .novel-theme-sepia #novelChapterParagraphs p {
+
+
+
+  background-color: #f6f1e7;
+
+
+
+  color: #2d241e !important;
+
+
+
+}
+
+
+
+.novel-theme-sepia .modal-header,
+
+
+
+#novelReaderModal .novel-theme-sepia .modal-header {
+
+
+
+  background-color: #f1ebd8 !important;
+
+
+
+  color: #2d241e !important;
+
+
+
+}
+
+
+
+.novel-theme-sepia .border-top,
+
+
+
+.novel-theme-sepia .border-bottom {
+
+
+
+  border-color: #e5dac9 !important;
+
+
+
+}
+
+
+
+.novel-theme-sepia #legadoPlaceholder h5 {
+
+
+
+  color: #2d241e !important;
+
+
+
+  text-shadow: none !important;
+
+
+
+}
+
+
+
+.novel-theme-sepia #legadoPlaceholder p,
+
+
+
+.novel-theme-sepia #legadoPlaceholder .text-muted,
+
+
+
+.novel-theme-sepia .text-secondary {
+
+
+
+  color: #574c43 !important;
+
+
+
+}
+
+
+
+.novel-theme-white,
+
+
+
+#novelReaderModal .novel-theme-white,
+
+
+
+#novelReaderModal .novel-theme-white #novelReadingArea,
+
+
+
+#novelReaderModal .novel-theme-white #novelChapterHeading,
+
+
+
+#novelReaderModal .novel-theme-white #novelChapterParagraphs,
+
+
+
+#novelReaderModal .novel-theme-white #novelChapterParagraphs p {
+
+
+
+  background-color: #ffffff;
+
+
+
+  color: #1e293b !important;
+
+
+
+}
+
+
+
+.novel-theme-white .modal-header,
+
+
+
+#novelReaderModal .novel-theme-white .modal-header {
+
+
+
+  background-color: #ffffff !important;
+
+
+
+  color: #1e293b !important;
+
+
+
+}
+
+
+
+.novel-theme-white .border-top,
+
+
+
+.novel-theme-white .border-bottom {
+
+
+
+  border-color: #e2e8f0 !important;
+
+
+
+}
+
+
+
+.novel-theme-white #legadoPlaceholder h5 {
+
+
+
+  color: #0f172a !important;
+
+
+
+  text-shadow: none !important;
+
+
+
+}
+
+
+
+.novel-theme-white #legadoPlaceholder p,
+
+
+
+.novel-theme-white #legadoPlaceholder .text-muted,
+
+
+
+.novel-theme-white .text-secondary {
+
+
+
+  color: #475569 !important;
+
+
+
+}
+
+
+
+.novel-theme-dark,
+
+
+
+#novelReaderModal .novel-theme-dark,
+
+
+
+#novelReaderModal .novel-theme-dark #novelReadingArea,
+
+
+
+#novelReaderModal .novel-theme-dark #novelChapterHeading,
+
+
+
+#novelReaderModal .novel-theme-dark #novelChapterParagraphs,
+
+
+
+#novelReaderModal .novel-theme-dark #novelChapterParagraphs p {
+
+
+
+  background-color: #18181b;
+
+
+
+  color: #e4e4e7 !important;
+
+
+
+}
+
+
+
+.novel-theme-dark .modal-header,
+
+
+
+#novelReaderModal .novel-theme-dark .modal-header {
+
+
+
+  background-color: #18181b !important;
+
+
+
+  color: #e4e4e7 !important;
+
+
+
+}
+
+
+
+.novel-theme-dark .border-top,
+
+
+
+.novel-theme-dark .border-bottom {
+
+
+
+  border-color: #27272a !important;
+
+
+
+}
+
+
+
+.novel-theme-dark #legadoPlaceholder h5 {
+
+
+
+  color: #ffffff !important;
+
+
+
+}
+
+
+
+.novel-theme-dark #legadoPlaceholder p,
+
+
+
+.novel-theme-dark #legadoPlaceholder .text-muted,
+
+
+
+.novel-theme-dark .text-secondary {
+
+
+
+  color: #cbd5e1 !important;
+
+
+
+}
+
+
+
+.novel-theme-dark .form-control {
+
+
+
+  background-color: #27272a !important;
+
+
+
+  color: #f4f4f5 !important;
+
+
+
+  border-color: #3f3f46 !important;
+
+
+
+}
+
+
+
+.novel-theme-dark .input-group-text {
+
+
+
+  background-color: #27272a !important;
+
+
+
+  color: #a1a1aa !important;
+
+
+
+  border-color: #3f3f46 !important;
+
+
+
+}
+
+
+
+.novel-paragraphs p {
+
+
+
+  text-indent: 2em;
+
+
+
+  margin-bottom: 1.5rem;
+
+
+
+  line-height: 2.2;
+
+
+
+}
+
+
+
+/* 支援使用者自訂小說字體顏色動態變數覆蓋 */
+
+
+
+.novel-custom-color #novelReadingArea,
+
+
+
+.novel-custom-color #novelChapterHeading,
+
+
+
+.novel-custom-color #novelChapterParagraphs,
+
+
+
+.novel-custom-color #novelChapterParagraphs p {
+
+
+
+  color: var(--novel-custom-text-color) !important;
+
+
+
+}
+
+
+
+/* 4. Bangumi 新番時間表卡片 */
+
+
+
+.bgm-anime-card {
+
+
+
+  background: var(--bg-surface);
+
+
+
+  border: 1px solid var(--border);
+
+
+
+  border-radius: var(--radius-md);
+
+
+
+  overflow: hidden;
+
+
+
+  transition: var(--transition);
+
+
+
+  height: 100%;
+
+
+
+  display: flex;
+
+
+
+  flex-direction: column;
+
+
+
+}
+
+
+
+.bgm-anime-card:hover {
+
+
+
+  border-color: var(--border-strong);
+
+
+
+  transform: translateY(-3px);
+
+
+
+  box-shadow: var(--shadow-md) !important;
+
+
+
+}
+
+
+
+.bgm-anime-cover-box {
+
+
+
+  position: relative;
+
+
+
+  width: 100%;
+
+
+
+  aspect-ratio: 2 / 3;
+
+
+
+  background-color: var(--bg-subtle);
+
+
+
+  overflow: hidden;
+
+
+
+}
+
+
+
+.bgm-anime-cover-img {
+
+
+
+  width: 100%;
+
+
+
+  height: 100%;
+
+
+
+  object-fit: cover;
+
+
+
+}
+
+
+
+.bgm-rating-badge {
+
+
+
+  position: absolute;
+
+
+
+  top: 8px;
+
+
+
+  right: 8px;
+
+
+
+  background: rgba(15, 23, 42, 0.85);
+
+
+
+  color: #fbbf24;
+
+
+
+  font-size: 0.75rem;
+
+
+
+  font-weight: 600;
+
+
+
+  padding: 0.15rem 0.5rem;
+
+
+
+  border-radius: var(--radius-sm);
+
+
+
+  backdrop-filter: blur(4px);
+
+
+
+}
+
+
+
+/* ==========================================
+
+
+
+   8. 批量管理 (Batch Edit Mode) 樣式
+
+
+
+   ========================================== */
+
+
+
+.batch-action-bar {
+
+
+
+  z-index: 1045;
+
+
+
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+
+
+
+  box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.3);
+
+
+
+  animation: batchSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+
+
+}
+
+
+
+@keyframes batchSlideUp {
+
+
+
+  from {
+
+
+
+    transform: translateY(100%);
+
+
+
+    opacity: 0;
+
+
+
+  }
+
+
+
+  to {
+
+
+
+    transform: translateY(0);
+
+
+
+    opacity: 1;
+
+
+
+  }
+
+
+
+}
+
+
+
+.bookmark-card.batch-selected {
+
+
+
+  outline: 2px solid #2563eb !important;
+
+
+
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.18) !important;
+
+
+
+  background-color: #f8faff !important;
+
+
+
+}
+
+
+
+.bookmark-batch-checkbox {
+
+
+
+  z-index: 5;
+
+
+
+  cursor: pointer;
+
+
+
+}
+
+
+
+.bookmark-batch-checkbox .form-check-input {
+
+
+
+  width: 1.35rem;
+
+
+
+  height: 1.35rem;
+
+
+
+  cursor: pointer;
+
+
+
+  border: 2px solid rgba(0, 0, 0, 0.25);
+
+
+
+}
+
+
+
+.bookmark-batch-checkbox .form-check-input:checked {
+
+
+
+  background-color: #2563eb;
+
+
+
+  border-color: #2563eb;
+
+
+
+}
+
+
+
+/* ============================================================
+
+
+
+   9. 深色背景與 ACG 模態框高對比度文字增強 (WCAG AA 4.5:1+)
+
+
+
+   針對 Kazumi 播放來源、Tachimanga 條漫、Legado 小說、動漫劇院、側邊抽屜
+
+
+
+   ============================================================ */
+
+
+
+/* 模態框與全螢幕閱覽器深色容器文字亮化 */
+
+
+
+.modal-content.bg-dark,
+
+
+
+.modal-content.bg-black,
+
+
+
+.offcanvas.bg-dark,
+
+
+
+.offcanvas.bg-black,
+
+
+
+#kazumiSourceModal .modal-content,
+
+
+
+#animePlayerModal .modal-content,
+
+
+
+#mangaReaderModal .modal-content,
+
+
+
+#tachimangaReaderModal .modal-content,
+
+
+
+#legadoReaderModal .modal-content,
+
+
+
+#mangaSourceModal .modal-content,
+
+
+
+#novelSourceModal .modal-content,
+
+
+
+#mangaSearchDrawer,
+
+
+
+#novelSearchDrawer {
+
+
+
+  color: #f1f5f9 !important;
+
+
+
+}
+
+
+
+/* 深色容器內的所有次要文字與說明文字全面調亮為高對比淺灰色 (#cbd5e1 / #94a3b8) */
+
+
+
+.modal-content.bg-dark .text-secondary,
+
+
+
+.modal-content.bg-dark .text-muted,
+
+
+
+.modal-content.bg-black .text-secondary,
+
+
+
+.modal-content.bg-black .text-muted,
+
+
+
+.offcanvas.bg-dark .text-secondary,
+
+
+
+.offcanvas.bg-dark .text-muted,
+
+
+
+#kazumiSourceModal .text-secondary,
+
+
+
+#kazumiSourceModal .text-muted,
+
+
+
+#animePlayerModal .text-secondary,
+
+
+
+#animePlayerModal .text-muted,
+
+
+
+#mangaReaderModal .text-secondary,
+
+
+
+#mangaReaderModal .text-muted,
+
+
+
+#mangaSourceModal .text-secondary,
+
+
+
+#mangaSourceModal .text-muted,
+
+
+
+#novelSourceModal .text-secondary,
+
+
+
+#novelSourceModal .text-muted,
+
+
+
+#tachimangaReaderModal .text-secondary,
+
+
+
+#tachimangaReaderModal .text-muted,
+
+
+
+#legadoReaderModal .text-secondary,
+
+
+
+#legadoReaderModal .text-muted,
+
+
+
+#mangaSearchDrawer .text-secondary,
+
+
+
+#mangaSearchDrawer .text-muted,
+
+
+
+#novelSearchDrawer .text-secondary,
+
+
+
+#novelSearchDrawer .text-muted,
+
+
+
+#tachimangaPlaceholder .text-secondary,
+
+
+
+#tachimangaPlaceholder p,
+
+
+
+#kazumiTheaterPlaceholder .text-secondary,
+
+
+
+#kazumiTheaterPlaceholder p {
+
+
+
+  color: #cbd5e1 !important; /* 對比度由原先 2.8:1 飆升至 10.5:1 */
+
+
+
+}
+
+
+
+/* 深色容器內的不透明度過低修正 (避免文字發黑沉底) */
+
+
+
+.modal-content.bg-dark .opacity-75,
+
+
+
+.modal-content.bg-dark .opacity-50,
+
+
+
+.modal-content.bg-black .opacity-75,
+
+
+
+.modal-content.bg-black .opacity-50,
+
+
+
+.offcanvas.bg-dark .opacity-75,
+
+
+
+.offcanvas.bg-dark .opacity-50,
+
+
+
+#kazumiSourceModal .opacity-75,
+
+
+
+#kazumiSourceModal .opacity-50,
+
+
+
+#tachimangaPlaceholder .opacity-75,
+
+
+
+#legadoPlaceholder .opacity-75,
+
+
+
+#kazumiTheaterPlaceholder .opacity-75 {
+
+
+
+  opacity: 0.95 !important;
+
+
+
+}
+
+
+
+/* 深色容器內的微型副標題與描述 */
+
+
+
+#kazumiSourceModal small,
+
+
+
+#kazumiSourceList small,
+
+
+
+#mangaSearchResultsContainer small,
+
+
+
+#novelSearchResultsContainer small {
+
+
+
+  color: #cbd5e1 !important;
+
+
+
+  font-weight: 500;
+
+
+
+}
+
+
+
+/* 深色容器內的輸入框 placeholder 調亮 (原先暗灰在黑底看不見) */
+
+
+
+.modal-content.bg-dark ::placeholder,
+
+
+
+.modal-content.bg-black ::placeholder,
+
+
+
+.offcanvas.bg-dark ::placeholder,
+
+
+
+#kazumiSourceModal input::placeholder,
+
+
+
+#animePlayerModal input::placeholder,
+
+
+
+#mangaReaderModal input::placeholder,
+
+
+
+#novelReaderModal input::placeholder,
+
+
+
+#tachimangaReaderModal input::placeholder,
+
+
+
+#legadoReaderModal input::placeholder,
+
+
+
+#mangaSourceModal input::placeholder,
+
+
+
+#novelSourceModal input::placeholder,
+
+
+
+#mangaSearchDrawer input::placeholder,
+
+
+
+#novelSearchDrawer input::placeholder,
+
+
+
+#theaterStandbySearchInput::placeholder,
+
+
+
+#mangaStandbySearchInput::placeholder,
+
+
+
+#novelStandbySearchInput::placeholder,
+
+
+
+#kazumiModalKeywordInput::placeholder {
+
+
+
+  color: #94a3b8 !important; /* 明顯清晰的占位提示 */
+
+
+
+  opacity: 1 !important;
+
+
+
+}
+
+
+
+/* 深色徽章 (Badges) 高對比度與半透明邊框 (WCAG AA 4.5:1+) */
+
+
+
+.modal-content.bg-dark .badge.bg-secondary-subtle,
+
+
+
+.modal-content.bg-black .badge.bg-secondary-subtle,
+
+
+
+.offcanvas.bg-dark .badge.bg-secondary-subtle,
+
+
+
+#kazumiSourceSummary,
+
+
+
+#mangaSelectedChapterCount,
+
+
+
+#novelSelectedChapterCount {
+
+
+
+  background-color: rgba(255, 255, 255, 0.2) !important;
+
+
+
+  color: #ffffff !important;
+
+
+
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+
+
+
+  font-weight: 600;
+
+
+
+  letter-spacing: 0.02em;
+
+
+
+}
+
+
+
+/* Tachimanga 閱覽器頂部章節徽章高對比度修正 (徹底解決淺藍底白字失明問題) */
+
+
+
+#mangaCurrentChapterBadge {
+
+
+
+  background-color: #2563eb !important;
+
+
+
+  color: #ffffff !important;
+
+
+
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+
+
+
+  font-weight: 600 !important;
+
+
+
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+
+
+
+}
+
+
+
+#mangaPageIndicator {
+
+
+
+  background-color: #334155 !important;
+
+
+
+  color: #f8fafc !important;
+
+
+
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+
+
+
+  font-weight: 500 !important;
+
+
+
+}
+
+
+
+/* Legado 小說閱讀器頂部章節徽章高對比度修正 */
+
+
+
+#novelChapterBadge {
+
+
+
+  background-color: #16a34a !important;
+
+
+
+  color: #ffffff !important;
+
+
+
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+
+
+
+  font-weight: 600 !important;
+
+
+
+}
+
+
+
+/* 多層 Modal 疊加層級 (避免來源/選集抽屜被全螢幕閱覽器遮擋) */
+
+
+
+#mangaSourceModal,
+
+
+
+#novelSourceModal,
+
+
+
+#kazumiSourceModal {
+
+
+
+  z-index: 1065 !important;
+
+
+
+}
+
+
+
+/* 深色卡片邊框與分隔線清晰化 */
+
+
+
+.modal-content.bg-dark .border-secondary,
+
+
+
+.modal-content.bg-black .border-secondary,
+
+
+
+.offcanvas.bg-dark .border-secondary,
+
+
+
+#kazumiSourceList .border-secondary {
+
+
+
+  border-color: rgba(255, 255, 255, 0.18) !important;
+
+
+
+}
+
+
+
+/* Kazumi 來源與選集卡片背景與文字加強 */
+
+
+
+#kazumiSourceList .bg-black.bg-opacity-40,
+
+
+
+#kazumiSourceList .bg-dark.bg-opacity-50 {
+
+
+
+  background-color: rgba(30, 41, 59, 0.75) !important; /* 改用藍黑底，層次分明 */
+
+
+
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+
+
+
+}
+
+
+
+#kazumiSourceList .text-light {
+
+
+
+  color: #f8fafc !important;
+
+
+
+  font-weight: 600 !important;
+
+
+
+}
+
+
+
+/* 劇集選集按鈕亮化與對比 */
+
+
+
+#kazumiSourceList .btn-outline-light {
+
+
+
+  border-color: rgba(255, 255, 255, 0.35) !important;
+
+
+
+  color: #f8fafc !important;
+
+
+
+  background-color: rgba(255, 255, 255, 0.08);
+
+
+
+}
+
+
+
+#kazumiSourceList .btn-outline-light:hover {
+
+
+
+  background-color: #2563eb !important;
+
+
+
+  border-color: #2563eb !important;
+
+
+
+  color: #ffffff !important;
+
+
+
+}
+
+
+
+/* 待命狀態大標題與圖標清晰度提升 (針對固定深色之 Tachimanga 與 Kazumi 劇院) */
+
+
+
+#tachimangaPlaceholder h5,
+
+
+
+#kazumiTheaterPlaceholder h5 {
+
+
+
+  color: #ffffff !important;
+
+
+
+  font-size: 1.35rem;
+
+
+
+  letter-spacing: 0.03em;
+
+
+
+  margin-bottom: 0.5rem !important;
+
+
+
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+
+
+
+}
+
+
+
+#tachimangaPlaceholder p,
+
+
+
+#kazumiTheaterPlaceholder p {
+
+
+
+  color: #cbd5e1 !important;
+
+
+
+  font-size: 0.95rem;
+
+
+
+  line-height: 1.6;
+
+
+
+}
+
+
+
+/* ============================================================
+
+
+
+   10. 動漫劇院右側選集與彈幕欄排版防護 (防止水平退化與擠壓跑版)
+
+
+
+   ============================================================ */
+
+
+
+.kazumi-theater-sidebar {
+
+
+
+  display: flex !important;
+
+
+
+  flex-direction: column !important;
+
+
+
+  min-height: 480px;
+
+
+
+}
+
+
+
+.episode-list-container {
+
+
+
+  display: flex !important;
+
+
+
+  flex-direction: column !important;
+
+
+
+  flex: 1 1 auto;
+
+
+
+  min-height: 0;
+
+
+
+  overflow-y: auto !important;
+
+
+
+  overflow-x: hidden !important;
+
+
+
+  scrollbar-width: thin;
+
+
+
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+
+
+
+}
+
+
+
+.episode-list-container::-webkit-scrollbar {
+
+
+
+  width: 6px;
+
+
+
+}
+
+
+
+.episode-list-container::-webkit-scrollbar-thumb {
+
+
+
+  background-color: rgba(255, 255, 255, 0.25);
+
+
+
+  border-radius: 3px;
+
+
+
+}
+
+
+
+.episode-list-container .btn,
+
+
+
+.episode-list-container .ep-btn {
+
+
+
+  width: 100% !important;
+
+
+
+  text-align: left !important;
+
+
+
+  white-space: nowrap !important;
+
+
+
+  overflow: hidden !important;
+
+
+
+  text-overflow: ellipsis !important;
+
+
+
+  display: flex !important;
+
+
+
+  align-items: center !important;
+
+
+
+  gap: 0.5rem;
+
+
+
+  padding: 0.5rem 0.85rem !important;
+
+
+
+  font-size: 0.875rem !important;
+
+
+
+  flex-shrink: 0;
+
+
+
+  margin-bottom: 0.35rem;
+
+
+
+  border-radius: 0.375rem;
+
+
+
+}
+
+
+
+.episode-list-container .ep-btn.btn-outline-secondary {
+
+
+
+  color: #e2e8f0 !important;
+
+
+
+  border-color: rgba(255, 255, 255, 0.15) !important;
+
+
+
+  background-color: rgba(255, 255, 255, 0.04);
+
+
+
+}
+
+
+
+.episode-list-container .ep-btn.btn-outline-secondary:hover {
+
+
+
+  background-color: rgba(37, 99, 235, 0.2) !important;
+
+
+
+  border-color: #2563eb !important;
+
+
+
+  color: #ffffff !important;
+
+
+
+}
+
+
+
+.episode-list-container .ep-btn.btn-primary.active {
+
+
+
+  background-color: #2563eb !important;
+
+
+
+  border-color: #2563eb !important;
+
+
+
+  color: #ffffff !important;
+
+
+
+  font-weight: 600;
+
+
+
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+
+
+
+}
+
+
+
+/* 提高彈幕設置面板所有輸入框 placeholder 的可讀性 (圖1字體修復) */
+
+
+
+.danmaku-settings-panel input::placeholder,
+
+
+
+#animePlayerModal input::placeholder,
+
+
+
+#dandanConfigCollapse input::placeholder,
+
+
+
+#dmkBlockWords::placeholder {
+
+
+
+  color: rgba(255, 255, 255, 0.72) !important;
+
+
+
+  opacity: 1 !important;
+
+
+
+}
+
+
+
+/* 側邊欄彈幕與選集 Tab 樣式 */
+
+
+
+.theater-sidebar-tab.active {
+
+
+
+  background-color: #2563eb !important;
+
+
+
+  color: #ffffff !important;
+
+
+
+}
+
+
+
+/* 動漫劇院純淨化：強制隱藏 HTML5 原生 controls (避免任何雙層進度條/控制項重疊) */
+
+
+
+#kazumiVideoPlayer::-webkit-media-controls,
+
+
+
+#kazumiVideoPlayer::-webkit-media-controls-enclosure,
+
+
+
+#kazumiVideoPlayer::-webkit-media-controls-panel,
+
+
+
+#kazumiVideoPlayer::-webkit-media-controls-play-button,
+
+
+
+#kazumiVideoPlayer::-webkit-media-controls-timeline,
+
+
+
+#kazumiVideoPlayer::-webkit-media-controls-current-time-display,
+
+
+
+#kazumiVideoPlayer::-webkit-media-controls-time-remaining-display,
+
+
+
+#kazumiVideoPlayer::-webkit-media-controls-mute-button,
+
+
+
+#kazumiVideoPlayer::-webkit-media-controls-volume-slider,
+
+
+
+#kazumiVideoPlayer::-webkit-media-controls-fullscreen-button {
+
+
+
+  display: none !important;
+
+
+
+  -webkit-appearance: none !important;
+
+
+
+  opacity: 0 !important;
+
+
+
+  pointer-events: none !important;
+
+
+
+}
+
+
+
+/* 改善 Bangumi 狀態同步下拉選單可讀性 (圖3修復) */
+
+
+
+.dropdown-menu-dark .dropdown-header {
+
+
+
+  color: #38bdf8 !important;
+
+
+
+  font-weight: 700 !important;
+
+
+
+  letter-spacing: 0.5px;
+
+
+
+}
+
+
+
+/* 標記按鈕高對比度修復 (避免文字看不清) */
+
+
+
+.bookmark-watch-status-btn {
+
+
+
+  background: rgba(14, 165, 233, 0.15) !important;
+
+
+
+  color: #0284c7 !important;
+
+
+
+  border: 1px solid #38bdf8 !important;
+
+
+
+  font-weight: 600 !important;
+
+
+
+}
+
+
+
+[data-theme="dark"] .bookmark-watch-status-btn {
+
+
+
+  color: #38bdf8 !important;
+
+
+
+}
+
+
+
+/* ==================== 獨立觀看歷史專區樣式 ==================== */
+
+
+
+.watch-history-card {
+
+
+
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+
+
+
+  border: 1px solid rgba(0, 0, 0, 0.08);
+
+
+
+  background: #ffffff;
+
+
+
+  overflow: hidden;
+
+
+
+  border-radius: 12px;
+
+
+
+}
+
+
+
+[data-theme="dark"] .watch-history-card {
+
+
+
+  background: #1e293b;
+
+
+
+  border-color: rgba(255, 255, 255, 0.08);
+
+
+
+}
+
+
+
+.watch-history-card:hover {
+
+
+
+  transform: translateY(-4px);
+
+
+
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+
+
+
+}
+
+
+
+.watch-history-cover-wrap {
+
+
+
+  position: relative;
+
+
+
+  width: 100%;
+
+
+
+  aspect-ratio: 16 / 9;
+
+
+
+  background: #0f172a;
+
+
+
+  overflow: hidden;
+
+
+
+}
+
+
+
+.watch-history-cover {
+
+
+
+  width: 100%;
+
+
+
+  height: 100%;
+
+
+
+  object-fit: cover;
+
+
+
+  transition: transform 0.3s ease;
+
+
+
+}
+
+
+
+.watch-history-card:hover .watch-history-cover {
+
+
+
+  transform: scale(1.05);
+
+
+
+}
+
+
+
+.watch-history-badge {
+
+
+
+  position: absolute;
+
+
+
+  top: 8px;
+
+
+
+  left: 8px;
+
+
+
+  z-index: 2;
+
+
+
+  font-size: 0.72rem;
+
+
+
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+
+
+
+}
+
+
+
+.watch-history-del-btn {
+
+
+
+  position: absolute;
+
+
+
+  top: 6px;
+
+
+
+  right: 6px;
+
+
+
+  z-index: 3;
+
+
+
+  width: 24px;
+
+
+
+  height: 24px;
+
+
+
+  padding: 0;
+
+
+
+  display: flex;
+
+
+
+  align-items: center;
+
+
+
+  justify-content: center;
+
+
+
+  border-radius: 50%;
+
+
+
+  background: rgba(0,0,0,0.65);
+
+
+
+  color: #ffffff;
+
+
+
+  border: none;
+
+
+
+  font-size: 0.75rem;
+
+
+
+  opacity: 0.75;
+
+
+
+  transition: opacity 0.2s, background 0.2s;
+
+
+
+}
+
+
+
+.watch-history-del-btn:hover {
+
+
+
+  background: #ef4444;
+
+
+
+  opacity: 1;
+
+
+
+  color: #ffffff;
+
+
+
+}
+
+
+
+.watch-history-progress-bar {
+
+
+
+  position: absolute;
+
+
+
+  bottom: 0;
+
+
+
+  left: 0;
+
+
+
+  right: 0;
+
+
+
+  height: 4px;
+
+
+
+  background: rgba(255, 255, 255, 0.2);
+
+
+
+}
+
+
+
+.watch-history-progress-fill {
+
+
+
+  height: 100%;
+
+
+
+  background: #ef4444;
+
+
+
+  transition: width 0.3s ease;
+
+
+
+}
+
+
+
+/* 動漫劇院超大沉浸式對話框與側邊欄寬度優化 */
+
+
+
+.modal-dialog-theater {
+
+
+
+  max-width: 94vw !important;
+
+
+
+  width: 94vw !important;
+
+
+
+  margin-left: auto !important;
+
+
+
+  margin-right: auto !important;
+
+
+
+}
+
+
+
+@media (min-width: 1400px) {
+
+
+
+  .modal-dialog-theater {
+
+
+
+    max-width: 1360px !important;
+
+
+
+  }
+
+
+
+}
+
+
+
+.kazumi-theater-sidebar {
+
+
+
+  min-width: 350px;
+
+
+
+}
+
+
+
+/* 動漫劇院待命狀態側邊欄觀看紀錄與自適應滾動條 */
+
+
+
+#animeRecentHistoryBox {
+
+
+
+  scrollbar-width: thin;
+
+
+
+  scrollbar-color: rgba(239, 68, 68, 0.5) rgba(0, 0, 0, 0.3);
+
+
+
+}
+
+
+
+#animeRecentHistoryBox::-webkit-scrollbar {
+
+
+
+  width: 6px;
+
+
+
+}
+
+
+
+#animeRecentHistoryBox::-webkit-scrollbar-track {
+
+
+
+  background: rgba(0, 0, 0, 0.2);
+
+
+
+  border-radius: 4px;
+
+
+
+}
+
+
+
+#animeRecentHistoryBox::-webkit-scrollbar-thumb {
+
+
+
+  background: rgba(239, 68, 68, 0.5);
+
+
+
+  border-radius: 4px;
+
+
+
+}
+
+
+
+#animeRecentHistoryBox::-webkit-scrollbar-thumb:hover {
+
+
+
+  background: rgba(239, 68, 68, 0.8);
+
+
+
+}
+
+
+
+/* 多層模態框疊加層級修復：播放歷史 Modal 置於動漫劇院上方 */
+
+
+
+#watchHistoryModal {
+
+
+
+  z-index: 1070 !important;
+
+
+
+}
+
+
+
+body.has-multi-modal .modal-backdrop:last-of-type {
+
+
+
+  z-index: 1065 !important;
+
+
+
+}
+
+
+
+/* 劇院側邊欄「最近觀看紀錄」懸浮視窗 (Floating Glass Panel) */
+
+
+
+.theater-floating-history-panel {
+
+
+
+  position: absolute;
+
+
+
+  top: 48px;
+
+
+
+  right: 12px;
+
+
+
+  left: 12px;
+
+
+
+  z-index: 1050;
+
+
+
+  background: rgba(15, 23, 42, 0.96);
+
+
+
+  backdrop-filter: blur(16px);
+
+
+
+  -webkit-backdrop-filter: blur(16px);
+
+
+
+  border: 1px solid rgba(239, 68, 68, 0.45);
+
+
+
+  border-radius: 14px;
+
+
+
+  padding: 12px;
+
+
+
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 16px rgba(239, 68, 68, 0.2);
+
+
+
+  animation: floatingPanelSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+
+
+}
+
+
+
+@keyframes floatingPanelSlideIn {
+
+
+
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+
+
+
+  to { opacity: 1; transform: translateY(0) scale(1); }
+
+
+
+}
+
+
+
+/* 高對比亮珊瑚紅集數文字樣式，暗黑背景下清晰可見 */
+
+
+
+.history-ep-title-badge {
+
+
+
+  color: #f87171 !important;
+
+
+
+  font-weight: 500;
+
+
+
+  font-size: 0.75rem;
+
+
+
+}
+
+
+
+/* ACG 專區最近觀看紀錄緊湊精緻網格樣式 */
+
+
+
+.watch-history-card-compact {
+
+
+
+  border-radius: 10px;
+
+
+
+}
+
+
+
+.watch-history-card-compact .card-body {
+
+
+
+  padding: 8px 10px !important;
+
+
+
+}
+
+
+
+.watch-history-card-compact h6 {
+
+
+
+  font-size: 0.84rem !important;
+
+
+
+}
+
+
+
+.watch-history-card-compact .btn-sm {
+
+
+
+  font-size: 0.75rem !important;
+
+
+
+  padding: 2px 8px !important;
+
+
+
+}
+
+
+
+/* 劇院播放容器影廳黑邊比例微調：保留電影級黑邊氛圍，消除過度留白空隙 */
+
+
+
+#kazumiScreenContainer {
+
+
+
+  min-height: 480px;
+
+
+
+  max-height: 520px;
+
+
+
+}
+
+
+
+#kazumiIframeWrapper {
+
+
+
+  height: 480px !important;
+
+
+
+  max-height: 500px !important;
+
+
+
+}
+
+
+
+/* 小說閱讀器待命狀態：本機電子書拖曳上傳區 */
+
+
+
+.novel-upload-dropzone {
+
+
+
+  border: 2px dashed rgba(25, 135, 84, 0.45);
+
+
+
+  border-radius: 1rem;
+
+
+
+  background-color: rgba(25, 135, 84, 0.05);
+
+
+
+  transition: all 0.25s ease;
+
+
+
+  cursor: pointer;
+
+
+
+}
+
+
+
+.novel-upload-dropzone:hover,
+
+
+
+.novel-upload-dropzone.dragover {
+
+
+
+  border-color: #198754;
+
+
+
+  background-color: rgba(25, 135, 84, 0.12);
+
+
+
+  transform: translateY(-2px);
+
+
+
+}
+
+
+
+/* 主頁響應式設計 (RWD) 強化 */
+
+
+
+@media (max-width: 768px) {
+
+
+
+  .category-pills {
+
+
+
+    flex-wrap: nowrap !important;
+
+
+
+    overflow-x: auto !important;
+
+
+
+    padding-bottom: 6px !important;
+
+
+
+    -webkit-overflow-scrolling: touch;
+
+
+
+    scrollbar-width: none;
+
+
+
+  }
+
+
+
+  .category-pills::-webkit-scrollbar {
+
+
+
+    display: none;
+
+
+
+  }
+
+
+
+  .category-pills .nav-link {
+
+
+
+    white-space: nowrap !important;
+
+
+
+  }
+
+
+
+  .search-input-group {
+
+
+
+    width: 100% !important;
+
+
+
+  }
+
+
+
+}
+
+
+
+/* ============================================================
+
+
+
+   3D 擬真立體書架樣式 (Bookshelf System - Manga & Novel)
+
+
+
+   ============================================================ */
+
+
+
+.bookshelf-container {
+
+
+
+    perspective: 1200px;
+
+
+
+    width: 100%;
+
+
+
+}
+
+
+
+.bookshelf-shelf {
+
+
+
+    position: relative;
+
+
+
+    padding-bottom: 24px;
+
+
+
+    margin-bottom: 20px;
+
+
+
+    perspective: 1000px;
+
+
+
+}
+
+
+
+.bookshelf-books-row {
+
+
+
+    display: flex;
+
+
+
+    flex-wrap: wrap;
+
+
+
+    justify-content: center;
+
+
+
+    gap: 22px 28px;
+
+
+
+    align-items: flex-end;
+
+
+
+    padding: 12px 18px 2px 18px;
+
+
+
+    z-index: 2;
+
+
+
+    position: relative;
+
+
+
+    min-height: 200px;
+
+
+
+}
+
+
+
+.bookshelf-book {
+
+
+
+    position: relative;
+
+
+
+    width: 130px;
+
+
+
+    cursor: pointer;
+
+
+
+    transform-style: preserve-3d;
+
+
+
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+
+
+
+    will-change: transform;
+
+
+
+    text-align: center;
+
+
+
+}
+
+
+
+.bookshelf-book-cover-wrap {
+
+
+
+    position: relative;
+
+
+
+    width: 100%;
+
+
+
+    aspect-ratio: 2 / 3;
+
+
+
+    border-radius: 4px 8px 8px 4px;
+
+
+
+    overflow: hidden;
+
+
+
+    box-shadow: -5px 8px 18px rgba(0, 0, 0, 0.55), 0 2px 4px rgba(0, 0, 0, 0.3);
+
+
+
+    background: #1e293b;
+
+
+
+    border: 1px solid rgba(255, 255, 255, 0.12);
+
+
+
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+
+
+
+}
+
+
+
+.bookshelf-book-cover-wrap img {
+
+
+
+    width: 100%;
+
+
+
+    height: 100%;
+
+
+
+    object-fit: cover;
+
+
+
+    display: block;
+
+
+
+}
+
+
+
+/* 模擬書脊光影與厚度折痕 */
+
+
+
+.bookshelf-book-cover-wrap::before {
+
+
+
+    content: '';
+
+
+
+    position: absolute;
+
+
+
+    top: 0;
+
+
+
+    left: 0;
+
+
+
+    bottom: 0;
+
+
+
+    width: 20px;
+
+
+
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.55) 0%, rgba(255, 255, 255, 0.22) 20%, rgba(0, 0, 0, 0.25) 50%, transparent 100%);
+
+
+
+    pointer-events: none;
+
+
+
+    z-index: 3;
+
+
+
+}
+
+
+
+/* 書側頁邊立體感 */
+
+
+
+.bookshelf-book-cover-wrap::after {
+
+
+
+    content: '';
+
+
+
+    position: absolute;
+
+
+
+    top: 3px;
+
+
+
+    right: 0;
+
+
+
+    bottom: 3px;
+
+
+
+    width: 4px;
+
+
+
+    background: repeating-linear-gradient(to bottom, #f1f5f9, #f1f5f9 1px, #94a3b8 1px, #94a3b8 2px);
+
+
+
+    border-radius: 0 2px 2px 0;
+
+
+
+    z-index: 2;
+
+
+
+}
+
+
+
+.bookshelf-badge {
+
+
+
+    position: absolute;
+
+
+
+    top: 6px;
+
+
+
+    left: 6px;
+
+
+
+    font-size: 0.65rem;
+
+
+
+    padding: 2px 6px;
+
+
+
+    border-radius: 4px;
+
+
+
+    z-index: 4;
+
+
+
+    backdrop-filter: blur(4px);
+
+
+
+}
+
+
+
+.bookshelf-remove-btn {
+
+
+
+    position: absolute;
+
+
+
+    top: 5px;
+
+
+
+    right: 5px;
+
+
+
+    width: 22px;
+
+
+
+    height: 22px;
+
+
+
+    background: rgba(0, 0, 0, 0.65);
+
+
+
+    color: #ffffff;
+
+
+
+    border: none;
+
+
+
+    border-radius: 50%;
+
+
+
+    display: flex;
+
+
+
+    align-items: center;
+
+
+
+    justify-content: center;
+
+
+
+    font-size: 11px;
+
+
+
+    opacity: 0;
+
+
+
+    transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+
+
+
+    z-index: 5;
+
+
+
+    cursor: pointer;
+
+
+
+}
+
+
+
+.bookshelf-book:hover .bookshelf-remove-btn {
+
+
+
+    opacity: 1;
+
+
+
+}
+
+
+
+.bookshelf-remove-btn:hover {
+
+
+
+    background: #ef4444;
+
+
+
+    transform: scale(1.15);
+
+
+
+}
+
+
+
+.bookshelf-book-title {
+
+
+
+    font-size: 0.8rem;
+
+
+
+    font-weight: 600;
+
+
+
+    color: #e2e8f0;
+
+
+
+    margin-top: 8px;
+
+
+
+    white-space: nowrap;
+
+
+
+    overflow: hidden;
+
+
+
+    text-overflow: ellipsis;
+
+
+
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+
+
+
+}
+
+
+
+.bookshelf-book-sub {
+
+
+
+    font-size: 0.7rem;
+
+
+
+    color: #94a3b8;
+
+
+
+    margin-top: -2px;
+
+
+
+}
+
+
+
+/* 書架立體實木/金屬擱板 (Plank) */
+
+
+
+.bookshelf-plank {
+
+
+
+    height: 16px;
+
+
+
+    width: 100%;
+
+
+
+    background: linear-gradient(180deg, #475569 0%, #334155 45%, #1e293b 100%);
+
+
+
+    border-radius: 4px;
+
+
+
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+
+
+
+    position: relative;
+
+
+
+    z-index: 1;
+
+
+
+}
+
+
+
+.bookshelf-plank::after {
+
+
+
+    content: '';
+
+
+
+    position: absolute;
+
+
+
+    top: 100%;
+
+
+
+    left: 12px;
+
+
+
+    right: 12px;
+
+
+
+    height: 14px;
+
+
+
+    background: radial-gradient(ellipse at center top, rgba(0, 0, 0, 0.75) 0%, transparent 75%);
+
+
+
+}
+
+
+
+.bookshelf-book:hover .bookshelf-book-cover-wrap {
+
+
+
+    box-shadow: -12px 24px 38px rgba(0, 0, 0, 0.85), 0 10px 18px rgba(0, 0, 0, 0.55), 0 0 20px rgba(56, 189, 248, 0.25);
+
+
+
+    border-color: rgba(255, 255, 255, 0.35);
+
+
+
+}
+
+
+

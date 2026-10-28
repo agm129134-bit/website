@@ -82,7 +82,9 @@ function handleDockerRoute(req, res) {
                 }
 
                 exec(cmd, { cwd: ROOT_DIR }, (err, stdout, stderr) => {
-                    const outputMsg = (stdout || stderr || '指令已成功派發完成').trim();
+                    // Docker BuildKit 將構建步驟寫入 stderr，屬於正常資訊流；結合 stdout 與 stderr 呈現完整輸出
+                    const combined = [stdout, stderr].filter(Boolean).join("\n").trim();
+                    const outputMsg = combined || (err ? err.message : '指令已成功派發完成');
                     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                     res.end(JSON.stringify({
                         success: !err,

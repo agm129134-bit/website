@@ -6,8 +6,9 @@ services:
     container_name: web-library
     restart: unless-stopped
     ports:
-      # 外部映射端口為 8090，避開 8000、8080 與 3000 端口衝突
-      - "8090:8090"
+      # 外部映射端口設為 8095 (容器內部仍為 8090)
+      # 徹底避開本地正在運行的 node server.js (佔用 8090) 的端口綁定衝突！
+      - "8095:8090"
     volumes:
       # 掛載本地 data 資料夾至容器內部，實現書籤與用戶資料永久持久化
       - ./data:/app/data
