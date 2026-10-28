@@ -7,7 +7,7 @@ FROM node:20-alpine
 
 # 設定容器環境為生產環境
 ENV NODE_ENV=production
-ENV PORT=8000
+ENV PORT=8090
 
 # 建立專案工作目錄
 WORKDIR /app
@@ -18,8 +18,8 @@ COPY . .
 # 建立資料持久化存儲目錄 (用戶帳號、書籤 JSON 儲存區)
 RUN mkdir -p /app/data
 
-# 暴露服務埠號 (預設 8000)
-EXPOSE 8000
+# 暴露服務埠號 (已更改為 8090 避免衝突)
+EXPOSE 8090
 
 # 定義持久化卷（確保更新或重啟容器時書籤與帳號資料永不丟失）
 VOLUME ["/app/data"]
