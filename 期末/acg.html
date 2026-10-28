@@ -306,12 +306,39 @@
         }
 
         /* 書本懸浮抽書動效 */
+        .bookshelf-book {
+            position: relative;
+            width: 130px;
+            cursor: pointer;
+            transform-style: preserve-3d;
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease;
+            will-change: transform;
+            text-align: center;
+        }
+
+        /* 自然 3D 抽書波浪起伏動態 (Hover Elevation & Tilt Wave) */
         .bookshelf-book:hover {
-            transform: translateY(-14px) scale(1.06) rotateY(-5deg);
+            transform: translateY(-18px) scale(1.08) rotateY(-8deg) rotateZ(-1.5deg);
+            z-index: 10;
         }
 
         .bookshelf-book:hover .bookshelf-book-cover-wrap {
-            box-shadow: -10px 20px 32px rgba(0, 0, 0, 0.75), 0 8px 12px rgba(0, 0, 0, 0.45);
+            box-shadow: -12px 24px 38px rgba(0, 0, 0, 0.85), 0 10px 18px rgba(0, 0, 0, 0.55), 0 0 20px rgba(56, 189, 248, 0.25);
+            border-color: rgba(255, 255, 255, 0.35);
+        }
+
+        /* 當滑鼠懸停某本書時，兩側相鄰書本產生微起伏波浪 (Wave Ripple) */
+        .bookshelf-book:hover + .bookshelf-book {
+            transform: translateY(-6px) scale(1.02) rotateY(-3deg);
+        }
+
+        .bookshelf-books-row:has(.bookshelf-book:hover) .bookshelf-book:not(:hover) {
+            opacity: 0.88;
+            filter: contrast(0.95);
+        }
+        .bookshelf-books-row .bookshelf-book:hover {
+            opacity: 1 !important;
+            filter: contrast(1.05) brightness(1.03) !important;
         }
     </style>
 </head>
