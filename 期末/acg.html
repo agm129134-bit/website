@@ -1838,31 +1838,24 @@
         }
 
         // ==================== 3D 擬真立體書架管理模組 (Bookshelf System) ====================
-        const DEFAULT_MANGA_SHELF = [
-            { title: "航海王", cover: "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80", tag: "熱血" },
-            { title: "葬送的芙莉蓮", cover: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=400&q=80", tag: "奇幻" },
-            { title: "咒術迴戰", cover: "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80", tag: "戰鬥" },
-            { title: "鏈鋸人", cover: "https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=400&q=80", tag: "奇幻" },
-            { title: "鬼滅之刃", cover: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80", tag: "熱血" }
-        ];
-
-        const DEFAULT_NOVEL_SHELF = [
-            { title: "關於我轉生變成史萊姆這檔事", cover: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80", tag: "異世界" },
-            { title: "無職轉生", cover: "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=400&q=80", tag: "冒險" },
-            { title: "刀劍神域", cover: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=400&q=80", tag: "遊戲" },
-            { title: "Re:從零開始的異世界生活", cover: "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=400&q=80", tag: "穿越" }
-        ];
+        const DEFAULT_MANGA_SHELF = [];
+        const DEFAULT_NOVEL_SHELF = [];
 
         function getMangaBookshelf() {
             try {
                 const data = localStorage.getItem('web_library_manga_bookshelf');
-                if (data) {
-                    const parsed = JSON.parse(data);
-                    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                if (data !== null) {
+                    let parsed = JSON.parse(data);
+                    if (Array.isArray(parsed)) {
+                        // 清除舊版預設假資料
+                        const dummyTitles = ["航海王", "葬送的芙莉蓮", "咒術迴戰", "鏈鋸人", "鬼滅之刃"];
+                        parsed = parsed.filter(b => !dummyTitles.includes(b.title));
+                        return parsed;
+                    }
                 }
             } catch (e) {}
-            localStorage.setItem('web_library_manga_bookshelf', JSON.stringify(DEFAULT_MANGA_SHELF));
-            return DEFAULT_MANGA_SHELF;
+            localStorage.setItem('web_library_manga_bookshelf', JSON.stringify([]));
+            return [];
         }
 
         function saveMangaBookshelf(list) {
@@ -1873,19 +1866,29 @@
         function getNovelBookshelf() {
             try {
                 const data = localStorage.getItem('web_library_novel_bookshelf');
-                if (data) {
-                    const parsed = JSON.parse(data);
-                    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                if (data !== null) {
+                    let parsed = JSON.parse(data);
+                    if (Array.isArray(parsed)) {
+                        // 清除舊版預設假資料
+                        const dummyTitles = ["關於我轉生變成史萊姆這檔事", "無職轉生", "刀劍神域", "Re:從零開始的異世界生活"];
+                        parsed = parsed.filter(b => !dummyTitles.includes(b.title));
+                        return parsed;
+                    }
                 }
             } catch (e) {}
-            localStorage.setItem('web_library_novel_bookshelf', JSON.stringify(DEFAULT_NOVEL_SHELF));
-            return DEFAULT_NOVEL_SHELF;
+            localStorage.setItem('web_library_novel_bookshelf', JSON.stringify([]));
+            return [];
         }
 
         function saveNovelBookshelf(list) {
             localStorage.setItem('web_library_novel_bookshelf', JSON.stringify(list));
             renderNovelBookshelf();
         }
+
+        window.getMangaBookshelf = getMangaBookshelf;
+        window.saveMangaBookshelf = saveMangaBookshelf;
+        window.getNovelBookshelf = getNovelBookshelf;
+        window.saveNovelBookshelf = saveNovelBookshelf;
 
         // 渲染條漫立體書架
         window.renderMangaBookshelf = function() {
@@ -1895,7 +1898,16 @@
             grid.innerHTML = "";
 
             if (shelf.length === 0) {
-                grid.innerHTML = `<div class="text-white-50 py-4 small text-center w-100">書架空空如也，可在上方搜尋漫畫或閱讀時點擊「收進書架」收藏！</div>`;
+                grid.innerHTML = `
+                    <div class="text-white-50 py-5 small text-center w-100 d-flex flex-column align-items-center justify-content-center">
+                        <i class="bi bi-collection fs-1 text-primary opacity-50 mb-2"></i>
+                        <div class="fw-semibold fs-6 text-white mb-1">條漫書架目前尚無藏書</div>
+                        <div class="text-white-50 small mb-3">可在上方搜尋漫畫或選集抽屜點擊「+ 放進書架」，即可將喜愛的作品陳列於此！</div>
+                        <button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="openMangaSearchModal('')">
+                            <i class="bi bi-search me-1"></i> 前往搜尋漫畫
+                        </button>
+                    </div>
+                `;
                 return;
             }
 
@@ -1943,6 +1955,43 @@
             }
         };
 
+        // 一鍵切換條漫作品是否在書架中 (供抽屜與選集使用)
+        window.toggleMangaBookshelfItem = function(title, cover, btnEl) {
+            if (!title) return;
+            let shelf = getMangaBookshelf();
+            const exists = shelf.some(b => b.title === title);
+            if (exists) {
+                shelf = shelf.filter(b => b.title !== title);
+                saveMangaBookshelf(shelf);
+                if (btnEl) {
+                    btnEl.className = "btn btn-xs btn-outline-primary rounded-pill px-2";
+                    btnEl.innerHTML = `<i class="bi bi-bookmark-plus"></i> + 放進書架`;
+                    btnEl.title = "將此漫畫放進條漫立體書架";
+                }
+                if (typeof showToast === 'function') {
+                    showToast(`已將《${title}》移出條漫書架`, "bi-trash text-warning");
+                }
+            } else {
+                shelf.unshift({
+                    title: title.trim(),
+                    cover: cover || "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80",
+                    tag: "條漫"
+                });
+                saveMangaBookshelf(shelf);
+                if (btnEl) {
+                    btnEl.className = "btn btn-xs btn-primary rounded-pill px-2";
+                    btnEl.innerHTML = `<i class="bi bi-bookmark-check-fill"></i> 已在書架`;
+                    btnEl.title = "已在條漫書架中，點擊可移出";
+                }
+                if (typeof showToast === 'function') {
+                    showToast(`🎉 成功將《${title}》收藏進條漫立體書架！`, "bi-star-fill text-warning");
+                }
+            }
+            if (typeof renderMangaBookshelf === 'function') {
+                renderMangaBookshelf();
+            }
+        };
+
         // 當前漫畫一鍵收進書架
         window.toggleCurrentMangaToBookshelf = function() {
             if (!mangaState.currentManga || !mangaState.currentManga.title) {
@@ -1978,7 +2027,16 @@
             grid.innerHTML = "";
 
             if (shelf.length === 0) {
-                grid.innerHTML = `<div class="text-muted py-4 small text-center w-100">書房目前尚無藏書，可搜尋在線小說或直接點擊右上角「上傳電子書」收藏！</div>`;
+                grid.innerHTML = `
+                    <div class="text-muted py-5 small text-center w-100 d-flex flex-column align-items-center justify-content-center">
+                        <i class="bi bi-book-half fs-1 text-success opacity-50 mb-2"></i>
+                        <div class="fw-semibold fs-6 text-dark mb-1">小說書房目前尚無藏書</div>
+                        <div class="text-muted small mb-3">可搜尋在線輕小說或點擊右上角「上傳電子書」將書籍放進書房！</div>
+                        <button class="btn btn-sm btn-outline-success rounded-pill px-3" onclick="openNovelSearchModal('')">
+                            <i class="bi bi-search me-1"></i> 前往搜尋小說
+                        </button>
+                    </div>
+                `;
                 return;
             }
 
@@ -2023,6 +2081,43 @@
             saveNovelBookshelf(shelf);
             if (typeof showToast === 'function') {
                 showToast(`已將《${title}》移出小說書房`, "bi-trash text-warning");
+            }
+        };
+
+        // 一鍵切換小說是否在書房中 (供抽屜與選集使用)
+        window.toggleNovelBookshelfItem = function(title, cover, btnEl) {
+            if (!title) return;
+            let shelf = getNovelBookshelf();
+            const exists = shelf.some(b => b.title === title);
+            if (exists) {
+                shelf = shelf.filter(b => b.title !== title);
+                saveNovelBookshelf(shelf);
+                if (btnEl) {
+                    btnEl.className = "btn btn-xs btn-outline-success rounded-pill px-2";
+                    btnEl.innerHTML = `<i class="bi bi-bookmark-plus"></i> + 放進書房`;
+                    btnEl.title = "將此小說放進立體書房";
+                }
+                if (typeof showToast === 'function') {
+                    showToast(`已將《${title}》移出小說書房`, "bi-trash text-warning");
+                }
+            } else {
+                shelf.unshift({
+                    title: title.trim(),
+                    cover: cover || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80",
+                    tag: "小說"
+                });
+                saveNovelBookshelf(shelf);
+                if (btnEl) {
+                    btnEl.className = "btn btn-xs btn-success rounded-pill px-2";
+                    btnEl.innerHTML = `<i class="bi bi-bookmark-check-fill"></i> 已在書房`;
+                    btnEl.title = "已在小說書房中，點擊可移出";
+                }
+                if (typeof showToast === 'function') {
+                    showToast(`🎉 成功將《${title}》收藏進小說立體書房！`, "bi-star-fill text-warning");
+                }
+            }
+            if (typeof renderNovelBookshelf === 'function') {
+                renderNovelBookshelf();
             }
         };
 
