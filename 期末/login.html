@@ -193,10 +193,13 @@
         <!-- 一鍵填入展示帳號 (僅於登入分頁呈現) -->
         <div class="mb-3 p-2 bg-light rounded-2 border" id="demoAccountsBox">
             <div class="text-secondary small mb-2 fw-semibold d-flex align-items-center justify-content-between">
-                <span><i class="bi bi-person-badge"></i> 評分展示帳號：</span>
+                <span><i class="bi bi-person-badge"></i> 快速展示與開發者帳號：</span>
                 <span class="text-muted" style="font-size: 0.75rem;">點擊自動帶入</span>
             </div>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 flex-wrap">
+                <button type="button" class="btn demo-chip flex-fill text-center" onclick="fillAccount('jyun', '123456')">
+                    <i class="bi bi-star-fill text-warning"></i> Jyun (29部真實書籤)
+                </button>
                 <button type="button" class="btn demo-chip flex-fill text-center" onclick="fillAccount('admin', '123456')">
                     <i class="bi bi-shield-check text-primary"></i> 管理員 (admin)
                 </button>
@@ -342,22 +345,30 @@
             }
         })();
 
-        // 2. 初始化與取得已註冊帳號列表 (Persistent in localStorage)
+        // 2. 初始化與取得已註冊帳號列表 (包含 jyun 老帳號自動相容與持久化)
         function getRegisteredUsers() {
             const KEY = 'registeredUsers';
+            let list = [];
             const stored = localStorage.getItem(KEY);
             if (stored) {
                 try {
-                    const list = JSON.parse(stored);
-                    if (Array.isArray(list) && list.length > 0) {
-                        return list;
-                    }
+                    list = JSON.parse(stored);
+                    if (!Array.isArray(list)) list = [];
                 } catch (e) {
-                    console.error("解析使用者列表失敗，重建預設值", e);
+                    list = [];
                 }
             }
-            // 預設內建展示帳號
-            const defaults = [
+
+            // 專案核心預設與老用戶帳號清單 (包含 jyun 與 test1)
+            const coreDefaults = [
+                {
+                    username: 'jyun',
+                    password: '', // 老用戶相容標記：首次登入將自動綁定使用者輸入的密碼
+                    isLegacy: true,
+                    name: 'Jyun (專案開發者)',
+                    role: '核心開發者',
+                    createdAt: new Date().toISOString()
+                },
                 {
                     username: 'admin',
                     password: '123456',
@@ -371,11 +382,73 @@
                     name: '學生 (Student)',
                     role: '學生研究員',
                     createdAt: new Date().toISOString()
+                },
+                {
+                    username: 'test1',
+                    password: '',
+                    isLegacy: true,
+                    name: 'Test1 (測試帳號)',
+                    role: '測試會員',
+                    createdAt: new Date().toISOString()
                 }
             ];
-            localStorage.setItem(KEY, JSON.stringify(defaults));
-            return defaults;
+
+            // 智慧合併：若核心帳號尚未存在於 list 中，自動補齊
+            coreDefaults.forEach(def => {
+                const existing = list.find(u => u.username.toLowerCase() === def.username.toLowerCase());
+                if (!existing) {
+                    list.unshift(def);
+                }
+            });
+
+            // 檢查本機先前登入過的 web_library_user (例如 jyun)，若尚未收錄自動納入
+            const legacyUser = localStorage.getItem('web_library_user');
+            if (legacyUser && !list.some(u => u.username.toLowerCase() === legacyUser.toLowerCase())) {
+                list.unshift({
+                    username: legacyUser,
+                    password: '',
+                    isLegacy: true,
+                    name: legacyUser,
+                    role: '既有檔案使用者',
+                    createdAt: new Date().toISOString()
+                });
+            }
+
+            localStorage.setItem(KEY, JSON.stringify(list));
+            return list;
         }
+
+        // 自動從後端 /api/user/list 同步伺服器端已有的帳號檔案 (如 bookmarks_*.json)
+        async function syncServerUsers() {
+            try {
+                const res = await fetch('/api/user/list');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.success && Array.isArray(data.users)) {
+                    const list = getRegisteredUsers();
+                    let updated = false;
+                    data.users.forEach(u => {
+                        if (!list.some(item => item.username.toLowerCase() === u.toLowerCase())) {
+                            list.push({
+                                username: u,
+                                password: '',
+                                isLegacy: true,
+                                name: u,
+                                role: '既有檔案使用者',
+                                createdAt: new Date().toISOString()
+                            });
+                            updated = true;
+                        }
+                    });
+                    if (updated) {
+                        localStorage.setItem('registeredUsers', JSON.stringify(list));
+                    }
+                }
+            } catch (e) {
+                // 離線靜態瀏覽時忽略
+            }
+        }
+        syncServerUsers();
 
         // 3. 雙模式切換 (登入 / 註冊)
         function switchAuthMode(mode) {
@@ -511,8 +584,12 @@
                 return;
             }
 
-            // ⚠️ 關鍵防護：檢查密碼是否相符
-            if (matchedUser.password !== password) {
+            // 💡 老用戶智慧相容：若為本機既有帳號（如 jyun，且尚未固定密碼或為 isLegacy），自動採用使用者當前輸入的密碼進行綁定！
+            if (matchedUser.isLegacy || !matchedUser.password) {
+                matchedUser.password = password;
+                matchedUser.isLegacy = false;
+                localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+            } else if (matchedUser.password !== password) {
                 showAlert('密碼不正確，請重新輸入！(可點擊上方一鍵帶入展示帳密)');
                 document.getElementById('passwordInput').focus();
                 return;

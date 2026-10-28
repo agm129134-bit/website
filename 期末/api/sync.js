@@ -166,6 +166,30 @@ async function handleSyncRoute(req, res) {
 
     try {
         // ==========================================
+        // 0. 取得本機已存在的所有使用者帳號清單 /api/user/list
+        // ==========================================
+        if (pathname === '/api/user/list') {
+            try {
+                const userList = [];
+                if (fs.existsSync(DATA_DIR)) {
+                    const files = fs.readdirSync(DATA_DIR);
+                    files.forEach(f => {
+                        if (f.startsWith('bookmarks_') && f.endsWith('.json')) {
+                            const u = f.replace('bookmarks_', '').replace('.json', '');
+                            if (u && !userList.includes(u)) {
+                                userList.push(u);
+                            }
+                        }
+                    });
+                }
+                if (!userList.includes('jyun')) userList.unshift('jyun');
+                return sendJson(res, 200, { success: true, users: userList });
+            } catch (e) {
+                return sendJson(res, 200, { success: true, users: ['jyun', 'test1', 'admin', 'student'] });
+            }
+        }
+
+        // ==========================================
         // 1. 跨電腦書籤收藏同步端點 /api/user/bookmarks 與 Tampermonkey 收藏端點 /api/bookmarks
         // ==========================================
         if (pathname === '/api/user/bookmarks' || pathname === '/api/bookmarks') {
