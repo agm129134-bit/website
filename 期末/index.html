@@ -110,9 +110,9 @@
 
                 <!-- 右側操作區 (支援 RWD 自適應折疊排版) -->
 
-                <div class="d-flex flex-wrap align-items-center gap-2 mt-2 mt-lg-0 ms-auto">
+                <div class="navbar-actions-group flex-wrap align-items-center gap-1.5 mt-2 mt-lg-0 ms-auto">
 
-                    <button class="btn btn-dark d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#bookmarkModal" id="openAddModalBtn">
+                    <button class="btn btn-dark btn-sm d-flex align-items-center gap-1.5 px-2.5 py-1.5" data-bs-toggle="modal" data-bs-target="#bookmarkModal" id="openAddModalBtn">
 
                         <i class="bi bi-plus-lg"></i>
 
@@ -120,86 +120,139 @@
 
                     </button>
 
-                    <button class="btn btn-outline-danger d-flex align-items-center gap-1" onclick="openWatchHistoryModal()" title="查看播放歷史清單">
+                    <button class="btn btn-outline-danger btn-sm d-flex align-items-center gap-1 px-2 py-1.5" onclick="openWatchHistoryModal()" title="查看播放歷史清單">
 
                         <i class="bi bi-clock-history"></i>
 
-                        <span class="d-none d-md-inline">觀看歷史</span>
+                        <span class="d-none d-xl-inline">觀看歷史</span>
 
                         <span class="badge bg-danger text-white rounded-pill ms-1" id="navWatchHistoryBadge">0</span>
 
                     </button>
 
-                    <button class="btn btn-outline-secondary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#tampermonkeyModal" title="篡改猴插件設定">
+                    <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 px-2 py-1.5" data-bs-toggle="modal" data-bs-target="#tampermonkeyModal" title="篡改猴插件設定">
 
                         <i class="bi bi-puzzle"></i>
 
-                        <span class="d-none d-md-inline">篡改猴插件</span>
+                        <span class="d-none d-xl-inline">篡改猴</span><span>插件</span>
 
                     </button>
 
                     
 
                     <!-- Docker 一鍵容器管理漢堡選單 (Port 8090) -->
+
                     <div class="dropdown" id="dockerDropdownWrapper">
-                        <button class="btn btn-outline-primary d-flex align-items-center gap-1 dropdown-toggle" type="button" id="dockerMenuBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Docker 容器管理">
+
+                        <button class="btn btn-outline-primary btn-sm d-flex align-items-center gap-1 px-2 py-1.5 dropdown-toggle" type="button" id="dockerMenuBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Docker 容器管理">
+
                             <i class="bi bi-box-seam-fill"></i>
+
                             <span class="d-none d-md-inline">Docker</span>
+
                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill fs-xs" id="navDockerBadge">8090</span>
+
                         </button>
+
                         <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="dockerMenuBtn" style="min-width: 250px;">
+
                             <li><h6 class="dropdown-header d-flex justify-content-between align-items-center">
+
                                 <span><i class="bi bi-box-seam me-1"></i> 容器控制 (Port 8090)</span>
+
                                 <span class="badge bg-secondary rounded-pill" id="dockerStatusBadge">檢查中...</span>
+
                             </h6></li>
+
                             <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="executeDockerAction('up'); return false;">
+
                                 <i class="bi bi-rocket-takeoff text-success"></i>
+
                                 <div>
+
                                     <div class="fw-semibold">一鍵部署並啟動</div>
+
                                     <div class="text-muted" style="font-size: 0.72rem;">docker compose up -d --build</div>
+
                                 </div>
+
                             </a></li>
+
                             <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="executeDockerAction('start'); return false;">
+
                                 <i class="bi bi-play-circle text-primary"></i>
+
                                 <div>
+
                                     <div class="fw-semibold">啟動容器</div>
+
                                     <div class="text-muted" style="font-size: 0.72rem;">docker compose start</div>
+
                                 </div>
+
                             </a></li>
+
                             <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="executeDockerAction('stop'); return false;">
+
                                 <i class="bi bi-stop-circle text-warning"></i>
+
                                 <div>
+
                                     <div class="fw-semibold">關閉 / 停止容器</div>
+
                                     <div class="text-muted" style="font-size: 0.72rem;">docker compose stop</div>
+
                                 </div>
+
                             </a></li>
+
                             <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="executeDockerAction('restart'); return false;">
+
                                 <i class="bi bi-arrow-repeat text-info"></i>
+
                                 <div>
+
                                     <div class="fw-semibold">重啟容器</div>
+
                                     <div class="text-muted" style="font-size: 0.72rem;">docker compose restart</div>
+
                                 </div>
+
                             </a></li>
+
                             <li><hr class="dropdown-divider"></li>
+
                             <li><a class="dropdown-item d-flex align-items-center gap-2 text-danger" href="#" onclick="confirmDockerDown(); return false;">
+
                                 <i class="bi bi-trash3"></i>
+
                                 <div>
+
                                     <div class="fw-semibold">移除容器 (Down)</div>
+
                                     <div class="text-muted" style="font-size: 0.72rem;">docker compose down (保留數據)</div>
+
                                 </div>
+
                             </a></li>
+
                             <li><hr class="dropdown-divider"></li>
+
                             <li><a class="dropdown-item d-flex align-items-center gap-2 text-secondary small" href="#" onclick="openDockerLogsModal(); return false;">
+
                                 <i class="bi bi-terminal"></i> 查看指令輸出與狀態日誌
+
                             </a></li>
+
                         </ul>
+
                     </div>
 
                     <!-- 使用者帳號選單 -->
 
                     <div class="dropdown">
 
-                        <button class="btn btn-outline-secondary d-flex align-items-center gap-2 dropdown-toggle" type="button" id="userMenuBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                        <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1.5 px-2.5 py-1.5 dropdown-toggle" type="button" id="userMenuBtn" data-bs-toggle="dropdown" aria-expanded="false">
 
                             <i class="bi bi-person-circle fs-6"></i>
 
@@ -2978,29 +3031,53 @@
     </div>
 
     <!-- 3.9 Docker 容器控制日誌與執行結果 Modal -->
+
     <div class="modal fade" id="dockerOutputModal" tabindex="-1" aria-labelledby="dockerOutputModalLabel" aria-hidden="true">
+
         <div class="modal-dialog modal-dialog-centered modal-lg">
+
             <div class="modal-content bg-dark text-white border-secondary rounded-4 shadow-lg overflow-hidden">
+
                 <div class="modal-header border-bottom border-secondary py-2 px-3 bg-black d-flex align-items-center">
+
                     <div class="d-flex align-items-center gap-2">
+
                         <i class="bi bi-box-seam-fill text-primary"></i>
+
                         <h6 class="modal-title fw-bold mb-0 text-white" id="dockerOutputModalLabel">Docker 容器指令執行結果</h6>
+
                     </div>
+
                     <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="關閉"></button>
+
                 </div>
+
                 <div class="modal-body p-3 bg-black">
+
                     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+
                         <span class="small text-secondary font-monospace" id="dockerOutputCmd">指令：docker compose ...</span>
+
                         <span class="badge bg-primary" id="dockerOutputStatusBadge">執行完成</span>
+
                     </div>
+
                     <pre id="dockerOutputContent" class="p-3 rounded-3 bg-dark text-light border border-secondary font-monospace mb-0" style="max-height: 360px; overflow-y: auto; font-size: 0.82rem; white-space: pre-wrap; word-break: break-all;">正在等待後端回報...</pre>
+
                 </div>
+
                 <div class="modal-footer border-top border-secondary py-2 px-3 bg-dark d-flex justify-content-between">
+
                     <span class="text-white-50 small">服務埠號：<code>http://localhost:8090</code> · 持久化目錄：<code>./data</code></span>
+
                     <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3" data-bs-dismiss="modal">關閉</button>
+
                 </div>
+
             </div>
+
         </div>
+
     </div>
 
     <!-- Bootstrap 5.3 Bundle JS -->
