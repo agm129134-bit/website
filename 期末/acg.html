@@ -2159,7 +2159,7 @@
             }
         };
 
-        window.removeBookFromNovelShelf = functionwindow.removeBookFromNovelShelf = function(title) {
+        window.removeBookFromNovelShelf = function(title) {
             let shelf = getNovelBookshelf();
             shelf = shelf.filter(b => b.title !== title);
             saveNovelBookshelf(shelf);
