@@ -1868,6 +1868,32 @@
         const DEFAULT_MANGA_SHELF = [];
         const DEFAULT_NOVEL_SHELF = [];
 
+                function bindBookshelfWaveEffect(bookEl) {
+            if (!bookEl || typeof gsap === 'undefined') return;
+            bookEl.addEventListener('mouseenter', () => {
+                gsap.to(bookEl, { y: -22, scale: 1.1, rotateY: -8, rotateZ: -1.5, duration: 0.35, ease: "back.out(2)", overwrite: "auto" });
+                const prev = bookEl.previousElementSibling;
+                if (prev && prev.classList.contains("bookshelf-book")) {
+                    gsap.to(prev, { y: -8, scale: 1.03, rotateY: -3, duration: 0.28, ease: "power1.out", overwrite: "auto" });
+                }
+                const next = bookEl.nextElementSibling;
+                if (next && next.classList.contains("bookshelf-book")) {
+                    gsap.to(next, { y: -8, scale: 1.03, rotateY: 3, duration: 0.28, ease: "power1.out", overwrite: "auto" });
+                }
+            });
+            bookEl.addEventListener('mouseleave', () => {
+                gsap.to(bookEl, { y: 0, scale: 1, rotateY: 0, rotateZ: 0, duration: 0.35, ease: "power2.out", overwrite: "auto" });
+                const prev = bookEl.previousElementSibling;
+                if (prev && prev.classList.contains("bookshelf-book")) {
+                    gsap.to(prev, { y: 0, scale: 1, rotateY: 0, duration: 0.3, ease: "power2.out", overwrite: "auto" });
+                }
+                const next = bookEl.nextElementSibling;
+                if (next && next.classList.contains("bookshelf-book")) {
+                    gsap.to(next, { y: 0, scale: 1, rotateY: 0, duration: 0.3, ease: "power2.out", overwrite: "auto" });
+                }
+            });
+        }
+
         function getMangaBookshelf() {
             try {
                 const data = localStorage.getItem('web_library_manga_bookshelf');
@@ -1955,6 +1981,7 @@
                         window.openMangaSearchModal(book.title);
                     }
                 };
+                bindBookshelfWaveEffect(bookEl);
                 grid.appendChild(bookEl);
             });
 
@@ -2084,6 +2111,7 @@
                         window.openNovelSearchModal(book.title);
                     }
                 };
+                bindBookshelfWaveEffect(bookEl);
                 grid.appendChild(bookEl);
             });
 

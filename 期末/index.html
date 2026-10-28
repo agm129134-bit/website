@@ -1189,20 +1189,31 @@
                 <div class="modal-body p-0 overflow-auto d-flex justify-content-center" id="mangaScrollContainer" style="background: #111;">
                     <div class="manga-page-list text-center py-3" id="mangaPageWrapper" style="max-width: 820px; width: 100%; transition: transform 0.2s ease;">
                         <!-- 待命狀態搜尋區 -->
-                        <div class="text-center py-5 my-5 px-3" id="tachimangaPlaceholder" style="max-width: 500px; margin: 0 auto; color: #cbd5e1;">
-                            <i class="bi bi-book fs-1 d-block mb-3 text-primary opacity-75"></i>
-                            <h5 class="fw-bold text-white mb-1">條漫閱覽器（待命狀態）</h5>
-                            <p class="small mb-3" style="color: #cbd5e1;">輸入漫畫作品名稱即可全網檢索章節並開啟無縫條漫閱讀</p>
-                            
-                            <div class="input-group input-group-sm shadow-sm">
-                                <span class="input-group-text bg-dark text-white-50 border-secondary"><i class="bi bi-search"></i></span>
-                                <input type="text" id="mangaStandbySearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋漫畫名稱..." onkeydown="if(event.key==='Enter') searchMangaFromStandby()">
-                                <button class="btn btn-primary px-3 fw-semibold" type="button" onclick="searchMangaFromStandby()">
-                                    搜尋漫畫
-                                </button>
+                        <div class="bookshelf-container py-3 text-start w-100" id="tachimangaPlaceholder">
+                            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2 px-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-collection-fill fs-4 text-primary"></i>
+                                    <div>
+                                        <h5 class="fw-bold text-white mb-0">條漫立體藏書閣</h5>
+                                        <span class="text-white-50 small">滑過書本體驗 3D 抽書波浪 · 點選立即開卷</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <div class="input-group input-group-sm" style="width: 260px;">
+                                        <input type="text" id="mangaStandbySearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋漫畫加入書架..." onkeydown="if(event.key==='Enter') searchMangaFromStandby()">
+                                        <button class="btn btn-primary" type="button" onclick="searchMangaFromStandby()"><i class="bi bi-search"></i> 搜尋</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 3D 立體書架層架 -->
+                            <div class="bookshelf-shelf">
+                                <div class="bookshelf-books-row" id="mangaBookshelfGrid">
+                                    <!-- 由 JS 動態注入 3D 漫畫書本 -->
+                                </div>
+                                <div class="bookshelf-plank"></div>
                             </div>
                             <!-- 漫畫閱讀歷史紀錄區 -->
-                            <div id="mangaRecentHistoryBox" class="mt-3 text-start w-100" style="display: none;"></div>
+                            <div id="mangaRecentHistoryBox" class="mt-2 text-start w-100" style="display: none;"></div>
                         </div>
                     </div>
                 </div>
@@ -1303,22 +1314,33 @@
                 <div class="modal-body p-4 p-md-5 overflow-auto" id="novelBodyWrapper">
                     <div class="novel-article-box mx-auto" style="max-width: 760px; line-height: 2.1; font-size: 18px;" id="novelArticleContent">
                         <!-- 待命狀態搜尋區 (未載入小說時顯示) -->
-                        <div class="text-center text-secondary py-5 my-4 px-3" id="legadoPlaceholder" style="max-width: 540px; margin: 0 auto;">
-                            <i class="bi bi-journal-text fs-1 d-block mb-3 text-success opacity-75"></i>
-                            <h5 class="fw-bold text-dark mb-1">沉浸小說閱讀器（待命狀態）</h5>
-                            <p class="small text-muted mb-3">輸入小說作品名稱或作者即可全網檢索章節，或直接上傳本機電子書進行沉浸式閱讀</p>
-                            
-                            <div class="input-group input-group-sm shadow-sm">
-                                <span class="input-group-text bg-white border-secondary-subtle text-secondary"><i class="bi bi-search"></i></span>
-                                <input type="text" id="novelStandbySearchInput" class="form-control border-secondary-subtle" placeholder="搜尋小說書名或作者..." onkeydown="if(event.key==='Enter') searchNovelFromStandby()">
-                                <button class="btn btn-success px-3 fw-semibold" type="button" onclick="searchNovelFromStandby()">
-                                    搜尋小說
-                                </button>
+                        <div class="bookshelf-container py-3 text-start w-100" id="legadoPlaceholder">
+                            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2 px-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-book-half fs-4 text-success"></i>
+                                    <div>
+                                        <h5 class="fw-bold text-dark mb-0">小說立體藏書房</h5>
+                                        <span class="text-muted small">滑過書本體驗 3D 抽書波浪 · 點選立即翻閱</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <div class="input-group input-group-sm" style="width: 260px;">
+                                        <input type="text" id="novelStandbySearchInput" class="form-control border-secondary" placeholder="搜尋小說加入書房..." onkeydown="if(event.key==='Enter') searchNovelFromStandby()">
+                                        <button class="btn btn-success" type="button" onclick="searchNovelFromStandby()"><i class="bi bi-search"></i> 搜尋</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 3D 立體書架層架 -->
+                            <div class="bookshelf-shelf">
+                                <div class="bookshelf-books-row" id="novelBookshelfGrid">
+                                    <!-- 由 JS 動態注入 3D 小說書本 -->
+                                </div>
+                                <div class="bookshelf-plank"></div>
                             </div>
 
                             <div class="my-4 d-flex align-items-center">
                                 <hr class="flex-grow-1 opacity-25">
-                                <span class="px-3 small text-muted fw-bold">或 本機電子書閱讀</span>
+                                <span class="px-3 small text-muted fw-bold">或 本機電子書沉浸閱讀</span>
                                 <hr class="flex-grow-1 opacity-25">
                             </div>
 
@@ -1333,7 +1355,6 @@
                                 </button>
                             </div>
                         </div>
-
                         <!-- 沉浸式章節內文區 -->
                         <div id="novelReadingArea" style="display: none;">
                             <h3 class="fw-bold mb-4 pb-3 border-bottom" id="novelChapterHeading"></h3>
