@@ -43,20 +43,30 @@ function parseRequestBody(req) {
     });
 }
 
-// 安全純化使用者名稱，避免路徑穿越
+// 安全純化使用者名稱，避免路徑穿越並統一小寫以支援跨平台 (Linux/Docker) 檔案系統
 function sanitizeUsername(username) {
     if (!username) return 'default';
-    const clean = username.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '').trim();
+    const clean = username.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '').trim().toLowerCase();
     return clean || 'default';
 }
 
-// 取得使用者儲存檔案路徑
+// 取得使用者儲存檔案路徑 (支援跨平台大小寫自動相容，確保 Linux / Docker 下 Jyun 與 jyun 100% 互通)
 function getUserFilePath(username) {
     if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
     }
     const safeUser = sanitizeUsername(username);
-    return path.join(DATA_DIR, `bookmarks_${safeUser}.json`);
+    const directPath = path.join(DATA_DIR, `bookmarks_${safeUser}.json`);
+    if (fs.existsSync(directPath)) return directPath;
+
+    // 遍歷比對 (忽略大小寫以防舊檔案保留大寫)
+    try {
+        const files = fs.readdirSync(DATA_DIR);
+        const matched = files.find(f => f.toLowerCase() === `bookmarks_${safeUser}.json`);
+        if (matched) return path.join(DATA_DIR, matched);
+    } catch (e) {}
+
+    return directPath;
 }
 
 // 記憶當前伺服器中最後活躍登入的使用者（供 Tampermonkey 快捷收藏自動動態歸屬）
