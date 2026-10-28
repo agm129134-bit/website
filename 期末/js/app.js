@@ -29746,6 +29746,7 @@ window.executeDockerAction = async function(action) {
     const actionNames = {
 
         up: '一鍵部署並啟動 (Up)',
+        update: '更新容器 (Update & Rebuild)',
 
         start: '啟動容器 (Start)',
 

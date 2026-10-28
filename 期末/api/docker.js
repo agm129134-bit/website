@@ -78,6 +78,7 @@ function handleDockerRoute(req, res) {
                 if (IS_IN_CONTAINER) {
                     const actionZh = {
                         up: '部署',
+                        update: '更新與重新編譯',
                         start: '啟動',
                         stop: '關閉',
                         restart: '重啟',
@@ -89,8 +90,8 @@ function handleDockerRoute(req, res) {
                         success: true,
                         inContainer: true,
                         action: action,
-                        command: `docker compose -p web-library ${action === 'up' ? 'up -d --build' : action}`,
-                        output: `【Docker 安全沙盒提示】\n您當前正是透過此 Docker 容器在瀏覽本網頁。\n依據容器安全隔離標準，容器內部無法反向終止宿主機（Windows）上的 Docker 進程。\n\n如需${actionZh}此容器，請在 Windows 本機終端機中執行：\n  docker compose -p web-library ${action === 'up' ? 'up -d --build' : action}\n\n或直接在 Docker Desktop 應用程式介面中點擊 Stop / Restart 按鍵即可。`,
+                        command: `docker compose -p web-library ${(action === 'up' || action === 'update') ? 'up -d --build' : action}`,
+                        output: `【Docker 安全沙盒提示】\n您當前正是透過此 Docker 容器在瀏覽本網頁。\n依據容器安全隔離標準，容器內部無法反向終止宿主機（Windows）上的 Docker 進程。\n\n如需${actionZh}此容器，請在 Windows 本機終端機中執行：\n  docker compose -p web-library ${(action === 'up' || action === 'update') ? 'up -d --build' : action}\n\n或直接在 Docker Desktop 應用程式介面中點擊 Stop / Restart 按鍵即可。`,
                         error: null
                     }));
                 }
