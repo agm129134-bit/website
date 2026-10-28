@@ -960,16 +960,46 @@ function setupEventListeners() {
         exportDataAsJSON();
     });
 
-    // 9. 重置範例資料
-    document.getElementById("resetDemoBtn").addEventListener("click", e => {
-        e.preventDefault();
-        if (confirm("確定要重置為預設範例資料嗎？這將覆蓋現有修改。")) {
-            state.bookmarks = [...DEFAULT_BOOKMARKS];
-            saveToStorage();
-            updateUI();
-            showToast("已成功重置為預設資料！", "bi-arrow-clockwise text-info");
-        }
-    });
+    // 9. 重置清空帳號書籤資料
+    const resetBtn = document.getElementById("resetDemoBtn");
+    if (resetBtn) {
+        resetBtn.addEventListener("click", async e => {
+            e.preventDefault();
+            const user = state.currentUser;
+            if (!user || user === "訪客") {
+                showToast("訪客帳號無需重置", "bi-info-circle text-info");
+                return;
+            }
+
+            if (confirm(`⚠️ 確定要清空當前帳號【${user}】的所有收藏書籤嗎？\n\n• 本機與伺服器端將同步清空（0 筆）。\n• 絕不會重新載入任何範例書籤！\n• 此操作無法復原。\n\n點擊「確定」執行清空。`)) {
+                _isLocalMutationActive = true;
+                state.bookmarks = [];
+                state.selectedBookmarkIds.clear();
+
+                // 1. 本地儲存立即清空
+                localStorage.setItem("web_library_bookmarks", JSON.stringify([]));
+
+                // 2. 伺服器端同步清空
+                try {
+                    await fetch('/api/user/clear', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ user: user })
+                    });
+                } catch (err) {
+                    console.warn("向伺服器發送清空指令失敗:", err);
+                }
+
+                updateUI();
+                showToast(`已成功清空帳號【${user}】的所有書籤！`, "bi-trash3-fill text-success");
+
+                // 鎖定 3 秒，徹底防範 confirm 關閉引起的 focus 事件誤拉取舊書籤競態
+                setTimeout(() => {
+                    _isLocalMutationActive = false;
+                }, 3000);
+            }
+        });
+    }
 
     // 10. 會員登入 / 註冊切換模擬 (完整支援多帳號隔離與切換專屬書庫)
     document.getElementById("loginForm").addEventListener("submit", async e => {

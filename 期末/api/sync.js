@@ -225,6 +225,42 @@ async function handleSyncRoute(req, res) {
         }
 
         // ==========================================
+        // 0.6 清空使用者帳號書籤 /api/user/clear
+        // ==========================================
+        if (pathname === '/api/user/clear') {
+            let username = query.user;
+            if (!username && (req.method === 'POST' || req.method === 'DELETE')) {
+                const body = await parseRequestBody(req);
+                username = body.user || body.username;
+            }
+            if (!username) {
+                return sendJson(res, 400, { success: false, error: '缺少 user 參數' });
+            }
+
+            const cleanUser = sanitizeUsername(username);
+            const filePath = getUserFilePath(cleanUser);
+
+            const emptyData = {
+                user: cleanUser,
+                count: 0,
+                bookmarks: [],
+                updatedAt: new Date().toISOString()
+            };
+            try {
+                fs.writeFileSync(filePath, JSON.stringify(emptyData, null, 2), 'utf-8');
+            } catch (e) {
+                return sendJson(res, 500, { success: false, error: '清空失敗: ' + e.message });
+            }
+
+            return sendJson(res, 200, {
+                success: true,
+                user: cleanUser,
+                count: 0,
+                message: `帳號 [${cleanUser}] 的書籤已自伺服器成功清空！`
+            });
+        }
+
+        // ==========================================
         // 1. 跨電腦書籤收藏同步端點 /api/user/bookmarks 與 Tampermonkey 收藏端點 /api/bookmarks
         // ==========================================
         if (pathname === '/api/user/bookmarks' || pathname === '/api/bookmarks') {
@@ -240,33 +276,23 @@ async function handleSyncRoute(req, res) {
                 const filePath = getUserFilePath(username);
 
                 if (!fs.existsSync(filePath)) {
-                    // 自動使用 master 範本 bookmarks_jyun.json 種子進行初始化繼承
-                    const masterPath = path.join(DATA_DIR, 'bookmarks_jyun.json');
-                    if (fs.existsSync(masterPath)) {
-                        try {
-                            const masterData = JSON.parse(fs.readFileSync(masterPath, 'utf-8'));
-                            const newSeed = {
-                                user: sanitizeUsername(username),
-                                count: masterData.count || (masterData.bookmarks || []).length,
-                                bookmarks: masterData.bookmarks || []
-                            };
-                            fs.writeFileSync(filePath, JSON.stringify(newSeed, null, 2), 'utf-8');
-                            return sendJson(res, 200, {
-                                success: true,
-                                user: sanitizeUsername(username),
-                                count: newSeed.count,
-                                bookmarks: newSeed.bookmarks,
-                                updatedAt: new Date().toISOString()
-                            });
-                        } catch(e) {}
-                    }
+                    // 全新或已刪除帳號預設為空書籤庫，絕不自動帶入其他帳號書籤
+                    const newSeed = {
+                        user: sanitizeUsername(username),
+                        count: 0,
+                        bookmarks: [],
+                        updatedAt: new Date().toISOString()
+                    };
+                    try {
+                        fs.writeFileSync(filePath, JSON.stringify(newSeed, null, 2), 'utf-8');
+                    } catch(e) {}
                     return sendJson(res, 200, {
                         success: true,
                         user: sanitizeUsername(username),
                         count: 0,
                         bookmarks: [],
                         isNewUser: true,
-                        message: '伺服器端暫無該帳號資料'
+                        message: '帳號初始為純淨空書籤'
                     });
                 }
 
