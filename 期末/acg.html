@@ -143,6 +143,176 @@
             display: inline-block;
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
+        /* ==================== 3D 擬真立體書架 (Apple Books 質感) ==================== */
+        .bookshelf-container {
+            width: 100%;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 10px 12px;
+            perspective: 1200px;
+        }
+
+        .bookshelf-shelf {
+            position: relative;
+            margin-bottom: 24px;
+            padding-bottom: 10px;
+        }
+
+        .bookshelf-books-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 22px 28px;
+            align-items: flex-end;
+            padding: 12px 18px 2px 18px;
+            z-index: 2;
+            position: relative;
+            min-height: 200px;
+        }
+
+        .bookshelf-book {
+            position: relative;
+            width: 130px;
+            cursor: pointer;
+            transform-style: preserve-3d;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+            will-change: transform;
+            text-align: center;
+        }
+
+        .bookshelf-book-cover-wrap {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 2 / 3;
+            border-radius: 4px 8px 8px 4px;
+            overflow: hidden;
+            box-shadow: -5px 8px 18px rgba(0, 0, 0, 0.55), 0 2px 4px rgba(0, 0, 0, 0.3);
+            background: #1e293b;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .bookshelf-book-cover-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* 模擬書脊光影與厚度折痕 */
+        .bookshelf-book-cover-wrap::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 20px;
+            background: linear-gradient(to right, rgba(0, 0, 0, 0.55) 0%, rgba(255, 255, 255, 0.22) 20%, rgba(0, 0, 0, 0.25) 50%, transparent 100%);
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        /* 書側頁邊立體感 */
+        .bookshelf-book-cover-wrap::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            right: 0;
+            bottom: 3px;
+            width: 4px;
+            background: repeating-linear-gradient(to bottom, #f1f5f9, #f1f5f9 1px, #94a3b8 1px, #94a3b8 2px);
+            border-radius: 0 2px 2px 0;
+            z-index: 2;
+        }
+
+        /* 書本右上角標籤與移除按鈕 */
+        .bookshelf-badge {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            z-index: 4;
+            backdrop-filter: blur(4px);
+        }
+
+        .bookshelf-remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 22px;
+            height: 22px;
+            background: rgba(0, 0, 0, 0.65);
+            color: #ffffff;
+            border: none;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            opacity: 0;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: 5;
+            cursor: pointer;
+        }
+
+        .bookshelf-book:hover .bookshelf-remove-btn {
+            opacity: 1;
+        }
+
+        .bookshelf-remove-btn:hover {
+            background: #ef4444;
+            transform: scale(1.15);
+        }
+
+        /* 書本標題 */
+        .bookshelf-book-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-top: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+        }
+
+        .bookshelf-book-sub {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            margin-top: -2px;
+        }
+
+        /* 書架立體實木/科技金屬擱板 (Plank) */
+        .bookshelf-plank {
+            height: 16px;
+            width: 100%;
+            background: linear-gradient(180deg, #475569 0%, #334155 45%, #1e293b 100%);
+            border-radius: 4px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+            position: relative;
+            z-index: 1;
+        }
+
+        .bookshelf-plank::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 12px;
+            right: 12px;
+            height: 14px;
+            background: radial-gradient(ellipse at center top, rgba(0, 0, 0, 0.75) 0%, transparent 75%);
+        }
+
+        /* 書本懸浮抽書動效 */
+        .bookshelf-book:hover {
+            transform: translateY(-14px) scale(1.06) rotateY(-5deg);
+        }
+
+        .bookshelf-book:hover .bookshelf-book-cover-wrap {
+            box-shadow: -10px 20px 32px rgba(0, 0, 0, 0.75), 0 8px 12px rgba(0, 0, 0, 0.45);
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -953,6 +1123,7 @@
                             <input type="text" id="mangaHeaderSearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋漫畫..." onkeydown="if(event.key==='Enter') searchMangaFromHeader(this.value)">
                             <button class="btn btn-outline-primary" type="button" onclick="searchMangaFromHeader(document.getElementById('mangaHeaderSearchInput').value)" title="搜尋漫畫"><i class="bi bi-search"></i></button>
                         </div>
+                        <button class="btn btn-sm btn-outline-warning rounded-pill px-2" id="mangaAddToShelfBtn" onclick="toggleCurrentMangaToBookshelf()" title="將當前漫畫加入立體書架"><i class="bi bi-bookmark-star"></i> 收進書架</button>
                         <button class="btn btn-sm btn-outline-light rounded-pill px-2" id="mangaPrevChapterBtn" onclick="prevMangaChapter()" title="上一話"><i class="bi bi-chevron-left"></i> 上一話</button>
                         <button class="btn btn-sm btn-outline-light rounded-pill px-2" id="mangaNextChapterBtn" onclick="nextMangaChapter()" title="下一話">下一話 <i class="bi bi-chevron-right"></i></button>
                         <button class="btn btn-sm btn-outline-primary rounded-pill px-2" onclick="openMangaChapterPicker()" title="選擇章節"><i class="bi bi-list-ul"></i> 選集</button>
@@ -961,30 +1132,43 @@
                             <button class="btn btn-sm btn-outline-secondary text-light" onclick="zoomManga(-0.1)" title="縮小"><i class="bi bi-zoom-out"></i></button>
                             <button class="btn btn-sm btn-outline-secondary text-light" onclick="resetZoomManga()" title="適應寬度"><i class="bi bi-arrows-angle-contract"></i></button>
                         </div>
-                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="closeCurrentManga()" title="關閉當前漫畫回到待命">
-                            <i class="bi bi-x-circle"></i> 關閉當前漫畫
+                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="closeCurrentManga()" title="關閉當前漫畫回到書架">
+                            <i class="bi bi-x-circle"></i> 回到書架
                         </button>
                         <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal" aria-label="關閉"></button>
                     </div>
                 </div>
-                <!-- 漫畫條漫捲軸主容器 (支援瀑布流與待命畫面) -->
-                <div class="modal-body p-0 overflow-auto d-flex justify-content-center" id="mangaScrollContainer" style="background: #111;">
-                    <div class="manga-page-list text-center py-3" id="mangaPageWrapper" style="max-width: 820px; width: 100%; transition: transform 0.2s ease;">
-                        <!-- 待命狀態搜尋區 -->
-                        <div class="text-center py-5 my-5 px-3" id="tachimangaPlaceholder" style="max-width: 500px; margin: 0 auto; color: #cbd5e1;">
-                            <i class="bi bi-book fs-1 d-block mb-3 text-primary opacity-75"></i>
-                            <h5 class="fw-bold text-white mb-1">條漫閱覽器（待命狀態）</h5>
-                            <p class="small mb-3" style="color: #cbd5e1;">輸入漫畫作品名稱即可全網檢索章節並開啟無縫條漫閱讀</p>
-                            
-                            <div class="input-group input-group-sm shadow-sm">
-                                <span class="input-group-text bg-dark text-white-50 border-secondary"><i class="bi bi-search"></i></span>
-                                <input type="text" id="mangaStandbySearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋漫畫名稱..." onkeydown="if(event.key==='Enter') searchMangaFromStandby()">
-                                <button class="btn btn-primary px-3 fw-semibold" type="button" onclick="searchMangaFromStandby()">
-                                    搜尋漫畫
-                                </button>
+                <!-- 漫畫條漫捲軸主容器 (支援瀑布流與 3D 擬真書架) -->
+                <div class="modal-body p-0 overflow-auto d-flex justify-content-center" id="mangaScrollContainer" style="background: #0b0f19;">
+                    <div class="manga-page-list text-center py-3" id="mangaPageWrapper" style="max-width: 960px; width: 100%; transition: transform 0.2s ease;">
+                        <!-- 3D 擬真條漫書架 (Manga Bookshelf) -->
+                        <div class="bookshelf-container py-4 text-start" id="tachimangaPlaceholder">
+                            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2 px-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-collection-fill fs-4 text-primary"></i>
+                                    <div>
+                                        <h5 class="fw-bold text-white mb-0">條漫立體藏書閣</h5>
+                                        <span class="text-white-50 small">點選書本立即開卷 · 支援全網搜尋收錄</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <div class="input-group input-group-sm" style="width: 260px;">
+                                        <input type="text" id="mangaStandbySearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋漫畫加入書架..." onkeydown="if(event.key==='Enter') searchMangaFromStandby()">
+                                        <button class="btn btn-primary" type="button" onclick="searchMangaFromStandby()"><i class="bi bi-search"></i> 搜尋</button>
+                                    </div>
+                                </div>
                             </div>
+
+                            <!-- 書架層架 -->
+                            <div class="bookshelf-shelf">
+                                <div class="bookshelf-books-row" id="mangaBookshelfGrid">
+                                    <!-- 由 JS 動態注入 3D 漫畫書本 -->
+                                </div>
+                                <div class="bookshelf-plank"></div>
+                            </div>
+                            
                             <!-- 漫畫閱讀歷史紀錄區 -->
-                            <div id="mangaRecentHistoryBox" class="mt-3 text-start w-100" style="display: none;"></div>
+                            <div id="mangaRecentHistoryBox" class="mt-2 text-start w-100" style="display: none;"></div>
                         </div>
                     </div>
                 </div>
@@ -1074,46 +1258,48 @@
                             <button class="btn btn-outline-secondary" onclick="adjustNovelFontSize(2)" title="放大字體">A+</button>
                         </div>
 
-                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="closeCurrentNovel()" title="關閉當前小說回到待命">
-                            <i class="bi bi-x-circle"></i> 關閉當前小說
+                        <button class="btn btn-sm btn-outline-warning rounded-pill px-2" id="novelAddToShelfBtn" onclick="toggleCurrentNovelToBookshelf()" title="將當前小說加入立體書房"><i class="bi bi-bookmark-star"></i> 收進書房</button>
+                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="closeCurrentNovel()" title="關閉當前小說回到書架">
+                            <i class="bi bi-x-circle"></i> 回到書房
                         </button>
                         <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="關閉" onclick="closeNovelReader()"></button>
                     </div>
                 </div>
 
-                <!-- 小說閱讀主容器 (支援沉浸閱讀與待命畫面) -->
+                <!-- 小說閱讀主容器 (支援沉浸閱讀與 3D 擬真書房) -->
                 <div class="modal-body p-4 p-md-5 overflow-auto" id="novelBodyWrapper">
-                    <div class="novel-article-box mx-auto" style="max-width: 760px; line-height: 2.1; font-size: 18px;" id="novelArticleContent">
-                        <!-- 待命狀態搜尋區 (未載入小說時顯示) -->
-                        <div class="text-center text-secondary py-5 my-4 px-3" id="legadoPlaceholder" style="max-width: 540px; margin: 0 auto;">
-                            <i class="bi bi-journal-text fs-1 d-block mb-3 text-success opacity-75"></i>
-                            <h5 class="fw-bold text-dark mb-1">沉浸小說閱讀器（待命狀態）</h5>
-                            <p class="small text-muted mb-3">輸入小說作品名稱或作者即可全網檢索章節，或直接上傳本機電子書進行沉浸式閱讀</p>
-                            
-                            <div class="input-group input-group-sm shadow-sm">
-                                <span class="input-group-text bg-white border-secondary-subtle text-secondary"><i class="bi bi-search"></i></span>
-                                <input type="text" id="novelStandbySearchInput" class="form-control border-secondary-subtle" placeholder="搜尋小說書名或作者..." onkeydown="if(event.key==='Enter') searchNovelFromStandby()">
-                                <button class="btn btn-success px-3 fw-semibold" type="button" onclick="searchNovelFromStandby()">
-                                    搜尋小說
-                                </button>
+                    <div class="novel-article-box mx-auto" style="max-width: 960px; line-height: 2.1; font-size: 18px;" id="novelArticleContent">
+                        <!-- 3D 擬真沉浸小說書架 (Novel Bookshelf) -->
+                        <div class="bookshelf-container py-3 text-start" id="legadoPlaceholder">
+                            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2 px-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-book-half fs-4 text-success"></i>
+                                    <div>
+                                        <h5 class="fw-bold text-dark mb-0">沉浸小說立體書房</h5>
+                                        <span class="text-muted small">點擊書脊開啟閱讀 · 支援拖曳上傳 TXT / EPUB</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <div class="input-group input-group-sm" style="width: 240px;">
+                                        <input type="text" id="novelStandbySearchInput" class="form-control border-secondary-subtle" placeholder="搜尋小說加入書房..." onkeydown="if(event.key==='Enter') searchNovelFromStandby()">
+                                        <button class="btn btn-success" type="button" onclick="searchNovelFromStandby()"><i class="bi bi-search"></i> 搜尋</button>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill fw-semibold" onclick="document.getElementById('novelLocalFileInput').click()">
+                                        <i class="bi bi-upload"></i> 上傳電子書
+                                    </button>
+                                </div>
                             </div>
 
-                            <div class="my-4 d-flex align-items-center">
-                                <hr class="flex-grow-1 opacity-25">
-                                <span class="px-3 small text-muted fw-bold">或 本機電子書閱讀</span>
-                                <hr class="flex-grow-1 opacity-25">
+                            <!-- 書架層架 -->
+                            <div class="bookshelf-shelf">
+                                <div class="bookshelf-books-row" id="novelBookshelfGrid">
+                                    <!-- 由 JS 動態注入 3D 小說書本 -->
+                                </div>
+                                <div class="bookshelf-plank"></div>
                             </div>
 
-                            <!-- 本機電子書拖曳與選取上傳區 -->
-                            <div class="novel-upload-dropzone p-4 text-center shadow-sm" id="novelUploadDropzone" onclick="document.getElementById('novelLocalFileInput').click()">
-                                <i class="bi bi-file-earmark-arrow-up-fill fs-1 text-success d-block mb-2"></i>
-                                <h6 class="fw-bold text-dark mb-1">上傳本機電子書檔案</h6>
-                                <p class="small text-muted mb-3">支援 .txt 與 .epub 格式，系統將自動解析並智慧切分章節目錄</p>
-                                <input type="file" id="novelLocalFileInput" accept=".txt,.epub" class="d-none" onchange="if(this.files[0]) handleNovelFileUpload(this.files[0])">
-                                <button type="button" class="btn btn-sm btn-success rounded-pill px-4 shadow-sm fw-semibold">
-                                    <i class="bi bi-upload me-1"></i> 選取電子書檔案 (.txt / .epub)
-                                </button>
-                            </div>
+                            <!-- 上傳檔案隱藏 Input -->
+                            <input type="file" id="novelLocalFileInput" accept=".txt,.epub" class="d-none" onchange="if(this.files[0]) handleNovelFileUpload(this.files[0])">
                         </div>
 
                         <!-- 沉浸式章節內文區 -->
@@ -1634,7 +1820,238 @@
                 });
                 observer.observe(gridEl, { childList: true });
             }
+
+            // 5. 監聽條漫閱覽器與沉浸小說閱覽器開啟事件，觸發 3D 書架渲染與 GSAP 彈力擺入動畫
+            const mangaModal = document.getElementById("mangaReaderModal");
+            if (mangaModal) {
+                mangaModal.addEventListener('shown.bs.modal', () => {
+                    renderMangaBookshelf();
+                });
+            }
+
+            const novelModal = document.getElementById("novelReaderModal");
+            if (novelModal) {
+                novelModal.addEventListener('shown.bs.modal', () => {
+                    renderNovelBookshelf();
+                });
+            }
         }
+
+        // ==================== 3D 擬真立體書架管理模組 (Bookshelf System) ====================
+        const DEFAULT_MANGA_SHELF = [
+            { title: "航海王", cover: "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80", tag: "熱血" },
+            { title: "葬送的芙莉蓮", cover: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=400&q=80", tag: "奇幻" },
+            { title: "咒術迴戰", cover: "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80", tag: "戰鬥" },
+            { title: "鏈鋸人", cover: "https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=400&q=80", tag: "奇幻" },
+            { title: "鬼滅之刃", cover: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80", tag: "熱血" }
+        ];
+
+        const DEFAULT_NOVEL_SHELF = [
+            { title: "關於我轉生變成史萊姆這檔事", cover: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80", tag: "異世界" },
+            { title: "無職轉生", cover: "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=400&q=80", tag: "冒險" },
+            { title: "刀劍神域", cover: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=400&q=80", tag: "遊戲" },
+            { title: "Re:從零開始的異世界生活", cover: "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=400&q=80", tag: "穿越" }
+        ];
+
+        function getMangaBookshelf() {
+            try {
+                const data = localStorage.getItem('web_library_manga_bookshelf');
+                if (data) {
+                    const parsed = JSON.parse(data);
+                    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                }
+            } catch (e) {}
+            localStorage.setItem('web_library_manga_bookshelf', JSON.stringify(DEFAULT_MANGA_SHELF));
+            return DEFAULT_MANGA_SHELF;
+        }
+
+        function saveMangaBookshelf(list) {
+            localStorage.setItem('web_library_manga_bookshelf', JSON.stringify(list));
+            renderMangaBookshelf();
+        }
+
+        function getNovelBookshelf() {
+            try {
+                const data = localStorage.getItem('web_library_novel_bookshelf');
+                if (data) {
+                    const parsed = JSON.parse(data);
+                    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                }
+            } catch (e) {}
+            localStorage.setItem('web_library_novel_bookshelf', JSON.stringify(DEFAULT_NOVEL_SHELF));
+            return DEFAULT_NOVEL_SHELF;
+        }
+
+        function saveNovelBookshelf(list) {
+            localStorage.setItem('web_library_novel_bookshelf', JSON.stringify(list));
+            renderNovelBookshelf();
+        }
+
+        // 渲染條漫立體書架
+        window.renderMangaBookshelf = function() {
+            const grid = document.getElementById("mangaBookshelfGrid");
+            if (!grid) return;
+            const shelf = getMangaBookshelf();
+            grid.innerHTML = "";
+
+            if (shelf.length === 0) {
+                grid.innerHTML = `<div class="text-white-50 py-4 small text-center w-100">書架空空如也，可在上方搜尋漫畫或閱讀時點擊「收進書架」收藏！</div>`;
+                return;
+            }
+
+            shelf.forEach(book => {
+                const bookEl = document.createElement("div");
+                bookEl.className = "bookshelf-book";
+                bookEl.innerHTML = `
+                    <span class="bookshelf-badge bg-primary text-white">${escapeHtml(book.tag || '條漫')}</span>
+                    <button type="button" class="bookshelf-remove-btn" title="移出書架" onclick="event.stopPropagation(); removeBookFromMangaShelf('${escapeHtml(book.title)}')">✕</button>
+                    <div class="bookshelf-book-cover-wrap">
+                        <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80'">
+                    </div>
+                    <div class="bookshelf-book-title" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
+                    <div class="bookshelf-book-sub">點擊開卷</div>
+                `;
+                bookEl.onclick = () => {
+                    if (typeof window.openMangaSearchModal === 'function') {
+                        window.openMangaSearchModal(book.title);
+                    }
+                };
+                grid.appendChild(bookEl);
+            });
+
+            // GSAP 3D 擺入動態
+            if (typeof gsap !== 'undefined') {
+                gsap.from("#mangaBookshelfGrid .bookshelf-book", {
+                    y: 35,
+                    opacity: 0,
+                    rotateY: -15,
+                    scale: 0.9,
+                    stagger: 0.08,
+                    duration: 0.55,
+                    ease: "back.out(1.5)"
+                });
+            }
+        };
+
+        // 移出漫畫書架
+        window.removeBookFromMangaShelf = function(title) {
+            let shelf = getMangaBookshelf();
+            shelf = shelf.filter(b => b.title !== title);
+            saveMangaBookshelf(shelf);
+            if (typeof showToast === 'function') {
+                showToast(`已將《${title}》移出條漫書架`, "bi-trash text-warning");
+            }
+        };
+
+        // 當前漫畫一鍵收進書架
+        window.toggleCurrentMangaToBookshelf = function() {
+            if (!mangaState.currentManga || !mangaState.currentManga.title) {
+                if (typeof showToast === 'function') {
+                    showToast("目前尚未開啟任何漫畫！", "bi-exclamation-circle text-info");
+                }
+                return;
+            }
+            const cur = mangaState.currentManga;
+            let shelf = getMangaBookshelf();
+            if (shelf.some(b => b.title === cur.title)) {
+                if (typeof showToast === 'function') {
+                    showToast(`《${cur.title}》已在您的書架中！`, "bi-bookmark-check text-success");
+                }
+                return;
+            }
+            shelf.unshift({
+                title: cur.title,
+                cover: cur.cover || "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80",
+                tag: "已收藏"
+            });
+            saveMangaBookshelf(shelf);
+            if (typeof showToast === 'function') {
+                showToast(`🎉 成功將《${cur.title}》收藏進條漫立體書架！`, "bi-star-fill text-warning");
+            }
+        };
+
+        // 渲染小說立體書架
+        window.renderNovelBookshelf = function() {
+            const grid = document.getElementById("novelBookshelfGrid");
+            if (!grid) return;
+            const shelf = getNovelBookshelf();
+            grid.innerHTML = "";
+
+            if (shelf.length === 0) {
+                grid.innerHTML = `<div class="text-muted py-4 small text-center w-100">書房目前尚無藏書，可搜尋在線小說或直接點擊右上角「上傳電子書」收藏！</div>`;
+                return;
+            }
+
+            shelf.forEach(book => {
+                const bookEl = document.createElement("div");
+                bookEl.className = "bookshelf-book";
+                bookEl.innerHTML = `
+                    <span class="bookshelf-badge bg-success text-white">${escapeHtml(book.tag || '小說')}</span>
+                    <button type="button" class="bookshelf-remove-btn" title="移出書房" onclick="event.stopPropagation(); removeBookFromNovelShelf('${escapeHtml(book.title)}')">✕</button>
+                    <div class="bookshelf-book-cover-wrap">
+                        <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80'">
+                    </div>
+                    <div class="bookshelf-book-title text-dark" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
+                    <div class="bookshelf-book-sub">點擊翻閱</div>
+                `;
+                bookEl.onclick = () => {
+                    if (typeof window.openNovelSearchModal === 'function') {
+                        window.openNovelSearchModal(book.title);
+                    }
+                };
+                grid.appendChild(bookEl);
+            });
+
+            // GSAP 3D 擺入動態
+            if (typeof gsap !== 'undefined') {
+                gsap.from("#novelBookshelfGrid .bookshelf-book", {
+                    y: 35,
+                    opacity: 0,
+                    rotateY: -15,
+                    scale: 0.9,
+                    stagger: 0.08,
+                    duration: 0.55,
+                    ease: "back.out(1.5)"
+                });
+            }
+        };
+
+        // 移出小說書房
+        window.removeBookFromNovelShelf = function(title) {
+            let shelf = getNovelBookshelf();
+            shelf = shelf.filter(b => b.title !== title);
+            saveNovelBookshelf(shelf);
+            if (typeof showToast === 'function') {
+                showToast(`已將《${title}》移出小說書房`, "bi-trash text-warning");
+            }
+        };
+
+        // 當前小說一鍵收進書房
+        window.toggleCurrentNovelToBookshelf = function() {
+            if (!novelState.currentNovel || !novelState.currentNovel.title) {
+                if (typeof showToast === 'function') {
+                    showToast("目前尚未開啟任何小說！", "bi-exclamation-circle text-info");
+                }
+                return;
+            }
+            const cur = novelState.currentNovel;
+            let shelf = getNovelBookshelf();
+            if (shelf.some(b => b.title === cur.title)) {
+                if (typeof showToast === 'function') {
+                    showToast(`《${cur.title}》已在您的小說書房中！`, "bi-bookmark-check text-success");
+                }
+                return;
+            }
+            shelf.unshift({
+                title: cur.title,
+                cover: cur.cover || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80",
+                tag: "已收藏"
+            });
+            saveNovelBookshelf(shelf);
+            if (typeof showToast === 'function') {
+                showToast(`🎉 成功將《${cur.title}》收藏進小說立體書房！`, "bi-star-fill text-warning");
+            }
+        };
     </script>
 </body>
 </html>
