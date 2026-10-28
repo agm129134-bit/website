@@ -209,6 +209,13 @@
                                     <div class="text-muted" style="font-size: 0.72rem;">docker compose restart</div>
                                 </div>
                             </a></li>
+                            <li><a class="dropdown-item d-flex align-items-center gap-2 text-primary" href="#" onclick="executeDockerAction('update'); return false;">
+                                <i class="bi bi-cloud-arrow-up"></i>
+                                <div>
+                                    <div class="fw-semibold">更新容器 (Update & Rebuild)</div>
+                                    <div class="text-muted" style="font-size: 0.72rem;">docker compose up -d --build</div>
+                                </div>
+                            </a></li>
                             <li><hr class="dropdown-divider"></li>
                             <!-- 自主發想 UX 強化：運行中一鍵跳轉 Docker 服務 -->
                             <li><a class="dropdown-item d-flex align-items-center gap-2 text-primary" href="http://localhost:8095" target="_blank" id="dockerDirectLinkItem">

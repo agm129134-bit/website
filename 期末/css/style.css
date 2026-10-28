@@ -6528,3 +6528,36 @@ body.has-multi-modal .modal-backdrop:last-of-type {
 
 
 
+
+
+/* ========================================================
+   ACG 模態框 Header 響應式防擠壓安全規範 (RWD Anti-Compression)
+   ======================================================== */
+#animePlayerModal .modal-header,
+#novelReaderModal .modal-header,
+#mangaReaderModal .modal-header {
+    min-height: 52px;
+}
+
+#animePlayerModal .modal-header .btn,
+#novelReaderModal .modal-header .btn,
+#mangaReaderModal .modal-header .btn {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+}
+
+@media (max-width: 576px) {
+    #animePlayerModal .modal-header,
+    #novelReaderModal .modal-header,
+    #mangaReaderModal .modal-header {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+    #animePlayerModal .modal-header .btn,
+    #novelReaderModal .modal-header .btn,
+    #mangaReaderModal .modal-header .btn {
+        padding-left: 0.45rem !important;
+        padding-right: 0.45rem !important;
+        font-size: 0.78rem !important;
+    }
+}

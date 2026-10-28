@@ -695,32 +695,33 @@
     <div class="modal fade" id="animePlayerModal" tabindex="-1" aria-labelledby="animeModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-theater">
             <div class="modal-content bg-dark text-white border-secondary rounded-4 shadow-lg overflow-hidden">
-                <div class="modal-header border-bottom border-secondary py-2 px-3 bg-black">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-danger">Kazumi Engine</span>
-                        <h6 class="modal-title fw-bold mb-0 text-truncate" id="animePlayerTitle" style="max-width: 320px;">動漫劇院播放器</h6>
+                <div class="modal-header border-bottom border-secondary py-2 px-2 px-md-3 bg-black flex-nowrap align-items-center">
+                    <div class="d-flex align-items-center gap-1 gap-md-2 overflow-hidden flex-shrink-1 me-2">
+                        <span class="badge bg-danger flex-shrink-0 d-none d-sm-inline">Kazumi Engine</span>
+                        <span class="badge bg-danger flex-shrink-0 d-inline d-sm-none">Kazumi</span>
+                        <h6 class="modal-title fw-bold mb-0 text-truncate text-white" id="animePlayerTitle" style="max-width: 140px;">動漫劇院播放器</h6>
                     </div>
                     <!-- 控制組居右，支援劇院內快速搜尋，關閉 X 置於最右上角 -->
-                    <div class="d-flex align-items-center gap-2 ms-auto">
-                        <div class="input-group input-group-sm d-none d-sm-flex" style="width: 220px;">
+                    <div class="d-flex align-items-center gap-1 gap-md-2 ms-auto flex-shrink-0">
+                        <div class="input-group input-group-sm d-none d-xl-flex" style="width: 200px;">
                             <input type="text" id="theaterHeaderSearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋番劇..." onkeydown="if(event.key==='Enter') searchAnimeFromTheater(this.value)">
                             <button class="btn btn-outline-danger" type="button" onclick="searchAnimeFromTheater(document.getElementById('theaterHeaderSearchInput').value)" title="搜尋動漫來源">
                                 <i class="bi bi-search"></i>
                             </button>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="danmakuToggleBtn" title="切換彈幕開關">
-                            <i class="bi bi-chat-square-dots text-muted"></i> 彈幕: 關
+                        <button type="button" class="btn btn-sm btn-outline-secondary px-2 flex-shrink-0" id="danmakuToggleBtn" title="切換彈幕開關">
+                            <i class="bi bi-chat-square-dots text-muted"></i> <span class="d-none d-md-inline" id="danmakuToggleBtnText">彈幕: 關</span>
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-2" id="danmakuPlayPauseBtn" onclick="toggleMasterPlayPause()" title="暫停/繼續影片與彈幕 (快捷鍵: 空白鍵 Space)">
-                            <i class="bi bi-pause-fill"></i> <span id="danmakuPlayPauseBtnText">暫停</span>
+                        <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-2 flex-shrink-0" id="danmakuPlayPauseBtn" onclick="toggleMasterPlayPause()" title="暫停/繼續影片與彈幕 (快捷鍵: 空白鍵 Space)">
+                            <i class="bi bi-pause-fill"></i> <span id="danmakuPlayPauseBtnText" class="d-none d-md-inline">暫停</span>
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-2" id="openExternalPlayerBtn" onclick="openCurrentInNewTab()" title="在新分頁另開此播放器頁面 (解決站方禁止內嵌限制)">
-                            <i class="bi bi-box-arrow-up-right"></i> 新分頁播放
+                        <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-2 flex-shrink-0" id="openExternalPlayerBtn" onclick="openCurrentInNewTab()" title="在新分頁另開此播放器頁面 (解決站方禁止內嵌限制)">
+                            <i class="bi bi-box-arrow-up-right"></i> <span class="d-none d-lg-inline">新分頁播放</span>
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="closeCurrentAnime()" title="關閉當前動畫回到待命">
-                            <i class="bi bi-stop-circle"></i> 關閉當前動畫
+                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2 flex-shrink-0" onclick="closeCurrentAnime()" title="關閉當前動畫回到待命">
+                            <i class="bi bi-stop-circle"></i> <span class="d-none d-lg-inline">關閉當前動畫</span>
                         </button>
-                        <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal" aria-label="關閉" onclick="closeAnimePlayer()"></button>
+                        <button type="button" class="btn-close btn-close-white ms-1 flex-shrink-0" data-bs-dismiss="modal" aria-label="關閉" onclick="closeAnimePlayer()"></button>
                     </div>
                 </div>
                 <div class="modal-body p-0">
@@ -1137,32 +1138,32 @@
     <div class="modal fade" id="mangaReaderModal" tabindex="-1" aria-labelledby="mangaModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen">
             <div class="modal-content bg-black text-white border-0">
-                <div class="modal-header border-0 bg-dark bg-opacity-75 py-2 px-3 sticky-top">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-primary">條漫閱覽器</span>
-                        <span class="fw-bold" id="mangaModalTitle">漫畫閱覽器</span>
-                        <span class="badge bg-primary text-white ms-1" id="mangaCurrentChapterBadge">尚未選擇章節</span>
-                        <span class="badge bg-secondary text-white small" id="mangaPageIndicator"></span>
+                <div class="modal-header border-0 bg-dark bg-opacity-75 py-2 px-2 px-md-3 sticky-top flex-nowrap align-items-center">
+                    <div class="d-flex align-items-center gap-1 gap-md-2 overflow-hidden flex-shrink-1 me-2">
+                        <span class="badge bg-primary flex-shrink-0 d-none d-sm-inline">條漫閱覽器</span>
+                        <span class="fw-bold text-truncate" id="mangaModalTitle" style="max-width: 140px;">漫畫閱覽器</span>
+                        <span class="badge bg-primary text-white ms-1 text-truncate d-none d-md-inline" id="mangaCurrentChapterBadge" style="max-width: 120px;">尚未選擇章節</span>
+                        <span class="badge bg-secondary text-white small d-none d-sm-inline" id="mangaPageIndicator"></span>
                     </div>
                     <!-- 控制組居右，支援選集、上一話/下一話、搜尋、縮放與關閉 X -->
-                    <div class="d-flex align-items-center gap-2 ms-auto">
-                        <div class="input-group input-group-sm d-none d-md-flex" style="width: 220px;">
+                    <div class="d-flex align-items-center gap-1 gap-md-2 ms-auto flex-shrink-0">
+                        <div class="input-group input-group-sm d-none d-xl-flex" style="width: 200px;">
                             <input type="text" id="mangaHeaderSearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋漫畫..." onkeydown="if(event.key==='Enter') searchMangaFromHeader(this.value)">
                             <button class="btn btn-outline-primary" type="button" onclick="searchMangaFromHeader(document.getElementById('mangaHeaderSearchInput').value)" title="搜尋漫畫"><i class="bi bi-search"></i></button>
                         </div>
-                        <button class="btn btn-sm btn-outline-warning rounded-pill px-2" id="mangaAddToShelfBtn" onclick="toggleCurrentMangaToBookshelf()" title="將當前漫畫加入立體書架"><i class="bi bi-bookmark-star"></i> 收進書架</button>
-                        <button class="btn btn-sm btn-outline-light rounded-pill px-2" id="mangaPrevChapterBtn" onclick="prevMangaChapter()" title="上一話"><i class="bi bi-chevron-left"></i> 上一話</button>
-                        <button class="btn btn-sm btn-outline-light rounded-pill px-2" id="mangaNextChapterBtn" onclick="nextMangaChapter()" title="下一話">下一話 <i class="bi bi-chevron-right"></i></button>
-                        <button class="btn btn-sm btn-outline-primary rounded-pill px-2" onclick="openMangaChapterPicker()" title="選擇章節"><i class="bi bi-list-ul"></i> 選集</button>
-                        <div class="btn-group btn-group-sm">
+                        <button class="btn btn-sm btn-outline-warning rounded-pill px-2 flex-shrink-0" id="mangaAddToShelfBtn" onclick="toggleCurrentMangaToBookshelf()" title="將當前漫畫加入立體書架"><i class="bi bi-bookmark-star"></i> <span class="d-none d-lg-inline">收進書架</span></button>
+                        <button class="btn btn-sm btn-outline-light rounded-pill px-2 flex-shrink-0" id="mangaPrevChapterBtn" onclick="prevMangaChapter()" title="上一話"><i class="bi bi-chevron-left"></i> <span class="d-none d-md-inline">上一話</span></button>
+                        <button class="btn btn-sm btn-outline-light rounded-pill px-2 flex-shrink-0" id="mangaNextChapterBtn" onclick="nextMangaChapter()" title="下一話"><span class="d-none d-md-inline">下一話</span> <i class="bi bi-chevron-right"></i></button>
+                        <button class="btn btn-sm btn-outline-primary rounded-pill px-2 flex-shrink-0" onclick="openMangaChapterPicker()" title="選擇章節"><i class="bi bi-list-ul"></i> <span class="d-none d-sm-inline">選集</span></button>
+                        <div class="btn-group btn-group-sm d-none d-lg-flex flex-shrink-0">
                             <button class="btn btn-sm btn-outline-secondary text-light" onclick="zoomManga(0.1)" title="放大"><i class="bi bi-zoom-in"></i></button>
                             <button class="btn btn-sm btn-outline-secondary text-light" onclick="zoomManga(-0.1)" title="縮小"><i class="bi bi-zoom-out"></i></button>
                             <button class="btn btn-sm btn-outline-secondary text-light" onclick="resetZoomManga()" title="適應寬度"><i class="bi bi-arrows-angle-contract"></i></button>
                         </div>
-                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="closeCurrentManga()" title="關閉當前漫畫回到書架">
-                            <i class="bi bi-x-circle"></i> 回到書架
+                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2 flex-shrink-0" onclick="closeCurrentManga()" title="關閉當前漫畫回到書架">
+                            <i class="bi bi-x-circle"></i> <span class="d-none d-lg-inline">回到書架</span>
                         </button>
-                        <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal" aria-label="關閉"></button>
+                        <button type="button" class="btn-close btn-close-white ms-1 flex-shrink-0" data-bs-dismiss="modal" aria-label="關閉"></button>
                     </div>
                 </div>
                 <!-- 漫畫條漫捲軸主容器 (支援瀑布流與 3D 擬真書架) -->
@@ -1249,50 +1250,81 @@
         <div class="modal-dialog modal-fullscreen">
             <div class="modal-content border-0 novel-theme-sepia" id="novelContentContainer">
                 <!-- 頂部小說控制列 -->
-                <div class="modal-header border-bottom py-2 px-3 px-md-4 shadow-sm" id="novelHeader">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-success">小說閱讀器</span>
-                        <h6 class="modal-title fw-bold mb-0 text-truncate" id="novelBookTitle" style="max-width: 200px;">沉浸小說閱讀</h6>
-                        <span class="badge bg-success-subtle text-success small" id="novelChapterBadge">尚未選擇章節</span>
+                <div class="modal-header border-bottom py-2 px-2 px-md-3 shadow-sm flex-nowrap align-items-center" id="novelHeader">
+                    <div class="d-flex align-items-center gap-1 gap-md-2 overflow-hidden flex-shrink-1 me-2">
+                        <span class="badge bg-success flex-shrink-0 d-none d-sm-inline">小說閱讀器</span>
+                        <h6 class="modal-title fw-bold mb-0 text-truncate" id="novelBookTitle" style="max-width: 130px;">沉浸小說閱讀</h6>
+                        <span class="badge bg-success-subtle text-success small text-truncate d-none d-lg-inline" id="novelChapterBadge" style="max-width: 140px;">尚未選擇章節</span>
                     </div>
-                    <!-- 控制組居右，支援選集、上一章/下一章、搜尋、縮放、關閉當前小說與關閉 X -->
-                    <div class="d-flex align-items-center gap-2 ms-auto">
-                        <div class="input-group input-group-sm d-none d-lg-flex" style="width: 200px;">
+                    <!-- 控制組居右，支援選集、上一章/下一章、搜尋、主題設定、關閉當前小說與關閉 X -->
+                    <div class="d-flex align-items-center gap-1 gap-md-2 ms-auto flex-shrink-0">
+                        <div class="input-group input-group-sm d-none d-xxl-flex" style="width: 180px;">
                             <input type="text" id="novelHeaderSearchInput" class="form-control" placeholder="搜尋小說..." onkeydown="if(event.key==='Enter') searchNovelFromHeader(this.value)">
                             <button class="btn btn-outline-success" type="button" onclick="searchNovelFromHeader(document.getElementById('novelHeaderSearchInput').value)" title="搜尋小說"><i class="bi bi-search"></i></button>
                         </div>
-                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-2" id="novelHeaderPrevBtn" onclick="switchNovelChapter(-1)" title="上一章"><i class="bi bi-chevron-left"></i> 上一章</button>
-                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-2" id="novelHeaderNextBtn" onclick="switchNovelChapter(1)" title="下一章">下一章 <i class="bi bi-chevron-right"></i></button>
-                        <button class="btn btn-sm btn-outline-success rounded-pill px-2" onclick="openNovelChapterPicker()" title="選擇章節目錄"><i class="bi bi-list-ul"></i> 目錄</button>
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-2 flex-shrink-0" id="novelHeaderPrevBtn" onclick="switchNovelChapter(-1)" title="上一章"><i class="bi bi-chevron-left"></i> <span class="d-none d-md-inline">上一章</span></button>
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-2 flex-shrink-0" id="novelHeaderNextBtn" onclick="switchNovelChapter(1)" title="下一章"><span class="d-none d-md-inline">下一章</span> <i class="bi bi-chevron-right"></i></button>
+                        <button class="btn btn-sm btn-outline-success rounded-pill px-2 flex-shrink-0" onclick="openNovelChapterPicker()" title="選擇章節目錄"><i class="bi bi-list-ul"></i> <span class="d-none d-sm-inline">目錄</span></button>
                         
-                        <!-- 主題切換 -->
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-secondary active" id="novelThemeSepiaBtn" onclick="setNovelTheme('sepia')" title="羊皮紙護眼黃">📜 羊皮紙</button>
-                            <button class="btn btn-outline-secondary" id="novelThemeWhiteBtn" onclick="setNovelTheme('white')" title="純淨白">☀️ 純白</button>
-                            <button class="btn btn-outline-secondary" id="novelThemeDarkBtn" onclick="setNovelTheme('dark')" title="夜間深黑">🌙 暗黑</button>
+                        <!-- 桌面版主題與外觀設定 (寬螢幕直接呈現) -->
+                        <div class="d-none d-xl-flex align-items-center gap-2">
+                            <!-- 主題切換 -->
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary active" id="novelThemeSepiaBtn" onclick="setNovelTheme('sepia')" title="羊皮紙護眼黃">📜 羊皮紙</button>
+                                <button class="btn btn-outline-secondary" id="novelThemeWhiteBtn" onclick="setNovelTheme('white')" title="純淨白">☀️ 純白</button>
+                                <button class="btn btn-outline-secondary" id="novelThemeDarkBtn" onclick="setNovelTheme('dark')" title="夜間深黑">🌙 暗黑</button>
+                            </div>
+
+                            <!-- 自訂字體顏色 -->
+                            <div class="d-flex align-items-center gap-1 border border-secondary border-opacity-25 rounded-pill px-2 py-1 bg-body-tertiary bg-opacity-25" title="自訂閱讀字體顏色">
+                                <i class="bi bi-palette text-secondary small"></i>
+                                <input type="color" id="novelCustomColorPicker" class="form-control form-control-color border-0 p-0" style="width: 20px; height: 20px; cursor: pointer; background: transparent;" value="#2d241e" oninput="setNovelCustomTextColor(this.value)" title="自訂正文字體顏色">
+                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-secondary opacity-75" onclick="resetNovelCustomTextColor()" title="重置為預設主題顏色" style="font-size: 0.75rem;"><i class="bi bi-arrow-counterclockwise"></i></button>
+                            </div>
+
+                            <!-- 字級大小 -->
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary" onclick="adjustNovelFontSize(-2)" title="縮小字體">A-</button>
+                                <button class="btn btn-outline-secondary" onclick="adjustNovelFontSize(2)" title="放大字體">A+</button>
+                            </div>
                         </div>
 
-                        <!-- 自訂字體顏色 -->
-                        <div class="d-flex align-items-center gap-1 border border-secondary border-opacity-25 rounded-pill px-2 py-1 bg-body-tertiary bg-opacity-25" title="自訂閱讀字體顏色">
-                            <i class="bi bi-palette text-secondary small"></i>
-                            <input type="color" id="novelCustomColorPicker" class="form-control form-control-color border-0 p-0" style="width: 20px; height: 20px; cursor: pointer; background: transparent;" value="#2d241e" oninput="setNovelCustomTextColor(this.value)" title="自訂正文字體顏色">
-                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-secondary opacity-75" onclick="resetNovelCustomTextColor()" title="重置為預設主題顏色" style="font-size: 0.75rem;"><i class="bi bi-arrow-counterclockwise"></i></button>
+                        <!-- 行動端與窄螢幕外觀設定齒輪下拉選單 (避免擠爆 Header) -->
+                        <div class="dropdown d-xl-none flex-shrink-0">
+                            <button class="btn btn-sm btn-outline-secondary rounded-pill px-2 dropdown-toggle" type="button" id="novelMobileSettingsBtn" data-bs-toggle="dropdown" aria-expanded="false" title="外觀與主題設定">
+                                <i class="bi bi-palette-fill"></i>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end p-3 shadow-lg border border-secondary-subtle" style="min-width: 260px;">
+                                <div class="fw-bold small text-muted mb-2"><i class="bi bi-paint-bucket me-1"></i> 閱讀主題風格</div>
+                                <div class="btn-group btn-group-sm w-100 mb-3">
+                                    <button class="btn btn-outline-secondary" onclick="setNovelTheme('sepia')">📜 羊皮紙</button>
+                                    <button class="btn btn-outline-secondary" onclick="setNovelTheme('white')">☀️ 純白</button>
+                                    <button class="btn btn-outline-secondary" onclick="setNovelTheme('dark')">🌙 暗黑</button>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <span class="small text-muted"><i class="bi bi-fonts me-1"></i> 字級縮放</span>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-secondary" onclick="adjustNovelFontSize(-2)">A-</button>
+                                        <button class="btn btn-outline-secondary" onclick="adjustNovelFontSize(2)">A+</button>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <span class="small text-muted"><i class="bi bi-palette me-1"></i> 自訂正文字色</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input type="color" class="form-control form-control-color border-0 p-0" style="width: 22px; height: 22px; cursor: pointer; background: transparent;" value="#2d241e" oninput="setNovelCustomTextColor(this.value)">
+                                        <button type="button" class="btn btn-link btn-sm p-0 text-secondary" onclick="resetNovelCustomTextColor()" title="重設字色"><i class="bi bi-arrow-counterclockwise"></i></button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- 字級大小 -->
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-secondary" onclick="adjustNovelFontSize(-2)" title="縮小字體">A-</button>
-                            <button class="btn btn-outline-secondary" onclick="adjustNovelFontSize(2)" title="放大字體">A+</button>
-                        </div>
-
-                        <button class="btn btn-sm btn-outline-warning rounded-pill px-2" id="novelAddToShelfBtn" onclick="toggleCurrentNovelToBookshelf()" title="將當前小說加入立體書房"><i class="bi bi-bookmark-star"></i> 收進書房</button>
-                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="closeCurrentNovel()" title="關閉當前小說回到書架">
-                            <i class="bi bi-x-circle"></i> 回到書房
+                        <button class="btn btn-sm btn-outline-warning rounded-pill px-2 flex-shrink-0" id="novelAddToShelfBtn" onclick="toggleCurrentNovelToBookshelf()" title="將當前小說加入立體書房"><i class="bi bi-bookmark-star"></i> <span class="d-none d-lg-inline">收進書房</span></button>
+                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2 flex-shrink-0" onclick="closeCurrentNovel()" title="關閉當前小說回到書架">
+                            <i class="bi bi-x-circle"></i> <span class="d-none d-lg-inline">回到書房</span>
                         </button>
-                        <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="關閉" onclick="closeNovelReader()"></button>
+                        <button type="button" class="btn-close ms-1 flex-shrink-0" data-bs-dismiss="modal" aria-label="關閉" onclick="closeNovelReader()"></button>
                     </div>
                 </div>
-
                 <!-- 小說閱讀主容器 (支援沉浸閱讀與 3D 擬真書房) -->
                 <div class="modal-body p-4 p-md-5 overflow-auto" id="novelBodyWrapper">
                     <div class="novel-article-box mx-auto" style="max-width: 960px; line-height: 2.1; font-size: 18px;" id="novelArticleContent">
