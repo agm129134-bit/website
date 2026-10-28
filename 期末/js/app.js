@@ -784,18 +784,33 @@ function renderBookmarks() {
 
     // GSAP 3 物理交錯彈入動畫 (Stagger In & Smooth Damping)
     if (typeof gsap !== 'undefined') {
-        gsap.fromTo("#bookmarkContainer .bookmark-card", 
-            { y: 22, opacity: 0, scale: 0.97 },
-            { 
-                y: 0, 
-                opacity: 1, 
-                scale: 1, 
-                duration: 0.38, 
-                stagger: 0.03, 
-                ease: "power2.out", 
-                clearProps: "transform,opacity" 
-            }
-        );
+        const isList = state.viewMode === "list";
+        if (isList) {
+            gsap.fromTo("#bookmarkContainer .bookmark-card", 
+                { x: -30, opacity: 0 },
+                { 
+                    x: 0, 
+                    opacity: 1, 
+                    duration: 0.32, 
+                    stagger: 0.025, 
+                    ease: "power2.out", 
+                    clearProps: "transform,opacity" 
+                }
+            );
+        } else {
+            gsap.fromTo("#bookmarkContainer .bookmark-card", 
+                { y: 22, opacity: 0, scale: 0.96 },
+                { 
+                    y: 0, 
+                    opacity: 1, 
+                    scale: 1, 
+                    duration: 0.38, 
+                    stagger: 0.03, 
+                    ease: "back.out(1.3)", 
+                    clearProps: "transform,opacity" 
+                }
+            );
+        }
     }
 }
 
@@ -906,22 +921,43 @@ function setupEventListeners() {
             document.body.classList.remove("list-view-mode");
         }
 
-        gridBtn.addEventListener("click", () => {
-            state.viewMode = "grid";
-            localStorage.setItem("web_library_view_mode", "grid");
-            gridBtn.classList.add("active");
-            listBtn.classList.remove("active");
-            document.body.classList.remove("list-view-mode");
-            renderBookmarks();
-        });
-        listBtn.addEventListener("click", () => {
-            state.viewMode = "list";
-            localStorage.setItem("web_library_view_mode", "list");
-            listBtn.classList.add("active");
-            gridBtn.classList.remove("active");
-            document.body.classList.add("list-view-mode");
-            renderBookmarks();
-        });
+        // 帶有 GSAP 物理轉場效果的視圖切換器
+        const switchViewWithAnimation = (targetMode) => {
+            if (state.viewMode === targetMode) return;
+            state.viewMode = targetMode;
+            localStorage.setItem("web_library_view_mode", targetMode);
+
+            if (targetMode === "list") {
+                listBtn.classList.add("active");
+                gridBtn.classList.remove("active");
+                document.body.classList.add("list-view-mode");
+            } else {
+                gridBtn.classList.add("active");
+                listBtn.classList.remove("active");
+                document.body.classList.remove("list-view-mode");
+            }
+
+            const cards = document.querySelectorAll("#bookmarkContainer .bookmark-card");
+            if (typeof gsap !== 'undefined' && cards.length > 0) {
+                // 退場過渡動畫 (Animate-out)
+                gsap.to(cards, {
+                    opacity: 0,
+                    y: targetMode === "list" ? -12 : 12,
+                    scale: 0.95,
+                    duration: 0.16,
+                    stagger: 0.015,
+                    ease: "power2.in",
+                    onComplete: () => {
+                        renderBookmarks();
+                    }
+                });
+            } else {
+                renderBookmarks();
+            }
+        };
+
+        gridBtn.addEventListener("click", () => switchViewWithAnimation("grid"));
+        listBtn.addEventListener("click", () => switchViewWithAnimation("list"));
     }
 
     // 5. 新增 / 編輯表單送出
