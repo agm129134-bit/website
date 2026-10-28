@@ -29776,7 +29776,7 @@ window.executeDockerAction = async function(action) {
 
             headers: { 'Content-Type': 'application/json' },
 
-            body: JSON.stringify({ action: action })
+            body: JSON.stringify({ action: (action === 'update' ? 'up' : action) })
 
         });
 
@@ -29852,9 +29852,9 @@ window.executeDockerAction = async function(action) {
 
         lastDockerOutput = {
 
-            cmd: `docker compose ${action}`,
+            cmd: `docker compose -p web-library ${(action === 'up' || action === 'update') ? 'up -d --build' : action}`,
 
-            output: `無法連線至本地後端 API (/api/docker/action)。\n原因：${e.message}\n\n【提示】若您正在離線瀏覽或伺服器尚未啟動，您可直接在終端機中執行：\n  docker compose ${action === 'up' ? 'up -d --build' : action}`,
+            output: `無法連線至本地後端 API (/api/docker/action)。\n原因：${e.message}\n\n【提示】若您正在離線瀏覽或伺服器尚未啟動，您可直接在終端機中執行：\n  docker compose -p web-library ${(action === 'up' || action === 'update') ? 'up -d --build' : action}`,
 
             status: '離線提示'
 
