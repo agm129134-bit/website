@@ -29646,7 +29646,17 @@ window.checkDockerStatus = async function(isManual = false) {
 
         const data = await res.json();
 
-        if (data.running) {
+        if (data.inContainer) {
+
+            badge.className = "badge bg-success rounded-pill";
+
+            badge.textContent = "容器運行中 (In Docker)";
+
+            const navBadge = document.getElementById("navDockerBadge");
+
+            if (navBadge) navBadge.textContent = "In Docker";
+
+        } else if (data.running) {
 
             badge.className = "badge bg-success rounded-pill";
 
@@ -29727,6 +29737,32 @@ window.executeDockerAction = async function(action) {
         const data = await res.json();
 
 
+
+        if (data.inContainer) {
+
+            lastDockerOutput = {
+
+                cmd: data.command || `docker compose -p web-library ${action}`,
+
+                output: data.output,
+
+                status: '容器沙盒提示 (In Docker)'
+
+            };
+
+            if (typeof showToast === 'function') {
+
+                showToast("當前正在 Docker 容器內部運行", "bi-box-seam text-primary");
+
+            }
+
+            window.checkDockerStatus();
+
+            window.openDockerLogsModal();
+
+            return;
+
+        }
 
         lastDockerOutput = {
 
