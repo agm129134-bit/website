@@ -356,6 +356,12 @@
                 }
             }
 
+            // 清理本機過去誤存之帶有中文後綴的重複新帳號
+            list = list.filter(u => {
+                const un = (u.username || '').toLowerCase();
+                return un !== 'jyun專案開發者' && un !== 'test1測試帳號' && !un.includes('專案開發者') && !un.includes('測試帳號');
+            });
+
             // 專案核心預設與老用戶帳號清單 (包含 jyun 與 test1)
             const coreDefaults = [
                 {
@@ -425,6 +431,7 @@
                     const list = getRegisteredUsers();
                     let updated = false;
                     data.users.forEach(u => {
+                        if (!u || u.includes('專案開發者') || u.includes('測試帳號')) return;
                         if (!list.some(item => item.username.toLowerCase() === u.toLowerCase())) {
                             list.push({
                                 username: u,
