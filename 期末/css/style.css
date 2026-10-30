@@ -6815,17 +6815,7 @@ body.has-multi-modal .modal-backdrop:last-of-type {
   border: 1px solid #e7dfd5;
 }
 
-.book-spine {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 24px;
-  transform: translateX(-50%);
-  background: linear-gradient(to right, rgba(0,0,0,0.08), rgba(0,0,0,0.02) 40%, rgba(0,0,0,0.02) 60%, rgba(0,0,0,0.08));
-  pointer-events: none;
-  z-index: 20;
-}
+
 
 .book-page-sheet {
   padding: 36px 32px;
@@ -6843,27 +6833,7 @@ body.has-multi-modal .modal-backdrop:last-of-type {
 }
 
 /* ==================== iPhone Duo / Surface Duo 特殊折疊屏解析度適配 ==================== */
-@media screen and (width: 540px), screen and (min-width: 538px) and (max-width: 542px), screen and (width: 1080px) and (max-height: 725px) {
-  body {
-    background-color: #0c1017 !important;
-  }
-  
-  .duo-special-badge {
-    display: inline-flex !important;
-  }
 
-  .duo-screen-split {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 16px !important;
-    border-left: 3px solid #3b82f6 !important;
-    padding-left: 12px !important;
-  }
-
-  
-.duo-hinge-divider {
-  display: none;
-}
 
 
 /* ==================== 深色模式 (Dark Mode) 全域介面強化 ==================== */
@@ -6932,4 +6902,207 @@ body.dark-theme .text-dark {
 [data-bs-theme="dark"] .text-muted,
 body.dark-theme .text-muted {
   color: #94a3b8 !important;
+}
+
+
+/* ==================== Task: 遊戲區 RWD 小圓球按鈕 (對齊動畫區) ==================== */
+.game-hub-round-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 768px) {
+  .game-hub-round-btn {
+    width: auto !important;
+    height: auto !important;
+    border-radius: 50rem !important;
+    padding: 0.3rem 0.85rem !important;
+  }
+}
+
+/* ==================== Task: 獨立飄浮層疊書頁 (Stacked Floating Cards) ==================== */
+.floating-cards-wrapper {
+  position: relative;
+  min-height: 480px;
+}
+
+.stacked-card-shadow {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  pointer-events: none;
+  transition: transform 0.3s ease;
+}
+
+[data-bs-theme="dark"] .stacked-card-shadow {
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stacked-card-shadow-1 {
+  transform: translate(6px, 8px) scale(0.98);
+  z-index: 1;
+}
+
+.stacked-card-shadow-2 {
+  transform: translate(12px, 16px) scale(0.96);
+  z-index: 0;
+  opacity: 0.6;
+}
+
+.floating-book-card {
+  position: relative;
+  z-index: 2;
+  background: #ffffff;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+}
+
+[data-bs-theme="dark"] .floating-book-card {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+/* ==================== Task: Spotlight 停用模式開關控制 ==================== */
+.spotlight-disabled .spotlight-card::before,
+.spotlight-disabled .border-glow::after {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+.spotlight-disabled .spotlight-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  border-color: rgba(226, 232, 240, 0.9) !important;
+}
+
+/* ==================== Task: 深色模式全域無死角暗夜覆蓋 (徹底解決只做一點) ==================== */
+[data-bs-theme="dark"] body,
+body.dark-theme {
+  background-color: #0b0f19 !important;
+  color: #f1f5f9 !important;
+}
+
+/* 頂部 3 個統計大卡片深色化 */
+[data-bs-theme="dark"] .stat-card,
+body.dark-theme .stat-card,
+[data-bs-theme="dark"] .bg-gradient-web,
+[data-bs-theme="dark"] .bg-gradient-media,
+[data-bs-theme="dark"] .bg-gradient-tool {
+  background: linear-gradient(135deg, #161f30 0%, #0f172a 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-bs-theme="dark"] .stat-card h3,
+body.dark-theme .stat-card h3,
+[data-bs-theme="dark"] .stat-card .fs-2 {
+  color: #ffffff !important;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+}
+
+[data-bs-theme="dark"] .stat-card span,
+body.dark-theme .stat-card span {
+  color: #94a3b8 !important;
+}
+
+/* ACG 專區入口橫幅深色化 */
+[data-bs-theme="dark"] .acg-banner-card,
+[data-bs-theme="dark"] section.card.bg-light,
+body.dark-theme section.card.bg-light,
+[data-bs-theme="dark"] div[class*="bg-light"] {
+  background-color: #131b2e !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 分類藥丸列與標籤列深色化 */
+[data-bs-theme="dark"] .category-pill-btn,
+body.dark-theme .category-pill-btn {
+  background-color: #161f30 !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-bs-theme="dark"] .category-pill-btn.active,
+body.dark-theme .category-pill-btn.active {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.4) !important;
+}
+
+[data-bs-theme="dark"] #tagFilterBar,
+body.dark-theme #tagFilterBar,
+[data-bs-theme="dark"] .tag-chip-btn {
+  background-color: #131b2e !important;
+  color: #94a3b8 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-bs-theme="dark"] .tag-chip-btn.active {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+/* 搜尋框深色化 */
+[data-bs-theme="dark"] #searchInput,
+body.dark-theme #searchInput {
+  background-color: #161f30 !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+}
+
+/* 批量管理列與工具列 */
+[data-bs-theme="dark"] .batch-actions-bar,
+body.dark-theme .batch-actions-bar {
+  background-color: #1e293b !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* 浮動卡片手冊在深色模式下的標題與底欄 */
+[data-bs-theme="dark"] .floating-book-card .card-header,
+[data-bs-theme="dark"] .floating-book-card .card-footer {
+  background-color: #161f30 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-bs-theme="dark"] .floating-book-card .card-body {
+  background-color: #0f172a !important;
+}
+
+[data-bs-theme="dark"] .floating-book-card .bg-light {
+  background-color: #1e293b !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ==================== Task: iPhone Duo (1878 x 2670 像素) 專屬極致雙屏適配 ==================== */
+@media screen and (width: 1878px) and (height: 2670px),
+       screen and (device-width: 1878px) and (device-height: 2670px) {
+  body {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+  
+  .container-fluid {
+    max-width: 1840px !important;
+  }
+
+  /* 雙屏對開自適應網格：剛好左右兩塊螢幕各排 2 欄書籤，共 4 欄均衡排列 */
+  #bookmarkContainer {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 20px !important;
+  }
+
+  .floating-book-card {
+    max-width: 1100px !important;
+    margin: 0 auto !important;
+  }
 }

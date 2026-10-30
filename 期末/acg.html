@@ -1452,14 +1452,16 @@
                         <span class="badge bg-warning text-dark fw-bold">Game Hub</span>
                         <h5 class="modal-title fw-bold mb-0 text-white" id="gameHubModalLabel"><i class="bi bi-controller text-warning me-1"></i> ACG 遊戲專區與攻略資料庫</h5>
                     </div>
-                    <div class="d-flex align-items-center gap-2 ms-auto">
-                        <button class="btn btn-sm btn-outline-light rounded-pill px-2" onclick="resetDefaultGames()" title="恢復所有被刪除的預設遊戲卡片">
-                            <i class="bi bi-arrow-counterclockwise"></i> 恢復預設
+                    <div class="d-flex align-items-center gap-1.5 gap-md-2 ms-auto flex-shrink-0">
+                        <button class="btn btn-sm btn-outline-light game-hub-round-btn d-flex align-items-center justify-content-center" onclick="resetDefaultGames()" title="恢復所有被刪除的預設遊戲卡片">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            <span class="d-none d-md-inline ms-1">恢復預設</span>
                         </button>
-                        <button class="btn btn-sm btn-outline-warning rounded-pill px-3" onclick="openAddCustomGameModal()">
-                            <i class="bi bi-plus-lg"></i> 自定義加入遊戲/Wiki
+                        <button class="btn btn-sm btn-outline-warning game-hub-round-btn d-flex align-items-center justify-content-center" onclick="openAddCustomGameModal()" title="自定義加入遊戲/Wiki">
+                            <i class="bi bi-plus-lg"></i>
+                            <span class="d-none d-md-inline ms-1">自訂加入</span>
                         </button>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="關閉"></button>
+                        <button type="button" class="btn-close btn-close-white ms-1" data-bs-dismiss="modal" aria-label="關閉"></button>
                     </div>
                 </div>
                 <div class="modal-body p-4 bg-dark">
