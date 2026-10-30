@@ -6712,3 +6712,169 @@ body.has-multi-modal .modal-backdrop:last-of-type {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
   transform: scale(1.08);
 }
+
+
+/* ==================== Task 5: 強化版 Spotlight Card & Border Glow (鮮明科技光暈) ==================== */
+.spotlight-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+/* 確保聚光燈浮在子元素之上，但不攔截任何滑鼠事件 */
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    420px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(59, 130, 246, 0.28),
+    rgba(147, 51, 234, 0.12) 35%,
+    transparent 65%
+  );
+  pointer-events: none !important;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 10 !important;
+}
+
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+.spotlight-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 34px -8px rgba(59, 130, 246, 0.22), 0 4px 12px rgba(15, 23, 42, 0.08);
+  border-color: rgba(96, 165, 250, 0.6) !important;
+}
+
+/* 深色模式下的強化光暈 */
+[data-bs-theme="dark"] .spotlight-card,
+.bg-dark .spotlight-card,
+.game-card-glass {
+  background: rgba(18, 24, 38, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+
+[data-bs-theme="dark"] .spotlight-card::before,
+.bg-dark .spotlight-card::before,
+.game-card-glass::before {
+  background: radial-gradient(
+    450px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(96, 165, 250, 0.35),
+    rgba(192, 132, 252, 0.18) 35%,
+    transparent 65%
+  );
+}
+
+.border-glow {
+  position: relative;
+}
+
+.border-glow::after {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: radial-gradient(
+    360px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(96, 165, 250, 0.95),
+    rgba(192, 132, 252, 0.6) 40%,
+    transparent 70%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none !important;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 11 !important;
+}
+
+.border-glow:hover::after {
+  opacity: 1;
+}
+
+/* ==================== 3D 書本翻頁 Modal 樣式 (擬真書頁) ==================== */
+.book-modal-dialog {
+  max-width: 820px;
+  perspective: 1500px;
+}
+
+.book-container {
+  background: #fdfbf7;
+  border-radius: 18px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.35), inset 0 0 100px rgba(0, 0, 0, 0.03);
+  position: relative;
+  overflow: hidden;
+  min-height: 480px;
+  border: 1px solid #e7dfd5;
+}
+
+.book-spine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 24px;
+  transform: translateX(-50%);
+  background: linear-gradient(to right, rgba(0,0,0,0.08), rgba(0,0,0,0.02) 40%, rgba(0,0,0,0.02) 60%, rgba(0,0,0,0.08));
+  pointer-events: none;
+  z-index: 20;
+}
+
+.book-page-sheet {
+  padding: 36px 32px;
+  min-height: 460px;
+  display: flex;
+  flex-column;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.book-page-number {
+  font-family: Georgia, serif;
+  font-size: 0.85rem;
+  color: #a8a29e;
+}
+
+/* ==================== iPhone Duo / Surface Duo 特殊折疊屏解析度適配 ==================== */
+@media screen and (width: 540px), screen and (min-width: 538px) and (max-width: 542px), screen and (width: 1080px) and (max-height: 725px) {
+  body {
+    background-color: #0c1017 !important;
+  }
+  
+  .duo-special-badge {
+    display: inline-flex !important;
+  }
+
+  .duo-screen-split {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    border-left: 3px solid #3b82f6 !important;
+    padding-left: 12px !important;
+  }
+
+  /* 雙屏中央擬真鉸鏈陰影 */
+  .duo-hinge-divider {
+    display: block !important;
+    width: 100%;
+    height: 8px;
+    background: linear-gradient(180deg, #111827 0%, #1f2937 50%, #111827 100%);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
+    margin: 14px 0;
+    border-radius: 4px;
+  }
+}
+
+.duo-special-badge {
+  display: none;
+}
+.duo-hinge-divider {
+  display: none;
+}

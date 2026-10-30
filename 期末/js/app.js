@@ -15271,6 +15271,11 @@ window.openEditProfileModal = async function() {
 function updateProfileModalAvatarPreview(avatarId) {
     const preview = document.getElementById('profileAvatarPreview');
     if (!preview) return;
+    if (avatarId && (avatarId.startsWith('data:image') || avatarId.startsWith('http'))) {
+        preview.style.backgroundColor = 'transparent';
+        preview.innerHTML = `<img src="${avatarId}" alt="avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+        return;
+    }
     const target = AVATAR_PRESETS.find(a => a.id === avatarId) || AVATAR_PRESETS[0];
     preview.style.backgroundColor = target.bg;
     preview.innerHTML = target.icon;
@@ -15435,3 +15440,128 @@ window.saveUserProfile = async function(e) {
         });
     });
 })();
+
+
+// ==================== 支援使用者自選本機圖片上傳頭像 ====================
+window.handleCustomAvatarUpload = function(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        alert('請選擇有效的圖片檔案 (JPG / PNG / WebP)');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            // 使用 Canvas 壓縮至 128x128 圓形高品質 Base64，兼顧效能與儲存
+            const canvas = document.createElement('canvas');
+            const size = 128;
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // 裁切正中心
+            const minDim = Math.min(img.width, img.height);
+            const sx = (img.width - minDim) / 2;
+            const sy = (img.height - minDim) / 2;
+            ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+
+            const base64Url = canvas.toDataURL('image/jpeg', 0.85);
+
+            // 更新選中狀態
+            document.querySelectorAll('.avatar-choice-item').forEach(el => el.classList.remove('selected'));
+            document.getElementById('profileSelectedAvatar').value = base64Url;
+            updateProfileModalAvatarPreview(base64Url);
+
+            if (typeof showToast === 'function') {
+                showToast('已成功載入自訂圖片！點擊「儲存」即可永久套用');
+            }
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+};
+
+// ==================== 關於網頁 3D 書頁手冊翻頁控制 (GSAP 3D 翻頁動效) ====================
+let currentBookPage = 1;
+const TOTAL_BOOK_PAGES = 4;
+
+window.openAboutBookModal = function() {
+    const modalEl = document.getElementById('aboutBookModal');
+    if (!modalEl) return;
+    currentBookPage = 1;
+    updateBookPageDisplay(false);
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+};
+
+window.flipBookPage = function(direction) {
+    const targetPage = currentBookPage + direction;
+    if (targetPage < 1 || targetPage > TOTAL_BOOK_PAGES) return;
+
+    const oldPageEl = document.getElementById(`bookPage${currentBookPage}`);
+    const newPageEl = document.getElementById(`bookPage${targetPage}`);
+
+    if (typeof gsap !== 'undefined' && oldPageEl && newPageEl) {
+        // 3D 翻頁物理效果
+        const flipOutRotation = direction > 0 ? -90 : 90;
+        const flipInRotation = direction > 0 ? 90 : -90;
+
+        gsap.to(oldPageEl, {
+            rotationY: flipOutRotation,
+            opacity: 0,
+            duration: 0.35,
+            ease: "power2.in",
+            onComplete: () => {
+                oldPageEl.classList.add('d-none');
+                newPageEl.classList.remove('d-none');
+                gsap.fromTo(newPageEl, 
+                    { rotationY: flipInRotation, opacity: 0 },
+                    { rotationY: 0, opacity: 1, duration: 0.45, ease: "back.out(1.2)" }
+                );
+            }
+        });
+    } else {
+        if (oldPageEl) oldPageEl.classList.add('d-none');
+        if (newPageEl) newPageEl.classList.remove('d-none');
+    }
+
+    currentBookPage = targetPage;
+    updateBookPageDisplay(true);
+};
+
+function updateBookPageDisplay(isFlipping) {
+    const prevBtn = document.getElementById('bookPrevPageBtn');
+    const nextBtn = document.getElementById('bookNextPageBtn');
+    if (prevBtn) prevBtn.disabled = (currentBookPage <= 1);
+    if (nextBtn) nextBtn.disabled = (currentBookPage >= TOTAL_BOOK_PAGES);
+
+    // 更新指示點
+    const indicators = document.querySelectorAll('#bookPageIndicators span');
+    indicators.forEach((dot, idx) => {
+        if (idx === currentBookPage - 1) {
+            dot.className = 'badge bg-primary rounded-circle p-1';
+            dot.style.transform = 'scale(1.3)';
+        } else {
+            dot.className = 'badge bg-secondary rounded-circle p-1';
+            dot.style.transform = 'scale(1)';
+        }
+    });
+
+    if (!isFlipping) {
+        for (let i = 1; i <= TOTAL_BOOK_PAGES; i++) {
+            const page = document.getElementById(`bookPage${i}`);
+            if (page) {
+                if (i === currentBookPage) {
+                    page.classList.remove('d-none');
+                    if (typeof gsap !== 'undefined') gsap.set(page, { rotationY: 0, opacity: 1 });
+                } else {
+                    page.classList.add('d-none');
+                }
+            }
+        }
+    }
+}

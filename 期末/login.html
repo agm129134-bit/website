@@ -309,10 +309,52 @@
                     ← 返回登入頁面
                 </button>
             </div>
+        
+        <!-- ==================== 3. 忘記密碼表單 (Forgot Password Form) ==================== -->
+        <form id="forgotForm" class="d-none" novalidate>
+            <div class="alert alert-info py-2 px-3 small rounded-2 mb-3">
+                <i class="bi bi-info-circle-fill me-1"></i> 請輸入註冊時的帳號以重新設定登入密碼。
+            </div>
+
+            <!-- 帳號 -->
+            <div class="mb-3">
+                <label for="forgotUsernameInput" class="form-label">您的使用者帳號 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="forgotUsernameInput" placeholder="請輸入註冊帳號 (例如: admin)" required autocomplete="username">
+            </div>
+
+            <!-- 新密碼 -->
+            <div class="mb-3">
+                <label for="forgotPasswordInput" class="form-label">設定全新密碼 <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <input type="password" class="form-control border-end-0" id="forgotPasswordInput" placeholder="請設定新密碼 (至少4碼)" required autocomplete="new-password">
+                    <button class="btn btn-outline-secondary border-start-0 bg-white" type="button" id="toggleForgotPwdBtn" title="顯示或隱藏密碼" style="border-color: #cbd5e1;">
+                        <i class="bi bi-eye-slash text-secondary" id="toggleForgotPwdIcon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 確認新密碼 -->
+            <div class="mb-4">
+                <label for="forgotConfirmPasswordInput" class="form-label">再次確認新密碼 <span class="text-danger">*</span></label>
+                <input type="password" class="form-control" id="forgotConfirmPasswordInput" placeholder="請再次輸入上方新密碼" required autocomplete="new-password">
+            </div>
+
+            <!-- 重設按鈕 -->
+            <button type="submit" class="btn btn-dark w-100 d-flex align-items-center justify-content-center gap-2 py-2" id="submitForgotBtn" style="border-radius: 8px; font-weight: 600;">
+                <span id="submitForgotSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                <span id="submitForgotBtnText"><i class="bi bi-shield-lock-fill"></i> 立即重設密碼</span>
+            </button>
+
+            <!-- 返回登入引導 -->
+            <div class="text-center mt-3 pt-2 border-top">
+                <button type="button" class="btn btn-link text-secondary text-decoration-none small p-0 fw-semibold" onclick="switchAuthMode('login')">
+                    ← 想起密碼了？返回會員登入
+                </button>
+            </div>
         </form>
     </div>
 
-    
+
     <!-- ==================== 哈哈你用了相同的密碼 大字報彩蛋 Modal ==================== -->
     <div class="modal fade" id="samePasswordEasterEggModal" tabindex="-1" aria-labelledby="samePasswordModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
