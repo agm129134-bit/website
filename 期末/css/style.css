@@ -1453,6 +1453,7 @@ body {
 
 
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 
 
 
@@ -1493,6 +1494,7 @@ body {
 
 
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 
 
 
@@ -6625,6 +6627,7 @@ body.has-multi-modal .modal-backdrop:last-of-type {
     transparent 55%
   );
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
@@ -6787,6 +6790,7 @@ body.has-multi-modal .modal-backdrop:last-of-type {
     transparent 70%
   );
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none !important;
@@ -6821,7 +6825,7 @@ body.has-multi-modal .modal-backdrop:last-of-type {
   padding: 36px 32px;
   min-height: 460px;
   display: flex;
-  flex-column;
+  flex-direction: column;
   transform-style: preserve-3d;
   backface-visibility: hidden;
 }
@@ -7220,4 +7224,160 @@ body.dark-theme .action-jump-btn:hover {
 .about-page-content {
   transform-origin: center left;
   will-change: transform, opacity;
+}
+
+/* ==================== 小說立體書房與閱讀器文字與按鍵高對比強化 (WCAG AA) ==================== */
+#novelReaderModal .modal-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+/* 標題與章節指示 */
+#novelReaderModal #novelBookTitle {
+  font-weight: 700 !important;
+  color: #ffffff !important;
+}
+
+#novelReaderModal #novelChapterBadge {
+  background-color: rgba(34, 197, 94, 0.22) !important;
+  color: #4ade80 !important;
+  border: 1px solid rgba(34, 197, 94, 0.5) !important;
+  font-weight: 600 !important;
+}
+
+/* 導航按鈕通用高對比規範 */
+#novelReaderModal .modal-header .btn-outline-secondary,
+#novelReaderModal .modal-header .btn-outline-success,
+#novelReaderModal .modal-header .btn-outline-warning,
+#novelReaderModal .modal-header .btn-outline-danger {
+  font-weight: 600 !important;
+  letter-spacing: 0.3px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#novelReaderModal .modal-header .btn-outline-secondary {
+  color: #f1f5f9 !important;
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
+}
+
+#novelReaderModal .modal-header .btn-outline-secondary:hover,
+#novelReaderModal .modal-header .btn-outline-secondary:focus {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
+}
+
+#novelReaderModal .modal-header .btn-outline-secondary.active {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #60a5fa !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.5) !important;
+}
+
+#novelReaderModal .modal-header .btn-outline-success {
+  color: #4ade80 !important;
+  background-color: rgba(34, 197, 94, 0.18) !important;
+  border: 1.5px solid #22c55e !important;
+}
+
+#novelReaderModal .modal-header .btn-outline-success:hover {
+  background-color: #22c55e !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.5) !important;
+}
+
+#novelReaderModal .modal-header .btn-outline-warning {
+  color: #facc15 !important;
+  background-color: rgba(234, 179, 8, 0.18) !important;
+  border: 1.5px solid #eab308 !important;
+}
+
+#novelReaderModal .modal-header .btn-outline-warning:hover {
+  background-color: #eab308 !important;
+  color: #0f172a !important;
+  box-shadow: 0 0 12px rgba(234, 179, 8, 0.5) !important;
+}
+
+#novelReaderModal .modal-header .btn-outline-danger {
+  color: #f87171 !important;
+  background-color: rgba(239, 68, 68, 0.18) !important;
+  border: 1.5px solid #ef4444 !important;
+}
+
+#novelReaderModal .modal-header .btn-outline-danger:hover {
+  background-color: #ef4444 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5) !important;
+}
+
+/* 搜尋輸入框高清晰對比度 */
+#novelHeaderSearchInput,
+#novelStandbySearchInput {
+  background-color: rgba(15, 23, 42, 0.85) !important;
+  color: #ffffff !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.3) !important;
+  font-weight: 500;
+}
+
+#novelHeaderSearchInput::placeholder,
+#novelStandbySearchInput::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+#novelHeaderSearchInput:focus,
+#novelStandbySearchInput:focus {
+  background-color: rgba(15, 23, 42, 0.98) !important;
+  color: #ffffff !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 0.25rem rgba(56, 189, 248, 0.35) !important;
+}
+
+/* 小說立體書房標題與說明文字 */
+.novel-standby-title,
+#legadoPlaceholder h5 {
+  color: #f8fafc !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.3px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.novel-standby-desc,
+#legadoPlaceholder .novel-standby-desc,
+#legadoPlaceholder span.text-muted {
+  color: #cbd5e1 !important;
+  font-weight: 500 !important;
+  opacity: 0.95;
+}
+
+/* 上傳電子書按鈕 */
+.novel-upload-btn,
+#legadoPlaceholder .btn-outline-success {
+  color: #4ade80 !important;
+  background-color: rgba(34, 197, 94, 0.18) !important;
+  border: 1.5px solid #22c55e !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease;
+}
+
+.novel-upload-btn:hover,
+#legadoPlaceholder .btn-outline-success:hover {
+  background-color: #22c55e !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.45) !important;
+}
+
+/* 書房無藏書時的空狀態排版 */
+.novel-empty-tip-title {
+  color: #f8fafc !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.3px;
+}
+
+.novel-empty-tip-desc {
+  color: #cbd5e1 !important;
+  font-weight: 500 !important;
+  max-width: 480px;
 }
