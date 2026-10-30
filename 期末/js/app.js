@@ -7659,6 +7659,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (novelModal) {
     novelModal.addEventListener("shown.bs.modal", () => {
+      if (typeof window.setNovelTheme === "function") window.setNovelTheme(novelState.theme || "sepia");
       if (typeof window.renderNovelBookshelf === "function") {
         window.renderNovelBookshelf();
       }
@@ -8814,7 +8815,18 @@ let novelState = {
 
   searchResults: [], // 最近搜尋結果
 
-  theme: "sepia", // 'sepia' | 'white' | 'dark'
+  theme: (function () {
+    try {
+      return (
+        localStorage.getItem("novel_theme") ||
+        (document.documentElement.getAttribute("data-bs-theme") === "dark"
+          ? "dark"
+          : "sepia")
+      );
+    } catch (e) {
+      return "sepia";
+    }
+  })(), // 'sepia' | 'white' | 'dark'
 
   fontSize: 18, // 14 ~ 28 px
 
@@ -10447,6 +10459,9 @@ function updateNovelNavButtons() {
 
 window.setNovelTheme = function (theme) {
   novelState.theme = theme;
+  try {
+    localStorage.setItem("novel_theme", theme);
+  } catch (e) {}
 
   const container = document.getElementById("novelContentContainer");
 

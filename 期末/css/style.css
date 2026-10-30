@@ -7226,25 +7226,42 @@ body.dark-theme .action-jump-btn:hover {
   will-change: transform, opacity;
 }
 
-/* ==================== 小說立體書房與閱讀器文字與按鍵高對比強化 (WCAG AA) ==================== */
-#novelReaderModal .modal-header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+/* ==================== 小說立體書房與閱讀器三維主題深度重構 (Sepia / White / Dark) ==================== */
+
+/* --- 1. 全域容器結構與平滑過渡 --- */
+#novelReaderModal .modal-content {
+  border-radius: 0 !important;
+  border: none !important;
+  transition: background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s ease !important;
 }
 
-/* 標題與章節指示 */
-#novelReaderModal #novelBookTitle {
-  font-weight: 700 !important;
-  color: #ffffff !important;
+#novelReaderModal #novelBodyWrapper {
+  transition: background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  min-height: calc(100vh - 58px);
 }
 
-#novelReaderModal #novelChapterBadge {
-  background-color: rgba(34, 197, 94, 0.22) !important;
-  color: #4ade80 !important;
-  border: 1px solid rgba(34, 197, 94, 0.5) !important;
-  font-weight: 600 !important;
+.novel-article-box {
+  max-width: 920px !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* 導航按鈕通用高對比規範 */
+/* 沉浸式書籍閱讀內頁 (擬真實體紙張與電子書微質感) */
+#novelReadingArea {
+  border-radius: 18px;
+  padding: 48px 56px;
+  margin-top: 10px;
+  margin-bottom: 40px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 768px) {
+  #novelReadingArea {
+    padding: 24px 20px;
+    border-radius: 12px;
+  }
+}
+
+/* 頂部導航按鍵通用幾何與微互動 */
 #novelReaderModal .modal-header .btn-outline-secondary,
 #novelReaderModal .modal-header .btn-outline-success,
 #novelReaderModal .modal-header .btn-outline-warning,
@@ -7254,21 +7271,409 @@ body.dark-theme .action-jump-btn:hover {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-#novelReaderModal .modal-header .btn-outline-secondary {
-  color: #f1f5f9 !important;
-  background-color: rgba(255, 255, 255, 0.12) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
+/* ==========================================================================
+   2. 📜 羊皮紙主題 (Sepia Mode) - 溫潤暖調實木書房
+   ========================================================================== */
+#novelReaderModal #novelContentContainer.novel-theme-sepia,
+#novelReaderModal .novel-theme-sepia,
+.novel-theme-sepia #novelBodyWrapper,
+.novel-theme-sepia #legadoPlaceholder {
+  background-color: #f7f3e8 !important;
+  color: #2c221a !important;
 }
 
-#novelReaderModal .modal-header .btn-outline-secondary:hover,
-#novelReaderModal .modal-header .btn-outline-secondary:focus {
-  background-color: rgba(255, 255, 255, 0.25) !important;
+.novel-theme-sepia #novelHeader {
+  background-color: #ede4d1 !important;
+  border-bottom: 1.5px solid #dfd3bd !important;
+}
+
+.novel-theme-sepia #novelBookTitle {
+  color: #241a12 !important;
+  font-weight: 700 !important;
+}
+
+.novel-theme-sepia #novelChapterBadge {
+  background-color: #e4eedb !important;
+  color: #2e7d32 !important;
+  border: 1px solid #a5d6a7 !important;
+  font-weight: 600 !important;
+}
+
+/* 羊皮紙按鈕階層 */
+.novel-theme-sepia .btn-outline-secondary {
+  color: #3d3228 !important;
+  background-color: rgba(60, 45, 30, 0.07) !important;
+  border: 1.5px solid #cbbaa2 !important;
+  font-weight: 600 !important;
+}
+
+.novel-theme-sepia .btn-outline-secondary:hover,
+.novel-theme-sepia .btn-outline-secondary:focus {
+  background-color: rgba(60, 45, 30, 0.15) !important;
+  color: #1f1711 !important;
+  border-color: #9c8466 !important;
+  box-shadow: 0 2px 8px rgba(90, 70, 45, 0.15) !important;
+}
+
+.novel-theme-sepia #novelThemeSepiaBtn.active,
+.novel-theme-sepia .btn-outline-secondary.active {
+  background-color: #8c6d48 !important;
+  color: #ffffff !important;
+  border-color: #6e5232 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(110, 82, 50, 0.35) !important;
+}
+
+.novel-theme-sepia .btn-outline-success {
+  color: #1b5e20 !important;
+  background-color: #e8f5e9 !important;
+  border: 1.5px solid #4caf50 !important;
+  font-weight: 600 !important;
+}
+
+.novel-theme-sepia .btn-outline-success:hover {
+  background-color: #2e7d32 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.3) !important;
+}
+
+.novel-theme-sepia .btn-outline-warning {
+  color: #92400e !important;
+  background-color: #fef3c7 !important;
+  border: 1.5px solid #f59e0b !important;
+  font-weight: 600 !important;
+}
+
+.novel-theme-sepia .btn-outline-warning:hover {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.3) !important;
+}
+
+.novel-theme-sepia .btn-outline-danger {
+  color: #b91c1c !important;
+  background-color: #fee2e2 !important;
+  border: 1.5px solid #ef4444 !important;
+  font-weight: 600 !important;
+}
+
+.novel-theme-sepia .btn-outline-danger:hover {
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3) !important;
+}
+
+/* 羊皮紙輸入框 */
+.novel-theme-sepia #novelHeaderSearchInput,
+.novel-theme-sepia #novelStandbySearchInput {
+  background-color: #ffffff !important;
+  color: #2c221a !important;
+  border: 1.5px solid #cbbaa2 !important;
+  font-weight: 500;
+}
+
+.novel-theme-sepia #novelHeaderSearchInput::placeholder,
+.novel-theme-sepia #novelStandbySearchInput::placeholder {
+  color: #8c7b6c !important;
+  opacity: 1 !important;
+}
+
+.novel-theme-sepia #novelHeaderSearchInput:focus,
+.novel-theme-sepia #novelStandbySearchInput:focus {
+  border-color: #b08968 !important;
+  box-shadow: 0 0 0 0.25rem rgba(176, 137, 104, 0.25) !important;
+}
+
+/* 羊皮紙待命書架文字與質感木板 */
+.novel-theme-sepia .novel-standby-title,
+.novel-theme-sepia #legadoPlaceholder h5 {
+  color: #2c221a !important;
+  font-weight: 800 !important;
+  text-shadow: none !important;
+}
+
+.novel-theme-sepia .novel-standby-desc,
+.novel-theme-sepia #legadoPlaceholder .novel-standby-desc,
+.novel-theme-sepia #legadoPlaceholder span.text-muted {
+  color: #6a5a4c !important;
+  font-weight: 500 !important;
+}
+
+.novel-theme-sepia .novel-empty-tip-title {
+  color: #2c221a !important;
+  font-weight: 700 !important;
+  text-shadow: none !important;
+}
+
+.novel-theme-sepia .novel-empty-tip-desc {
+  color: #6a5a4c !important;
+}
+
+.novel-theme-sepia .novel-upload-btn,
+.novel-theme-sepia #legadoPlaceholder .btn-outline-success {
+  color: #1b5e20 !important;
+  background-color: #e8f5e9 !important;
+  border: 1.5px solid #4caf50 !important;
+  font-weight: 600 !important;
+}
+
+.novel-theme-sepia .novel-upload-btn:hover,
+.novel-theme-sepia #legadoPlaceholder .btn-outline-success:hover {
+  background-color: #2e7d32 !important;
+  color: #ffffff !important;
+}
+
+.novel-theme-sepia .bookshelf-plank {
+  background: linear-gradient(180deg, #c79a6d 0%, #9c6c3e 45%, #6d4722 100%) !important;
+  box-shadow: 0 10px 20px rgba(90, 60, 30, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+}
+
+/* 羊皮紙書籍閱讀內頁 (實體書頁柔和陰影) */
+.novel-theme-sepia #novelReadingArea {
+  background-color: #fcf9f2 !important;
+  border: 1px solid #ebdccb !important;
+  box-shadow: 0 12px 35px rgba(110, 85, 55, 0.08), 0 2px 8px rgba(110, 85, 55, 0.04) !important;
+  color: #2c221a !important;
+}
+
+.novel-theme-sepia #novelChapterHeading {
+  color: #241a12 !important;
+  border-bottom: 1.5px solid #e3d5be !important;
+}
+
+.novel-theme-sepia #novelChapterParagraphs,
+.novel-theme-sepia #novelChapterParagraphs p {
+  background-color: transparent !important;
+  color: #382d23 !important;
+}
+
+.novel-theme-sepia #novelReadingArea .border-top {
+  border-top: 1.5px solid #e3d5be !important;
+}
+
+/* ==========================================================================
+   3. ☀️ 純白主題 (White Mode) - 現代簡約極淨讀書空間
+   ========================================================================== */
+#novelReaderModal #novelContentContainer.novel-theme-white,
+#novelReaderModal .novel-theme-white,
+.novel-theme-white #novelBodyWrapper,
+.novel-theme-white #legadoPlaceholder {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+.novel-theme-white #novelHeader {
+  background-color: #ffffff !important;
+  border-bottom: 1.5px solid #e2e8f0 !important;
+}
+
+.novel-theme-white #novelBookTitle {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+.novel-theme-white #novelChapterBadge {
+  background-color: #ecfdf5 !important;
+  color: #047857 !important;
+  border: 1px solid #6ee7b7 !important;
+  font-weight: 600 !important;
+}
+
+/* 純白按鈕階層 */
+.novel-theme-white .btn-outline-secondary {
+  color: #1e293b !important;
+  background-color: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  font-weight: 600 !important;
+}
+
+.novel-theme-white .btn-outline-secondary:hover,
+.novel-theme-white .btn-outline-secondary:focus {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08) !important;
+}
+
+.novel-theme-white #novelThemeWhiteBtn.active,
+.novel-theme-white .btn-outline-secondary.active {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #1d4ed8 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3) !important;
+}
+
+.novel-theme-white .btn-outline-success {
+  color: #15803d !important;
+  background-color: #dcfce7 !important;
+  border: 1.5px solid #22c55e !important;
+  font-weight: 600 !important;
+}
+
+.novel-theme-white .btn-outline-success:hover {
+  background-color: #16a34a !important;
+  color: #ffffff !important;
+}
+
+.novel-theme-white .btn-outline-warning {
+  color: #b45309 !important;
+  background-color: #fef3c7 !important;
+  border: 1.5px solid #f59e0b !important;
+  font-weight: 600 !important;
+}
+
+.novel-theme-white .btn-outline-warning:hover {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+}
+
+.novel-theme-white .btn-outline-danger {
+  color: #b91c1c !important;
+  background-color: #fee2e2 !important;
+  border: 1.5px solid #ef4444 !important;
+  font-weight: 600 !important;
+}
+
+.novel-theme-white .btn-outline-danger:hover {
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+/* 純白輸入框 */
+.novel-theme-white #novelHeaderSearchInput,
+.novel-theme-white #novelStandbySearchInput {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1.5px solid #cbd5e1 !important;
+  font-weight: 500;
+}
+
+.novel-theme-white #novelHeaderSearchInput::placeholder,
+.novel-theme-white #novelStandbySearchInput::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+.novel-theme-white #novelHeaderSearchInput:focus,
+.novel-theme-white #novelStandbySearchInput:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 0.25rem rgba(59, 130, 246, 0.2) !important;
+}
+
+/* 純白待命書架文字與現代銀木板 */
+.novel-theme-white .novel-standby-title,
+.novel-theme-white #legadoPlaceholder h5 {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  text-shadow: none !important;
+}
+
+.novel-theme-white .novel-standby-desc,
+.novel-theme-white #legadoPlaceholder .novel-standby-desc,
+.novel-theme-white #legadoPlaceholder span.text-muted {
+  color: #475569 !important;
+  font-weight: 500 !important;
+}
+
+.novel-theme-white .novel-empty-tip-title {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  text-shadow: none !important;
+}
+
+.novel-theme-white .novel-empty-tip-desc {
+  color: #475569 !important;
+}
+
+.novel-theme-white .novel-upload-btn,
+.novel-theme-white #legadoPlaceholder .btn-outline-success {
+  color: #15803d !important;
+  background-color: #dcfce7 !important;
+  border: 1.5px solid #22c55e !important;
+  font-weight: 600 !important;
+}
+
+.novel-theme-white .novel-upload-btn:hover,
+.novel-theme-white #legadoPlaceholder .btn-outline-success:hover {
+  background-color: #16a34a !important;
+  color: #ffffff !important;
+}
+
+.novel-theme-white .bookshelf-plank {
+  background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 45%, #64748b 100%) !important;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+}
+
+/* 純白書籍閱讀內頁 (精緻純白平版卡片) */
+.novel-theme-white #novelReadingArea {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.06), 0 2px 8px rgba(15, 23, 42, 0.03) !important;
+  color: #0f172a !important;
+}
+
+.novel-theme-white #novelChapterHeading {
+  color: #0f172a !important;
+  border-bottom: 1.5px solid #e2e8f0 !important;
+}
+
+.novel-theme-white #novelChapterParagraphs,
+.novel-theme-white #novelChapterParagraphs p {
+  background-color: transparent !important;
+  color: #1e293b !important;
+}
+
+.novel-theme-white #novelReadingArea .border-top {
+  border-top: 1.5px solid #e2e8f0 !important;
+}
+
+/* ==========================================================================
+   4. 🌙 暗黑主題 (Dark Mode) - 沉浸夜間深黑護眼劇場
+   ========================================================================== */
+#novelReaderModal #novelContentContainer.novel-theme-dark,
+#novelReaderModal .novel-theme-dark,
+.novel-theme-dark #novelBodyWrapper,
+.novel-theme-dark #legadoPlaceholder {
+  background-color: #0b0f17 !important;
+  color: #f8fafc !important;
+}
+
+.novel-theme-dark #novelHeader {
+  background-color: #111827 !important;
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.novel-theme-dark #novelBookTitle {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+.novel-theme-dark #novelChapterBadge {
+  background-color: rgba(34, 197, 94, 0.22) !important;
+  color: #4ade80 !important;
+  border: 1px solid rgba(34, 197, 94, 0.5) !important;
+  font-weight: 600 !important;
+}
+
+/* 暗黑按鈕階層 */
+.novel-theme-dark .btn-outline-secondary {
+  color: #f1f5f9 !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.3) !important;
+  font-weight: 600 !important;
+}
+
+.novel-theme-dark .btn-outline-secondary:hover,
+.novel-theme-dark .btn-outline-secondary:focus {
+  background-color: rgba(255, 255, 255, 0.22) !important;
   color: #ffffff !important;
   border-color: rgba(255, 255, 255, 0.7) !important;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.25) !important;
 }
 
-#novelReaderModal .modal-header .btn-outline-secondary.active {
+.novel-theme-dark #novelThemeDarkBtn.active,
+.novel-theme-dark .btn-outline-secondary.active {
   background-color: #2563eb !important;
   color: #ffffff !important;
   border-color: #60a5fa !important;
@@ -7276,108 +7681,130 @@ body.dark-theme .action-jump-btn:hover {
   box-shadow: 0 0 12px rgba(59, 130, 246, 0.5) !important;
 }
 
-#novelReaderModal .modal-header .btn-outline-success {
+.novel-theme-dark .btn-outline-success {
   color: #4ade80 !important;
   background-color: rgba(34, 197, 94, 0.18) !important;
   border: 1.5px solid #22c55e !important;
+  font-weight: 600 !important;
 }
 
-#novelReaderModal .modal-header .btn-outline-success:hover {
+.novel-theme-dark .btn-outline-success:hover {
   background-color: #22c55e !important;
   color: #ffffff !important;
   box-shadow: 0 0 12px rgba(34, 197, 94, 0.5) !important;
 }
 
-#novelReaderModal .modal-header .btn-outline-warning {
+.novel-theme-dark .btn-outline-warning {
   color: #facc15 !important;
   background-color: rgba(234, 179, 8, 0.18) !important;
   border: 1.5px solid #eab308 !important;
+  font-weight: 600 !important;
 }
 
-#novelReaderModal .modal-header .btn-outline-warning:hover {
+.novel-theme-dark .btn-outline-warning:hover {
   background-color: #eab308 !important;
   color: #0f172a !important;
   box-shadow: 0 0 12px rgba(234, 179, 8, 0.5) !important;
 }
 
-#novelReaderModal .modal-header .btn-outline-danger {
+.novel-theme-dark .btn-outline-danger {
   color: #f87171 !important;
   background-color: rgba(239, 68, 68, 0.18) !important;
   border: 1.5px solid #ef4444 !important;
+  font-weight: 600 !important;
 }
 
-#novelReaderModal .modal-header .btn-outline-danger:hover {
+.novel-theme-dark .btn-outline-danger:hover {
   background-color: #ef4444 !important;
   color: #ffffff !important;
   box-shadow: 0 0 12px rgba(239, 68, 68, 0.5) !important;
 }
 
-/* 搜尋輸入框高清晰對比度 */
-#novelHeaderSearchInput,
-#novelStandbySearchInput {
+/* 暗黑輸入框 */
+.novel-theme-dark #novelHeaderSearchInput,
+.novel-theme-dark #novelStandbySearchInput {
   background-color: rgba(15, 23, 42, 0.85) !important;
   color: #ffffff !important;
   border: 1.5px solid rgba(255, 255, 255, 0.3) !important;
   font-weight: 500;
 }
 
-#novelHeaderSearchInput::placeholder,
-#novelStandbySearchInput::placeholder {
+.novel-theme-dark #novelHeaderSearchInput::placeholder,
+.novel-theme-dark #novelStandbySearchInput::placeholder {
   color: #94a3b8 !important;
   opacity: 1 !important;
 }
 
-#novelHeaderSearchInput:focus,
-#novelStandbySearchInput:focus {
+.novel-theme-dark #novelHeaderSearchInput:focus,
+.novel-theme-dark #novelStandbySearchInput:focus {
   background-color: rgba(15, 23, 42, 0.98) !important;
-  color: #ffffff !important;
   border-color: #38bdf8 !important;
   box-shadow: 0 0 0 0.25rem rgba(56, 189, 248, 0.35) !important;
 }
 
-/* 小說立體書房標題與說明文字 */
-.novel-standby-title,
-#legadoPlaceholder h5 {
+/* 暗黑待命書架文字與深色鋼木板 */
+.novel-theme-dark .novel-standby-title,
+.novel-theme-dark #legadoPlaceholder h5 {
   color: #f8fafc !important;
   font-weight: 800 !important;
-  letter-spacing: -0.3px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4) !important;
 }
 
-.novel-standby-desc,
-#legadoPlaceholder .novel-standby-desc,
-#legadoPlaceholder span.text-muted {
+.novel-theme-dark .novel-standby-desc,
+.novel-theme-dark #legadoPlaceholder .novel-standby-desc,
+.novel-theme-dark #legadoPlaceholder span.text-muted {
   color: #cbd5e1 !important;
   font-weight: 500 !important;
-  opacity: 0.95;
 }
 
-/* 上傳電子書按鈕 */
-.novel-upload-btn,
-#legadoPlaceholder .btn-outline-success {
+.novel-theme-dark .novel-empty-tip-title {
+  color: #f8fafc !important;
+  font-weight: 700 !important;
+}
+
+.novel-theme-dark .novel-empty-tip-desc {
+  color: #cbd5e1 !important;
+}
+
+.novel-theme-dark .novel-upload-btn,
+.novel-theme-dark #legadoPlaceholder .btn-outline-success {
   color: #4ade80 !important;
   background-color: rgba(34, 197, 94, 0.18) !important;
   border: 1.5px solid #22c55e !important;
   font-weight: 600 !important;
-  transition: all 0.2s ease;
 }
 
-.novel-upload-btn:hover,
-#legadoPlaceholder .btn-outline-success:hover {
+.novel-theme-dark .novel-upload-btn:hover,
+.novel-theme-dark #legadoPlaceholder .btn-outline-success:hover {
   background-color: #22c55e !important;
   color: #ffffff !important;
   box-shadow: 0 0 12px rgba(34, 197, 94, 0.45) !important;
 }
 
-/* 書房無藏書時的空狀態排版 */
-.novel-empty-tip-title {
-  color: #f8fafc !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.3px;
+.novel-theme-dark .bookshelf-plank {
+  background: linear-gradient(180deg, #475569 0%, #334155 45%, #1e293b 100%) !important;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
 }
 
-.novel-empty-tip-desc {
-  color: #cbd5e1 !important;
-  font-weight: 500 !important;
-  max-width: 480px;
+/* 暗黑沉浸書籍閱讀內頁 (深色平版專屬護眼陰影) */
+.novel-theme-dark #novelReadingArea {
+  background-color: #141d2b !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  box-shadow: 0 14px 45px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.15) !important;
+  color: #f1f5f9 !important;
+}
+
+.novel-theme-dark #novelChapterHeading {
+  color: #ffffff !important;
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+.novel-theme-dark #novelChapterParagraphs,
+.novel-theme-dark #novelChapterParagraphs p {
+  background-color: transparent !important;
+  color: #e2e8f0 !important;
+}
+
+.novel-theme-dark #novelReadingArea .border-top {
+  border-top: 1.5px solid rgba(255, 255, 255, 0.12) !important;
 }
