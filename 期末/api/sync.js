@@ -270,6 +270,134 @@ async function handleSyncRoute(req, res) {
             });
         }
 
+
+        // ==========================================
+        // 0.7 忘記密碼與重設密碼 /api/user/reset-password
+        // ==========================================
+        if (pathname === '/api/user/reset-password' && req.method === 'POST') {
+            const body = await parseRequestBody(req);
+            const username = sanitizeUsername(body.username || body.user || '');
+            const newPassword = String(body.newPassword || body.password || '').trim();
+
+            if (!username) {
+                return sendJson(res, 400, { success: false, error: '請提供欲重設之使用者帳號' });
+            }
+            if (!newPassword || newPassword.length < 3) {
+                return sendJson(res, 400, { success: false, error: '新密碼至少需 3 個字元' });
+            }
+
+            const accounts = getAccountsList();
+            let acc = accounts.find(a => a.username.toLowerCase() === username.toLowerCase());
+            let isSamePassword = false;
+
+            if (acc) {
+                isSamePassword = (acc.password === newPassword);
+                acc.password = newPassword;
+                acc.updatedAt = new Date().toISOString();
+            } else {
+                acc = {
+                    username: username,
+                    password: newPassword,
+                    name: username,
+                    role: '註冊使用者',
+                    avatar: 'avatar-1',
+                    bio: '',
+                    createdAt: new Date().toISOString()
+                };
+                accounts.push(acc);
+            }
+
+            saveAccountsList(accounts);
+
+            return sendJson(res, 200, {
+                success: true,
+                user: username,
+                samePassword: isSamePassword,
+                message: isSamePassword 
+                    ? '哈哈！你輸入了跟先前一模一樣的密碼！系統已為您完成密碼確認重設。'
+                    : '密碼已成功重設！請使用新密碼登入。'
+            });
+        }
+
+        // ==========================================
+        // 0.8 個人資料取得與更新 /api/user/profile
+        // ==========================================
+        if (pathname === '/api/user/profile') {
+            if (req.method === 'GET') {
+                const username = sanitizeUsername(query.user || query.username || getDefaultActiveUser());
+                const accounts = getAccountsList();
+                const acc = accounts.find(a => a.username.toLowerCase() === username.toLowerCase()) || {
+                    username: username,
+                    name: username,
+                    role: '使用者',
+                    avatar: 'avatar-1',
+                    bio: '探索個人化網頁圖書館',
+                    sortPref: 'clicks',
+                    themePref: 'dark'
+                };
+                return sendJson(res, 200, {
+                    success: true,
+                    profile: {
+                        username: acc.username,
+                        name: acc.name || acc.username,
+                        role: acc.role || '使用者',
+                        avatar: acc.avatar || 'avatar-1',
+                        bio: acc.bio || '',
+                        sortPref: acc.sortPref || 'clicks',
+                        themePref: acc.themePref || 'dark'
+                    }
+                });
+            }
+
+            if (req.method === 'POST') {
+                const body = await parseRequestBody(req);
+                const username = sanitizeUsername(body.username || body.user || '');
+                if (!username) {
+                    return sendJson(res, 400, { success: false, error: '缺少帳號 username' });
+                }
+
+                const accounts = getAccountsList();
+                let acc = accounts.find(a => a.username.toLowerCase() === username.toLowerCase());
+                if (!acc) {
+                    acc = { username: username, password: '', name: username, role: '使用者' };
+                    accounts.push(acc);
+                }
+
+                // 若要修改密碼，需比對舊密碼
+                if (body.newPassword && body.newPassword.trim()) {
+                    const newPw = body.newPassword.trim();
+                    const oldPw = (body.oldPassword || '').trim();
+                    if (acc.password && acc.password !== oldPw) {
+                        return sendJson(res, 400, { success: false, error: '原登入密碼不正確，無法修改密碼！' });
+                    }
+                    acc.password = newPw;
+                }
+
+                if (body.name !== undefined) acc.name = String(body.name).trim();
+                if (body.bio !== undefined) acc.bio = String(body.bio).trim();
+                if (body.avatar !== undefined) acc.avatar = String(body.avatar).trim();
+                if (body.sortPref !== undefined) acc.sortPref = String(body.sortPref).trim();
+                if (body.themePref !== undefined) acc.themePref = String(body.themePref).trim();
+                acc.updatedAt = new Date().toISOString();
+
+                saveAccountsList(accounts);
+
+                return sendJson(res, 200, {
+                    success: true,
+                    message: '個人設定與資料已成功儲存至伺服器！',
+                    profile: {
+                        username: acc.username,
+                        name: acc.name,
+                        role: acc.role,
+                        avatar: acc.avatar,
+                        bio: acc.bio,
+                        sortPref: acc.sortPref,
+                        themePref: acc.themePref
+                    }
+                });
+            }
+        }
+
         // ==========================================
         // 1. 跨電腦書籤收藏同步端點 /api/user/bookmarks 與 Tampermonkey 收藏端點 /api/bookmarks
         // ==========================================

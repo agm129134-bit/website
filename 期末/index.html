@@ -366,6 +366,14 @@
                 <li><h6 class="dropdown-header">個人設定</h6></li>
                 <li>
                   <a
+                    class="dropdown-item d-flex align-items-center gap-2 fw-semibold text-primary"
+                    href="#"
+                    onclick="openEditProfileModal(); return false;"
+                    ><i class="bi bi-person-gear"></i> 編輯個人資料與密碼</a
+                  >
+                </li>
+                <li>
+                  <a
                     class="dropdown-item d-flex align-items-center gap-2"
                     href="#"
                     data-bs-toggle="modal"
@@ -973,6 +981,156 @@
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+
+    
+    <!-- ==================== 編輯個人資料與密碼 Modal ==================== -->
+    <div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 border-0 shadow">
+          <div class="modal-header bg-dark text-white rounded-top-4">
+            <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="editProfileModalLabel">
+              <i class="bi bi-person-gear text-primary"></i>
+              <span>個人帳號設定與資料維護</span>
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="關閉"></button>
+          </div>
+          <div class="modal-body p-4">
+            <form id="editProfileForm" onsubmit="saveUserProfile(event)">
+              <!-- 頂部頭像預覽與暱稱 -->
+              <div class="d-flex align-items-center gap-3 p-3 bg-light rounded-3 mb-4 border">
+                <div id="profileAvatarPreview" class="rounded-circle d-flex align-items-center justify-content-center bg-primary text-white shadow-sm flex-shrink-0" style="width: 64px; height: 64px; font-size: 28px; overflow: hidden;">
+                  <i class="bi bi-person-fill"></i>
+                </div>
+                <div class="flex-grow-1">
+                  <div class="d-flex align-items-center gap-2">
+                    <h5 class="fw-bold mb-0" id="profileModalDisplayUser">使用者</h5>
+                    <span class="badge bg-secondary-subtle text-secondary border px-2 py-0.5 rounded-pill small" id="profileModalUserRole">本機帳號</span>
+                  </div>
+                  <small class="text-muted" id="profileModalUserCreated">歡迎隨時自訂您的個人資料與偏好設定</small>
+                </div>
+              </div>
+
+              <!-- 頁籤導覽：基本資料 vs 安全密碼 vs 偏好設定 -->
+              <ul class="nav nav-pills nav-fill mb-3 p-1 bg-light rounded-3" id="profileTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link active rounded-2 py-2 fw-semibold" id="tab-profile-basic" data-bs-toggle="pill" data-bs-target="#profile-basic" type="button" role="tab">
+                    <i class="bi bi-person-badge me-1"></i> 基本資料
+                  </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link rounded-2 py-2 fw-semibold" id="tab-profile-security" data-bs-toggle="pill" data-bs-target="#profile-security" type="button" role="tab">
+                    <i class="bi bi-shield-lock me-1"></i> 修改密碼
+                  </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link rounded-2 py-2 fw-semibold" id="tab-profile-pref" data-bs-toggle="pill" data-bs-target="#profile-pref" type="button" role="tab">
+                    <i class="bi bi-sliders me-1"></i> 體驗偏好
+                  </button>
+                </li>
+              </ul>
+
+              <div class="tab-content" id="profileTabContent">
+                <!-- 1. 基本資料 -->
+                <div class="tab-pane fade show active" id="profile-basic" role="tabpanel">
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label fw-bold small text-muted">登入帳號 (不可修改)</label>
+                      <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="bi bi-lock-fill"></i></span>
+                        <input type="text" class="form-control bg-light text-muted" id="profileUsernameInput" readonly disabled>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-bold small">顯示暱稱 / 稱呼</label>
+                      <input type="text" class="form-control" id="profileNameInput" placeholder="請輸入您希望顯示的名稱" required>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label fw-bold small">個性簽名 / 個人簡介 (Bio)</label>
+                      <textarea class="form-control" id="profileBioInput" rows="2" placeholder="分享一句你的座右銘，或最近在看的作品..."></textarea>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label fw-bold small">選擇專屬頭像徽章</label>
+                      <div class="d-flex flex-wrap gap-2 pt-1" id="avatarPickerContainer">
+                        <!-- JS 動態生成頭像選項 -->
+                      </div>
+                      <input type="hidden" id="profileSelectedAvatar" value="default">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 2. 修改密碼 -->
+                <div class="tab-pane fade" id="profile-security" role="tabpanel">
+                  <div class="alert alert-warning py-2 px-3 small rounded-3 mb-3">
+                    <i class="bi bi-info-circle-fill me-1"></i> 若無需更換密碼，下方欄位保留空白即可。
+                  </div>
+                  <div class="row g-3">
+                    <div class="col-12">
+                      <label class="form-label fw-bold small">目前密碼</label>
+                      <input type="password" class="form-control" id="profileOldPasswordInput" placeholder="若先前未設密碼可留空" autocomplete="current-password">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-bold small">設定全新密碼</label>
+                      <input type="password" class="form-control" id="profileNewPasswordInput" placeholder="至少 4 個字元" autocomplete="new-password" oninput="checkPasswordStrength(this.value)">
+                      <div class="progress mt-2" style="height: 4px;">
+                        <div id="pwdStrengthBar" class="progress-bar bg-danger" role="progressbar" style="width: 0%"></div>
+                      </div>
+                      <small id="pwdStrengthText" class="text-muted fs-xs">強度：尚未輸入</small>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-bold small">再次確認全新密碼</label>
+                      <input type="password" class="form-control" id="profileConfirmPasswordInput" placeholder="再次輸入新密碼" autocomplete="new-password">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 3. 體驗偏好 -->
+                <div class="tab-pane fade" id="profile-pref" role="tabpanel">
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label fw-bold small">首頁書籤預設排序方式</label>
+                      <select class="form-select" id="profileDefaultSortSelect">
+                        <option value="custom">自訂拖曳排序 (預設)</option>
+                        <option value="time-desc">建立時間 (新到舊)</option>
+                        <option value="time-asc">建立時間 (舊到新)</option>
+                        <option value="clicks-desc">點擊次數 (高到低)</option>
+                        <option value="title-asc">書籤標題 (A-Z)</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-bold small">預設啟動分類分頁</label>
+                      <select class="form-select" id="profileDefaultCategorySelect">
+                        <option value="all">全部書籤 (All)</option>
+                        <option value="favorite">我的常用標籤</option>
+                        <option value="acg">ACG 動漫與資源</option>
+                      </select>
+                    </div>
+                    <div class="col-12">
+                      <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="profileCardGlowPref" checked>
+                        <label class="form-check-label fw-medium small" for="profileCardGlowPref">
+                          啟用 Spotlight 聚光燈與光暈卡片質感特效 (React Bits 視覺強化)
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 底部操作按鈕 -->
+              <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                <span id="profileSaveStatus" class="small text-muted"></span>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-outline-secondary rounded-pill px-3" data-bs-dismiss="modal">取消</button>
+                  <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold" id="saveProfileBtn">
+                    <i class="bi bi-check-lg me-1"></i> 儲存個人資料
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </div>

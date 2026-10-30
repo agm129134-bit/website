@@ -99,6 +99,7 @@ function handleDockerRoute(req, res) {
                 let cmd = '';
                 switch (action) {
                     case 'up':
+                    case 'update':
                         cmd = `${COMPOSE_BASE} up -d --build`;
                         break;
                     case 'start':

@@ -6,7 +6,14 @@ const https = require('https');
 const http = require('http');
 const url = require('url');
 
-const COPYMANGA_HOSTS = ['api.mangacopy.com', 'api.copy-manga.com', 'www.mangacopy.com'];
+const COPYMANGA_HOSTS = [
+    'api.manga2025.com',
+    'api.copy3000.com',
+    'api.copy4000.com',
+    'api.2026copy.com',
+    'api.copy-manga.com',
+    'api.mangacopy.com'
+];
 
 // 繁簡字元轉換映射表（動漫漫畫高頻常用字）
 function toSimpleChinese(str) {
@@ -238,7 +245,7 @@ async function getBaoziPages(pageDirectUrl) {
 async function searchCopyManga(keyword) {
     for (const host of COPYMANGA_HOSTS) {
         try {
-            const apiUrl = `https://${host}/api/v3/search/comic?format=json&platform=1&limit=24&q=${encodeURIComponent(keyword)}`;
+            const apiUrl = `https://${host}/api/v3/search/comic?format=json&platform=3&limit=24&q=${encodeURIComponent(keyword)}`;
             const res = await httpGetJson(apiUrl);
             if (res && res.results && Array.isArray(res.results.list)) {
                 return res.results.list.map(item => ({
@@ -289,13 +296,35 @@ async function getMangaChapters(mangaId, title = '', alias = '', token = '') {
     const userToken = token || process.env.COPYMANGA_TOKEN || '';
     let lastError = null;
 
-    // 1. 嘗試直接調用 CopyManga 節點（若有 Token 或節點開放）
+    // 1. 嘗試直接調用 CopyManga 多節點（對齊 LittleSurvival/copymanga-copy20 最新多節點健康線路）
     for (const host of COPYMANGA_HOSTS) {
         try {
-            const apiUrl = `https://${host}/api/v3/comic/${encodeURIComponent(cleanId)}/group/default/chapters?limit=500&offset=0&platform=3`;
-            const reqHeaders = { 'version': '3.0.0', 'platform': '3' };
+            // 先嘗試預設分組 default
+            let apiUrl = `https://${host}/api/v3/comic/${encodeURIComponent(cleanId)}/group/default/chapters?limit=500&offset=0&platform=3`;
+            const reqHeaders = { 'version': '3.0.0', 'platform': '3', 'source': 'copyApp' };
             if (userToken) reqHeaders['Authorization'] = `Token ${userToken}`;
-            const res = await httpGetJson(apiUrl, reqHeaders);
+            let res = await httpGetJson(apiUrl, reqHeaders);
+
+            // 若 default 無資料，嘗試探測 comic2 詳情獲取其他真實 groups
+            if (!res || !res.results || !Array.isArray(res.results.list) || res.results.list.length === 0) {
+                try {
+                    const detailRes = await httpGetJson(`https://${host}/api/v3/comic2/${encodeURIComponent(cleanId)}?platform=3`, reqHeaders);
+                    const groups = detailRes?.results?.groups;
+                    if (groups && typeof groups === 'object') {
+                        const groupKeys = Object.keys(groups);
+                        for (const gk of groupKeys) {
+                            if (gk === 'default') continue;
+                            const gUrl = `https://${host}/api/v3/comic/${encodeURIComponent(cleanId)}/group/${encodeURIComponent(gk)}/chapters?limit=500&offset=0&platform=3`;
+                            const gRes = await httpGetJson(gUrl, reqHeaders);
+                            if (gRes && gRes.results && Array.isArray(gRes.results.list) && gRes.results.list.length > 0) {
+                                res = gRes;
+                                break;
+                            }
+                        }
+                    }
+                } catch (_) {}
+            }
+
             if (res && res.results && Array.isArray(res.results.list) && res.results.list.length > 0) {
                 return res.results.list.map(ch => ({
                     id: ch.uuid,
