@@ -14382,7 +14382,7 @@ window.renderGameHubGrid = function (keyword = "") {
 
 
 
-            <div class="card h-100 border border-secondary border-opacity-50 shadow-sm rounded-3 overflow-hidden text-white" style="background: #1e293b; transition: transform 0.2s, box-shadow 0.2s;">
+            <div class="card h-100 spotlight-card border-glow game-card-glass shadow-sm rounded-4 overflow-hidden text-white">
 
 
 
@@ -15172,3 +15172,266 @@ setTimeout(() => {
     window.checkDockerStatus();
   }
 }, 1200);
+
+
+// ==================== Task 2: 個人資料維護、頭像庫與偏好設定 ====================
+const AVATAR_PRESETS = [
+    { id: 'default', label: '經典使用者', bg: '#3b82f6', icon: '<i class="bi bi-person-fill"></i>' },
+    { id: 'geek-cat', label: '極客黑貓', bg: '#8b5cf6', icon: '<i class="bi bi-github"></i>' },
+    { id: 'cyber', label: '賽博龐克', bg: '#06b6d4', icon: '<i class="bi bi-cpu-fill"></i>' },
+    { id: 'magic', label: '動漫魔法', bg: '#ec4899', icon: '<i class="bi bi-magic"></i>' },
+    { id: 'sakura', label: '櫻花之戀', bg: '#f43f5e', icon: '<i class="bi bi-flower1"></i>' },
+    { id: 'music', label: '音樂耳機', bg: '#10b981', icon: '<i class="bi bi-headphones"></i>' },
+    { id: 'detective', label: '神秘探求', bg: '#f59e0b', icon: '<i class="bi bi-eyeglasses"></i>' },
+    { id: 'astronaut', label: '星空漫遊', bg: '#6366f1', icon: '<i class="bi bi-rocket-takeoff-fill"></i>' }
+];
+
+window.openEditProfileModal = async function() {
+    const modalEl = document.getElementById('editProfileModal');
+    if (!modalEl) return;
+
+    const username = localStorage.getItem('web_library_user') || 'admin';
+    let profileData = {
+        username: username,
+        name: username,
+        bio: '',
+        avatar: 'default',
+        role: '本地使用者',
+        defaultSort: 'custom',
+        defaultCategory: 'all'
+    };
+
+    // 1. 嘗試從後端取得最新 Profile
+    try {
+        const res = await fetch(`/api/user/profile?username=${encodeURIComponent(username)}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.profile) {
+                profileData = { ...profileData, ...data.profile };
+            }
+        }
+    } catch (e) {
+        // 離線降級：從 registeredUsers 讀取
+        const list = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+        const local = list.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
+        if (local) {
+            profileData.name = local.name || local.username;
+            profileData.bio = local.bio || '';
+            profileData.avatar = local.avatar || 'default';
+            profileData.role = local.role || '本地使用者';
+        }
+    }
+
+    // 填充表單
+    const userInput = document.getElementById('profileUsernameInput');
+    const nameInput = document.getElementById('profileNameInput');
+    const bioInput = document.getElementById('profileBioInput');
+    const oldPwdInput = document.getElementById('profileOldPasswordInput');
+    const newPwdInput = document.getElementById('profileNewPasswordInput');
+    const confirmPwdInput = document.getElementById('profileConfirmPasswordInput');
+    const displayUser = document.getElementById('profileModalDisplayUser');
+    const userRole = document.getElementById('profileModalUserRole');
+
+    if (userInput) userInput.value = profileData.username;
+    if (nameInput) nameInput.value = profileData.name || profileData.username;
+    if (bioInput) bioInput.value = profileData.bio || '';
+    if (oldPwdInput) oldPwdInput.value = '';
+    if (newPwdInput) newPwdInput.value = '';
+    if (confirmPwdInput) confirmPwdInput.value = '';
+    if (displayUser) displayUser.textContent = profileData.name || profileData.username;
+    if (userRole) userRole.textContent = profileData.role || '個人帳號';
+
+    // 渲染頭像選擇器
+    const avatarContainer = document.getElementById('avatarPickerContainer');
+    if (avatarContainer) {
+        avatarContainer.innerHTML = '';
+        AVATAR_PRESETS.forEach(av => {
+            const btn = document.createElement('div');
+            btn.className = `avatar-choice-item ${profileData.avatar === av.id ? 'selected' : ''}`;
+            btn.style.backgroundColor = av.bg;
+            btn.style.color = '#ffffff';
+            btn.title = av.label;
+            btn.innerHTML = av.icon;
+            btn.onclick = () => {
+                document.querySelectorAll('.avatar-choice-item').forEach(el => el.classList.remove('selected'));
+                btn.classList.add('selected');
+                document.getElementById('profileSelectedAvatar').value = av.id;
+                updateProfileModalAvatarPreview(av.id);
+            };
+            avatarContainer.appendChild(btn);
+        });
+    }
+
+    updateProfileModalAvatarPreview(profileData.avatar || 'default');
+
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+};
+
+function updateProfileModalAvatarPreview(avatarId) {
+    const preview = document.getElementById('profileAvatarPreview');
+    if (!preview) return;
+    const target = AVATAR_PRESETS.find(a => a.id === avatarId) || AVATAR_PRESETS[0];
+    preview.style.backgroundColor = target.bg;
+    preview.innerHTML = target.icon;
+}
+
+window.checkPasswordStrength = function(pwd) {
+    const bar = document.getElementById('pwdStrengthBar');
+    const text = document.getElementById('pwdStrengthText');
+    if (!bar || !text) return;
+
+    if (!pwd) {
+        bar.style.width = '0%';
+        bar.className = 'progress-bar bg-danger';
+        text.textContent = '強度：尚未輸入';
+        return;
+    }
+
+    let score = 0;
+    if (pwd.length >= 6) score += 30;
+    if (pwd.length >= 10) score += 20;
+    if (/[A-Z]/.test(pwd)) score += 20;
+    if (/[0-9]/.test(pwd)) score += 15;
+    if (/[^A-Za-z0-9]/.test(pwd)) score += 15;
+
+    bar.style.width = `${score}%`;
+    if (score < 40) {
+        bar.className = 'progress-bar bg-danger';
+        text.textContent = '強度：較弱 (建議 6 位以上並包含英數)';
+    } else if (score < 75) {
+        bar.className = 'progress-bar bg-warning';
+        text.textContent = '強度：中等 (良好)';
+    } else {
+        bar.className = 'progress-bar bg-success';
+        text.textContent = '強度：極高 (安全防護健全)';
+    }
+};
+
+window.saveUserProfile = async function(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const saveBtn = document.getElementById('saveProfileBtn');
+    const statusEl = document.getElementById('profileSaveStatus');
+
+    const username = document.getElementById('profileUsernameInput')?.value || localStorage.getItem('web_library_user');
+    const name = document.getElementById('profileNameInput')?.value.trim();
+    const bio = document.getElementById('profileBioInput')?.value.trim();
+    const avatar = document.getElementById('profileSelectedAvatar')?.value || 'default';
+    const oldPassword = document.getElementById('profileOldPasswordInput')?.value;
+    const newPassword = document.getElementById('profileNewPasswordInput')?.value;
+    const confirmPassword = document.getElementById('profileConfirmPasswordInput')?.value;
+    const defaultSort = document.getElementById('profileDefaultSortSelect')?.value;
+
+    if (!name) {
+        alert('請填寫顯示暱稱');
+        return;
+    }
+
+    if (newPassword) {
+        if (newPassword.length < 4) {
+            alert('新密碼長度至少需 4 個字元');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            alert('兩次輸入的新密碼不一致，請再次確認');
+            return;
+        }
+    }
+
+    if (saveBtn) saveBtn.disabled = true;
+    if (statusEl) statusEl.textContent = '正在儲存資料...';
+
+    try {
+        let savedSuccess = false;
+        // 1. 發送至後端
+        try {
+            const res = await fetch('/api/user/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username,
+                    name,
+                    bio,
+                    avatar,
+                    oldPassword,
+                    newPassword,
+                    defaultSort
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                savedSuccess = true;
+            } else if (!res.ok) {
+                alert(data.message || '儲存失敗，請檢查密碼是否正確');
+                if (saveBtn) saveBtn.disabled = false;
+                if (statusEl) statusEl.textContent = '';
+                return;
+            }
+        } catch (netErr) {
+            console.log('後端離線，轉由本地帳號庫同步儲存');
+        }
+
+        // 2. 本地儲存庫同步
+        const list = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+        const target = list.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
+        if (target) {
+            target.name = name;
+            target.bio = bio;
+            target.avatar = avatar;
+            if (newPassword) {
+                target.password = newPassword;
+            }
+            localStorage.setItem('registeredUsers', JSON.stringify(list));
+            savedSuccess = true;
+        }
+
+        if (savedSuccess) {
+            // 更新畫面上方顯示的使用者名稱與頭像
+            const navUserName = document.getElementById('currentUsernameDisplay');
+            if (navUserName) navUserName.textContent = name;
+            
+            // 關閉 Modal
+            const modalEl = document.getElementById('editProfileModal');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            }
+
+            if (typeof showToast === 'function') {
+                showToast('個人資料與偏好設定已成功更新！');
+            } else {
+                alert('個人資料與偏好設定已成功更新！');
+            }
+        }
+    } catch (err) {
+        alert('儲存過程發生錯誤: ' + err.message);
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+        if (statusEl) statusEl.textContent = '';
+    }
+};
+
+// ==================== Task 5: 全域 Spotlight Card 與 Border Glow 游標跟隨事件委託 ====================
+(function initGlobalSpotlight() {
+    let ticking = false;
+    document.addEventListener('pointermove', (e) => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+            const cards = document.querySelectorAll('.spotlight-card, .border-glow');
+            cards.forEach(card => {
+                const rect = card.getBoundingClientRect();
+                if (
+                    e.clientX >= rect.left - 60 &&
+                    e.clientX <= rect.right + 60 &&
+                    e.clientY >= rect.top - 60 &&
+                    e.clientY <= rect.bottom + 60
+                ) {
+                    card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                    card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+                }
+            });
+            ticking = false;
+        });
+    });
+})();

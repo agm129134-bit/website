@@ -113,7 +113,7 @@
       "cover": "https://i2.hdslb.com/bfs/archive/7c4f5eb3e066074fb513c10fbc1eac4d9ea3ee61.jpg@1200w_630h",
       "desc": "Qwen3.8 27B赛博治疗完结篇，终于完成了镇压雷霆思考（思考P90比较原版在GPQA，MMLU和LCB平均降低45%）且三项测评超过90，代码特别强化提升7个PP，因此这次版本叫Coder-390。静态FP8，NVFP4及Ninfer，GGUF Q2～Q8及NINFER不管你是16G显卡还是48G，不论是你达子哥还是MAC总有适合你的一款。接受大家上一版本建议全都焊接了MTP仓库也可以自选挂, 视频播放量 92218、弹幕量 136、点赞数 3040、投硬币枚数 1665、收藏人数 4927、转发人数 733, 视频作者 Merkyor, 作者简介 喜欢后训练的个人发者，相关视频：终极千问部署方案=ninfer+kvmem 首发！，比肩 Opus5.5、GPT-6 Astra！Qwen3.8-27B-Coder390 多模态 AI 模型本地部署+实测｜接入 DeepSeek Harness，Qwen3.8-27B劝退，对普通用户没意义。，8G显存本地跑 Qwen3.8-27B？KVMEM，Bonsai2，NInfer，引擎和模型全部备好！本地模型部署工具，Qwen3.8-27B 赛博治疗实录：什么剂量才能让它想得少，不掉能力，不死循环，还能用 XH 档推理？，Qwen3.8好强啊，爽玩了几天，根本停不下来。这就是千问大小姐的芝士吗？，编程第一、速度第一！Qwen3.8-27B最强编程版本Coder390 EfficientThink，吓哭了！Qwen 3.8 27B 离谱性能，你敢信这是一个只有27B的模型？| 小浪妈雷达图，本地部署DeepSeek Harness 加 Qwen3.8-27B教程，实现token自由！我还发现“梁圣”在源码中的彩蛋！，最开放版来了！Qwen3.8-Flash-Next Strata版 AI 大模型本地部署教程｜MTP 加速 8GB 显卡就能跑",
       "pinned": false,
-      "clicks": 0,
+      "clicks": 1,
       "createdAt": "2026-10-23T11:22:56.187Z"
     },
     {
@@ -439,7 +439,7 @@
       "cover": "https://i1.hdslb.com/bfs/archive/7cf11a4df48cc3ed3d7106bc9ba03ee8c12d2d2f.jpg@1200w_630h",
       "desc": "上期我介绍了 React Bits 这个网站的一个背景编辑器功能，我们可以用这个功能来创作各种各样炫酷的动态背景。今天这一期来讲一下 React Bits 上5种非常好好看的卡片效果。第一个：Title Card标题卡片，鼠标移上去会有光影和景深变化，特别适合做产品首屏的大标题区域。以前这种效果要手写一堆 CSS ，现在直接复制给AI就能用。第二个：Profile Card个人信息卡片，带 3D , 视频播放量 6451、弹幕量 0、点赞数 228、投硬币枚数 85、收藏人数 682、转发人数 24, 视频作者 AI充电官, 作者简介 每日充电 | 脑洞变现\n前大厂 UX 设计师 | 一人公司探索者 | AI 知识博主\nvibecoding重度沉迷，相关视频：[HTML+CSS] 悬停资料卡片，用了这个skill，我的动画丝滑的像——！，codex制作个人作品集网站教程，7个设计网站拯救你的ai审美，高级网页从哪抄？，用大白话向AI描述10种App/小程序高级动画指令，你知道怎么用大白话和AI描述生成吗？，研究半年前端动效，都在这个skill里了！含100+动效规范，拯救你AI审美的5个宝藏网站❗️打破信息差，如何快速让 AI 复刻任何网页设计？，VibeCoding 教程｜用 Codex 做高级动效网站",
       "pinned": false,
-      "clicks": 0,
+      "clicks": 1,
       "createdAt": "2026-10-23T15:43:03.370Z"
     },
     {
@@ -520,5 +520,5 @@
       "createdAt": "2026-10-25T06:26:40.071Z"
     }
   ],
-  "updatedAt": "2026-10-30T11:42:12.288Z"
+  "updatedAt": "2026-10-30T11:51:54.143Z"
 }

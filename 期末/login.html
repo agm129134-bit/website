@@ -231,13 +231,16 @@
             </div>
 
             <!-- 記住我 -->
-            <div class="mb-4 d-flex justify-content-between align-items-center">
-                <div class="form-check">
+            <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="form-check mb-0">
                     <input class="form-check-input" type="checkbox" id="rememberMeCheckbox" checked>
                     <label class="form-check-label text-secondary small" for="rememberMeCheckbox">
-                        記住登入狀態 (30 天內免重複登入)
+                        記住登入狀態 (30 天)
                     </label>
                 </div>
+                <button type="button" class="btn btn-link text-decoration-none small p-0 text-primary fw-medium" onclick="switchAuthMode('forgot')">
+                    <i class="bi bi-question-circle me-1"></i>忘記密碼？
+                </button>
             </div>
 
             <!-- 登入按鈕 -->
@@ -308,6 +311,43 @@
             </div>
         </form>
     </div>
+
+    
+    <!-- ==================== 哈哈你用了相同的密碼 大字報彩蛋 Modal ==================== -->
+    <div class="modal fade" id="samePasswordEasterEggModal" tabindex="-1" aria-labelledby="samePasswordModalLabel" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden; background: linear-gradient(145deg, #ffffff, #f8fafc);">
+                <div class="modal-body text-center p-4 p-sm-5">
+                    <div class="mb-3" style="font-size: 4.5rem; line-height: 1; filter: drop-shadow(0 8px 16px rgba(251, 191, 36, 0.4)); animation: pulseEasterEgg 1.5s infinite alternate;">
+                        🤣
+                    </div>
+                    <div class="badge bg-warning text-dark px-3 py-1 rounded-pill fw-bold mb-2 fs-6">
+                        <i class="bi bi-patch-exclamation-fill me-1"></i> 密碼重設彩蛋觸發
+                    </div>
+                    <h3 class="fw-black text-dark mb-2" style="font-size: 1.75rem; letter-spacing: -0.5px;">
+                        哈哈！你用了跟之前一模一樣的密碼！
+                    </h3>
+                    <p class="text-muted small mb-4 px-2" style="line-height: 1.6;">
+                        雖然你輸入的「新密碼」跟原本的密碼完全一模一樣，但系統還是非常體貼地幫你完成了整套安全驗證與重設刷新流程～下次記得不要自己嚇自己囉！😂🔐
+                    </p>
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-primary btn-lg fw-bold rounded-pill shadow-sm" id="easterEggConfirmBtn">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> 好啦！直接幫我登入
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary rounded-pill btn-sm" data-bs-dismiss="modal">
+                            留在當前頁面
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <style>
+        @keyframes pulseEasterEgg {
+            0% { transform: scale(0.92) rotate(-3deg); }
+            100% { transform: scale(1.08) rotate(3deg); }
+        }
+    </style>
 
     <!-- Toast 提示容器 -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1090;">
@@ -470,14 +510,32 @@
         syncServerUsers();
 
         // 3. 雙模式切換 (登入 / 註冊)
-        function switchAuthMode(mode) {
+                function switchAuthMode(mode) {
             hideAlert();
             const isLogin = mode === 'login';
+            const isForgot = mode === 'forgot';
             const tabLogin = document.getElementById('tabLoginBtn');
             const tabReg = document.getElementById('tabRegisterBtn');
             const loginForm = document.getElementById('loginForm');
             const regForm = document.getElementById('registerForm');
+            const forgotForm = document.getElementById('forgotForm');
             const demoBox = document.getElementById('demoAccountsBox');
+
+            if (isForgot) {
+                if (tabLogin) tabLogin.classList.remove('active');
+                if (tabReg) tabReg.classList.remove('active');
+                if (demoBox) demoBox.classList.add('d-none');
+                if (loginForm) loginForm.classList.add('d-none');
+                if (regForm) regForm.classList.add('d-none');
+                if (forgotForm) forgotForm.classList.remove('d-none');
+                document.getElementById('forgotUsernameInput')?.focus();
+                if (typeof gsap !== 'undefined' && forgotForm) {
+                    gsap.fromTo(forgotForm, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.25, ease: "power2.out" });
+                }
+                return;
+            }
+
+            if (forgotForm) forgotForm.classList.add('d-none');
 
             if (isLogin) {
                 tabLogin.classList.add('active');
