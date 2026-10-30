@@ -14434,7 +14434,7 @@ window.renderGameHubGrid = function (keyword = "") {
 
 
 
-                    <div class="d-flex gap-2 mt-auto pt-2 border-top border-secondary border-opacity-25">
+                    <div class="game-card-actions d-flex align-items-center gap-1.5 mt-auto pt-2 border-top border-secondary border-opacity-25">
 
 
 
@@ -14461,11 +14461,11 @@ window.renderGameHubGrid = function (keyword = "") {
 
 
 
-                        <button class="btn btn-sm btn-primary flex-grow-1 rounded-pill fw-semibold shadow-sm" onclick="openGameToolViewer('${escapeHtml(game.title)}', '${escapeHtml(game.url)}')">
+                        <button class="btn btn-sm btn-primary flex-grow-1 rounded-pill fw-semibold shadow-sm text-nowrap" style="font-size: 0.8rem; padding: 0.32rem 0.5rem;" onclick="openGameToolViewer('${escapeHtml(game.title)}', '${escapeHtml(game.url)}')">
 
 
 
-                            <i class="bi bi-window-fullscreen"></i> 在線開啟
+                            <i class="bi bi-window-fullscreen me-1"></i> 在線開啟
 
 
 
@@ -14473,7 +14473,7 @@ window.renderGameHubGrid = function (keyword = "") {
 
 
 
-                        <button class="btn btn-sm btn-outline-info rounded-pill px-3" onclick="window.open('${escapeHtml(game.url)}', '_blank')" title="另開新分頁跳轉原網頁">
+                        <button class="btn btn-sm btn-outline-info rounded-pill text-nowrap" style="font-size: 0.8rem; padding: 0.32rem 0.55rem;" onclick="window.open('${escapeHtml(game.url)}', '_blank')" title="另開新分頁跳轉原網頁">
 
 
 
@@ -15186,48 +15186,49 @@ window.applySpotlightPref = function(enabled) {
 };
 
 // ==================== 強化版個人資料彈窗與頭像持久化 (徹底解決頭像消失問題) ====================
-window.openEditProfileModal = async function() {
-    const modalEl = document.getElementById('editProfileModal');
-    if (!modalEl) return;
+const AVATAR_PRESETS = [
+    { id: 'default', label: '預設頭像', icon: '<i class="bi bi-person-fill fs-4"></i>', bg: '#475569' },
+    { id: 'avatar-1', label: '探索星際', icon: '<i class="bi bi-rocket-takeoff-fill fs-4"></i>', bg: '#3b82f6' },
+    { id: 'avatar-2', label: '魔法精靈', icon: '<i class="bi bi-stars fs-4"></i>', bg: '#8b5cf6' },
+    { id: 'avatar-3', label: '極速電競', icon: '<i class="bi bi-controller fs-4"></i>', bg: '#ec4899' },
+    { id: 'avatar-4', label: '智慧閱讀', icon: '<i class="bi bi-book-half fs-4"></i>', bg: '#10b981' },
+    { id: 'avatar-5', label: '咖啡時光', icon: '<i class="bi bi-cup-hot-fill fs-4"></i>', bg: '#f59e0b' },
+    { id: 'avatar-6', label: '音律節奏', icon: '<i class="bi bi-music-note-beamed fs-4"></i>', bg: '#06b6d4' }
+];
 
-    const username = localStorage.getItem('web_library_user') || 'admin';
-    const savedCustomAvatar = localStorage.getItem('web_library_custom_avatar_' + username);
-    
-    let profileData = {
-        username: username,
-        name: username,
-        bio: '',
-        avatar: savedCustomAvatar || 'default',
-        role: '本地使用者',
-        defaultSort: 'custom',
-        defaultCategory: 'all'
-    };
-
-    // 1. 嘗試從後端取得最新 Profile
-    try {
-        const res = await fetch(`/api/user/profile?username=${encodeURIComponent(username)}`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.success && data.profile) {
-                profileData = { ...profileData, ...data.profile };
-                // 若後端為預設但本地有上傳圖片，以自訂圖片為準
-                if (savedCustomAvatar && (!profileData.avatar || profileData.avatar === 'default' || profileData.avatar === 'avatar-1')) {
-                    profileData.avatar = savedCustomAvatar;
-                }
-            }
-        }
-    } catch (e) {
-        const list = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-        const local = list.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
-        if (local) {
-            profileData.name = local.name || local.username;
-            profileData.bio = local.bio || '';
-            profileData.avatar = savedCustomAvatar || local.avatar || 'default';
-            profileData.role = local.role || '本地使用者';
-        }
+// 右上角導航列使用者頭像即時同步
+function updateNavUserAvatar(avatar) {
+    const wrapper = document.getElementById('navUserAvatarWrapper');
+    if (!wrapper) return;
+    if (!avatar) {
+        const username = localStorage.getItem('web_library_user') || 'admin';
+        avatar = localStorage.getItem('web_library_custom_avatar_' + username) || 'default';
     }
+    if (avatar && (avatar.startsWith('data:image/') || avatar.startsWith('http'))) {
+        wrapper.innerHTML = `<img src="${avatar}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; display: block;" alt="avatar">`;
+    } else {
+        const preset = AVATAR_PRESETS.find(p => p.id === avatar) || AVATAR_PRESETS[0];
+        const iconHtml = (preset.icon || '<i class="bi bi-person-fill"></i>').replace(/fs-4/g, 'fs-6');
+        wrapper.innerHTML = `<span style="width: 22px; height: 22px; border-radius: 50%; background: ${preset.bg}; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; overflow: hidden;">${iconHtml}</span>`;
+    }
+};
 
-    // 填充表單
+// 個人資料彈窗中的頭像大圖預覽
+function updateProfileModalAvatarPreview(avatar) {
+    const preview = document.getElementById('profileAvatarPreview');
+    if (!preview) return;
+    if (avatar && (avatar.startsWith('data:image/') || avatar.startsWith('http'))) {
+        preview.innerHTML = `<img src="${avatar}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+        preview.style.backgroundColor = 'transparent';
+    } else {
+        const preset = AVATAR_PRESETS.find(p => p.id === avatar) || AVATAR_PRESETS[0];
+        preview.innerHTML = preset.icon;
+        preview.style.backgroundColor = preset.bg;
+        preview.style.color = '#ffffff';
+    }
+};
+
+function populateProfileForm(profileData, savedCustomAvatar) {
     const userInput = document.getElementById('profileUsernameInput');
     const nameInput = document.getElementById('profileNameInput');
     const bioInput = document.getElementById('profileBioInput');
@@ -15247,20 +15248,15 @@ window.openEditProfileModal = async function() {
     if (displayUser) displayUser.textContent = profileData.name || profileData.username;
     if (userRole) userRole.textContent = profileData.role || '個人帳號';
 
-    // 讀取 Spotlight 偏好開關
     const isSpotlightOn = localStorage.getItem('web_library_spotlight_pref') !== 'false';
     if (glowPrefSwitch) glowPrefSwitch.checked = isSpotlightOn;
 
-    // 將 profileSelectedAvatar 的值確實賦予
     const selectedAvatarInput = document.getElementById('profileSelectedAvatar');
     if (selectedAvatarInput) selectedAvatarInput.value = profileData.avatar;
 
-    // 渲染頭像選擇器
     const avatarContainer = document.getElementById('avatarPickerContainer');
     if (avatarContainer) {
         avatarContainer.innerHTML = '';
-        
-        // 若先前有上傳過本機圖片，將它作為第一個自訂頭像選項供點擊選取
         if (savedCustomAvatar) {
             const customBtn = document.createElement('div');
             customBtn.className = `avatar-choice-item ${profileData.avatar === savedCustomAvatar ? 'selected' : ''}`;
@@ -15294,9 +15290,57 @@ window.openEditProfileModal = async function() {
     }
 
     updateProfileModalAvatarPreview(profileData.avatar || 'default');
+}
 
+window.openEditProfileModal = function() {
+    const modalEl = document.getElementById('editProfileModal');
+    if (!modalEl) {
+        console.warn('editProfileModal not found');
+        return;
+    }
+
+    const username = localStorage.getItem('web_library_user') || 'admin';
+    const savedCustomAvatar = localStorage.getItem('web_library_custom_avatar_' + username);
+    
+    let profileData = {
+        username: username,
+        name: username,
+        bio: '',
+        avatar: savedCustomAvatar || 'default',
+        role: '本地使用者',
+        defaultSort: 'custom',
+        defaultCategory: 'all'
+    };
+
+    try {
+        const list = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+        const local = list.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
+        if (local) {
+            profileData.name = local.name || local.username;
+            profileData.bio = local.bio || '';
+            profileData.avatar = savedCustomAvatar || local.avatar || 'default';
+            profileData.role = local.role || '本地使用者';
+        }
+    } catch (_) {}
+
+    // 立即填表並立即顯示，杜絕任何卡死無反應
+    populateProfileForm(profileData, savedCustomAvatar);
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     modal.show();
+
+    // 背景非同步同步後端最新設定 (若服務未啟動則自動跳過)
+    fetch(`/api/user/profile?username=${encodeURIComponent(username)}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+            if (data && data.success && data.profile) {
+                profileData = { ...profileData, ...data.profile };
+                if (savedCustomAvatar && (!profileData.avatar || profileData.avatar === 'default' || profileData.avatar === 'avatar-1')) {
+                    profileData.avatar = savedCustomAvatar;
+                }
+                populateProfileForm(profileData, savedCustomAvatar);
+            }
+        })
+        .catch(() => {});
 };
 
 window.saveUserProfile = async function(e) {
@@ -15577,7 +15621,61 @@ function updateFloatingPageMeta() {
 }
 
 
+
+// ==================== 全域深色模式主題管理 (Dark / Light Mode) ====================
+function applyThemeMode(theme) {
+    const htmlEl = document.documentElement;
+    const bodyEl = document.body;
+    const isDark = (theme === 'dark');
+    
+    if (isDark) {
+        htmlEl.setAttribute('data-bs-theme', 'dark');
+        htmlEl.setAttribute('data-theme', 'dark');
+        bodyEl.classList.add('dark-theme');
+    } else {
+        htmlEl.setAttribute('data-bs-theme', 'light');
+        htmlEl.setAttribute('data-theme', 'light');
+        bodyEl.classList.remove('dark-theme');
+    }
+
+    const themeBtn = document.getElementById('themeToggleBtn');
+    if (themeBtn) {
+        themeBtn.innerHTML = isDark 
+            ? '<i class="bi bi-sun-fill text-warning fs-5"></i>' 
+            : '<i class="bi bi-moon-stars-fill text-secondary fs-5"></i>';
+        themeBtn.title = isDark ? '切換為淺色模式' : '切換為深色模式';
+    }
+};
+
+function toggleThemeMode() {
+    const htmlEl = document.documentElement;
+    const bodyEl = document.body;
+    const currentTheme = htmlEl.getAttribute('data-bs-theme') || (bodyEl.classList.contains('dark-theme') ? 'dark' : 'light');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    window.applyThemeMode(newTheme);
+    localStorage.setItem('web_library_theme', newTheme);
+};
+
+function initThemeMode() {
+    const savedTheme = localStorage.getItem('web_library_theme') || 'light';
+    window.applyThemeMode(savedTheme);
+};
+
+
+window.updateNavUserAvatar = updateNavUserAvatar;
+window.updateProfileModalAvatarPreview = updateProfileModalAvatarPreview;
+window.applyThemeMode = applyThemeMode;
+window.toggleThemeMode = toggleThemeMode;
+window.initThemeMode = initThemeMode;
+
 document.addEventListener('DOMContentLoaded', () => {
+    if (typeof window.initThemeMode === 'function') {
+        window.initThemeMode();
+    }
+    if (typeof window.updateNavUserAvatar === 'function') {
+        window.updateNavUserAvatar();
+    }
     if (typeof applySpotlightPref === 'function') {
         applySpotlightPref(localStorage.getItem('web_library_spotlight_pref') !== 'false');
     }
