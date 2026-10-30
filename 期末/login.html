@@ -337,7 +337,12 @@
             <!-- 確認新密碼 -->
             <div class="mb-4">
                 <label for="forgotConfirmPasswordInput" class="form-label">再次確認新密碼 <span class="text-danger">*</span></label>
-                <input type="password" class="form-control" id="forgotConfirmPasswordInput" placeholder="請再次輸入上方新密碼" required autocomplete="new-password">
+                <div class="input-group">
+                    <input type="password" class="form-control border-end-0" id="forgotConfirmPasswordInput" placeholder="請再次輸入上方新密碼" required autocomplete="new-password">
+                    <button class="btn btn-outline-secondary border-start-0 bg-white" type="button" id="toggleForgotConfirmPwdBtn" title="顯示或隱藏密碼" style="border-color: #cbd5e1;">
+                        <i class="bi bi-eye-slash text-secondary" id="toggleForgotConfirmPwdIcon"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- 重設按鈕 -->
@@ -620,6 +625,8 @@
         }
         setupPasswordToggle('togglePasswordBtn', 'passwordInput', 'togglePasswordIcon');
         setupPasswordToggle('toggleRegPasswordBtn', 'regPasswordInput', 'toggleRegPasswordIcon');
+        setupPasswordToggle('toggleForgotPwdBtn', 'forgotPasswordInput', 'toggleForgotPwdIcon');
+        setupPasswordToggle('toggleForgotConfirmPwdBtn', 'forgotConfirmPasswordInput', 'toggleForgotConfirmPwdIcon');
 
         // 5. 一鍵填入展示帳號
         function fillAccount(username, password) {
@@ -849,6 +856,141 @@
                 }, 600);
             }, 400);
         });
+
+        // ==================== 10. 忘記密碼表單提交處理 (重設密碼與同密碼彩蛋) ====================
+        let pendingEasterEggUser = null;
+
+        const forgotForm = document.getElementById('forgotForm');
+        if (forgotForm) {
+            forgotForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                hideAlert();
+
+                const username = (document.getElementById('forgotUsernameInput')?.value || '').trim();
+                const newPassword = (document.getElementById('forgotPasswordInput')?.value || '').trim();
+                const confirmPassword = (document.getElementById('forgotConfirmPasswordInput')?.value || '').trim();
+
+                if (!username) {
+                    showAlert('請輸入要重設密碼的使用者帳號');
+                    document.getElementById('forgotUsernameInput')?.focus();
+                    return;
+                }
+
+                if (!newPassword) {
+                    showAlert('請設定全新密碼');
+                    document.getElementById('forgotPasswordInput')?.focus();
+                    return;
+                }
+
+                if (newPassword.length < 4) {
+                    showAlert('新密碼長度不得少於 4 碼');
+                    document.getElementById('forgotPasswordInput')?.focus();
+                    return;
+                }
+
+                if (newPassword !== confirmPassword) {
+                    showAlert('兩次輸入的新密碼不一致，請重新確認！');
+                    document.getElementById('forgotConfirmPasswordInput')?.focus();
+                    return;
+                }
+
+                const registeredUsers = getRegisteredUsers();
+                let matchedUser = registeredUsers.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
+
+                if (!matchedUser) {
+                    const legacyUser = localStorage.getItem('web_library_user');
+                    if (legacyUser && legacyUser.toLowerCase() === username.toLowerCase()) {
+                        matchedUser = {
+                            username: legacyUser,
+                            password: '',
+                            isLegacy: true,
+                            name: legacyUser,
+                            role: '既有檔案使用者',
+                            createdAt: new Date().toISOString()
+                        };
+                        registeredUsers.push(matchedUser);
+                    } else {
+                        showAlert(`查無帳號「<strong>${escapeHtml(username)}</strong>」，請確認帳號是否正確或先進行註冊！`);
+                        document.getElementById('forgotUsernameInput')?.focus();
+                        return;
+                    }
+                }
+
+                const oldPassword = matchedUser.password || '';
+                // 判定是否使用了跟之前一模一樣的密碼 (含既有密碼、前次重設密碼或經典預設密碼比對)
+                const isSamePassword = (oldPassword !== '' && oldPassword === newPassword) ||
+                                       (matchedUser.lastResetPassword && matchedUser.lastResetPassword === newPassword) ||
+                                       (!oldPassword && (newPassword === '123456' || newPassword === 'admin' || newPassword === 'jyun'));
+
+                // 立即重設密碼並更新持久化
+                matchedUser.password = newPassword;
+                matchedUser.lastResetPassword = newPassword;
+                matchedUser.isLegacy = false;
+                localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+
+                // 嘗試通知後端同步 (非阻塞)
+                try {
+                    fetch('/api/user/reset-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: matchedUser.username, newPassword: newPassword })
+                    }).catch(() => {});
+                } catch (_) {}
+
+                if (isSamePassword) {
+                    // 觸發大字報彩蛋 Modal！
+                    pendingEasterEggUser = matchedUser;
+                    const easterEggModalEl = document.getElementById('samePasswordEasterEggModal');
+                    if (easterEggModalEl) {
+                        const easterEggModal = bootstrap.Modal.getOrCreateInstance(easterEggModalEl);
+                        easterEggModal.show();
+                    } else {
+                        showAlert('🎉 哈哈！你用了跟之前一模一樣的密碼！密碼已重設。');
+                    }
+                } else {
+                    // 一般成功流程
+                    showToast('🎉 密碼重設成功！請使用新密碼登入。', 'bi-check-circle-fill text-success');
+                    switchAuthMode('login');
+                    const userInput = document.getElementById('usernameInput');
+                    const pwdInput = document.getElementById('passwordInput');
+                    if (userInput) userInput.value = matchedUser.username;
+                    if (pwdInput) {
+                        pwdInput.value = newPassword;
+                        pwdInput.focus();
+                    }
+                }
+            });
+        }
+
+        // 彩蛋 Modal「好啦！直接幫我登入」按鈕處理
+        const easterEggBtn = document.getElementById('easterEggConfirmBtn');
+        if (easterEggBtn) {
+            easterEggBtn.addEventListener('click', function () {
+                const easterEggModalEl = document.getElementById('samePasswordEasterEggModal');
+                if (easterEggModalEl) {
+                    const inst = bootstrap.Modal.getInstance(easterEggModalEl);
+                    if (inst) inst.hide();
+                }
+                const targetUser = pendingEasterEggUser || {
+                    username: document.getElementById('forgotUsernameInput')?.value.trim() || 'jyun',
+                    name: 'Jyun',
+                    role: '核心會員'
+                };
+                const userInfo = {
+                    username: targetUser.username,
+                    name: targetUser.name || targetUser.username,
+                    role: targetUser.role || '一般會員',
+                    rememberMe: true,
+                    loginTime: new Date().toISOString()
+                };
+                localStorage.setItem('web_library_user', targetUser.username);
+                localStorage.setItem('currentUser', JSON.stringify(userInfo));
+                showToast(`🎉 歡迎回來，${userInfo.name}！正在為您自動登入...`, 'bi-check-circle-fill text-success');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 500);
+            });
+        }
 
         // 輔助防 XSS
         function escapeHtml(str) {

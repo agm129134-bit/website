@@ -149,42 +149,54 @@ function proxyImage(imgUrl, res) {
     }
 }
 
-// 1. 包子漫畫 (Webmota) 搜尋解析器
+// 1. 包子漫畫 (Webmota / Baozimh 多鏡像備援) 搜尋解析器
+const BAOZI_SEARCH_HOSTS = [
+    'https://www.webmota.com',
+    'https://cn.baozimh.com',
+    'https://www.baozimh.com'
+];
+
 async function searchBaoziManga(keyword) {
-    try {
-        const searchUrl = `https://www.webmota.com/search?q=${encodeURIComponent(keyword)}`;
-        const res = await fetch(searchUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36' },
-            signal: AbortSignal.timeout(8000)
-        });
-        if (!res.ok) return [];
-        const html = await res.text();
-        const regex = /<a[^>]+href="(\/comic\/[^"]+)"[^>]+title="([^"]+)"[\s\S]*?<amp-img[^>]+src="([^"]+)"/gi;
-        let m;
-        const results = [];
-        const seen = new Set();
-        while ((m = regex.exec(html)) !== null) {
-            const path = m[1];
-            const title = m[2].trim();
-            const cover = m[3].replace(/&amp;/g, '&');
-            const id = path.replace('/comic/', '').trim();
-            if (!seen.has(id)) {
-                seen.add(id);
-                results.push({
-                    id: `baozi_${id}`,
-                    title: title,
-                    cover: cover,
-                    author: '',
-                    brief: '包子漫畫全網穩定源',
-                    source: '包子漫畫'
-                });
+    for (const host of BAOZI_SEARCH_HOSTS) {
+        try {
+            const searchUrl = `${host}/search?q=${encodeURIComponent(keyword)}`;
+            const res = await fetch(searchUrl, {
+                headers: { 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                },
+                signal: AbortSignal.timeout(5000)
+            });
+            if (!res.ok) continue;
+            const html = await res.text();
+            const regex = /<a[^>]+href="(\/comic\/[^"]+)"[^>]+title="([^"]+)"[\s\S]*?<amp-img[^>]+src="([^"]+)"/gi;
+            let m;
+            const results = [];
+            const seen = new Set();
+            while ((m = regex.exec(html)) !== null) {
+                const path = m[1];
+                const title = m[2].trim();
+                const cover = m[3].replace(/&amp;/g, '&');
+                const id = path.replace('/comic/', '').trim();
+                if (!seen.has(id)) {
+                    seen.add(id);
+                    results.push({
+                        id: `baozi_${id}`,
+                        title: title,
+                        cover: cover,
+                        author: '',
+                        brief: '包子漫畫全網穩定源',
+                        source: '包子漫畫'
+                    });
+                }
             }
+            if (results.length > 0) return results;
+        } catch (e) {
+            // 超時或網路波動時自動嘗試下一個備援節點，杜絕主執行緒被卡死或拋出錯誤
+            continue;
         }
-        return results;
-    } catch (e) {
-        console.warn('[BaoziManga Search Error]:', e.message);
-        return [];
     }
+    return [];
 }
 
 // 2. 包子漫畫話數章節解析
@@ -276,9 +288,6 @@ async function searchManga(keyword) {
 
     // 兩邊並存：完整保留包子漫畫與 CopyManga 的搜尋結果，不進行同名遮蔽
     const merged = [...baoziList, ...copyList];
-    if (merged.length === 0) {
-        throw new Error(`查無「${keyword}」相符之漫畫作品，請更換關鍵字後重試`);
-    }
     return merged;
 }
 

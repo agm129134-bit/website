@@ -7106,3 +7106,29 @@ body.dark-theme .batch-actions-bar {
     margin: 0 auto !important;
   }
 }
+
+
+/* ==================== 遊戲卡片按鈕列 RWD 防擠壓防換行 ==================== */
+.game-card-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-wrap: nowrap !important;
+}
+.game-card-actions .btn {
+  white-space: nowrap !important;
+  font-size: 0.8rem !important;
+  line-height: 1.35 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+@media (max-width: 576px) {
+  .game-card-actions {
+    gap: 4px !important;
+  }
+  .game-card-actions .btn {
+    font-size: 0.75rem !important;
+    padding: 0.28rem 0.45rem !important;
+  }
+}
