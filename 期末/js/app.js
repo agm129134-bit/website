@@ -15363,6 +15363,16 @@ window.saveUserProfile = async function(e) {
     const confirmPassword = document.getElementById('profileConfirmPasswordInput')?.value;
     const defaultSort = document.getElementById('profileDefaultSortSelect')?.value;
     const glowPref = document.getElementById('profileCardGlowPref')?.checked;
+    // 比對是否設定了相同的密碼 (含目前密碼、已有密碼或預設密碼)
+    const curRegList = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+    const curTargetUser = curRegList.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
+    const existingPwdVal = curTargetUser?.password || '';
+    const isSamePassword = !!newPassword && (
+        (oldPassword && newPassword === oldPassword) ||
+        (existingPwdVal && newPassword === existingPwdVal) ||
+        (!existingPwdVal && !oldPassword && (newPassword === '123456' || newPassword === 'admin' || newPassword === 'jyun'))
+    );
+
 
     if (!name) {
         alert('請填寫顯示暱稱');
@@ -15452,10 +15462,23 @@ window.saveUserProfile = async function(e) {
                 if (modal) modal.hide();
             }
 
-            if (typeof showToast === 'function') {
-                showToast('個人資料與偏好設定已成功更新！');
+            if (isSamePassword) {
+                // 觸發大字報彩蛋 Modal！
+                const easterEggModalEl = document.getElementById('samePasswordEasterEggModal');
+                if (easterEggModalEl) {
+                    const easterEggModal = bootstrap.Modal.getOrCreateInstance(easterEggModalEl);
+                    easterEggModal.show();
+                } else if (typeof showToast === 'function') {
+                    showToast('🎉 哈哈！你用了跟原本一模一樣的密碼！個人資料已更新。', 'bi-emoji-laughing text-warning');
+                } else {
+                    alert('哈哈！你用了跟原本一模一樣的密碼！個人資料已更新。');
+                }
             } else {
-                alert('個人資料與偏好設定已成功更新！');
+                if (typeof showToast === 'function') {
+                    showToast('個人資料與偏好設定已成功更新！');
+                } else {
+                    alert('個人資料與偏好設定已成功更新！');
+                }
             }
         }
     } catch (err) {
@@ -15541,7 +15564,38 @@ window.openAboutBookModal = function() {
     modal.show();
 };
 
+// 擬真紙張飄飛音效合成器 (Web Audio API 合成，零外部依賴)
+function playPageFlipSound() {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const bufferSize = ctx.sampleRate * 0.12;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.035));
+        }
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(800, ctx.currentTime);
+        filter.Q.setValueAtTime(3.0, ctx.currentTime);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+        noise.start();
+    } catch (_) {}
+}
+
+let isFloatingPageAnimating = false;
+
 window.flipFloatingPage = function(direction) {
+    if (isFloatingPageAnimating) return;
     const targetPage = currentFloatingPage + direction;
     if (targetPage < 1 || targetPage > TOTAL_FLOATING_PAGES) return;
 
@@ -15549,44 +15603,86 @@ window.flipFloatingPage = function(direction) {
     const newPageEl = document.getElementById(`bookPage${targetPage}`);
     const mainCard = document.getElementById('floatingBookMain');
 
+    isFloatingPageAnimating = true;
+    playPageFlipSound();
+
     if (typeof gsap !== 'undefined' && oldPageEl && newPageEl) {
         if (direction > 0) {
-            // 下一頁：最上面那一頁飄動翻飛滑出 (向左旋轉飛出)
-            gsap.to(oldPageEl, {
-                x: -180,
-                y: -30,
-                rotation: -14,
-                scale: 0.88,
-                opacity: 0,
-                duration: 0.38,
-                ease: "power2.in",
+            // === 下一頁：當前頁面向左整個優雅飛出螢幕外，露下一頁彈升出來 ===
+            newPageEl.classList.remove('d-none');
+            gsap.set(newPageEl, { scale: 0.92, y: 22, opacity: 0.7, zIndex: 1 });
+            gsap.set(oldPageEl, { zIndex: 2 });
+
+            const tl = gsap.timeline({
                 onComplete: () => {
                     oldPageEl.classList.add('d-none');
-                    newPageEl.classList.remove('d-none');
-                    // 下一頁從微微縮小的層疊底層彈升浮起
-                    gsap.fromTo(newPageEl,
-                        { scale: 0.93, y: 18, opacity: 0 },
-                        { scale: 1, y: 0, opacity: 1, duration: 0.42, ease: "back.out(1.3)" }
-                    );
+                    gsap.set(oldPageEl, { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1, zIndex: 1 });
+                    isFloatingPageAnimating = false;
                 }
             });
+
+            // 當前頁整個往左側飛出
+            tl.to(oldPageEl, {
+                x: -380,
+                y: -25,
+                rotation: -18,
+                scale: 0.85,
+                opacity: 0,
+                duration: 0.44,
+                ease: "power2.in"
+            }, 0);
+
+            // 下一頁從底層彈出露臉
+            tl.to(newPageEl, {
+                scale: 1,
+                y: 0,
+                opacity: 1,
+                duration: 0.46,
+                ease: "back.out(1.4)"
+            }, 0.1);
+
         } else {
-            // 上一頁：上一頁帶著物理彈力從左側優雅飛回頂部
-            oldPageEl.classList.add('d-none');
+            // === 上一頁：上一頁帶著物理弧度從左側旁邊飛回來蓋在頂部 ===
             newPageEl.classList.remove('d-none');
-            gsap.fromTo(newPageEl,
-                { x: -160, y: -20, rotation: -12, scale: 0.9, opacity: 0 },
-                { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1, duration: 0.45, ease: "power2.out" }
-            );
+            gsap.set(oldPageEl, { zIndex: 1 });
+            gsap.set(newPageEl, { x: -380, y: -25, rotation: -18, scale: 0.85, opacity: 0, zIndex: 2 });
+
+            const tl = gsap.timeline({
+                onComplete: () => {
+                    oldPageEl.classList.add('d-none');
+                    gsap.set(oldPageEl, { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 });
+                    isFloatingPageAnimating = false;
+                }
+            });
+
+            // 上一頁飛回覆蓋
+            tl.to(newPageEl, {
+                x: 0,
+                y: 0,
+                rotation: 0,
+                scale: 1,
+                opacity: 1,
+                duration: 0.48,
+                ease: "power3.out"
+            }, 0);
+
+            // 當前頁順暢淡入底層
+            tl.to(oldPageEl, {
+                scale: 0.94,
+                y: 15,
+                opacity: 0.4,
+                duration: 0.38,
+                ease: "power2.inOut"
+            }, 0);
         }
 
-        // 飄浮卡片本身產生微動反饋
         if (mainCard) {
             gsap.fromTo(mainCard, { y: 2 }, { y: 0, duration: 0.3 });
         }
     } else {
         if (oldPageEl) oldPageEl.classList.add('d-none');
         if (newPageEl) newPageEl.classList.remove('d-none');
+        isFloatingPageAnimating = false;
     }
 
     currentFloatingPage = targetPage;
@@ -15669,7 +15765,109 @@ window.applyThemeMode = applyThemeMode;
 window.toggleThemeMode = toggleThemeMode;
 window.initThemeMode = initThemeMode;
 
+
+window.checkPasswordStrength = function(val) {
+    const bar = document.getElementById('pwdStrengthBar');
+    const text = document.getElementById('pwdStrengthText');
+    if (!bar || !text) return;
+    if (!val) {
+        bar.style.width = '0%';
+        bar.className = 'progress-bar bg-danger';
+        text.textContent = '強度：尚未輸入';
+        text.className = 'text-muted fs-xs';
+        return;
+    }
+    let score = 0;
+    if (val.length >= 4) score += 20;
+    if (val.length >= 8) score += 30;
+    if (/[a-z]/.test(val) && /[A-Z]/.test(val)) score += 20;
+    if (/[0-9]/.test(val)) score += 15;
+    if (/[^a-zA-Z0-9]/.test(val)) score += 15;
+
+    bar.style.width = Math.min(score, 100) + '%';
+    if (score < 40) {
+        bar.className = 'progress-bar bg-danger';
+        text.textContent = '強度：偏弱 (建議混合數字或英文)';
+        text.className = 'text-danger fs-xs fw-semibold';
+    } else if (score < 75) {
+        bar.className = 'progress-bar bg-warning';
+        text.textContent = '強度：良好 (已達標，可加入特殊符號)';
+        text.className = 'text-warning-emphasis fs-xs fw-semibold';
+    } else {
+        bar.className = 'progress-bar bg-success';
+        text.textContent = '強度：極高 (堅不可摧 🛡️)';
+        text.className = 'text-success fs-xs fw-semibold';
+    }
+};
+
+
+// ==================== React Bits Spotlight 跟隨與 3D 阻尼微動效 ====================
+function initSpotlightTracking() {
+    let activeCard = null;
+    let rafId = null;
+    let targetX = 0;
+    let targetY = 0;
+
+    document.addEventListener('mousemove', (e) => {
+        const card = e.target.closest('.spotlight-card');
+        if (!card) {
+            if (activeCard) {
+                activeCard.style.removeProperty('--mouse-x');
+                activeCard.style.removeProperty('--mouse-y');
+                if (typeof gsap !== 'undefined') {
+                    gsap.to(activeCard, { rotateX: 0, rotateY: 0, duration: 0.3, ease: "power2.out" });
+                }
+                activeCard = null;
+            }
+            return;
+        }
+
+        if (document.body.classList.contains('spotlight-disabled')) return;
+
+        activeCard = card;
+        const rect = card.getBoundingClientRect();
+        targetX = e.clientX - rect.left;
+        targetY = e.clientY - rect.top;
+
+        if (!rafId) {
+            rafId = requestAnimationFrame(() => {
+                if (activeCard) {
+                    activeCard.style.setProperty('--mouse-x', `${targetX}px`);
+                    activeCard.style.setProperty('--mouse-y', `${targetY}px`);
+
+                    if (typeof gsap !== 'undefined') {
+                        const centerX = rect.width / 2;
+                        const centerY = rect.height / 2;
+                        const tiltX = ((targetY - centerY) / centerY) * -2.5;
+                        const tiltY = ((targetX - centerX) / centerX) * 2.5;
+                        gsap.to(activeCard, {
+                            rotateX: tiltX,
+                            rotateY: tiltY,
+                            transformPerspective: 900,
+                            duration: 0.2,
+                            ease: "power1.out"
+                        });
+                    }
+                }
+                rafId = null;
+            });
+        }
+    }, { passive: true });
+
+    document.addEventListener('mouseleave', () => {
+        if (activeCard) {
+            activeCard.style.removeProperty('--mouse-x');
+            activeCard.style.removeProperty('--mouse-y');
+            if (typeof gsap !== 'undefined') {
+                gsap.to(activeCard, { rotateX: 0, rotateY: 0, duration: 0.3, ease: "power2.out" });
+            }
+            activeCard = null;
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    initSpotlightTracking();
     if (typeof window.initThemeMode === 'function') {
         window.initThemeMode();
     }

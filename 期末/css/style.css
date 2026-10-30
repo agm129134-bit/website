@@ -7132,3 +7132,92 @@ body.dark-theme .batch-actions-bar {
     padding: 0.28rem 0.45rem !important;
   }
 }
+
+
+/* ==================== 深色模式 (Dark Mode) 高對比度與易讀性全面提升 (WCAG AA) ==================== */
+[data-bs-theme="dark"],
+[data-theme="dark"],
+body.dark-theme {
+  --text-primary: #f8fafc !important;
+  --text-secondary: #cbd5e1 !important;
+  --text-muted: #94a3b8 !important;
+  --bg-primary: #0b0f19 !important;
+  --bg-surface: #1e293b !important;
+  --bg-elevated: #334155 !important;
+  --border-subtle: rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-bs-theme="dark"] .card-title-text,
+body.dark-theme .card-title-text {
+  color: #f8fafc !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.2px;
+}
+
+[data-bs-theme="dark"] .card-desc-text,
+body.dark-theme .card-desc-text {
+  color: #cbd5e1 !important;
+  line-height: 1.55 !important;
+}
+
+[data-bs-theme="dark"] .card-site-meta,
+[data-bs-theme="dark"] .card-site-meta span,
+body.dark-theme .card-site-meta,
+body.dark-theme .card-site-meta span {
+  color: #94a3b8 !important;
+  font-weight: 500 !important;
+}
+
+[data-bs-theme="dark"] .click-counter-badge,
+body.dark-theme .click-counter-badge {
+  background-color: rgba(59, 130, 246, 0.18) !important;
+  color: #93c5fd !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
+}
+
+[data-bs-theme="dark"] .card-tags .badge,
+[data-bs-theme="dark"] .tag-badge,
+body.dark-theme .card-tags .badge,
+body.dark-theme .tag-badge {
+  background-color: rgba(30, 41, 59, 0.9) !important;
+  color: #93c5fd !important;
+  border: 1px solid rgba(148, 163, 184, 0.3) !important;
+}
+
+[data-bs-theme="dark"] .stat-card,
+body.dark-theme .stat-card {
+  background: rgba(30, 41, 59, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-bs-theme="dark"] .stat-card h3,
+body.dark-theme .stat-card h3 {
+  color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .stat-card span,
+body.dark-theme .stat-card span {
+  color: #cbd5e1 !important;
+}
+
+[data-bs-theme="dark"] .action-jump-btn,
+body.dark-theme .action-jump-btn {
+  background-color: #2563eb !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .action-jump-btn:hover,
+body.dark-theme .action-jump-btn:hover {
+  background-color: #1d4ed8 !important;
+  color: #ffffff !important;
+}
+
+/* ==================== 獨立層疊飄浮書頁 3D 飛入飛出容器透視 ==================== */
+.floating-book-card {
+  perspective: 1200px;
+}
+.about-page-content {
+  transform-origin: center left;
+  will-change: transform, opacity;
+}

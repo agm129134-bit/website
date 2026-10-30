@@ -4941,7 +4941,41 @@
       </div>
     </div>
 
-    <!-- Bootstrap 5.3 Bundle JS -->
+    
+    <!-- ==================== 哈哈你用了相同的密碼 大字報彩蛋 Modal (個人資料與全域支援) ==================== -->
+    <div class="modal fade" id="samePasswordEasterEggModal" tabindex="-1" aria-labelledby="samePasswordModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden; background: linear-gradient(145deg, #ffffff, #f8fafc);">
+                <div class="modal-body text-center p-4 p-sm-5">
+                    <div class="mb-3" style="font-size: 4.5rem; line-height: 1; filter: drop-shadow(0 8px 16px rgba(251, 191, 36, 0.4)); animation: pulseEasterEgg 1.5s infinite alternate;">
+                        🤣
+                    </div>
+                    <div class="badge bg-warning text-dark px-3 py-1 rounded-pill fw-bold mb-2 fs-6">
+                        <i class="bi bi-patch-exclamation-fill me-1"></i> 密碼設定彩蛋觸發
+                    </div>
+                    <h3 class="fw-black text-dark mb-2" style="font-size: 1.75rem; letter-spacing: -0.5px;">
+                        哈哈！你用了跟之前一模一樣的密碼！
+                    </h3>
+                    <p class="text-muted small mb-4 px-2" style="line-height: 1.6;">
+                        雖然你輸入的「新密碼」跟原本的密碼完全一模一樣，但系統還是非常體貼地幫你完成了整套個人帳號安全刷新與加密保存～下次記得不要自己嚇自己囉！😂🔐
+                    </p>
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-primary btn-lg fw-bold rounded-pill shadow-sm" data-bs-dismiss="modal">
+                            <i class="bi bi-check-circle me-1"></i> 好啦！我知道了
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <style>
+        @keyframes pulseEasterEgg {
+            0% { transform: scale(0.92) rotate(-3deg); }
+            100% { transform: scale(1.08) rotate(3deg); }
+        }
+    </style>
+
+<!-- Bootstrap 5.3 Bundle JS -->
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
