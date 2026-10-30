@@ -15175,27 +15175,29 @@ setTimeout(() => {
 
 
 // ==================== Task 2: 個人資料維護、頭像庫與偏好設定 ====================
-const AVATAR_PRESETS = [
-    { id: 'default', label: '經典使用者', bg: '#3b82f6', icon: '<i class="bi bi-person-fill"></i>' },
-    { id: 'geek-cat', label: '極客黑貓', bg: '#8b5cf6', icon: '<i class="bi bi-github"></i>' },
-    { id: 'cyber', label: '賽博龐克', bg: '#06b6d4', icon: '<i class="bi bi-cpu-fill"></i>' },
-    { id: 'magic', label: '動漫魔法', bg: '#ec4899', icon: '<i class="bi bi-magic"></i>' },
-    { id: 'sakura', label: '櫻花之戀', bg: '#f43f5e', icon: '<i class="bi bi-flower1"></i>' },
-    { id: 'music', label: '音樂耳機', bg: '#10b981', icon: '<i class="bi bi-headphones"></i>' },
-    { id: 'detective', label: '神秘探求', bg: '#f59e0b', icon: '<i class="bi bi-eyeglasses"></i>' },
-    { id: 'astronaut', label: '星空漫遊', bg: '#6366f1', icon: '<i class="bi bi-rocket-takeoff-fill"></i>' }
-];
 
+// ==================== Spotlight 偏好套用函式 ====================
+window.applySpotlightPref = function(enabled) {
+    if (enabled) {
+        document.body.classList.remove('spotlight-disabled');
+    } else {
+        document.body.classList.add('spotlight-disabled');
+    }
+};
+
+// ==================== 強化版個人資料彈窗與頭像持久化 (徹底解決頭像消失問題) ====================
 window.openEditProfileModal = async function() {
     const modalEl = document.getElementById('editProfileModal');
     if (!modalEl) return;
 
     const username = localStorage.getItem('web_library_user') || 'admin';
+    const savedCustomAvatar = localStorage.getItem('web_library_custom_avatar_' + username);
+    
     let profileData = {
         username: username,
         name: username,
         bio: '',
-        avatar: 'default',
+        avatar: savedCustomAvatar || 'default',
         role: '本地使用者',
         defaultSort: 'custom',
         defaultCategory: 'all'
@@ -15208,16 +15210,19 @@ window.openEditProfileModal = async function() {
             const data = await res.json();
             if (data.success && data.profile) {
                 profileData = { ...profileData, ...data.profile };
+                // 若後端為預設但本地有上傳圖片，以自訂圖片為準
+                if (savedCustomAvatar && (!profileData.avatar || profileData.avatar === 'default' || profileData.avatar === 'avatar-1')) {
+                    profileData.avatar = savedCustomAvatar;
+                }
             }
         }
     } catch (e) {
-        // 離線降級：從 registeredUsers 讀取
         const list = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
         const local = list.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
         if (local) {
             profileData.name = local.name || local.username;
             profileData.bio = local.bio || '';
-            profileData.avatar = local.avatar || 'default';
+            profileData.avatar = savedCustomAvatar || local.avatar || 'default';
             profileData.role = local.role || '本地使用者';
         }
     }
@@ -15231,6 +15236,7 @@ window.openEditProfileModal = async function() {
     const confirmPwdInput = document.getElementById('profileConfirmPasswordInput');
     const displayUser = document.getElementById('profileModalDisplayUser');
     const userRole = document.getElementById('profileModalUserRole');
+    const glowPrefSwitch = document.getElementById('profileCardGlowPref');
 
     if (userInput) userInput.value = profileData.username;
     if (nameInput) nameInput.value = profileData.name || profileData.username;
@@ -15241,10 +15247,35 @@ window.openEditProfileModal = async function() {
     if (displayUser) displayUser.textContent = profileData.name || profileData.username;
     if (userRole) userRole.textContent = profileData.role || '個人帳號';
 
+    // 讀取 Spotlight 偏好開關
+    const isSpotlightOn = localStorage.getItem('web_library_spotlight_pref') !== 'false';
+    if (glowPrefSwitch) glowPrefSwitch.checked = isSpotlightOn;
+
+    // 將 profileSelectedAvatar 的值確實賦予
+    const selectedAvatarInput = document.getElementById('profileSelectedAvatar');
+    if (selectedAvatarInput) selectedAvatarInput.value = profileData.avatar;
+
     // 渲染頭像選擇器
     const avatarContainer = document.getElementById('avatarPickerContainer');
     if (avatarContainer) {
         avatarContainer.innerHTML = '';
+        
+        // 若先前有上傳過本機圖片，將它作為第一個自訂頭像選項供點擊選取
+        if (savedCustomAvatar) {
+            const customBtn = document.createElement('div');
+            customBtn.className = `avatar-choice-item ${profileData.avatar === savedCustomAvatar ? 'selected' : ''}`;
+            customBtn.style.overflow = 'hidden';
+            customBtn.title = '自訂上傳圖片';
+            customBtn.innerHTML = `<img src="${savedCustomAvatar}" alt="custom avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+            customBtn.onclick = () => {
+                document.querySelectorAll('.avatar-choice-item').forEach(el => el.classList.remove('selected'));
+                customBtn.classList.add('selected');
+                document.getElementById('profileSelectedAvatar').value = savedCustomAvatar;
+                updateProfileModalAvatarPreview(savedCustomAvatar);
+            };
+            avatarContainer.appendChild(customBtn);
+        }
+
         AVATAR_PRESETS.forEach(av => {
             const btn = document.createElement('div');
             btn.className = `avatar-choice-item ${profileData.avatar === av.id ? 'selected' : ''}`;
@@ -15268,51 +15299,6 @@ window.openEditProfileModal = async function() {
     modal.show();
 };
 
-function updateProfileModalAvatarPreview(avatarId) {
-    const preview = document.getElementById('profileAvatarPreview');
-    if (!preview) return;
-    if (avatarId && (avatarId.startsWith('data:image') || avatarId.startsWith('http'))) {
-        preview.style.backgroundColor = 'transparent';
-        preview.innerHTML = `<img src="${avatarId}" alt="avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
-        return;
-    }
-    const target = AVATAR_PRESETS.find(a => a.id === avatarId) || AVATAR_PRESETS[0];
-    preview.style.backgroundColor = target.bg;
-    preview.innerHTML = target.icon;
-}
-
-window.checkPasswordStrength = function(pwd) {
-    const bar = document.getElementById('pwdStrengthBar');
-    const text = document.getElementById('pwdStrengthText');
-    if (!bar || !text) return;
-
-    if (!pwd) {
-        bar.style.width = '0%';
-        bar.className = 'progress-bar bg-danger';
-        text.textContent = '強度：尚未輸入';
-        return;
-    }
-
-    let score = 0;
-    if (pwd.length >= 6) score += 30;
-    if (pwd.length >= 10) score += 20;
-    if (/[A-Z]/.test(pwd)) score += 20;
-    if (/[0-9]/.test(pwd)) score += 15;
-    if (/[^A-Za-z0-9]/.test(pwd)) score += 15;
-
-    bar.style.width = `${score}%`;
-    if (score < 40) {
-        bar.className = 'progress-bar bg-danger';
-        text.textContent = '強度：較弱 (建議 6 位以上並包含英數)';
-    } else if (score < 75) {
-        bar.className = 'progress-bar bg-warning';
-        text.textContent = '強度：中等 (良好)';
-    } else {
-        bar.className = 'progress-bar bg-success';
-        text.textContent = '強度：極高 (安全防護健全)';
-    }
-};
-
 window.saveUserProfile = async function(e) {
     if (e && e.preventDefault) e.preventDefault();
     const saveBtn = document.getElementById('saveProfileBtn');
@@ -15321,11 +15307,18 @@ window.saveUserProfile = async function(e) {
     const username = document.getElementById('profileUsernameInput')?.value || localStorage.getItem('web_library_user');
     const name = document.getElementById('profileNameInput')?.value.trim();
     const bio = document.getElementById('profileBioInput')?.value.trim();
-    const avatar = document.getElementById('profileSelectedAvatar')?.value || 'default';
+    
+    // 嚴格讀取選取的頭像，絕不可遺失自訂圖片
+    let avatar = document.getElementById('profileSelectedAvatar')?.value;
+    if (!avatar) {
+        avatar = localStorage.getItem('web_library_custom_avatar_' + username) || 'default';
+    }
+
     const oldPassword = document.getElementById('profileOldPasswordInput')?.value;
     const newPassword = document.getElementById('profileNewPasswordInput')?.value;
     const confirmPassword = document.getElementById('profileConfirmPasswordInput')?.value;
     const defaultSort = document.getElementById('profileDefaultSortSelect')?.value;
+    const glowPref = document.getElementById('profileCardGlowPref')?.checked;
 
     if (!name) {
         alert('請填寫顯示暱稱');
@@ -15343,12 +15336,15 @@ window.saveUserProfile = async function(e) {
         }
     }
 
+    // 儲存 Spotlight 偏好開關
+    localStorage.setItem('web_library_spotlight_pref', glowPref ? 'true' : 'false');
+    applySpotlightPref(glowPref);
+
     if (saveBtn) saveBtn.disabled = true;
     if (statusEl) statusEl.textContent = '正在儲存資料...';
 
     try {
         let savedSuccess = false;
-        // 1. 發送至後端
         try {
             const res = await fetch('/api/user/profile', {
                 method: 'POST',
@@ -15376,7 +15372,7 @@ window.saveUserProfile = async function(e) {
             console.log('後端離線，轉由本地帳號庫同步儲存');
         }
 
-        // 2. 本地儲存庫同步
+        // 本地註冊清單同步持久化
         const list = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
         const target = list.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
         if (target) {
@@ -15390,17 +15386,22 @@ window.saveUserProfile = async function(e) {
             savedSuccess = true;
         }
 
+        // 若為自訂上傳圖片，雙保險寫入獨立持久化
+        if (avatar && (avatar.startsWith('data:image') || avatar.startsWith('http'))) {
+            localStorage.setItem('web_library_custom_avatar_' + username, avatar);
+        }
+
         if (savedSuccess) {
-            // 更新畫面上方顯示的使用者名稱與頭像
             const navUserName = document.getElementById('currentUsernameDisplay');
             if (navUserName) navUserName.textContent = name;
             const topNavUser = document.getElementById('navUsername');
             if (topNavUser) topNavUser.textContent = name;
+            
+            // 右上角導覽列頭像即時同步
             if (typeof updateNavUserAvatar === 'function') {
                 updateNavUserAvatar(avatar);
             }
             
-            // 關閉 Modal
             const modalEl = document.getElementById('editProfileModal');
             if (modalEl) {
                 const modal = bootstrap.Modal.getInstance(modalEl);
@@ -15421,33 +15422,6 @@ window.saveUserProfile = async function(e) {
     }
 };
 
-// ==================== Task 5: 全域 Spotlight Card 與 Border Glow 游標跟隨事件委託 ====================
-(function initGlobalSpotlight() {
-    let ticking = false;
-    document.addEventListener('pointermove', (e) => {
-        if (ticking) return;
-        ticking = true;
-        requestAnimationFrame(() => {
-            const cards = document.querySelectorAll('.spotlight-card, .border-glow');
-            cards.forEach(card => {
-                const rect = card.getBoundingClientRect();
-                if (
-                    e.clientX >= rect.left - 60 &&
-                    e.clientX <= rect.right + 60 &&
-                    e.clientY >= rect.top - 60 &&
-                    e.clientY <= rect.bottom + 60
-                ) {
-                    card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
-                    card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
-                }
-            });
-            ticking = false;
-        });
-    });
-})();
-
-
-// ==================== 支援使用者自選本機圖片上傳頭像 ====================
 window.handleCustomAvatarUpload = function(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
@@ -15461,14 +15435,12 @@ window.handleCustomAvatarUpload = function(event) {
     reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
-            // 使用 Canvas 壓縮至 128x128 圓形高品質 Base64，兼顧效能與儲存
             const canvas = document.createElement('canvas');
             const size = 128;
             canvas.width = size;
             canvas.height = size;
             const ctx = canvas.getContext('2d');
 
-            // 裁切正中心
             const minDim = Math.min(img.width, img.height);
             const sx = (img.width - minDim) / 2;
             const sy = (img.height - minDim) / 2;
@@ -15476,13 +15448,19 @@ window.handleCustomAvatarUpload = function(event) {
 
             const base64Url = canvas.toDataURL('image/jpeg', 0.85);
 
-            // 更新選中狀態
+            // 寫入當前選中值與本地持久化
+            const username = localStorage.getItem('web_library_user') || 'admin';
+            localStorage.setItem('web_library_custom_avatar_' + username, base64Url);
+            
             document.querySelectorAll('.avatar-choice-item').forEach(el => el.classList.remove('selected'));
             document.getElementById('profileSelectedAvatar').value = base64Url;
             updateProfileModalAvatarPreview(base64Url);
 
+            // 即刻反映在右上角頭像預覽
+            updateNavUserAvatar(base64Url);
+
             if (typeof showToast === 'function') {
-                showToast('已成功載入自訂圖片！點擊「儲存」即可永久套用');
+                showToast('已載入自訂圖片！點擊下方「儲存個人資料」即可永久生效');
             }
         };
         img.src = e.target.result;
@@ -15490,149 +15468,117 @@ window.handleCustomAvatarUpload = function(event) {
     reader.readAsDataURL(file);
 };
 
-// ==================== 關於網頁 3D 書頁手冊翻頁控制 (GSAP 3D 翻頁動效) ====================
-let currentBookPage = 1;
-const TOTAL_BOOK_PAGES = 4;
+// ==================== 獨立飄浮層疊書頁 3D 翻頁動效 (Stacked Floating Pages Flip) ====================
+let currentFloatingPage = 1;
+const TOTAL_FLOATING_PAGES = 4;
+
+const FLOATING_PAGE_META = [
+    { badge: 'Chapter 01', title: '📖 本站緣起與設計初衷' },
+    { badge: 'Chapter 02', title: '🚀 全端架構與重大版本演進歷程' },
+    { badge: 'Chapter 03', title: '🧩 核心功能架構與開源生態整合' },
+    { badge: 'Chapter 04', title: '🔮 未來版本展望與規劃藍圖 (Roadmap)' }
+];
 
 window.openAboutBookModal = function() {
     const modalEl = document.getElementById('aboutBookModal');
     if (!modalEl) return;
-    currentBookPage = 1;
-    updateBookPageDisplay(false);
+    currentFloatingPage = 1;
+    updateFloatingPageMeta();
+    for (let i = 1; i <= TOTAL_FLOATING_PAGES; i++) {
+        const p = document.getElementById(`bookPage${i}`);
+        if (p) {
+            p.classList.toggle('d-none', i !== 1);
+            if (typeof gsap !== 'undefined') {
+                gsap.set(p, { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 });
+            }
+        }
+    }
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     modal.show();
 };
 
-window.flipBookPage = function(direction) {
-    const targetPage = currentBookPage + direction;
-    if (targetPage < 1 || targetPage > TOTAL_BOOK_PAGES) return;
+window.flipFloatingPage = function(direction) {
+    const targetPage = currentFloatingPage + direction;
+    if (targetPage < 1 || targetPage > TOTAL_FLOATING_PAGES) return;
 
-    const oldPageEl = document.getElementById(`bookPage${currentBookPage}`);
+    const oldPageEl = document.getElementById(`bookPage${currentFloatingPage}`);
     const newPageEl = document.getElementById(`bookPage${targetPage}`);
+    const mainCard = document.getElementById('floatingBookMain');
 
     if (typeof gsap !== 'undefined' && oldPageEl && newPageEl) {
-        // 3D 翻頁物理效果
-        const flipOutRotation = direction > 0 ? -90 : 90;
-        const flipInRotation = direction > 0 ? 90 : -90;
+        if (direction > 0) {
+            // 下一頁：最上面那一頁飄動翻飛滑出 (向左旋轉飛出)
+            gsap.to(oldPageEl, {
+                x: -180,
+                y: -30,
+                rotation: -14,
+                scale: 0.88,
+                opacity: 0,
+                duration: 0.38,
+                ease: "power2.in",
+                onComplete: () => {
+                    oldPageEl.classList.add('d-none');
+                    newPageEl.classList.remove('d-none');
+                    // 下一頁從微微縮小的層疊底層彈升浮起
+                    gsap.fromTo(newPageEl,
+                        { scale: 0.93, y: 18, opacity: 0 },
+                        { scale: 1, y: 0, opacity: 1, duration: 0.42, ease: "back.out(1.3)" }
+                    );
+                }
+            });
+        } else {
+            // 上一頁：上一頁帶著物理彈力從左側優雅飛回頂部
+            oldPageEl.classList.add('d-none');
+            newPageEl.classList.remove('d-none');
+            gsap.fromTo(newPageEl,
+                { x: -160, y: -20, rotation: -12, scale: 0.9, opacity: 0 },
+                { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1, duration: 0.45, ease: "power2.out" }
+            );
+        }
 
-        gsap.to(oldPageEl, {
-            rotationY: flipOutRotation,
-            opacity: 0,
-            duration: 0.35,
-            ease: "power2.in",
-            onComplete: () => {
-                oldPageEl.classList.add('d-none');
-                newPageEl.classList.remove('d-none');
-                gsap.fromTo(newPageEl, 
-                    { rotationY: flipInRotation, opacity: 0 },
-                    { rotationY: 0, opacity: 1, duration: 0.45, ease: "back.out(1.2)" }
-                );
-            }
-        });
+        // 飄浮卡片本身產生微動反饋
+        if (mainCard) {
+            gsap.fromTo(mainCard, { y: 2 }, { y: 0, duration: 0.3 });
+        }
     } else {
         if (oldPageEl) oldPageEl.classList.add('d-none');
         if (newPageEl) newPageEl.classList.remove('d-none');
     }
 
-    currentBookPage = targetPage;
-    updateBookPageDisplay(true);
+    currentFloatingPage = targetPage;
+    updateFloatingPageMeta();
 };
 
-function updateBookPageDisplay(isFlipping) {
+function updateFloatingPageMeta() {
+    const badgeEl = document.getElementById('aboutPageBadge');
+    const titleEl = document.getElementById('aboutPageTitle');
+    const pageNumEl = document.getElementById('aboutPageNumberBadge');
     const prevBtn = document.getElementById('bookPrevPageBtn');
     const nextBtn = document.getElementById('bookNextPageBtn');
-    if (prevBtn) prevBtn.disabled = (currentBookPage <= 1);
-    if (nextBtn) nextBtn.disabled = (currentBookPage >= TOTAL_BOOK_PAGES);
 
-    // 更新指示點
+    const meta = FLOATING_PAGE_META[currentFloatingPage - 1];
+    if (badgeEl) badgeEl.textContent = meta.badge;
+    if (titleEl) titleEl.textContent = meta.title;
+    if (pageNumEl) pageNumEl.textContent = `頁碼 ${currentFloatingPage} / ${TOTAL_FLOATING_PAGES}`;
+
+    if (prevBtn) prevBtn.disabled = (currentFloatingPage <= 1);
+    if (nextBtn) nextBtn.disabled = (currentFloatingPage >= TOTAL_FLOATING_PAGES);
+
     const indicators = document.querySelectorAll('#bookPageIndicators span');
     indicators.forEach((dot, idx) => {
-        if (idx === currentBookPage - 1) {
+        if (idx === currentFloatingPage - 1) {
             dot.className = 'badge bg-primary rounded-circle p-1';
-            dot.style.transform = 'scale(1.3)';
+            dot.style.transform = 'scale(1.35)';
         } else {
-            dot.className = 'badge bg-secondary rounded-circle p-1';
+            dot.className = 'badge bg-secondary-subtle text-secondary rounded-circle p-1';
             dot.style.transform = 'scale(1)';
         }
     });
-
-    if (!isFlipping) {
-        for (let i = 1; i <= TOTAL_BOOK_PAGES; i++) {
-            const page = document.getElementById(`bookPage${i}`);
-            if (page) {
-                if (i === currentBookPage) {
-                    page.classList.remove('d-none');
-                    if (typeof gsap !== 'undefined') gsap.set(page, { rotationY: 0, opacity: 1 });
-                } else {
-                    page.classList.add('d-none');
-                }
-            }
-        }
-    }
 }
 
 
-// ==================== 深色模式 (Dark Mode) 切換與記憶 ====================
-window.initThemeMode = function() {
-    const savedTheme = localStorage.getItem('web_library_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    applyTheme(savedTheme);
-};
-
-window.toggleThemeMode = function() {
-    const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
-    const nextTheme = current === 'dark' ? 'light' : 'dark';
-    applyTheme(nextTheme);
-    localStorage.setItem('web_library_theme', nextTheme);
-    if (typeof showToast === 'function') {
-        showToast(nextTheme === 'dark' ? '🌙 已切換為深色暗夜模式' : '☀️ 已切換為明亮淺色模式');
-    }
-};
-
-function applyTheme(theme) {
-    document.documentElement.setAttribute('data-bs-theme', theme);
-    const icon = document.getElementById('themeToggleIcon');
-    const body = document.body;
-
-    if (theme === 'dark') {
-        if (icon) {
-            icon.className = 'bi bi-sun-fill text-warning';
-        }
-        body.classList.add('dark-theme');
-    } else {
-        if (icon) {
-            icon.className = 'bi bi-moon-stars-fill text-secondary';
-        }
-        body.classList.remove('dark-theme');
-    }
-}
-
-// ==================== 右上角導覽列使用者頭像即時連動 ====================
-window.updateNavUserAvatar = function(avatarId) {
-    const wrapper = document.getElementById('navUserAvatarWrapper');
-    if (!wrapper) return;
-
-    if (!avatarId) {
-        avatarId = 'default';
-    }
-
-    // 若為自訂圖片 (Base64 或 URL)
-    if (avatarId.startsWith('data:image') || avatarId.startsWith('http')) {
-        wrapper.innerHTML = `<img src="${avatarId}" alt="avatar" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; border: 1.5px solid #3b82f6;">`;
-        return;
-    }
-
-    // 若為 8 款預設頭像之一
-    const target = AVATAR_PRESETS.find(a => a.id === avatarId) || AVATAR_PRESETS[0];
-    wrapper.innerHTML = `<span style="width: 20px; height: 20px; border-radius: 50%; background-color: ${target.bg}; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">${target.icon}</span>`;
-};
-
-// 頁面載入時自動初始化主題與右上角頭像
 document.addEventListener('DOMContentLoaded', () => {
-    initThemeMode();
-    const username = localStorage.getItem('web_library_user') || 'admin';
-    const list = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-    const user = list.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
-    if (user && user.avatar) {
-        updateNavUserAvatar(user.avatar);
+    if (typeof applySpotlightPref === 'function') {
+        applySpotlightPref(localStorage.getItem('web_library_spotlight_pref') !== 'false');
     }
 });
