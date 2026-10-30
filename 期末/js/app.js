@@ -1184,7 +1184,7 @@ function renderBookmarks(skipAnimation = false) {
 
 
 
-            <div class="card bookmark-card shadow-sm h-100 position-relative ${batchSelectedClass}" ${cardClickAttr} ${cardCursorStyle}>
+            <div class="card bookmark-card spotlight-card border-glow shadow-sm h-100 position-relative ${batchSelectedClass}" ${cardClickAttr} ${cardCursorStyle}>
 
 
 
@@ -15394,6 +15394,11 @@ window.saveUserProfile = async function(e) {
             // 更新畫面上方顯示的使用者名稱與頭像
             const navUserName = document.getElementById('currentUsernameDisplay');
             if (navUserName) navUserName.textContent = name;
+            const topNavUser = document.getElementById('navUsername');
+            if (topNavUser) topNavUser.textContent = name;
+            if (typeof updateNavUserAvatar === 'function') {
+                updateNavUserAvatar(avatar);
+            }
             
             // 關閉 Modal
             const modalEl = document.getElementById('editProfileModal');
@@ -15565,3 +15570,69 @@ function updateBookPageDisplay(isFlipping) {
         }
     }
 }
+
+
+// ==================== 深色模式 (Dark Mode) 切換與記憶 ====================
+window.initThemeMode = function() {
+    const savedTheme = localStorage.getItem('web_library_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    applyTheme(savedTheme);
+};
+
+window.toggleThemeMode = function() {
+    const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+    const nextTheme = current === 'dark' ? 'light' : 'dark';
+    applyTheme(nextTheme);
+    localStorage.setItem('web_library_theme', nextTheme);
+    if (typeof showToast === 'function') {
+        showToast(nextTheme === 'dark' ? '🌙 已切換為深色暗夜模式' : '☀️ 已切換為明亮淺色模式');
+    }
+};
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-bs-theme', theme);
+    const icon = document.getElementById('themeToggleIcon');
+    const body = document.body;
+
+    if (theme === 'dark') {
+        if (icon) {
+            icon.className = 'bi bi-sun-fill text-warning';
+        }
+        body.classList.add('dark-theme');
+    } else {
+        if (icon) {
+            icon.className = 'bi bi-moon-stars-fill text-secondary';
+        }
+        body.classList.remove('dark-theme');
+    }
+}
+
+// ==================== 右上角導覽列使用者頭像即時連動 ====================
+window.updateNavUserAvatar = function(avatarId) {
+    const wrapper = document.getElementById('navUserAvatarWrapper');
+    if (!wrapper) return;
+
+    if (!avatarId) {
+        avatarId = 'default';
+    }
+
+    // 若為自訂圖片 (Base64 或 URL)
+    if (avatarId.startsWith('data:image') || avatarId.startsWith('http')) {
+        wrapper.innerHTML = `<img src="${avatarId}" alt="avatar" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; border: 1.5px solid #3b82f6;">`;
+        return;
+    }
+
+    // 若為 8 款預設頭像之一
+    const target = AVATAR_PRESETS.find(a => a.id === avatarId) || AVATAR_PRESETS[0];
+    wrapper.innerHTML = `<span style="width: 20px; height: 20px; border-radius: 50%; background-color: ${target.bg}; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">${target.icon}</span>`;
+};
+
+// 頁面載入時自動初始化主題與右上角頭像
+document.addEventListener('DOMContentLoaded', () => {
+    initThemeMode();
+    const username = localStorage.getItem('web_library_user') || 'admin';
+    const list = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+    const user = list.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
+    if (user && user.avatar) {
+        updateNavUserAvatar(user.avatar);
+    }
+});

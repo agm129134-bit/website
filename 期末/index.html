@@ -137,6 +137,27 @@
               <span>新增收藏</span>
             </button>
 
+            <!-- 📖 關於網頁 3D 書頁導引按鍵 (RWD 防重疊) -->
+            <button
+              class="btn btn-outline-info btn-sm d-flex align-items-center gap-1 px-2.5 py-1.5 flex-shrink-0"
+              onclick="openAboutBookModal()"
+              title="查看本站緣起、功能架構與更新日誌"
+            >
+              <i class="bi bi-book-half"></i>
+              <span class="d-none d-lg-inline">關於網頁</span>
+            </button>
+
+            <!-- 🌙/☀️ 深色模式切換按鈕 -->
+            <button
+              class="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center p-1.5 flex-shrink-0"
+              id="themeToggleBtn"
+              onclick="toggleThemeMode()"
+              title="切換深色 / 淺色主題模式"
+              style="width: 32px; height: 32px; border-radius: 8px;"
+            >
+              <i class="bi bi-moon-stars-fill text-warning" id="themeToggleIcon"></i>
+            </button>
+
             <button
               class="btn btn-outline-danger btn-sm d-flex align-items-center gap-1 px-2 py-1.5 flex-shrink-0"
               onclick="openWatchHistoryModal()"
@@ -351,9 +372,10 @@
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
               >
-                <i class="bi bi-person-circle fs-6"></i>
-                <span
-                  id="navUsername"
+                <span id="navUserAvatarWrapper" class="d-inline-flex align-items-center justify-content-center me-1" style="width: 22px; height: 22px; vertical-align: middle;">
+                  <i class="bi bi-person-circle fs-6" id="navUserAvatarIcon"></i>
+                </span>
+                <span id="navUsername"
                   class="d-inline-block text-truncate"
                   style="max-width: 85px; vertical-align: bottom"
                   >已登入使用者</span
@@ -796,7 +818,7 @@
       aria-labelledby="bookmarkModalLabel"
       aria-hidden="true"
     >
-      <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg my-3">
         <div class="modal-content rounded-4 border-0 shadow">
           <div class="modal-header border-bottom-0 pb-0">
             <h5
@@ -1135,7 +1157,7 @@
 
     <!-- ==================== 編輯個人資料與密碼 Modal ==================== -->
     <div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg my-3">
         <div class="modal-content rounded-4 border-0 shadow">
           <div class="modal-header bg-dark text-white rounded-top-4">
             <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="editProfileModalLabel">
@@ -1200,13 +1222,13 @@
                     </div>
                     <div class="col-12">
                       <label class="form-label fw-bold small">選擇專屬頭像徽章</label>
-                      <div class="d-flex flex-wrap gap-2 pt-1" id="avatarPickerContainer">
+                      <div class="d-flex flex-wrap gap-2 pt-1 pb-3" id="avatarPickerContainer">
                         <!-- JS 動態生成頭像選項 -->
                       </div>
                       <input type="hidden" id="profileSelectedAvatar" value="default">
-                      <div class="mt-2.5 d-flex align-items-center gap-2 flex-wrap">
+                      <div class="pt-2.5 mt-2 border-top d-flex align-items-center gap-2 flex-wrap w-100">
                         <input type="file" id="customAvatarFileInput" accept="image/*" class="d-none" onchange="handleCustomAvatarUpload(event)">
-                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" onclick="document.getElementById('customAvatarFileInput').click()">
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1.5 fw-medium" onclick="document.getElementById('customAvatarFileInput').click()">
                           <i class="bi bi-cloud-arrow-up-fill me-1"></i> 上傳本機圖片作為專屬頭像
                         </button>
                         <small class="text-muted fs-xs">支援 JPG / PNG / WebP，自動壓縮並套用圓形裁切</small>

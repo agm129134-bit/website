@@ -6860,21 +6860,76 @@ body.has-multi-modal .modal-backdrop:last-of-type {
     padding-left: 12px !important;
   }
 
-  /* 雙屏中央擬真鉸鏈陰影 */
-  .duo-hinge-divider {
-    display: block !important;
-    width: 100%;
-    height: 8px;
-    background: linear-gradient(180deg, #111827 0%, #1f2937 50%, #111827 100%);
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
-    margin: 14px 0;
-    border-radius: 4px;
-  }
-}
-
-.duo-special-badge {
-  display: none;
-}
+  
 .duo-hinge-divider {
   display: none;
+}
+
+
+/* ==================== 深色模式 (Dark Mode) 全域介面強化 ==================== */
+[data-bs-theme="dark"] body,
+body.dark-theme {
+  background-color: #0b0f19 !important;
+  color: #f1f5f9 !important;
+}
+
+[data-bs-theme="dark"] .navbar,
+body.dark-theme .navbar {
+  background-color: rgba(15, 23, 42, 0.88) !important;
+  backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-bs-theme="dark"] .card,
+body.dark-theme .card {
+  background-color: rgba(30, 41, 59, 0.85) !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-bs-theme="dark"] .modal-content,
+body.dark-theme .modal-content {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+[data-bs-theme="dark"] .dropdown-menu,
+body.dark-theme .dropdown-menu {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+[data-bs-theme="dark"] .dropdown-item,
+body.dark-theme .dropdown-item {
+  color: #cbd5e1 !important;
+}
+
+[data-bs-theme="dark"] .dropdown-item:hover,
+body.dark-theme .dropdown-item:hover {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  color: #60a5fa !important;
+}
+
+[data-bs-theme="dark"] .bg-light,
+body.dark-theme .bg-light {
+  background-color: rgba(15, 23, 42, 0.6) !important;
+}
+
+[data-bs-theme="dark"] .form-control,
+body.dark-theme .form-control {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+[data-bs-theme="dark"] .text-dark,
+body.dark-theme .text-dark {
+  color: #f8fafc !important;
+}
+
+[data-bs-theme="dark"] .text-muted,
+body.dark-theme .text-muted {
+  color: #94a3b8 !important;
 }
