@@ -8,6 +8,39 @@ const path = require('path');
 const https = require('https');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
+const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
+
+// 取得與持久化系統帳號清單 (支援多使用者檔案持久化，解決 getAccountsList is not defined 致命錯誤)
+function getAccountsList() {
+    if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (!fs.existsSync(ACCOUNTS_FILE)) {
+        const defaults = [
+            { username: 'admin', password: '123456', name: '管理員 (Admin)', role: '系統管理員', avatar: 'default', bio: '系統全域管理員' },
+            { username: 'student', password: 'web2026', name: '學生 (Student)', role: '學生研究員', avatar: 'geek-cat', bio: '探索個人化網頁圖書館' },
+            { username: 'jyun', password: '123', name: 'Jyun', role: '核心開發者', avatar: 'cyber', bio: '專案核心作者' }
+        ];
+        try {
+            fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(defaults, null, 2), 'utf8');
+        } catch (e) {}
+        return defaults;
+    }
+    try {
+        const raw = fs.readFileSync(ACCOUNTS_FILE, 'utf8');
+        return JSON.parse(raw || '[]');
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveAccountsList(accounts) {
+    if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2), 'utf8');
+}
+
 
 // 統一設置 CORS 與 JSON 回應
 function sendJson(res, statusCode, payload) {

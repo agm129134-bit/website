@@ -986,6 +986,153 @@
     </div>
 
     
+    
+    <!-- ==================== 關於網頁 3D 擬真書頁手冊 Modal ==================== -->
+    <div class="modal fade" id="aboutBookModal" tabindex="-1" aria-labelledby="aboutBookModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered book-modal-dialog">
+        <div class="modal-content border-0 bg-transparent shadow-none">
+          <div class="book-container position-relative p-0 border shadow-lg">
+            <!-- 擬真書脊中線陰影 -->
+            <div class="book-spine"></div>
+
+            <!-- 書頁翻動卡片容器 -->
+            <div id="bookPageContainer" class="p-4 p-md-5">
+              <!-- 第 1 頁：專案緣起與定位 -->
+              <div class="book-page-sheet active" id="bookPage1">
+                <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary px-2 py-1">Chapter 01</span>
+                    <h5 class="fw-bold mb-0 text-dark">📖 本站緣起與設計初衷</h5>
+                  </div>
+                  <span class="book-page-number">頁碼 1 / 4</span>
+                </div>
+                <div class="text-secondary" style="line-height: 1.8; font-size: 0.95rem;">
+                  <p class="mb-3">
+                    <strong>Web Library（個人化網頁收藏圖書館）</strong>誕生於解決現代人「書籤爆炸、收藏散落、無法跨裝置即時同步」的痛點。
+                  </p>
+                  <p class="mb-3">
+                    不同於傳統瀏覽器冰冷單調的書籤列，我們將書籤打造成一座<strong>充滿生命力、具備高度互動感的高雅數位書房</strong>。結合流暢的 GSAP 物理動態、沉浸式毛玻璃 Glassmorphism 與最新 React Bits 聚光燈特效，每一次造訪與點擊都是一場視覺享受。
+                  </p>
+                  <div class="p-3 bg-white rounded-3 border border-dashed text-dark small mt-4">
+                    <i class="bi bi-lightbulb-fill text-warning me-1"></i>
+                    <strong>核心理念：</strong>「收藏不只是儲存網址，而是為生活與靈感建立一座有溫度的數位私人圖書館。」
+                  </div>
+                </div>
+              </div>
+
+              <!-- 第 2 頁：更新說明 Changelog -->
+              <div class="book-page-sheet d-none" id="bookPage2">
+                <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-success px-2 py-1">Chapter 02</span>
+                    <h5 class="fw-bold mb-0 text-dark">🚀 歷程與更新說明</h5>
+                  </div>
+                  <span class="book-page-number">頁碼 2 / 4</span>
+                </div>
+                <div class="text-secondary small" style="line-height: 1.7;">
+                  <ul class="list-unstyled mb-0">
+                    <li class="mb-2.5 pb-2 border-bottom">
+                      <span class="badge bg-primary-subtle text-primary fw-bold me-1">v3.8 即時熱更</span>
+                      <strong>全能升級與視覺突破：</strong>引進 React Bits Spotlight 聚光燈跟隨、3D 翻頁書手冊、自訂圖片頭像、iPhone Duo 雙折疊屏專屬適配。
+                    </li>
+                    <li class="mb-2.5 pb-2 border-bottom">
+                      <span class="badge bg-secondary-subtle text-secondary fw-bold me-1">v3.5 節點容災</span>
+                      <strong>拷貝漫畫 2026 節點全面對齊：</strong>深度適配多鏡像容災心跳探測，徹底解決章節空回傳與錯誤降級。
+                    </li>
+                    <li class="mb-2.5 pb-2 border-bottom">
+                      <span class="badge bg-dark text-white fw-bold me-1">v3.0 容器沙盒</span>
+                      <strong>Docker 容器化全棧部署：</strong>支援 Port 8095 獨立容器化隔離運行與資料持久化 Volume 掛載。
+                    </li>
+                    <li>
+                      <span class="badge bg-info-subtle text-info fw-bold me-1">v2.0 ACG 生態</span>
+                      <strong>四大核心娛樂矩陣成型：</strong>動漫劇院、垂直條漫、沉浸小說與 ACG 遊戲專區全面聯網。
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- 第 3 頁：核心功能與生態架構 -->
+              <div class="book-page-sheet d-none" id="bookPage3">
+                <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-info text-white px-2 py-1">Chapter 03</span>
+                    <h5 class="fw-bold mb-0 text-dark">🧩 核心技術與功能整合</h5>
+                  </div>
+                  <span class="book-page-number">頁碼 3 / 4</span>
+                </div>
+                <div class="row g-2 text-dark small">
+                  <div class="col-6">
+                    <div class="p-2.5 bg-white rounded-3 border h-100">
+                      <div class="fw-bold text-danger mb-1"><i class="bi bi-broadcast"></i> Kazumi Engine</div>
+                      <p class="text-muted mb-0 fs-xs">支援 HLS 串流、即時彈幕發射、跨來源快速切換與新分頁獨立播放。</p>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="p-2.5 bg-white rounded-3 border h-100">
+                      <div class="fw-bold text-primary mb-1"><i class="bi bi-stars"></i> Bangumi 番組計畫</div>
+                      <p class="text-muted mb-0 fs-xs">官方每日放送 API 即時對接，雙向同步追番狀態與高清封面。</p>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="p-2.5 bg-white rounded-3 border h-100">
+                      <div class="fw-bold text-success mb-1"><i class="bi bi-book"></i> 條漫 & 小說閱覽</div>
+                      <p class="text-muted mb-0 fs-xs">無縫瀑布流長圖、防盜鏈穿透、羊皮紙護眼主題與字級自由調整。</p>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="p-2.5 bg-white rounded-3 border h-100">
+                      <div class="fw-bold text-warning mb-1"><i class="bi bi-box-seam-fill"></i> Docker 沙盒隔離</div>
+                      <p class="text-muted mb-0 fs-xs">跨平台一鍵編譯部署，安全隔離環境與本機 accounts.json 持久化。</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 第 4 頁：未來更新規劃路線圖 -->
+              <div class="book-page-sheet d-none" id="bookPage4">
+                <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-warning text-dark px-2 py-1">Chapter 04</span>
+                    <h5 class="fw-bold mb-0 text-dark">🔮 未來版本展望 (Roadmap)</h5>
+                  </div>
+                  <span class="book-page-number">頁碼 4 / 4</span>
+                </div>
+                <div class="text-secondary" style="line-height: 1.8; font-size: 0.95rem;">
+                  <div class="p-3 bg-white rounded-3 border mb-3 text-dark">
+                    <h6 class="fw-bold text-primary mb-1"><i class="bi bi-stars"></i> 待開發與規劃藍圖：</h6>
+                    <ul class="mb-0 text-muted small ps-3">
+                      <li class="mb-1"><strong>（預留空間）</strong> 敬請期待後續功能規劃...</li>
+                      <li class="mb-1"><strong>（預留空間）</strong> 歡迎隨時提出寶貴回饋與新功能點子！</li>
+                      <li><strong>（預留空間）</strong> ...</li>
+                    </ul>
+                  </div>
+                  <p class="small text-muted mb-0">
+                    本頁面已預留完整版位，後續可隨時擴充新功能預告或實驗性功能開關。
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 書本底端翻頁控制欄 -->
+            <div class="d-flex justify-content-between align-items-center px-4 py-3 bg-light border-top rounded-bottom-4">
+              <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" id="bookPrevPageBtn" onclick="flipBookPage(-1)">
+                <i class="bi bi-chevron-left me-1"></i> 上一頁
+              </button>
+              <div class="d-flex gap-1" id="bookPageIndicators">
+                <span class="badge bg-primary rounded-circle p-1" style="width: 8px; height: 8px;"></span>
+                <span class="badge bg-secondary rounded-circle p-1" style="width: 8px; height: 8px;"></span>
+                <span class="badge bg-secondary rounded-circle p-1" style="width: 8px; height: 8px;"></span>
+                <span class="badge bg-secondary rounded-circle p-1" style="width: 8px; height: 8px;"></span>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm rounded-pill px-3" id="bookNextPageBtn" onclick="flipBookPage(1)">
+                下一頁 <i class="bi bi-chevron-right ms-1"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ==================== 編輯個人資料與密碼 Modal ==================== -->
     <div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -1057,6 +1204,14 @@
                         <!-- JS 動態生成頭像選項 -->
                       </div>
                       <input type="hidden" id="profileSelectedAvatar" value="default">
+                      <div class="mt-2.5 d-flex align-items-center gap-2 flex-wrap">
+                        <input type="file" id="customAvatarFileInput" accept="image/*" class="d-none" onchange="handleCustomAvatarUpload(event)">
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" onclick="document.getElementById('customAvatarFileInput').click()">
+                          <i class="bi bi-cloud-arrow-up-fill me-1"></i> 上傳本機圖片作為專屬頭像
+                        </button>
+                        <small class="text-muted fs-xs">支援 JPG / PNG / WebP，自動壓縮並套用圓形裁切</small>
+                      </div>
+
                     </div>
                   </div>
                 </div>
