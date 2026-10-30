@@ -7271,6 +7271,22 @@ body.dark-theme .action-jump-btn:hover {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* 小說閱讀器右上角關閉按鈕通用圓形微框 */
+#novelReaderModal .btn-close {
+  width: 32px;
+  height: 32px;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 0.82 !important;
+  box-sizing: border-box !important;
+}
+
+#novelReaderModal .btn-close:hover {
+  opacity: 1 !important;
+  transform: scale(1.08);
+}
+
 /* ==========================================================================
    2. 📜 羊皮紙主題 (Sepia Mode) - 溫潤暖調實木書房
    ========================================================================== */
@@ -7361,6 +7377,19 @@ body.dark-theme .action-jump-btn:hover {
   background-color: #dc2626 !important;
   color: #ffffff !important;
   box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3) !important;
+}
+
+/* 羊皮紙右上角關閉按鈕 (消除暗黑 filter: invert(1)，維持深褐高對比與溫潤圓框) */
+.novel-theme-sepia .btn-close {
+  filter: none !important;
+  background-color: rgba(60, 45, 30, 0.08) !important;
+  border: 1.5px solid #cbbaa2 !important;
+}
+
+.novel-theme-sepia .btn-close:hover {
+  background-color: rgba(60, 45, 30, 0.18) !important;
+  border-color: #9c8466 !important;
+  box-shadow: 0 2px 8px rgba(90, 70, 45, 0.2) !important;
 }
 
 /* 羊皮紙輸入框 */
@@ -7538,6 +7567,19 @@ body.dark-theme .action-jump-btn:hover {
 .novel-theme-white .btn-outline-danger:hover {
   background-color: #dc2626 !important;
   color: #ffffff !important;
+}
+
+/* 純白右上角關閉按鈕 (消除暗黑 filter: invert(1)，維持深灰藍高對比與極淨圓框) */
+.novel-theme-white .btn-close {
+  filter: none !important;
+  background-color: #f1f5f9 !important;
+  border: 1.5px solid #cbd5e1 !important;
+}
+
+.novel-theme-white .btn-close:hover {
+  background-color: #e2e8f0 !important;
+  border-color: #94a3b8 !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12) !important;
 }
 
 /* 純白輸入框 */
@@ -7718,6 +7760,19 @@ body.dark-theme .action-jump-btn:hover {
   background-color: #ef4444 !important;
   color: #ffffff !important;
   box-shadow: 0 0 12px rgba(239, 68, 68, 0.5) !important;
+}
+
+/* 暗黑右上角關閉按鈕 (維持高對比反白與微透圓框) */
+.novel-theme-dark .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%) !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.25) !important;
+}
+
+.novel-theme-dark .btn-close:hover {
+  background-color: rgba(255, 255, 255, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.25) !important;
 }
 
 /* 暗黑輸入框 */
