@@ -7449,11 +7449,11 @@ window.renderNovelBookshelf = function () {
 
 
 
-                <div class="fw-semibold fs-6 text-dark mb-1">小說書房目前尚無藏書</div>
+                <div class="fw-bold fs-6 novel-empty-tip-title mb-1">小說書房目前尚無藏書</div>
 
 
 
-                <div class="text-muted small mb-3">可在上方搜尋輕小說或點擊「上傳電子書」，即可將喜愛的作品陳列於此！</div>
+                <div class="novel-empty-tip-desc small mb-3">可在上方搜尋輕小說或點擊「上傳電子書」，即可將喜愛的作品陳列於此！</div>
 
 
 
@@ -7461,7 +7461,7 @@ window.renderNovelBookshelf = function () {
 
 
 
-                    <button class="btn btn-sm btn-outline-success rounded-pill px-3" onclick="openNovelSearchModal('')">
+                    <button class="btn btn-sm btn-success rounded-pill px-3 fw-semibold shadow-sm" onclick="openNovelSearchModal('')">
 
 
 
