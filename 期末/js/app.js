@@ -12,7 +12,6 @@ try {
       if (sessionStorage.getItem(k)) sessionStorage.setItem(k, cleaned);
     }
   });
-
   const regUsers = localStorage.getItem("registeredUsers");
 
   if (regUsers && regUsers.includes("專案開發者")) {
@@ -94,7 +93,6 @@ function initApp() {
 
     if (sInput) {
       sInput.value = "";
-
       state.searchQuery = "";
 
       setTimeout(() => {
@@ -102,9 +100,7 @@ function initApp() {
 
         if (sInput.value && u && sInput.value.toLowerCase().trim() === u) {
           sInput.value = "";
-
           state.searchQuery = "";
-
           const clearBtn = document.getElementById("clearSearchBtn");
 
           if (clearBtn) clearBtn.classList.add("d-none");
@@ -157,7 +153,6 @@ function loadFromStorage() {
       }
     } catch (e) {
       console.error("解析存儲資料失敗，重置為空資料", e);
-
       state.bookmarks = [];
     }
   } else {
@@ -180,7 +175,6 @@ function loadFromStorage() {
         // 關鍵修復：state.currentUser 永遠使用純淨的 username (如 'jyun', 'admin', 'student') 作為伺服器同步識別碼！
 
         let rawU = (authUser.username || authUser.name || "").trim();
-
         let cleanU = rawU.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, "").trim();
 
         if (cleanU.startsWith("Jyun") || cleanU.startsWith("jyun"))
@@ -192,7 +186,6 @@ function loadFromStorage() {
         else if (authUser.username)
           state.currentUser = authUser.username.toLowerCase().trim();
         else state.currentUser = cleanU.toLowerCase();
-
         let rawDisp = authUser.name || authUser.username || state.currentUser;
 
         state.displayUserName = rawDisp
@@ -204,7 +197,6 @@ function loadFromStorage() {
     const savedUser = localStorage.getItem("web_library_user");
 
     if (savedUser) state.currentUser = savedUser.toLowerCase().trim();
-
     state.displayUserName = state.currentUser;
   }
 
@@ -318,7 +310,6 @@ window.confirmDeleteCurrentAccount = async function () {
     localStorage.removeItem("currentUser");
 
     sessionStorage.removeItem("currentUser");
-
     window.location.replace("login.html");
   }
 };
@@ -349,7 +340,6 @@ async function syncToServer(immediate = false) {
           bookmarks: state.bookmarks,
         }),
       });
-
       const data = await res.json();
 
       if (data && data.success) {
@@ -386,7 +376,6 @@ async function syncFromServer(username, isFocusSync = false) {
     );
 
     if (!res.ok) return;
-
     const data = await res.json();
 
     if (data && data.success && Array.isArray(data.bookmarks)) {
@@ -510,13 +499,9 @@ window.getBgmPriority = function () {
 
 window.verifyBangumiToken = async function () {
   const tokenInput = document.getElementById("bgmTokenInput");
-
   const statusBox = document.getElementById("bgmTokenStatus");
-
   const verifyBtn = document.getElementById("btnVerifyBgmToken");
-
   const usernameInput = document.getElementById("bgmUsernameInput");
-
   const token = tokenInput ? tokenInput.value.trim() : "";
 
   if (!token) {
@@ -558,21 +543,16 @@ window.verifyBangumiToken = async function () {
 
       body: JSON.stringify({ token }),
     });
-
     const result = await res.json();
 
     if (res.ok && result.success && result.user) {
       const user = result.user;
-
       window.setBangumiToken(token);
-
       const displayName = user.nickname || user.username || "Bangumi 用戶";
-
       const uidStr = user.username || user.id || "";
 
       if (statusBox) {
         statusBox.className = "small mt-1 text-success fw-semibold d-block";
-
         statusBox.innerHTML = `<i class="bi bi-check-circle-fill"></i> 令牌驗證成功！使用者：<strong>${escapeHtml(displayName)}</strong> (@${escapeHtml(uidStr)})`;
       }
 
@@ -598,7 +578,6 @@ window.verifyBangumiToken = async function () {
 
       if (statusBox) {
         statusBox.className = "small mt-1 text-danger fw-semibold d-block";
-
         statusBox.innerHTML = `<i class="bi bi-x-circle-fill"></i> 驗證失敗：${escapeHtml(errMsg)}`;
       }
 
@@ -610,7 +589,6 @@ window.verifyBangumiToken = async function () {
 
     if (statusBox) {
       statusBox.className = "small mt-1 text-danger fw-semibold d-block";
-
       statusBox.innerHTML = `<i class="bi bi-wifi-off"></i> 連線伺服器失敗：${escapeHtml(err.message)}`;
     }
 
@@ -619,7 +597,6 @@ window.verifyBangumiToken = async function () {
   } finally {
     if (verifyBtn) {
       verifyBtn.disabled = false;
-
       verifyBtn.innerHTML = '<i class="bi bi-shield-check"></i> 驗證令牌';
     }
   }
@@ -640,7 +617,6 @@ window.syncStatusToBangumi = async function (
       "尚未填寫 Bangumi Token，請在「同步 Bangumi」設定個人令牌以啟用雙向回寫",
       "bi-key text-warning",
     );
-
     return false;
   }
 
@@ -658,7 +634,6 @@ window.syncStatusToBangumi = async function (
         comment,
       }),
     });
-
     const data = await res.json();
 
     if (data.success) {
@@ -674,14 +649,12 @@ window.syncStatusToBangumi = async function (
         `🎉 已成功同步回寫 Bangumi：狀態改為「${statusNames[statusType] || "在看"}」！`,
         "bi-cloud-check-fill text-success",
       );
-
       return true;
     } else {
       showToast(
         `Bangumi 同步失敗: ${data.error || "授權已過期"}`,
         "bi-exclamation-triangle text-danger",
       );
-
       return false;
     }
   } catch (e) {
@@ -691,7 +664,6 @@ window.syncStatusToBangumi = async function (
       "同步至 Bangumi 網路錯誤: " + e.message,
       "bi-wifi-off text-danger",
     );
-
     return false;
   }
 };
@@ -722,7 +694,6 @@ window.syncEpisodeProgressToBangumi = async function (
 
       body: JSON.stringify(payload),
     });
-
     const data = await res.json();
 
     if (data.success) {
@@ -730,7 +701,6 @@ window.syncEpisodeProgressToBangumi = async function (
         `🎉 已自動雙向同步進度至 Bangumi (第 ${watchedEpisodes || episodeId} 集/話)！`,
         "bi-check2-all text-primary",
       );
-
       return true;
     }
   } catch (e) {
@@ -754,14 +724,12 @@ function updateUI() {
   renderTagChips();
 
   renderBookmarks();
-
   const navUsername = document.getElementById("navUsername");
 
   if (navUsername) {
     let cleanName = (state.displayUserName || state.currentUser || "Jyun")
       .replace(/\s*[\(（]專案開發者[\)）]/g, "")
       .trim();
-
     navUsername.textContent = cleanName;
   }
 
@@ -776,13 +744,11 @@ function isAnimeItem(item) {
   if (!item) return false;
 
   if (item.category === "anime") return true;
-
   const tags = Array.isArray(item.tags) ? item.tags.join(" ") : item.tags || "";
 
   if (/動漫|動畫|Bangumi同步|本季新番/i.test(tags)) return true;
 
   if (/bgm\.tv/i.test(item.url || "")) return true;
-
   return false;
 }
 
@@ -792,7 +758,6 @@ function updateStats() {
   const statWeb = document.getElementById("statWebCount");
 
   if (!statWeb) return;
-
   const animeCount = state.bookmarks.filter(isAnimeItem).length;
 
   const webCount = state.bookmarks.filter(
@@ -806,35 +771,26 @@ function updateStats() {
   const resCount = state.bookmarks.filter(
     (b) => (b.category === "resource" || !b.category) && !isAnimeItem(b),
   ).length;
-
   const totalCount = state.bookmarks.length;
-
   statWeb.textContent = webCount;
-
   const statVideo = document.getElementById("statVideoCount");
 
   if (statVideo) statVideo.textContent = videoCount;
-
   const statRes = document.getElementById("statResCount");
 
   if (statRes) statRes.textContent = animeCount + resCount;
-
   const bAll = document.getElementById("badgeAllCount");
 
   if (bAll) bAll.textContent = totalCount;
-
   const bAnime = document.getElementById("badgeAnimeCount");
 
   if (bAnime) bAnime.textContent = animeCount;
-
   const bWeb = document.getElementById("badgeWebCount");
 
   if (bWeb) bWeb.textContent = webCount;
-
   const bVideo = document.getElementById("badgeVideoCount");
 
   if (bVideo) bVideo.textContent = videoCount;
-
   const bRes = document.getElementById("badgeResCount");
 
   if (bRes) bRes.textContent = resCount;
@@ -846,7 +802,6 @@ function renderTagChips() {
   const container = document.getElementById("tagFiltersContainer");
 
   if (!container) return;
-
   const allTags = new Set();
 
   state.bookmarks.forEach((b) => {
@@ -881,13 +836,10 @@ function renderTagChips() {
 
   allTags.forEach((tag) => {
     if (!tag) return;
-
     const btn = document.createElement("button");
-
     btn.className = `btn btn-xs rounded-pill tag-chip ${state.activeTag === tag ? "active" : ""}`;
 
     btn.setAttribute("data-tag", tag);
-
     btn.textContent = tag;
 
     btn.addEventListener("click", () => {
@@ -944,7 +896,6 @@ function getFilteredAndSortedBookmarks() {
   // 3. 搜尋字串比對 (標題、網址、描述或標籤)
 
   const rawSearch = (state.searchQuery || "").trim();
-
   const currentU = (state.currentUser || "").toLowerCase().trim();
 
   // 智慧防護：若搜尋詞與當前登入者帳號完全相同（因瀏覽器 Autofill 誤填），自動忽略過濾
@@ -954,15 +905,12 @@ function getFilteredAndSortedBookmarks() {
 
     result = result.filter((b) => {
       const inTitle = b.title && b.title.toLowerCase().includes(q);
-
       const inUrl = b.url && b.url.toLowerCase().includes(q);
-
       const inDesc = b.desc && b.desc.toLowerCase().includes(q);
 
       const inTags =
         Array.isArray(b.tags) &&
         b.tags.some((t) => t.toLowerCase().includes(q));
-
       return inTitle || inUrl || inDesc || inTags;
     });
   }
@@ -1000,19 +948,14 @@ function getFilteredAndSortedBookmarks() {
 
 window.resetAllFilters = function () {
   state.searchQuery = "";
-
   state.activeCategory = "all";
-
   state.activeTag = "all";
-
   const searchInput = document.getElementById("searchInput");
 
   if (searchInput) searchInput.value = "";
-
   const clearBtn = document.getElementById("clearSearchBtn");
 
   if (clearBtn) clearBtn.classList.add("d-none");
-
   const categoryNav = document.getElementById("categoryNav");
 
   if (categoryNav) {
@@ -1037,18 +980,13 @@ window.resetAllFilters = function () {
 
 function renderBookmarks(skipAnimation = false) {
   const container = document.getElementById("bookmarkContainer");
-
   const emptyState = document.getElementById("emptyState");
-
   const items = getFilteredAndSortedBookmarks();
-
   container.innerHTML = "";
 
   if (items.length === 0) {
     emptyState.classList.remove("d-none");
-
     const descEl = document.getElementById("emptyStateDescription");
-
     const resetBtn = document.getElementById("resetFiltersBtn");
 
     const hasFilters =
@@ -1077,7 +1015,6 @@ function renderBookmarks(skipAnimation = false) {
   }
 
   emptyState.classList.add("d-none");
-
   const isList = state.viewMode === "list";
 
   const colClass = isList
@@ -1086,15 +1023,12 @@ function renderBookmarks(skipAnimation = false) {
 
   items.forEach((item) => {
     const col = document.createElement("div");
-
     col.className = colClass;
 
     // 分類徽章與圖示設定
 
     let catBadgeClass = "badge-cat-web";
-
     let catLabel = "一般網頁";
-
     let catIcon = "bi-globe2";
 
     if (isAnimeItem(item)) {
@@ -1103,21 +1037,15 @@ function renderBookmarks(skipAnimation = false) {
       const tags = Array.isArray(item.tags)
         ? item.tags.join(" ")
         : item.tags || "";
-
       catLabel = /新番/i.test(tags) ? "動畫新番" : "動畫";
-
       catIcon = "bi-broadcast";
     } else if (item.category === "video") {
       catBadgeClass = "badge-cat-video";
-
       catLabel = "影片影音";
-
       catIcon = "bi-play-btn-fill";
     } else if (item.category === "resource") {
       catBadgeClass = "badge-cat-resource";
-
       catLabel = "動漫資源";
-
       catIcon = "bi-box-seam-fill";
     }
 
@@ -1177,7 +1105,6 @@ function renderBookmarks(skipAnimation = false) {
     const cardClickAttr = state.isBatchMode
       ? `onclick="toggleSelectBookmark('${item.id}')"`
       : "";
-
     const cardCursorStyle = state.isBatchMode ? 'style="cursor: pointer;"' : "";
 
     col.innerHTML = `
@@ -1214,135 +1141,69 @@ function renderBookmarks(skipAnimation = false) {
 
                     ${item.pinned ? `<div class="pin-badge"><i class="bi bi-pin-angle-fill"></i> 置頂</div>` : ""}
 
-
-
                     <div class="category-floating-badge ${catBadgeClass}">
-
-
 
                         <i class="bi ${catIcon} me-1"></i>${catLabel}
 
-
-
                     </div>
-
-
 
                 </div>
 
-
-
                 <!-- 卡片主要內容 -->
-
-
 
                 <div class="card-content-body">
 
-
-
                     <!-- 網站來源 Meta -->
-
-
 
                     <div class="card-site-meta">
 
-
-
                         <img src="${faviconUrl}" class="site-favicon" alt="icon" onerror="this.style.display='none'">
-
-
 
                         <span>${escapeHtml(hostname)}</span>
 
-
-
                         <span class="ms-auto click-counter-badge" title="累計跳轉次數">
-
-
 
                             <i class="bi bi-cursor-fill text-primary"></i> ${item.clicks || 0} 次點擊
 
-
-
                         </span>
 
-
-
                     </div>
-
-
 
                     <!-- 標題 -->
 
-
-
                     <h6 class="card-title-text" title="${escapeHtml(item.title)}">
-
-
 
                         ${escapeHtml(item.title)}
 
-
-
                     </h6>
-
-
 
                     <!-- 描述備註 -->
 
-
-
                     <p class="card-desc-text">
-
-
 
                         ${escapeHtml(item.desc || "暫無備註資訊。")}
 
-
-
                     </p>
-
-
 
                     <!-- 標籤列表 -->
 
-
-
                     <div class="card-tags">
-
-
 
                         ${tagsHtml}
 
-
-
                     </div>
-
-
 
                     <!-- 底部操作列 -->
 
-
-
                     <div class="card-actions-footer" onclick="event.stopPropagation()">
-
-
 
                         <div class="d-flex align-items-center gap-1 flex-wrap">
 
-
-
                             <button class="btn btn-dark btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="jumpToBookmark('${item.id}')">
-
-
 
                                 <i class="bi bi-box-arrow-up-right"></i> 前往
 
-
-
                             </button>
-
-
 
                             ${
                               isAnimeItem(item)
@@ -1361,8 +1222,6 @@ function renderBookmarks(skipAnimation = false) {
                             </button>`
                                 : ""
                             }
-
-
 
                             ${
                               (item.category === "video" ||
@@ -1387,8 +1246,6 @@ function renderBookmarks(skipAnimation = false) {
                                 : ""
                             }
 
-
-
                             ${
                               Array.isArray(item.tags) &&
                               item.tags.some(
@@ -1410,8 +1267,6 @@ function renderBookmarks(skipAnimation = false) {
                                 : ""
                             }
 
-
-
                             ${
                               Array.isArray(item.tags) &&
                               item.tags.some(
@@ -1432,8 +1287,6 @@ function renderBookmarks(skipAnimation = false) {
                             </button>`
                                 : ""
                             }
-
-
 
                             ${
                               isAnimeItem(item) ||
@@ -1493,67 +1346,35 @@ function renderBookmarks(skipAnimation = false) {
                                 : ""
                             }
 
-
-
                         </div>
-
-
 
                         <div class="btn-group btn-group-sm">
 
-
-
                             <button class="btn btn-outline-secondary" onclick="togglePinBookmark('${item.id}')" title="${item.pinned ? "取消置頂" : "設為置頂"}">
-
-
 
                                 <i class="bi bi-pin-angle${item.pinned ? "-fill text-warning" : ""}"></i>
 
-
-
                             </button>
-
-
 
                             <button class="btn btn-outline-secondary" onclick="editBookmark('${item.id}')" title="編輯此收藏">
 
-
-
                                 <i class="bi bi-pencil-square"></i>
 
-
-
                             </button>
-
-
 
                             <button class="btn btn-outline-danger" onclick="deleteBookmark('${item.id}')" title="刪除此收藏">
 
-
-
                                 <i class="bi bi-trash3"></i>
-
-
 
                             </button>
 
-
-
                         </div>
-
-
 
                     </div>
 
-
-
                 </div>
 
-
-
             </div>
-
-
 
         `;
 
@@ -1956,7 +1777,6 @@ function setupEventListeners() {
   if (resetBtn) {
     resetBtn.addEventListener("click", async (e) => {
       e.preventDefault();
-
       const user = state.currentUser;
 
       if (!user || user === "訪客") {
@@ -1971,9 +1791,7 @@ function setupEventListeners() {
         )
       ) {
         _isLocalMutationActive = true;
-
         state.bookmarks = [];
-
         state.selectedBookmarkIds.clear();
 
         // 1. 本地儲存立即清空
@@ -2014,14 +1832,12 @@ function setupEventListeners() {
 
   document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-
     const username = document.getElementById("loginUsername").value.trim();
 
     if (username) {
       state.currentUser = username;
 
       localStorage.setItem("web_library_user", username);
-
       const modalEl = document.getElementById("authModal");
 
       if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
@@ -2048,7 +1864,6 @@ function setupEventListeners() {
     .getElementById("registerForm")
     .addEventListener("submit", async (e) => {
       e.preventDefault();
-
       const username = document.getElementById("regUsername").value.trim();
 
       if (username) {
@@ -2060,7 +1875,6 @@ function setupEventListeners() {
         localStorage.setItem("web_library_user", username);
 
         localStorage.setItem("web_library_token", state.apiToken);
-
         const modalEl = document.getElementById("authModal");
 
         if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
@@ -2093,15 +1907,12 @@ window.jumpToBookmark = function (id) {
   const item = state.bookmarks.find((b) => b.id === id);
 
   if (!item) return;
-
   item.clicks = (item.clicks || 0) + 1;
-
   item.lastVisited = new Date().toISOString();
 
   saveToStorage();
 
   renderBookmarks();
-
   window.open(item.url, "_blank", "noopener,noreferrer");
 };
 
@@ -2111,7 +1922,6 @@ window.togglePinBookmark = function (id) {
   const item = state.bookmarks.find((b) => b.id === id);
 
   if (!item) return;
-
   item.pinned = !item.pinned;
 
   saveToStorage();
@@ -2130,26 +1940,17 @@ window.editBookmark = function (id) {
   const item = state.bookmarks.find((b) => b.id === id);
 
   if (!item) return;
-
   document.getElementById("editBookmarkId").value = item.id;
-
   document.getElementById("bmUrl").value = item.url;
-
   document.getElementById("bmTitle").value = item.title;
-
   document.getElementById("bmCategory").value = item.category;
-
   document.getElementById("bmTags").value = (item.tags || []).join(", ");
-
   document.getElementById("bmCover").value = item.cover || "";
-
   document.getElementById("bmDesc").value = item.desc || "";
-
   document.getElementById("bmPinned").checked = !!item.pinned;
 
   document.getElementById("bookmarkModalLabel").innerHTML =
     `<i class="bi bi-pencil-fill text-primary"></i> <span>編輯網頁收藏</span>`;
-
   const modal = new bootstrap.Modal(document.getElementById("bookmarkModal"));
 
   modal.show();
@@ -2185,21 +1986,13 @@ window.deleteBookmark = function (id) {
 
 function saveBookmarkFromForm() {
   const id = document.getElementById("editBookmarkId").value;
-
   const url = document.getElementById("bmUrl").value.trim();
-
   const title = document.getElementById("bmTitle").value.trim();
-
   const category = document.getElementById("bmCategory").value;
-
   const tagsStr = document.getElementById("bmTags").value.trim();
-
   const cover = document.getElementById("bmCover").value.trim();
-
   const desc = document.getElementById("bmDesc").value.trim();
-
   const pinned = document.getElementById("bmPinned").checked;
-
   const tags = tagsStr ? tagsStr.split(/[,，\s]+/).filter(Boolean) : [];
 
   if (id) {
@@ -2209,19 +2002,12 @@ function saveBookmarkFromForm() {
 
     if (item) {
       item.url = url;
-
       item.title = title;
-
       item.category = category;
-
       item.tags = tags;
-
       item.cover = cover;
-
       item.desc = desc;
-
       item.pinned = pinned;
-
       item.updatedAt = new Date().toISOString();
     }
 
@@ -2250,7 +2036,6 @@ function saveBookmarkFromForm() {
 
       createdAt: new Date().toISOString(),
     };
-
     state.bookmarks.unshift(newBookmark);
 
     showToast("已成功收藏新網頁！", "bi-plus-circle-fill text-success");
@@ -2263,7 +2048,6 @@ function saveBookmarkFromForm() {
   // 關閉 Modal
 
   const modalEl = document.getElementById("bookmarkModal");
-
   const modalInstance = bootstrap.Modal.getInstance(modalEl);
 
   if (modalInstance) modalInstance.hide();
@@ -2274,28 +2058,19 @@ function saveBookmarkFromForm() {
 function autoDetectUrl(url) {
   try {
     const parsed = new URL(url);
-
     const host = parsed.hostname.toLowerCase();
-
     let guessedCategory = "web";
-
     let defaultTags = [];
-
     let guessedTitle = "";
-
     let guessedCover = "";
 
     if (host.includes("bilibili.com")) {
       guessedCategory = "video";
-
       defaultTags = ["Bilibili", "B站", "影音影片"];
-
       guessedTitle = "Bilibili 精彩影片";
     } else if (host.includes("youtube.com") || host.includes("youtu.be")) {
       guessedCategory = "video";
-
       defaultTags = ["YouTube", "影音串流"];
-
       guessedTitle = "YouTube 熱門影音";
 
       const ytMatch = url.match(
@@ -2307,14 +2082,11 @@ function autoDetectUrl(url) {
       }
     } else if (host.includes("github.com")) {
       guessedCategory = "web";
-
       defaultTags = ["GitHub", "開源項目", "代碼倉庫"];
-
       const parts = parsed.pathname.split("/").filter(Boolean);
 
       if (parts.length >= 2) {
         guessedTitle = `${parts[0]} / ${parts[1]} - 開源專案`;
-
         guessedCover = `https://opengraph.githubassets.com/1/${parts[0]}/${parts[1]}`;
       }
     } else if (
@@ -2326,15 +2098,11 @@ function autoDetectUrl(url) {
       host.includes("bimi")
     ) {
       guessedCategory = "anime";
-
       defaultTags = ["動畫", "新番", "Kazumi播放"];
-
       guessedTitle = "動畫新番番劇";
     } else if (host.includes("dm5.com") || host.includes("copymanga")) {
       guessedCategory = "resource";
-
       defaultTags = ["漫畫", "ACG資源"];
-
       guessedTitle = "漫畫閱讀資源";
     }
 
@@ -2405,7 +2173,6 @@ function simulateTampermonkeyCollect() {
       desc: "由篡改猴一鍵採集至 Web Library 圖書館。",
     },
   ];
-
   const randomPick = mockSites[Math.floor(Math.random() * mockSites.length)];
 
   const newItem = {
@@ -2419,7 +2186,6 @@ function simulateTampermonkeyCollect() {
 
     createdAt: new Date().toISOString(),
   };
-
   state.bookmarks.unshift(newItem);
 
   saveToStorage();
@@ -2446,7 +2212,6 @@ function exportDataAsJSON() {
   const dataStr =
     "data:text/json;charset=utf-8," +
     encodeURIComponent(JSON.stringify(state.bookmarks, null, 2));
-
   const downloadAnchor = document.createElement("a");
 
   downloadAnchor.setAttribute("href", dataStr);
@@ -2455,7 +2220,6 @@ function exportDataAsJSON() {
     "download",
     `web_library_backup_${new Date().toISOString().slice(0, 10)}.json`,
   );
-
   document.body.appendChild(downloadAnchor);
 
   downloadAnchor.click();
@@ -2469,7 +2233,6 @@ function exportDataAsJSON() {
 
 function showToast(message, iconClass = "bi-check-circle-fill text-success") {
   const toastEl = document.getElementById("actionToast");
-
   const msgEl = document.getElementById("toastMessage");
 
   if (!toastEl || !msgEl) {
@@ -2479,7 +2242,6 @@ function showToast(message, iconClass = "bi-check-circle-fill text-success") {
   }
 
   msgEl.innerHTML = `<i class="bi ${iconClass} fs-5"></i> <span>${message}</span>`;
-
   const toast = new bootstrap.Toast(toastEl, { delay: 3500 });
 
   toast.show();
@@ -2557,7 +2319,6 @@ window.readMangaBookmark = function (id) {
 
 window.openKazumiFromElement = function (el) {
   const title = el.getAttribute("data-title") || "";
-
   const cover = el.getAttribute("data-cover") || "";
 
   openKazumiSourceModal(title, cover);
@@ -2567,9 +2328,7 @@ window.openKazumiFromElement = function (el) {
 
 window.collectBangumiFromElement = function (el) {
   const title = el.getAttribute("data-title") || "";
-
   const url = el.getAttribute("data-url") || "";
-
   const cover = el.getAttribute("data-cover") || "";
 
   collectBangumiAnime(title, url, cover);
@@ -2579,9 +2338,7 @@ window.collectBangumiFromElement = function (el) {
 
 window.watchKazumiFromElement = function (el) {
   const title = el.getAttribute("data-title") || "";
-
   const detailUrl = el.getAttribute("data-url") || "";
-
   const source = el.getAttribute("data-source") || "";
 
   watchKazumiAnime(title, detailUrl, source);
@@ -2632,9 +2389,7 @@ window.getFallbackAnimeCover = function (title = "", platform = "") {
 
 window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
   const title = (animeTitle || "").trim();
-
   kazumiState.title = title;
-
   let cover = animeCover;
 
   if (!cover || cover.includes("photo-1578632767115")) {
@@ -2642,13 +2397,9 @@ window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
   }
 
   kazumiState.cover = cover;
-
   const titleEl = document.getElementById("kazumiSourceTitle");
-
   const coverEl = document.getElementById("kazumiSourceCover");
-
   const summaryEl = document.getElementById("kazumiSourceSummary");
-
   const kwInput = document.getElementById("kazumiModalKeywordInput");
 
   if (coverEl) coverEl.src = kazumiState.cover;
@@ -2698,7 +2449,6 @@ window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
             let hist = window.getWatchHistoryList
               ? window.getWatchHistoryList()
               : [];
-
             let updated = false;
 
             hist.forEach((h) => {
@@ -2714,7 +2464,6 @@ window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
                   h.cover.startsWith("data:image/svg")
                 ) {
                   h.cover = realImg;
-
                   updated = true;
                 }
               }
@@ -2783,7 +2532,6 @@ async function fetchRuleSearch(sourceId, title) {
   const state = kazumiState.sources.get(sourceId);
 
   if (!state) return;
-
   state.status = "loading";
 
   renderSourceList();
@@ -2794,7 +2542,6 @@ async function fetchRuleSearch(sourceId, title) {
     );
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
     const data = await res.json();
 
     const results = Array.isArray(data.results)
@@ -2802,9 +2549,7 @@ async function fetchRuleSearch(sourceId, title) {
       : Array.isArray(data)
         ? data
         : [];
-
     state.results = results;
-
     state.status = results.length > 0 ? "done" : "empty";
 
     if (results.length > 0) {
@@ -2812,9 +2557,7 @@ async function fetchRuleSearch(sourceId, title) {
     }
   } catch (err) {
     console.error(`來源 ${sourceId} 檢索失敗：`, err);
-
     state.status = "error";
-
     state.results = [];
   }
 
@@ -2827,7 +2570,6 @@ function updateSourceSummary() {
   const summaryEl = document.getElementById("kazumiSourceSummary");
 
   if (!summaryEl) return;
-
   const total = KAZUMI_SOURCES.length;
 
   const loading = [...kazumiState.sources.values()].some(
@@ -2837,13 +2579,11 @@ function updateSourceSummary() {
   const found = [...kazumiState.sources.values()]
     .filter((s) => s.status === "done")
     .reduce((sum, s) => sum + s.results.length, 0);
-
   let text = `${total} 個來源 · `;
 
   if (loading) text += "正在檢索...";
   else if (found > 0) text += `找到 ${found} 個作品`;
   else text += "無符合結果";
-
   summaryEl.textContent = text;
 }
 
@@ -2851,7 +2591,6 @@ function renderSourceList() {
   const list = document.getElementById("kazumiSourceList");
 
   if (!list) return;
-
   list.innerHTML = "";
 
   KAZUMI_SOURCES.forEach((source) => {
@@ -2860,7 +2599,6 @@ function renderSourceList() {
       results: [],
       expanded: false,
     };
-
     const card = document.createElement("div");
 
     card.className =
@@ -2872,9 +2610,7 @@ function renderSourceList() {
 
     header.className =
       "d-flex align-items-center justify-content-between flex-wrap gap-2";
-
     header.style.cursor = state.status === "done" ? "pointer" : "default";
-
     const badgeHtml = getStatusBadge(state.status, state.results.length);
 
     header.innerHTML = `
@@ -2907,11 +2643,7 @@ function renderSourceList() {
 
                 ${state.status === "done" ? `<i class="bi bi-chevron-${state.expanded ? "up" : "down"} text-white-50"></i>` : ""}
 
-
-
             </div>
-
-
 
         `;
 
@@ -2940,7 +2672,6 @@ function renderSourceList() {
           "p-2 rounded-2 bg-dark bg-opacity-50 border border-secondary";
 
         const statusTagId = `animeBgmStatusTxt_${source.id}_${rIdx}`;
-
         const itemHeader = document.createElement("div");
 
         itemHeader.className =
@@ -3047,11 +2778,8 @@ function renderSourceList() {
         setTimeout(() => {
           checkAndRenderBangumiStatus(item.title, 2, statusTagId);
         }, 20);
-
         const epContainer = document.createElement("div");
-
         epContainer.id = `episodes_${source.id}_${rIdx}`;
-
         epContainer.className = "d-flex flex-wrap gap-1 mt-2";
 
         const fetchEpisodesBtn = itemHeader.querySelector(
@@ -3089,7 +2817,6 @@ function renderSourceList() {
             state.episodes[rIdx],
             epContainer,
           );
-
           fetchEpisodesBtn.innerHTML = `<i class="bi bi-check-circle"></i> 共 ${state.episodes[rIdx].length} 集`;
         }
 
@@ -3128,7 +2855,6 @@ function getStatusBadge(status, count) {
 
 async function loadEpisodesForSource(sourceId, rIdx, item, epContainer, btn) {
   btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>解析劇集...`;
-
   btn.disabled = true;
 
   try {
@@ -3137,29 +2863,21 @@ async function loadEpisodesForSource(sourceId, rIdx, item, epContainer, btn) {
     );
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
     const data = await res.json();
-
     const eps = Array.isArray(data.episodes) ? data.episodes : [];
-
     const state = kazumiState.sources.get(sourceId);
 
     if (state) {
       if (!state.episodes) state.episodes = {};
-
       state.episodes[rIdx] = eps;
     }
 
     renderEpisodeButtons(sourceId, item, eps, epContainer);
-
     btn.innerHTML = `<i class="bi bi-check-circle"></i> 共 ${eps.length} 集`;
   } catch (err) {
     console.error("載入劇集失敗：", err);
-
     epContainer.innerHTML = `<div class="text-danger small p-2"><i class="bi bi-exclamation-triangle"></i> 解析選集失敗，請重試</div>`;
-
     btn.disabled = false;
-
     btn.innerHTML = `<i class="bi bi-arrow-repeat"></i> 重試`;
   }
 }
@@ -3176,7 +2894,6 @@ function renderEpisodeButtons(sourceId, animeItem, episodes, container) {
   // 前端防護：依集數名稱去重，避免多線路重複顯示
 
   const seenTitles = new Set();
-
   const uniqueEpisodes = [];
 
   episodes.forEach((ep) => {
@@ -3188,7 +2905,6 @@ function renderEpisodeButtons(sourceId, animeItem, episodes, container) {
       uniqueEpisodes.push(ep);
     }
   });
-
   const isExpanded = container.getAttribute("data-expanded") === "true";
 
   const displayEps =
@@ -3198,13 +2914,9 @@ function renderEpisodeButtons(sourceId, animeItem, episodes, container) {
 
   displayEps.forEach((ep, idx) => {
     const epBtn = document.createElement("button");
-
     epBtn.className = "btn btn-xs btn-outline-light text-truncate";
-
     epBtn.style.minWidth = "68px";
-
     epBtn.textContent = ep.title || `第${idx + 1}話`;
-
     epBtn.title = ep.title;
 
     epBtn.onclick = () =>
@@ -3216,14 +2928,11 @@ function renderEpisodeButtons(sourceId, animeItem, episodes, container) {
   if (uniqueEpisodes.length > 48) {
     if (!isExpanded) {
       const moreBtn = document.createElement("button");
-
       moreBtn.type = "button";
 
       moreBtn.className =
         "btn btn-xs btn-outline-info align-self-center text-truncate";
-
       moreBtn.innerHTML = `<i class="bi bi-chevron-double-down"></i> + 尚有 ${uniqueEpisodes.length - 48} 集 (點擊展開)`;
-
       moreBtn.title = "點擊展開全部集數清單";
 
       moreBtn.onclick = (e) => {
@@ -3237,12 +2946,10 @@ function renderEpisodeButtons(sourceId, animeItem, episodes, container) {
       container.appendChild(moreBtn);
     } else {
       const collapseBtn = document.createElement("button");
-
       collapseBtn.type = "button";
 
       collapseBtn.className =
         "btn btn-xs btn-outline-secondary align-self-center text-truncate";
-
       collapseBtn.innerHTML = `<i class="bi bi-chevron-double-up"></i> 收起多餘集數`;
 
       collapseBtn.onclick = (e) => {
@@ -3268,7 +2975,6 @@ async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
     const res = await fetch(
       `/api/kazumi/rule-play?playUrl=${encodeURIComponent(episode.playUrl)}`,
     );
-
     const data = await res.json();
 
     if (data.success && data.playerUrl) {
@@ -3362,9 +3068,7 @@ function openTheaterWithUrl(
   animeCover = "",
 ) {
   window.currentKazumiPlayingUrl = playerUrl;
-
   window.currentKazumiAnimeTitle = animeTitle;
-
   window.currentKazumiEpTitle = epTitle;
 
   if (animeCover) kazumiState.cover = animeCover;
@@ -3412,25 +3116,18 @@ function openTheaterWithUrl(
   }
 
   const video = document.getElementById("kazumiVideoPlayer");
-
   const iframe = document.getElementById("kazumiIframePlayer");
-
   const iframeWrapper = document.getElementById("kazumiIframeWrapper");
-
   const placeholder = document.getElementById("kazumiTheaterPlaceholder");
-
   const fallbackCard = document.getElementById("kazumiBlockedFallback");
 
   if (placeholder) placeholder.style.display = "none";
-
   const histBox = document.getElementById("animeRecentHistoryBox");
 
   if (histBox) histBox.style.display = "none";
-
   const listContainer = document.querySelector(".episode-list-container");
 
   if (listContainer) listContainer.style.display = "flex";
-
   const screenCont = document.getElementById("kazumiScreenContainer");
 
   if (screenCont) {
@@ -3446,7 +3143,6 @@ function openTheaterWithUrl(
 
     if (window.kazumiHlsInstance) {
       window.kazumiHlsInstance.destroy();
-
       window.kazumiHlsInstance = null;
     }
 
@@ -3464,7 +3160,6 @@ function openTheaterWithUrl(
 
     if (fallbackCard) {
       fallbackCard.style.display = "block";
-
       const openBtn = document.getElementById("kazumiBlockedOpenTabBtn");
 
       if (openBtn) openBtn.href = playerUrl;
@@ -3488,7 +3183,6 @@ function openTheaterWithUrl(
 
     if (video) {
       video.style.display = "block";
-
       video.controls = false;
 
       video.removeAttribute("controls");
@@ -3504,7 +3198,6 @@ function openTheaterWithUrl(
           hls.loadSource(playerUrl);
 
           hls.attachMedia(video);
-
           window.kazumiHlsInstance = hls;
 
           hls.on(Hls.Events.MANIFEST_PARSED, function () {
@@ -3512,13 +3205,11 @@ function openTheaterWithUrl(
           });
         } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
           video.src = playerUrl;
-
           video.currentTime = 0;
 
           video.play().catch(() => {});
         } else {
           video.src = playerUrl;
-
           video.currentTime = 0;
 
           video.play().catch(() => {});
@@ -3526,12 +3217,10 @@ function openTheaterWithUrl(
       } else {
         if (window.kazumiHlsInstance) {
           window.kazumiHlsInstance.destroy();
-
           window.kazumiHlsInstance = null;
         }
 
         video.src = playerUrl;
-
         video.currentTime = 0;
 
         video.play().catch(() => {});
@@ -3540,7 +3229,6 @@ function openTheaterWithUrl(
   } else {
     if (window.kazumiHlsInstance) {
       window.kazumiHlsInstance.destroy();
-
       window.kazumiHlsInstance = null;
     }
 
@@ -3571,7 +3259,6 @@ function openTheaterWithUrl(
 
     if (iframe) {
       iframe.style.display = "block";
-
       iframe.src = playerUrl;
     }
   }
@@ -3580,9 +3267,7 @@ function openTheaterWithUrl(
 
   if (listContainer && allEpisodes.length > 0) {
     listContainer.innerHTML = "";
-
     const seen = new Set();
-
     const uniqueEps = [];
 
     allEpisodes.forEach((ep) => {
@@ -3597,15 +3282,10 @@ function openTheaterWithUrl(
 
     uniqueEps.forEach((ep) => {
       const isActive = currentEp && currentEp.playUrl === ep.playUrl;
-
       const btn = document.createElement("button");
-
       btn.className = `btn btn-sm ${isActive ? "btn-primary active" : "btn-outline-secondary"} ep-btn text-truncate text-start w-100 mb-1`;
-
       btn.style.width = "100%";
-
       btn.title = ep.title;
-
       btn.innerHTML = `<i class="bi bi-play-fill"></i> ${escapeHtml(ep.title)}`;
 
       btn.onclick = () => {
@@ -3624,7 +3304,6 @@ function openTheaterWithUrl(
   // 啟動彈幕流
 
   const epMatch = (epTitle || "").match(/\d+/);
-
   const epNo = epMatch ? parseInt(epMatch[0], 10) : 1;
 
   startDanmakuStream(animeTitle, null, epNo);
@@ -3648,7 +3327,6 @@ window.searchAnimeFromTheater = function (keyword) {
 
   if (!term || typeof term !== "string") {
     const standbyInput = document.getElementById("theaterStandbySearchInput");
-
     const headerInput = document.getElementById("theaterHeaderSearchInput");
 
     term =
@@ -3700,26 +3378,17 @@ window.searchAnimeFromTheater = function (keyword) {
 window.resetKazumiTheater = function () {
   if (window.kazumiHlsInstance) {
     window.kazumiHlsInstance.destroy();
-
     window.kazumiHlsInstance = null;
   }
 
   const video = document.getElementById("kazumiVideoPlayer");
-
   const iframe = document.getElementById("kazumiIframePlayer");
-
   const iframeWrapper = document.getElementById("kazumiIframeWrapper");
-
   const placeholder = document.getElementById("kazumiTheaterPlaceholder");
-
   const fallback = document.getElementById("kazumiBlockedFallback");
-
   const titleEl = document.getElementById("animePlayerTitle");
-
   const listContainer = document.querySelector(".episode-list-container");
-
   const standbyInput = document.getElementById("theaterStandbySearchInput");
-
   const headerInput = document.getElementById("theaterHeaderSearchInput");
 
   if (standbyInput) standbyInput.value = "";
@@ -3734,9 +3403,7 @@ window.resetKazumiTheater = function () {
     video.removeAttribute("src");
 
     video.load();
-
     video.style.display = "none";
-
     video.controls = false;
 
     video.removeAttribute("controls");
@@ -3746,7 +3413,6 @@ window.resetKazumiTheater = function () {
 
   if (iframe) {
     iframe.src = "";
-
     iframe.style.display = "none";
   }
 
@@ -3825,29 +3491,20 @@ window.openKazumiPlayer = function (title = "", src = "") {
   }
 
   window.currentKazumiPlayingUrl = src;
-
   window.currentKazumiAnimeTitle = title;
-
   document.getElementById("animePlayerTitle").textContent = title;
-
   const video = document.getElementById("kazumiVideoPlayer");
-
   const iframe = document.getElementById("kazumiIframePlayer");
-
   const iframeWrapper = document.getElementById("kazumiIframeWrapper");
-
   const placeholder = document.getElementById("kazumiTheaterPlaceholder");
 
   if (placeholder) placeholder.style.display = "none";
-
   const histBox = document.getElementById("animeRecentHistoryBox");
 
   if (histBox) histBox.style.display = "none";
-
   const listContainer = document.querySelector(".episode-list-container");
 
   if (listContainer) listContainer.style.display = "flex";
-
   const screenCont = document.getElementById("kazumiScreenContainer");
 
   if (screenCont) {
@@ -3875,7 +3532,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
 
     const bvid =
       biliMatch[1] && biliMatch[1].startsWith("BV") ? biliMatch[1] : "";
-
     const playUrlApi = `/api/kazumi/bilibili-playurl?bvid=${encodeURIComponent(bvid)}&url=${encodeURIComponent(src)}`;
 
     // 即刻儲存觀看歷史 (使用台灣用語「影片」)
@@ -3905,13 +3561,10 @@ window.openKazumiPlayer = function (title = "", src = "") {
           }
 
           video.style.display = "block";
-
           video.controls = false;
 
           video.removeAttribute("controls");
-
           video.src = res.streamUrl;
-
           video.currentTime = 0;
 
           // 即刻同步音量狀態
@@ -3937,7 +3590,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
           );
         } else {
           video.pause();
-
           video.style.display = "none";
 
           if (iframeWrapper) {
@@ -3951,7 +3603,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
           const fallbackUrl =
             res.fallbackIframeUrl ||
             `https://player.bilibili.com/player.html?bvid=${encodeURIComponent(bvid || "BV1xx411c7m9")}&page=1&high_quality=1&as_wide=1&danmaku=0`;
-
           iframe.src = fallbackUrl;
 
           setTimeout(() => {
@@ -3968,7 +3619,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
 
       .catch(() => {
         video.pause();
-
         video.style.display = "none";
 
         if (iframeWrapper) {
@@ -3978,7 +3628,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
         }
 
         iframe.style.display = "block";
-
         iframe.src = `https://player.bilibili.com/player.html?bvid=${encodeURIComponent(bvid || "BV1xx411c7m9")}&page=1&high_quality=1&as_wide=1&danmaku=0`;
 
         setTimeout(() => {
@@ -3996,12 +3645,10 @@ window.openKazumiPlayer = function (title = "", src = "") {
         .then((res) => {
           if (res.success && res.data) {
             const realTitle = res.data.title || title;
-
             const realCover = res.data.cover || "";
 
             if (realTitle) {
               window.currentKazumiAnimeTitle = realTitle;
-
               const tEl = document.getElementById("animePlayerTitle");
 
               if (tEl) tEl.textContent = realTitle;
@@ -4012,7 +3659,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
             let hist = window.getWatchHistoryList
               ? window.getWatchHistoryList()
               : [];
-
             let updated = false;
 
             hist.forEach((h) => {
@@ -4023,7 +3669,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
                 if (realTitle) h.title = realTitle;
 
                 if (realCover) h.cover = realCover;
-
                 updated = true;
               }
             });
@@ -4063,7 +3708,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
     // YouTube 官方無 Cookie 安全內嵌播放器 (純淨化：隱藏原控制項、關閉鍵盤衝突)
 
     const ytId = ytMatch[1];
-
     const ytCover = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
 
     if (typeof window.saveWatchHistory === "function") {
@@ -4079,7 +3723,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
     }
 
     video.pause();
-
     video.style.display = "none";
 
     if (iframeWrapper) {
@@ -4091,9 +3734,7 @@ window.openKazumiPlayer = function (title = "", src = "") {
     iframe.style.display = "block";
 
     iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-
     const originParam = encodeURIComponent(window.location.origin);
-
     iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&enablejsapi=1&origin=${originParam}&widget_referrer=${originParam}&rel=0&controls=0&disablekb=1&iv_load_policy=3&modestbranding=1&playsinline=1`;
 
     showToast("已載入 YouTube 官方純淨內嵌劇院！", "bi-youtube text-danger");
@@ -4116,17 +3757,12 @@ window.openKazumiPlayer = function (title = "", src = "") {
     }
 
     iframe.src = "";
-
     iframe.style.display = "none";
-
     video.style.display = "block";
-
     video.controls = false;
 
     video.removeAttribute("controls");
-
     video.src = src;
-
     video.currentTime = 0;
 
     video.play().catch(() => {});
@@ -4146,7 +3782,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
   // 清空彈幕覆蓋層（無預設彈幕）
 
   clearInterval(danmakuInterval);
-
   const overlay = document.getElementById("danmakuOverlay");
 
   if (overlay) overlay.innerHTML = "";
@@ -4158,18 +3793,13 @@ function renderKazumiEpisodes(bvid, episodes) {
   const container = document.querySelector(".episode-list-container");
 
   if (!container) return;
-
   container.innerHTML = "";
 
   episodes.forEach((ep, idx) => {
     const btn = document.createElement("button");
-
     btn.className = `btn btn-sm ${idx === 0 ? "btn-primary active" : "btn-outline-secondary"} ep-btn text-truncate text-start`;
-
     btn.style.maxWidth = "100%";
-
     btn.title = ep.part;
-
     btn.innerHTML = `<i class="bi bi-play-fill"></i> P${ep.page}: ${escapeHtml(ep.part)}`;
 
     btn.onclick = async () => {
@@ -4187,11 +3817,8 @@ function renderKazumiEpisodes(bvid, episodes) {
         `正在切換至 P${ep.page}「${ep.part}」...`,
         "bi-play-circle text-info",
       );
-
       const baseTitle = window.currentKazumiAnimeTitle || "Bilibili 影片";
-
       const epTitle = `P${ep.page}: ${ep.part}`;
-
       const tEl = document.getElementById("animePlayerTitle");
 
       if (tEl) tEl.textContent = `${baseTitle} - ${epTitle}`;
@@ -4214,7 +3841,6 @@ function renderKazumiEpisodes(bvid, episodes) {
         const streamRes = await fetch(
           `/api/kazumi/bilibili-playurl?bvid=${bvid}&cid=${ep.cid || 0}`,
         );
-
         const streamData = await streamRes.json();
 
         if (
@@ -4223,9 +3849,7 @@ function renderKazumiEpisodes(bvid, episodes) {
           streamData.streamUrl
         ) {
           const video = document.getElementById("kazumiVideoPlayer");
-
           const iframe = document.getElementById("kazumiIframePlayer");
-
           const iframeWrapper = document.getElementById("kazumiIframeWrapper");
 
           if (iframeWrapper) iframeWrapper.style.display = "none";
@@ -4237,13 +3861,10 @@ function renderKazumiEpisodes(bvid, episodes) {
 
           if (video) {
             video.style.display = "block";
-
             video.controls = false;
 
             video.removeAttribute("controls");
-
             video.src = streamData.streamUrl;
-
             video.currentTime = 0;
 
             video.play().catch(() => {});
@@ -4268,9 +3889,7 @@ function renderKazumiEpisodes(bvid, episodes) {
       // 降級回退至官方內嵌播放器
 
       const iframe = document.getElementById("kazumiIframePlayer");
-
       const iframeWrapper = document.getElementById("kazumiIframeWrapper");
-
       const video = document.getElementById("kazumiVideoPlayer");
 
       if (video) {
@@ -4286,7 +3905,6 @@ function renderKazumiEpisodes(bvid, episodes) {
 
       if (iframe) {
         iframe.style.display = "block";
-
         iframe.src = `https://player.bilibili.com/player.html?bvid=${bvid}&page=${ep.page}&high_quality=1&as_wide=1&danmaku=0`;
       }
 
@@ -4318,7 +3936,6 @@ window.closeAnimePlayer = function () {
 
   if (fsHideTimer) {
     clearTimeout(fsHideTimer);
-
     fsHideTimer = null;
   }
 
@@ -4330,16 +3947,12 @@ window.closeAnimePlayer = function () {
 
   if (window.kazumiHlsInstance) {
     window.kazumiHlsInstance.destroy();
-
     window.kazumiHlsInstance = null;
   }
 
   const video = document.getElementById("kazumiVideoPlayer");
-
   const iframe = document.getElementById("kazumiIframePlayer");
-
   const iframeWrapper = document.getElementById("kazumiIframeWrapper");
-
   const fallback = document.getElementById("kazumiBlockedFallback");
 
   if (fallback) fallback.style.display = "none";
@@ -4350,7 +3963,6 @@ window.closeAnimePlayer = function () {
     video.removeAttribute("src");
 
     video.load();
-
     video.controls = false;
 
     video.removeAttribute("controls");
@@ -4398,7 +4010,6 @@ window.quickSwitchKazumiSource = function (targetSource) {
   // 關閉播放器並重新打開來源選單 (切換至 AGE動漫 等免跳轉源)
 
   window.closeAnimePlayer();
-
   const theaterModalEl = document.getElementById("animePlayerModal");
 
   const theaterModal = theaterModalEl
@@ -4442,9 +4053,7 @@ window.switchEpisode = function (epNum, btn) {
   btn.classList.remove("btn-outline-secondary");
 
   btn.classList.add("btn-primary", "active");
-
   const video = document.getElementById("kazumiVideoPlayer");
-
   video.currentTime = 0;
 
   video.play().catch(() => {});
@@ -4535,7 +4144,6 @@ function applyDanmakuConfigToCSS() {
     video && danmakuConfig.syncSpeed && video.playbackRate > 0
       ? video.playbackRate
       : 1.0;
-
   const effectiveDuration = (danmakuConfig.duration / rate).toFixed(2);
 
   overlay.style.setProperty("--danmaku-duration", `${effectiveDuration}s`);
@@ -4554,22 +4162,15 @@ function clearDanmakuScreen() {
 window.clearAllDanmakuState = function () {
   if (danmakuInterval) {
     clearInterval(danmakuInterval);
-
     danmakuInterval = null;
   }
 
   clearDanmakuScreen();
-
   currentDanmakuQueue = [];
-
   window.currentDanmakuList = [];
-
   window.currentPlayingAnime = null;
-
   virtualDanmakuTime = 0;
-
   lastSyncVideoTime = 0;
-
   isDanmakuPaused = true;
 
   // 清空側邊欄彈幕清單與計數徽章
@@ -4603,11 +4204,9 @@ window.clearAllDanmakuState = function () {
   const badge = document.getElementById("dmkSidebarCountBadge");
 
   if (badge) badge.textContent = "0";
-
   const totalBadge = document.getElementById("dmkListTotalBadge");
 
   if (totalBadge) totalBadge.textContent = "0 則";
-
   const srcLabel = document.getElementById("dmkCurrentSourceLabel");
 
   if (srcLabel) srcLabel.textContent = "來源：待命中";
@@ -4645,34 +4244,25 @@ function createBulletDanmaku(text, color = "#ffffff", mode = 1) {
   if (mode === 5 && !danmakuConfig.topDanmaku) return;
 
   if (mode === 4 && !danmakuConfig.bottomDanmaku) return;
-
   const overlay = document.getElementById("danmakuOverlay");
 
   if (!overlay) return;
-
   const bullet = document.createElement("div");
-
   bullet.className = "danmaku-bullet";
-
   bullet.textContent = text;
-
   bullet.style.color = color;
 
   // 依據「顯示區域」限制垂直分佈
 
   const maxArea = Math.min(Math.max(danmakuConfig.displayArea, 20), 100) / 100;
-
   const topPct = (Math.random() * (maxArea * 0.75) + 0.05) * 100;
-
   bullet.style.top = topPct.toFixed(1) + "%";
 
   if (mode === 5) {
     bullet.classList.add("danmaku-top");
-
     bullet.style.top = "8%";
   } else if (mode === 4) {
     bullet.classList.add("danmaku-bottom");
-
     bullet.style.top = "85%";
   }
 
@@ -4694,11 +4284,8 @@ function createBulletDanmaku(text, color = "#ffffff", mode = 1) {
 }
 
 let currentDanmakuQueue = [];
-
 let lastSyncVideoTime = 0;
-
 let virtualDanmakuTime = 0;
-
 let isDanmakuPaused = false;
 
 // 串接 Kazumi 後端彈幕流 (支援 彈彈play 全網聚合與 B站官方即時彈幕)
@@ -4706,12 +4293,10 @@ let isDanmakuPaused = false;
 async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
   if (danmakuInterval) {
     clearInterval(danmakuInterval);
-
     danmakuInterval = null;
   }
 
   clearDanmakuScreen();
-
   const overlay = document.getElementById("danmakuOverlay");
 
   if (overlay) {
@@ -4721,15 +4306,11 @@ async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
   }
 
   applyDanmakuConfigToCSS();
-
   window.currentPlayingAnime = { title: animeTitle, cid: cid, ep: episodeNo };
-
   const appId = localStorage.getItem("dandanplay_app_id") || "";
-
   const appSecret = localStorage.getItem("dandanplay_app_secret") || "";
 
   if (!animeTitle && !cid) return;
-
   let danmakuQueue = [];
 
   try {
@@ -4753,7 +4334,6 @@ async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
       queryParams.push(
         `appId=${encodeURIComponent(appId)}&appSecret=${encodeURIComponent(appSecret)}`,
       );
-
     const res = await fetch(`/api/kazumi/danmaku?${queryParams.join("&")}`);
 
     if (res.ok) {
@@ -4799,18 +4379,12 @@ async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
 
   danmakuQueue.forEach((item) => {
     item._fired = false;
-
     item.numericTime = parseFloat(item.time) || 0;
   });
-
   currentDanmakuQueue = danmakuQueue;
-
   window.currentDanmakuList = danmakuQueue;
-
   lastSyncVideoTime = 0;
-
   virtualDanmakuTime = 0;
-
   isDanmakuPaused = false;
 
   // 即時將載入之全量彈幕渲染至側邊欄清單與計數徽章
@@ -4834,15 +4408,10 @@ function syncDanmakuWithVideoTime() {
     isDanmakuPaused
   )
     return;
-
   const video = document.getElementById("kazumiVideoPlayer");
-
   const iframe = document.getElementById("kazumiIframePlayer");
-
   const isVideoMode = video && video.style.display !== "none";
-
   const isIframeMode = iframe && iframe.style.display !== "none";
-
   let currentBaseTime = 0;
 
   if (isVideoMode) {
@@ -4853,7 +4422,6 @@ function syncDanmakuWithVideoTime() {
     }
 
     currentBaseTime = video.currentTime;
-
     virtualDanmakuTime = currentBaseTime;
   } else if (isIframeMode) {
     if (isDanmakuPaused) return;
@@ -4861,7 +4429,6 @@ function syncDanmakuWithVideoTime() {
     // iframe 播放模式下，使用虛擬播放時間軸推進 (每 200ms = 0.2s)
 
     virtualDanmakuTime += 0.2;
-
     currentBaseTime = virtualDanmakuTime;
   } else {
     return;
@@ -4888,7 +4455,6 @@ function syncDanmakuWithVideoTime() {
         item.color || "#ffffff",
         item.mode || 1,
       );
-
       item._fired = true;
     }
   }
@@ -4918,7 +4484,6 @@ function sendIframePlaybackCommand(cmd, time = 0) {
   const iframe = document.getElementById("kazumiIframePlayer");
 
   if (!iframe || !iframe.contentWindow) return;
-
   const targetSec = Math.max(0, Math.floor(time));
 
   try {
@@ -4996,11 +4561,8 @@ function sendIframePlaybackCommand(cmd, time = 0) {
 
 window.toggleMasterPlayPause = function () {
   const video = document.getElementById("kazumiVideoPlayer");
-
   const iframe = document.getElementById("kazumiIframePlayer");
-
   const isVideoMode = video && video.style.display !== "none";
-
   const isIframeMode = iframe && iframe.style.display !== "none";
 
   if (isVideoMode) {
@@ -5031,7 +4593,6 @@ window.toggleMasterPlayPause = function () {
     }
   }
 };
-
 window.toggleDanmakuPlayPause = window.toggleMasterPlayPause;
 
 // 影片暫停時立即凍結動畫與停止發射 (徹底解決影片暫停彈幕仍一直播出的問題)
@@ -5041,7 +4602,6 @@ window.pauseDanmaku = function () {
 
   if (danmakuInterval) {
     clearInterval(danmakuInterval);
-
     danmakuInterval = null;
   }
 
@@ -5066,12 +4626,10 @@ window.pauseDanmaku = function () {
 
 window.resumeDanmaku = function () {
   isDanmakuPaused = false;
-
   const overlay = document.getElementById("danmakuOverlay");
 
   if (overlay) {
     overlay.classList.remove("danmaku-paused");
-
     const bullets = overlay.querySelectorAll(".danmaku-bullet");
 
     bullets.forEach((b) => {
@@ -5090,18 +4648,14 @@ window.resumeDanmaku = function () {
 
 function updatePlayPauseButtonUI(paused) {
   const btn = document.getElementById("danmakuPlayPauseBtn");
-
   const btnText = document.getElementById("danmakuPlayPauseBtnText");
-
   const miniIcon = document.getElementById("danmakuMiniPlayPauseIcon");
-
   const mainIcon = btn ? btn.querySelector("i") : null;
 
   if (paused) {
     if (btn) {
       btn.className =
         "btn btn-sm btn-warning text-dark fw-bold rounded-pill px-2";
-
       btn.title = "繼續彈幕飄動 (快捷鍵: 空白鍵 Space)";
     }
 
@@ -5113,7 +4667,6 @@ function updatePlayPauseButtonUI(paused) {
   } else {
     if (btn) {
       btn.className = "btn btn-sm btn-outline-warning rounded-pill px-2";
-
       btn.title = "暫停彈幕飄動 (快捷鍵: 空白鍵 Space)";
     }
 
@@ -5149,19 +4702,14 @@ function getDanmakuMaxDuration() {
 
 function formatDanmakuMinSec(totalSeconds) {
   const s = Math.max(0, Math.floor(totalSeconds));
-
   const m = Math.floor(s / 60);
-
   const remS = s % 60;
-
   return `${String(m).padStart(2, "0")}:${String(remS).padStart(2, "0")}`;
 }
 
 function updateDanmakuTimeDisplay(currentSec, totalSec = null) {
   const maxSec = totalSec || getDanmakuMaxDuration();
-
   const cur = Math.max(0, Math.min(currentSec, maxSec));
-
   const timeDisplay = document.getElementById("theaterDanmakuTimeDisplay");
 
   if (timeDisplay) {
@@ -5172,7 +4720,6 @@ function updateDanmakuTimeDisplay(currentSec, totalSec = null) {
 
   if (slider) {
     slider.max = maxSec;
-
     slider.value = Math.floor(cur);
   }
 }
@@ -5183,17 +4730,11 @@ window.seekMasterTimeline = function (targetSec) {
   const sec = Math.max(0, parseFloat(targetSec) || 0);
 
   clearDanmakuScreen();
-
   const video = document.getElementById("kazumiVideoPlayer");
-
   const iframe = document.getElementById("kazumiIframePlayer");
-
   const isVideoMode = video && video.style.display !== "none";
-
   const isIframeMode = iframe && iframe.style.display !== "none";
-
   virtualDanmakuTime = sec;
-
   lastSyncVideoTime = sec;
 
   if (isVideoMode) {
@@ -5220,11 +4761,8 @@ window.seekDanmaku = function (targetSec = null) {
     window.seekMasterTimeline(targetSec);
   } else {
     const video = document.getElementById("kazumiVideoPlayer");
-
     const isVideoMode = video && video.style.display !== "none";
-
     const cur = isVideoMode ? video.currentTime || 0 : virtualDanmakuTime;
-
     window.seekMasterTimeline(cur);
   }
 };
@@ -5248,9 +4786,7 @@ window.jumpToDanmakuTime = function (sec) {
 
 window.jumpToDanmakuPercent = function (pct) {
   const maxSec = getDanmakuMaxDuration();
-
   const target = (maxSec * pct) / 100;
-
   window.seekMasterTimeline(target);
 
   if (isDanmakuPaused) {
@@ -5267,7 +4803,6 @@ window.jumpToDanmakuPercent = function (pct) {
 
 window.jumpDanmakuRelative = function (deltaSec) {
   const target = Math.max(0, virtualDanmakuTime + deltaSec);
-
   window.seekMasterTimeline(target);
 
   showToast(
@@ -5280,7 +4815,6 @@ window.jumpDanmakuRelative = function (deltaSec) {
 
 window.onDanmakuTimelineSliderInput = function (val) {
   const sec = parseFloat(val) || 0;
-
   const timeDisplay = document.getElementById("theaterDanmakuTimeDisplay");
 
   if (timeDisplay) {
@@ -5292,7 +4826,6 @@ window.onDanmakuTimelineSliderInput = function (val) {
 
 window.onDanmakuTimelineSliderChange = function (val) {
   const sec = parseFloat(val) || 0;
-
   window.seekMasterTimeline(sec);
 
   if (isDanmakuPaused) {
@@ -5320,9 +4853,7 @@ if (isNaN(kazumiCurrentVolume) || kazumiCurrentVolume < 0)
   kazumiCurrentVolume = 100;
 
 if (kazumiCurrentVolume > 100) kazumiCurrentVolume = 100;
-
 let kazumiIsMuted = localStorage.getItem("kazumi_theater_muted") === "true";
-
 let kazumiVolumeHudTimer = null;
 
 // 廣播音量給 iframe (相容 YouTube Iframe API, Bilibili, DPlayer, ArtPlayer, Tampermonkey Bridge)
@@ -5331,7 +4862,6 @@ function sendIframeVolumeCommand(vol, isMuted) {
   const iframe = document.getElementById("kazumiIframePlayer");
 
   if (!iframe || !iframe.contentWindow) return;
-
   const effectiveVol = isMuted ? 0 : Math.max(0, Math.min(100, vol));
 
   try {
@@ -5403,13 +4933,10 @@ function sendIframeVolumeCommand(vol, isMuted) {
 
 window.showKazumiVolumeHud = function (vol, isMuted) {
   const hud = document.getElementById("kazumiVolumeHud");
-
   const icon = document.getElementById("volumeHudIcon");
-
   const text = document.getElementById("volumeHudText");
 
   if (!hud) return;
-
   const effectiveVol = isMuted ? 0 : vol;
 
   if (text) text.textContent = isMuted ? "靜音" : `${effectiveVol}%`;
@@ -5439,22 +4966,16 @@ window.showKazumiVolumeHud = function (vol, isMuted) {
 
 window.applyKazumiVolume = function (showHud = false) {
   const video = document.getElementById("kazumiVideoPlayer");
-
   const slider = document.getElementById("danmakuVolumeSlider");
-
   const label = document.getElementById("danmakuVolumeLabel");
-
   const icon = document.getElementById("danmakuVolumeIcon");
-
   const effectiveVol = kazumiIsMuted ? 0 : kazumiCurrentVolume;
 
   // 1. 套用至 HTML5 video
 
   if (video) {
     video.volume = Math.max(0, Math.min(1, kazumiCurrentVolume / 100));
-
     video.muted = kazumiIsMuted;
-
     video.controls = false;
 
     video.removeAttribute("controls");
@@ -5496,7 +5017,6 @@ window.applyKazumiVolume = function (showHud = false) {
 
 window.toggleKazumiVolumeMute = function () {
   kazumiIsMuted = !kazumiIsMuted;
-
   window.applyKazumiVolume(true);
 };
 
@@ -5520,9 +5040,7 @@ window.onKazumiVolumeChange = function (val) {
 
 window.adjustKazumiVolume = function (delta) {
   if (kazumiIsMuted) kazumiIsMuted = false;
-
   kazumiCurrentVolume = Math.max(0, Math.min(100, kazumiCurrentVolume + delta));
-
   window.applyKazumiVolume(true);
 };
 
@@ -5534,11 +5052,8 @@ window.adjustKazumiVolume = function (delta) {
 
 window.switchTheaterSidebarTab = function (tabName) {
   const tabEp = document.getElementById("tabBtnEpisodes");
-
   const tabDm = document.getElementById("tabBtnDanmaku");
-
   const panelEp = document.getElementById("kazumiEpisodesPanel");
-
   const panelDm = document.getElementById("kazumiDanmakuPanel");
 
   if (tabName === "danmaku") {
@@ -5561,7 +5076,6 @@ window.switchTheaterSidebarTab = function (tabName) {
     }
 
     renderDanmakuList(currentDanmakuQueue || []);
-
     const input = document.getElementById("dmkSidebarSearchInput");
 
     if (input) input.focus();
@@ -5592,11 +5106,8 @@ window.openDanmakuListModal = function () {
 
 function formatDanmakuSeconds(sec) {
   const s = Math.max(0, Math.floor(sec || 0));
-
   const m = Math.floor(s / 60);
-
   const rem = s % 60;
-
   return `${m.toString().padStart(2, "0")}:${rem.toString().padStart(2, "0")}`;
 }
 
@@ -5624,15 +5135,11 @@ window.filterDanmakuList = function (keyword) {
 
 function renderDanmakuList(list, keyword = "") {
   const container = document.getElementById("danmakuListItemsContainer");
-
   const countBadge = document.getElementById("dmkListTotalBadge");
-
   const sidebarBadge = document.getElementById("dmkSidebarCountBadge");
-
   const sourceLabel = document.getElementById("dmkCurrentSourceLabel");
 
   if (!container) return;
-
   const countStr = `${list ? list.length : 0} 則`;
 
   if (countBadge) countBadge.textContent = countStr;
@@ -5680,7 +5187,6 @@ function renderDanmakuList(list, keyword = "") {
   container.innerHTML = list
     .map((item, idx) => {
       const timeStr = formatDanmakuSeconds(item.numericTime || item.time || 0);
-
       const color = item.color || "#ffffff";
 
       return `
@@ -5751,7 +5257,6 @@ window.openDanmakuSettingsModal = function () {
   loadDanmakuSettings();
 
   updateDanmakuSettingsModalUI();
-
   const modalEl = document.getElementById("danmakuSettingsModal");
 
   if (modalEl) {
@@ -5820,16 +5325,13 @@ function updateDanmakuSettingsModalUI() {
       : `${danmakuConfig.timeOffset > 0 ? "+" : ""}${danmakuConfig.timeOffset.toFixed(1)}s`;
 
   setText("val-dmkTimeOffset", offsetStr);
-
   const blockInput = document.getElementById("dmkBlockWords");
 
   if (blockInput) blockInput.value = danmakuConfig.blockWords || "";
-
   const appIdInput = document.getElementById("dmkDandanAppId");
 
   if (appIdInput)
     appIdInput.value = localStorage.getItem("dandanplay_app_id") || "";
-
   const appSecretInput = document.getElementById("dmkDandanAppSecret");
 
   if (appSecretInput)
@@ -5841,9 +5343,7 @@ function updateDanmakuSettingsModalUI() {
     danmakuConfig.sourcePreference ||
     localStorage.getItem("danmaku_source_preference") ||
     "bilibili";
-
   const biliRadio = document.getElementById("dmkSourceBili");
-
   const dandanRadio = document.getElementById("dmkSourceDandan");
 
   if (biliRadio && dandanRadio) {
@@ -5936,11 +5436,8 @@ window.onDanmakuSettingBlockWords = function (val) {
 
 window.adjustDanmakuOffset = function (delta) {
   let current = parseFloat(danmakuConfig.timeOffset) || 0;
-
   current = Math.min(Math.max(current + delta, -10), 10);
-
   danmakuConfig.timeOffset = parseFloat(current.toFixed(1));
-
   const range = document.getElementById("dmkTimeOffsetRange");
 
   if (range) range.value = danmakuConfig.timeOffset;
@@ -5949,13 +5446,11 @@ window.adjustDanmakuOffset = function (delta) {
     danmakuConfig.timeOffset === 0
       ? "0.0s (無偏移)"
       : `${danmakuConfig.timeOffset > 0 ? "+" : ""}${danmakuConfig.timeOffset.toFixed(1)}s`;
-
   const label = document.getElementById("val-dmkTimeOffset");
 
   if (label) label.textContent = offsetStr;
 
   saveDanmakuSettings();
-
   window.seekDanmaku();
 
   showToast(`⏱️ 彈幕時間校準：${offsetStr}`, "bi-clock-history text-info");
@@ -5963,17 +5458,14 @@ window.adjustDanmakuOffset = function (delta) {
 
 window.resetDanmakuOffset = function () {
   danmakuConfig.timeOffset = 0;
-
   const range = document.getElementById("dmkTimeOffsetRange");
 
   if (range) range.value = 0;
-
   const label = document.getElementById("val-dmkTimeOffset");
 
   if (label) label.textContent = "0.0s (無偏移)";
 
   saveDanmakuSettings();
-
   window.seekDanmaku();
 
   showToast("⏱️ 已重置彈幕時間偏移！", "bi-check-circle text-success");
@@ -6007,7 +5499,6 @@ window.resetDanmakuSettingsDefault = function () {
   saveDanmakuSettings();
 
   updateDanmakuSettingsModalUI();
-
   window.seekDanmaku();
 
   showToast(
@@ -6018,7 +5509,6 @@ window.resetDanmakuSettingsDefault = function () {
 
 window.saveDandanplayFromModal = function () {
   const appIdInput = document.getElementById("dmkDandanAppId");
-
   const appSecretInput = document.getElementById("dmkDandanAppSecret");
 
   if (appIdInput && appSecretInput) {
@@ -6041,9 +5531,7 @@ window.promptDandanplayConfig = function () {
 
 document.addEventListener("DOMContentLoaded", () => {
   const danmakuBtn = document.getElementById("sendDanmakuBtn");
-
   const danmakuInput = document.getElementById("danmakuInput");
-
   const toggleBtn = document.getElementById("danmakuToggleBtn");
 
   if (danmakuBtn && danmakuInput) {
@@ -6052,7 +5540,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (val) {
         createBulletDanmaku(val, "#22c55e");
-
         danmakuInput.value = "";
 
         showToast("彈幕發送成功！", "bi-chat-dots-fill text-success");
@@ -6073,13 +5560,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // 全螢幕狀態變化監聽
 
   document.addEventListener("fullscreenchange", handleFullscreenChange);
-
   document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-
   document.addEventListener("mozfullscreenchange", handleFullscreenChange);
-
   document.addEventListener("MSFullscreenChange", handleFullscreenChange);
-
   const animeModalEl = document.getElementById("animePlayerModal");
 
   if (animeModalEl) {
@@ -6095,19 +5578,16 @@ document.addEventListener("DOMContentLoaded", () => {
   if (kazumiVideo) {
     kazumiVideo.addEventListener("click", (e) => {
       e.preventDefault();
-
       window.toggleDanmakuPlayPause();
     });
 
     kazumiVideo.addEventListener("dblclick", (e) => {
       e.preventDefault();
-
       window.toggleKazumiFullscreen();
     });
 
     kazumiVideo.addEventListener("pause", () => {
       window.pauseDanmaku();
-
       window.saveCurrentAnimeProgressNow();
     });
 
@@ -6161,7 +5641,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     kazumiVideo.addEventListener("ended", () => {
       window.pauseDanmaku();
-
       window.saveCurrentAnimeProgressNow();
     });
   }
@@ -6198,7 +5677,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const time = Number(data.currentTime);
-
         const duration = Number(data.duration) || getDanmakuMaxDuration();
 
         if (data.type === "pause") {
@@ -6256,7 +5734,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!isNaN(curTime)) {
           updateDanmakuTimeDisplay(curTime);
-
           virtualDanmakuTime = curTime;
         }
       }
@@ -6275,13 +5752,10 @@ document.addEventListener("DOMContentLoaded", () => {
       theaterModal.style.display === "block";
 
     if (!isOpen) return false;
-
     const placeholder = document.getElementById("kazumiTheaterPlaceholder");
 
     if (placeholder && placeholder.style.display !== "none") return true;
-
     const video = document.getElementById("kazumiVideoPlayer");
-
     const iframe = document.getElementById("kazumiIframePlayer");
 
     const isVideoActive =
@@ -6289,7 +5763,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const isIframeActive =
       iframe && iframe.style.display !== "none" && iframe.src;
-
     return !isVideoActive && !isIframeActive;
   };
 
@@ -6300,9 +5773,7 @@ document.addEventListener("DOMContentLoaded", () => {
       e.target && e.target.tagName ? e.target.tagName.toLowerCase() : "";
 
     if (tag === "input" || tag === "textarea") return;
-
     const theaterModal = document.getElementById("animePlayerModal");
-
     const isOpen = theaterModal && theaterModal.classList.contains("show");
 
     if (!isOpen) return;
@@ -6398,7 +5869,6 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
 
         e.preventDefault();
-
         const delta = e.deltaY < 0 ? 5 : -5;
 
         if (typeof window.adjustKazumiVolume === "function") {
@@ -6428,13 +5898,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function initKazumiFullscreenInteractions() {
   const topHover = document.getElementById("kazumiFsTopHoverZone");
-
   const bottomHover = document.getElementById("kazumiFsBottomHoverZone");
-
   const screenOverlay = document.getElementById("kazumiFsScreenOverlay");
-
   const topBar = document.getElementById("kazumiFsTopBar");
-
   const timelineBar = document.getElementById("danmakuTimelineBar");
 
   const wakeUpAndResetTimer = (e) => {
@@ -6445,7 +5911,6 @@ function initKazumiFullscreenInteractions() {
 
   const handleHoverWheel = (e) => {
     const container = document.getElementById("kazumiScreenContainer");
-
     const theaterModal = document.getElementById("animePlayerModal");
 
     const isOpen =
@@ -6469,7 +5934,6 @@ function initKazumiFullscreenInteractions() {
     e.preventDefault();
 
     e.stopPropagation();
-
     const delta = e.deltaY < 0 ? 5 : -5;
 
     if (typeof window.adjustKazumiVolume === "function") {
@@ -6490,7 +5954,6 @@ function initKazumiFullscreenInteractions() {
 
     el.addEventListener("wheel", handleHoverWheel, { passive: false });
   });
-
   const screenContainerEl = document.getElementById("kazumiScreenContainer");
 
   if (screenContainerEl) {
@@ -6499,7 +5962,6 @@ function initKazumiFullscreenInteractions() {
     screenContainerEl.addEventListener("mouseleave", () => {
       if (!screenContainerEl.classList.contains("is-standby")) {
         const drawer = document.getElementById("kazumiFsEpisodeDrawer");
-
         const drawerOpen = drawer && !drawer.classList.contains("d-none");
 
         if (!drawerOpen) {
@@ -6551,7 +6013,6 @@ function initKazumiFullscreenInteractions() {
 
     screenOverlay.addEventListener("click", (e) => {
       const container = document.getElementById("kazumiScreenContainer");
-
       const theaterModal = document.getElementById("animePlayerModal");
 
       const isOpen =
@@ -6575,14 +6036,12 @@ function initKazumiFullscreenInteractions() {
       // 若點擊位置在畫面頂部 60px 或底部 85px (控制軸與時間列區域)，忽略中央代理層點擊，留給真實控制列
 
       const rect = screenOverlay.getBoundingClientRect();
-
       const y = e.clientY - rect.top;
 
       if (y > rect.height - 85 || y < 60) return;
 
       if (clickTimeout) {
         clearTimeout(clickTimeout);
-
         clickTimeout = null;
 
         return;
@@ -6604,7 +6063,6 @@ function initKazumiFullscreenInteractions() {
 
       if (clickTimeout) {
         clearTimeout(clickTimeout);
-
         clickTimeout = null;
       }
 
@@ -6620,7 +6078,6 @@ function initKazumiFullscreenInteractions() {
     "wheel",
     (e) => {
       const container = document.getElementById("kazumiScreenContainer");
-
       const theaterModal = document.getElementById("animePlayerModal");
 
       const isOpen =
@@ -6641,7 +6098,6 @@ function initKazumiFullscreenInteractions() {
           return;
 
         e.preventDefault();
-
         const delta = e.deltaY < 0 ? 5 : -5;
 
         if (typeof window.adjustKazumiVolume === "function") {
@@ -6665,7 +6121,6 @@ function initKazumiFullscreenInteractions() {
             return;
 
           e.preventDefault();
-
           const delta = e.deltaY < 0 ? 5 : -5;
 
           if (typeof window.adjustKazumiVolume === "function") {
@@ -6686,11 +6141,8 @@ function initKazumiFullscreenInteractions() {
 
 window.toggleDanmaku = function () {
   danmakuEnabled = !danmakuEnabled;
-
   const toggleBtn = document.getElementById("danmakuToggleBtn");
-
   const fsToggleBtn = document.getElementById("kazumiFsDanmakuToggleBtn");
-
   const fsStatusText = document.getElementById("kazumiFsDanmakuStatusText");
 
   if (toggleBtn) {
@@ -6783,19 +6235,12 @@ function handleFullscreenChange() {
     document.fullscreenElement === container ||
     document.webkitFullscreenElement === container
   );
-
   const topBar = document.getElementById("kazumiFsTopBar");
-
   const danmakuBar = document.getElementById("kazumiFsDanmakuBar");
-
   const drawerBtn = document.getElementById("kazumiFsDrawerBtn");
-
   const icon = document.getElementById("kazumiFsIcon");
-
   const btnText = document.getElementById("kazumiFsBtnText");
-
   const titleEl = document.getElementById("kazumiFsTitle");
-
   const drawer = document.getElementById("kazumiFsEpisodeDrawer");
 
   if (isFs) {
@@ -6818,7 +6263,6 @@ function handleFullscreenChange() {
     if (icon) icon.className = "bi bi-fullscreen-exit";
 
     if (btnText) btnText.textContent = "退出";
-
     const theaterTitle = document.getElementById("animePlayerTitle");
 
     if (titleEl && theaterTitle) {
@@ -6860,7 +6304,6 @@ function handleFullscreenChange() {
 }
 
 let lastFsMouseX = -1;
-
 let lastFsMouseY = -1;
 
 window.onFullscreenMouseMove = function (e) {
@@ -6872,7 +6315,6 @@ window.onFullscreenMouseMove = function (e) {
 
   if (e && typeof e.clientX === "number" && typeof e.clientY === "number") {
     const dx = Math.abs(e.clientX - lastFsMouseX);
-
     const dy = Math.abs(e.clientY - lastFsMouseY);
 
     if (dx < 3 && dy < 3) {
@@ -6880,7 +6322,6 @@ window.onFullscreenMouseMove = function (e) {
     }
 
     lastFsMouseX = e.clientX;
-
     lastFsMouseY = e.clientY;
   }
 
@@ -6910,7 +6351,6 @@ function startFsIdleTimer() {
 
   fsHideTimer = setTimeout(() => {
     const drawer = document.getElementById("kazumiFsEpisodeDrawer");
-
     const drawerOpen = drawer && !drawer.classList.contains("d-none");
 
     if (!drawerOpen && !container.classList.contains("is-standby")) {
@@ -6933,9 +6373,7 @@ window.toggleFullscreenEpisodesDrawer = function (force) {
 
   if (shouldOpen) {
     drawer.classList.remove("d-none");
-
     window.syncFullscreenEpisodeDrawer();
-
     const container = document.getElementById("kazumiScreenContainer");
 
     if (container) container.classList.remove("fs-controls-hidden");
@@ -6952,7 +6390,6 @@ window.syncFullscreenEpisodeDrawer = function () {
   const targetList = document.getElementById("kazumiFsEpisodeList");
 
   if (!targetList) return;
-
   targetList.innerHTML = "";
 
   const originButtons = document.querySelectorAll(
@@ -6970,16 +6407,12 @@ window.syncFullscreenEpisodeDrawer = function () {
 
     const isActive =
       btn.classList.contains("active") || btn.classList.contains("btn-primary");
-
     itemBtn.className = `btn btn-sm text-start text-truncate ${isActive ? "btn-primary active" : "btn-outline-secondary text-white"}`;
-
     itemBtn.innerHTML = btn.innerHTML;
-
     itemBtn.title = btn.title || btn.textContent.trim();
 
     itemBtn.onclick = () => {
       btn.click();
-
       window.syncFullscreenEpisodeDrawer();
     };
 
@@ -6993,13 +6426,11 @@ window.sendFsDanmaku = function () {
   const input = document.getElementById("kazumiFsDanmakuInput");
 
   if (!input) return;
-
   const val = input.value.trim();
 
   if (!val) return;
 
   createBulletDanmaku(val, "#22c55e");
-
   input.value = "";
 
   showToast(`彈幕已在全螢幕發送：「${val}」`, "bi-chat-dots-fill text-success");
@@ -7070,21 +6501,17 @@ if (!window.saveMangaBookshelf) {
 if (!window.toggleMangaBookshelfItem) {
   window.toggleMangaBookshelfItem = function (title, cover, btnEl) {
     if (!title) return;
-
     let shelf = window.getMangaBookshelf();
 
     const exists = shelf.some((b) => b.title === title);
 
     if (exists) {
       shelf = shelf.filter((b) => b.title !== title);
-
       window.saveMangaBookshelf(shelf);
 
       if (btnEl) {
         btnEl.className = "btn btn-xs btn-outline-primary rounded-pill px-2";
-
         btnEl.innerHTML = `<i class="bi bi-bookmark-plus"></i> + 放進書架`;
-
         btnEl.title = "將此漫畫放進條漫立體書架";
       }
 
@@ -7101,14 +6528,11 @@ if (!window.toggleMangaBookshelfItem) {
 
         tag: "條漫",
       });
-
       window.saveMangaBookshelf(shelf);
 
       if (btnEl) {
         btnEl.className = "btn btn-xs btn-primary rounded-pill px-2";
-
         btnEl.innerHTML = `<i class="bi bi-bookmark-check-fill"></i> 已在書架`;
-
         btnEl.title = "已在條漫書架中，點擊可移出";
       }
 
@@ -7297,9 +6721,7 @@ window.renderMangaBookshelf = function () {
   const grid = document.getElementById("mangaBookshelfGrid");
 
   if (!grid) return;
-
   const shelf = window.getMangaBookshelf();
-
   grid.innerHTML = "";
 
   if (shelf.length === 0) {
@@ -7346,7 +6768,6 @@ window.renderMangaBookshelf = function () {
 
   shelf.forEach((book) => {
     const bookEl = document.createElement("div");
-
     bookEl.className = "bookshelf-book";
 
     bookEl.innerHTML = `
@@ -7417,7 +6838,6 @@ window.removeBookFromMangaShelf = function (title) {
   let shelf = window.getMangaBookshelf();
 
   shelf = shelf.filter((b) => b.title !== title);
-
   window.saveMangaBookshelf(shelf);
 
   if (typeof showToast === "function") {
@@ -7431,9 +6851,7 @@ window.renderNovelBookshelf = function () {
   const grid = document.getElementById("novelBookshelfGrid");
 
   if (!grid) return;
-
   const shelf = window.getNovelBookshelf ? window.getNovelBookshelf() : [];
-
   grid.innerHTML = "";
 
   if (shelf.length === 0) {
@@ -7500,7 +6918,6 @@ window.renderNovelBookshelf = function () {
 
   shelf.forEach((book) => {
     const bookEl = document.createElement("div");
-
     bookEl.className = "bookshelf-book";
 
     const isLocal = !!(
@@ -7512,9 +6929,7 @@ window.renderNovelBookshelf = function () {
     const badgeClass = isLocal
       ? "bg-info text-dark fw-bold"
       : "bg-success text-white";
-
     const badgeText = isLocal ? "本機上傳" : "線上輕小說";
-
     const subText = isLocal ? "點擊開卷 (本機)" : "點擊翻閱 (線上)";
 
     bookEl.innerHTML = `
@@ -7556,7 +6971,6 @@ window.renderNovelBookshelf = function () {
         // 本機電子書開卷邏輯：自 IndexedDB 讀取完整章節
 
         const bookId = book.id || "local_" + book.title.replace(/\s+/g, "_");
-
         let localData = await getLocalNovelFromDB(bookId);
 
         // 若未找到，嘗試按標題查詢
@@ -7585,7 +6999,6 @@ window.renderNovelBookshelf = function () {
           const placeholder = document.getElementById("legadoPlaceholder");
 
           if (placeholder) placeholder.style.display = "none";
-
           const readingArea = document.getElementById("novelReadingArea");
 
           if (readingArea) readingArea.style.display = "block";
@@ -7634,7 +7047,6 @@ window.removeBookFromNovelShelf = function (title) {
   let shelf = window.getNovelBookshelf();
 
   shelf = shelf.filter((b) => b.title !== title);
-
   window.saveNovelBookshelf(shelf);
 
   if (typeof showToast === "function") {
@@ -7680,21 +7092,17 @@ document.addEventListener("DOMContentLoaded", () => {
 if (!window.toggleNovelBookshelfItem) {
   window.toggleNovelBookshelfItem = function (title, cover, btnEl) {
     if (!title) return;
-
     let shelf = window.getNovelBookshelf();
 
     const exists = shelf.some((b) => b.title === title);
 
     if (exists) {
       shelf = shelf.filter((b) => b.title !== title);
-
       window.saveNovelBookshelf(shelf);
 
       if (btnEl) {
         btnEl.className = "btn btn-xs btn-outline-success rounded-pill px-2";
-
         btnEl.innerHTML = `<i class="bi bi-bookmark-plus"></i> + 放進書房`;
-
         btnEl.title = "將此小說放進立體書房";
       }
 
@@ -7711,14 +7119,11 @@ if (!window.toggleNovelBookshelfItem) {
 
         tag: "小說",
       });
-
       window.saveNovelBookshelf(shelf);
 
       if (btnEl) {
         btnEl.className = "btn btn-xs btn-success rounded-pill px-2";
-
         btnEl.innerHTML = `<i class="bi bi-bookmark-check-fill"></i> 已在書房`;
-
         btnEl.title = "已在小說書房中，點擊可移出";
       }
 
@@ -7748,11 +7153,8 @@ window.openTachimangaReader = function (title = "", pages = []) {
   }
 
   const titleEl = document.getElementById("mangaModalTitle");
-
   const indicatorEl = document.getElementById("mangaPageIndicator");
-
   const chapterBadge = document.getElementById("mangaCurrentChapterBadge");
-
   const wrapper = document.getElementById("mangaPageWrapper");
 
   if (titleEl)
@@ -7795,7 +7197,6 @@ window.openTachimangaReader = function (title = "", pages = []) {
 
 function renderMangaStandby() {
   const indicatorEl = document.getElementById("mangaPageIndicator");
-
   const wrapper = document.getElementById("mangaPageWrapper");
 
   if (indicatorEl) indicatorEl.textContent = "";
@@ -7929,7 +7330,6 @@ function renderMangaStandby() {
 
 window.searchMangaFromStandby = function () {
   const input = document.getElementById("mangaStandbySearchInput");
-
   const q = input ? input.value.trim() : "";
 
   if (!q) {
@@ -7961,7 +7361,6 @@ window.openMangaSearchModal = function (defaultKeyword = "") {
   const input = document.getElementById("mangaDrawerKeywordInput");
 
   if (input && defaultKeyword) input.value = defaultKeyword;
-
   const modalEl = document.getElementById("mangaSourceModal");
 
   if (modalEl) {
@@ -7990,7 +7389,6 @@ window.searchMangaFromDrawer = async function (keyword) {
   }
 
   const container = document.getElementById("mangaSearchResultsContainer");
-
   const summaryBox = document.getElementById("mangaSelectedSummaryBox");
 
   if (summaryBox) summaryBox.classList.add("d-none");
@@ -8023,9 +7421,7 @@ window.searchMangaFromDrawer = async function (keyword) {
     const res = await fetch(`/api/manga/search?q=${encodeURIComponent(q)}`);
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
     const data = await res.json();
-
     mangaState.searchResults = data.results || [];
 
     renderMangaSearchResults(mangaState.searchResults, q);
@@ -8082,12 +7478,10 @@ function renderMangaSearchResults(results, q) {
     const coverUrl =
       m.cover ||
       "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80";
-
     const statusTagId = `mangaBgmStatusTxt_${m.id || Math.random().toString(36).substr(2, 6)}`;
 
     const isCopy =
       m.source === "CopyManga" || (m.id && m.id.startsWith("copy_"));
-
     const sourceName = m.source || (isCopy ? "CopyManga" : "包子漫畫");
 
     const sourceBadgeHtml = isCopy
@@ -8097,7 +7491,6 @@ function renderMangaSearchResults(results, q) {
     const inShelf =
       typeof window.getMangaBookshelf === "function" &&
       window.getMangaBookshelf().some((b) => b.title === m.title);
-
     const shelfBtnClass = inShelf ? "btn-primary" : "btn-outline-primary";
 
     const shelfBtnText = inShelf
@@ -8272,9 +7665,7 @@ window.selectManga = async function (
     alias,
     source,
   };
-
   const summaryBox = document.getElementById("mangaSelectedSummaryBox");
-
   const container = document.getElementById("mangaSearchResultsContainer");
 
   const isCopy =
@@ -8288,9 +7679,7 @@ window.selectManga = async function (
     summaryBox.classList.remove("d-none");
 
     summaryBox.classList.add("d-flex");
-
     document.getElementById("mangaSelectedCover").src = cover;
-
     document.getElementById("mangaSelectedTitle").textContent = title;
 
     document.getElementById("mangaSelectedAuthor").innerHTML =
@@ -8330,11 +7719,8 @@ window.selectManga = async function (
     );
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
     const data = await res.json();
-
     mangaState.chapters = data.chapters || [];
-
     const countBadge = document.getElementById("mangaSelectedChapterCount");
 
     if (countBadge)
@@ -8413,27 +7799,20 @@ function renderMangaChaptersGrid(mangaId, chapters) {
   }
 
   const grid = document.createElement("div");
-
   grid.className = "d-flex flex-wrap gap-2 p-1";
 
   chapters.forEach((ch, idx) => {
     const btn = document.createElement("button");
-
     btn.className = `btn btn-sm ${mangaState.currentChapterIdx === idx ? "btn-primary" : "btn-outline-light"} text-truncate`;
-
     btn.style.minWidth = "88px";
-
     btn.style.maxWidth = "130px";
-
     btn.textContent = ch.title || `第 ${idx + 1} 話`;
-
     btn.title = ch.title;
 
     btn.onclick = () => loadMangaChapter(mangaId, ch.id, ch.title, idx);
 
     grid.appendChild(btn);
   });
-
   container.innerHTML = "";
 
   container.appendChild(grid);
@@ -8470,11 +7849,8 @@ window.loadMangaChapter = async function (
   // 更新頂部資訊
 
   const titleEl = document.getElementById("mangaModalTitle");
-
   const chapterBadge = document.getElementById("mangaCurrentChapterBadge");
-
   const indicatorEl = document.getElementById("mangaPageIndicator");
-
   const wrapper = document.getElementById("mangaPageWrapper");
 
   if (titleEl && mangaState.currentManga)
@@ -8533,9 +7909,7 @@ window.loadMangaChapter = async function (
     );
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
     const data = await res.json();
-
     mangaState.pages = data.pages || [];
 
     renderMangaWaterfall(mangaState.pages);
@@ -8588,13 +7962,10 @@ window.loadMangaChapter = async function (
 
 function renderMangaWaterfall(pages) {
   const wrapper = document.getElementById("mangaPageWrapper");
-
   const indicatorEl = document.getElementById("mangaPageIndicator");
-
   const scrollBox = document.getElementById("mangaScrollContainer");
 
   if (!wrapper) return;
-
   wrapper.innerHTML = "";
 
   if (!pages || pages.length === 0) {
@@ -8607,15 +7978,10 @@ function renderMangaWaterfall(pages) {
 
   pages.forEach((src, idx) => {
     const img = document.createElement("img");
-
     img.className = "manga-page-img w-100 d-block shadow-sm";
-
     img.style.margin = "0 auto";
-
     img.style.maxWidth = "820px";
-
     img.src = src;
-
     img.alt = `Page ${idx + 1}`;
 
     img.setAttribute("referrerpolicy", "no-referrer"); // 繞過大部分防盜鏈
@@ -8634,18 +8000,13 @@ function renderMangaWaterfall(pages) {
       const imgs = wrapper.querySelectorAll("img.manga-page-img");
 
       if (imgs.length === 0) return;
-
       const containerTop = scrollBox.scrollTop;
-
       const containerHeight = scrollBox.clientHeight;
-
       const viewCenter = containerTop + containerHeight / 2;
-
       let currentPage = 1;
 
       imgs.forEach((img, index) => {
         const imgTop = img.offsetTop;
-
         const imgBottom = imgTop + img.offsetHeight;
 
         if (viewCenter >= imgTop && viewCenter <= imgBottom) {
@@ -8670,7 +8031,6 @@ window.prevMangaChapter = function () {
   }
 
   const targetIdx = mangaState.currentChapterIdx - 1;
-
   const targetCh = mangaState.chapters[targetIdx];
 
   if (targetCh) {
@@ -8696,7 +8056,6 @@ window.nextMangaChapter = function () {
   }
 
   const targetIdx = mangaState.currentChapterIdx + 1;
-
   const targetCh = mangaState.chapters[targetIdx];
 
   if (targetCh) {
@@ -8724,7 +8083,6 @@ window.openMangaChapterPicker = function () {
     mangaState.currentManga.cover,
     mangaState.currentManga.author,
   );
-
   const modalEl = document.getElementById("mangaSourceModal");
 
   if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
@@ -8734,7 +8092,6 @@ window.openMangaChapterPicker = function () {
 
 function updateMangaNavButtons() {
   const prevBtn = document.getElementById("mangaPrevChapterBtn");
-
   const nextBtn = document.getElementById("mangaNextChapterBtn");
 
   if (prevBtn) {
@@ -8750,7 +8107,6 @@ function updateMangaNavButtons() {
 
 window.zoomManga = function (delta) {
   currentMangaZoom = Math.min(1.8, Math.max(0.6, currentMangaZoom + delta));
-
   const wrapper = document.getElementById("mangaPageWrapper");
 
   if (wrapper) wrapper.style.transform = `scale(${currentMangaZoom})`;
@@ -8758,7 +8114,6 @@ window.zoomManga = function (delta) {
 
 window.resetZoomManga = function () {
   currentMangaZoom = 1.0;
-
   const wrapper = document.getElementById("mangaPageWrapper");
 
   if (wrapper) wrapper.style.transform = `scale(1.0)`;
@@ -8768,25 +8123,18 @@ window.resetZoomManga = function () {
 
 window.closeCurrentManga = function () {
   mangaState.currentManga = null;
-
   mangaState.chapters = [];
-
   mangaState.currentChapterIdx = -1;
-
   mangaState.pages = [];
-
   const titleEl = document.getElementById("mangaModalTitle");
 
   if (titleEl) titleEl.textContent = "Tachimanga 條漫閱覽器";
-
   const chapterBadge = document.getElementById("mangaCurrentChapterBadge");
 
   if (chapterBadge) chapterBadge.textContent = "尚未選擇章節";
-
   const indicatorEl = document.getElementById("mangaPageIndicator");
 
   if (indicatorEl) indicatorEl.textContent = "";
-
   const headerSearch = document.getElementById("mangaHeaderSearchInput");
 
   if (headerSearch) headerSearch.value = "";
@@ -8849,7 +8197,6 @@ window.quickSearchNovel = function (keyword) {
 
 window.searchNovelFromStandby = function () {
   const input = document.getElementById("novelStandbySearchInput");
-
   const q = input ? input.value.trim() : "";
 
   if (!q) {
@@ -8886,7 +8233,6 @@ window.openNovelSearchModal = function (defaultKeyword = "") {
   if (input && defaultKeyword) input.value = defaultKeyword;
 
   updateNovelSourcePills();
-
   const modalEl = document.getElementById("novelSourceModal");
 
   if (modalEl) {
@@ -8909,9 +8255,7 @@ let currentNovelSource =
 
 function updateNovelSourcePills() {
   const pillWenku = document.getElementById("sourcePill-wenku8");
-
   const pillBili = document.getElementById("sourcePill-bilinovel");
-
   const badge = document.getElementById("currentNovelSourceBadge");
 
   if (currentNovelSource === "bilinovel") {
@@ -8957,12 +8301,10 @@ window.setNovelSource = function (src) {
   // 重新檢索當前輸入框關鍵字或重整推薦
 
   const input = document.getElementById("novelDrawerKeywordInput");
-
   const kw = input ? input.value.trim() : "";
 
   searchNovelFromDrawer(kw);
 };
-
 window.onNovelSourceChanged = window.setNovelSource;
 
 // 在抽屜中進行小說檢索（支援 Wenku8 與 Bilinovel 多書源）
@@ -8975,7 +8317,6 @@ window.searchNovelFromDrawer = async function (keyword) {
         ? document.getElementById("novelDrawerKeywordInput").value
         : ""
   ).trim();
-
   const selectEl = document.getElementById("novelSourceSelect");
 
   const source =
@@ -8983,9 +8324,7 @@ window.searchNovelFromDrawer = async function (keyword) {
 
   const sourceName =
     source === "bilinovel" ? "Bilinovel 嗶哩輕小說" : "Wenku8 輕小說文庫";
-
   const container = document.getElementById("novelSearchResultsContainer");
-
   const summaryBox = document.getElementById("novelSelectedSummaryBox");
 
   if (summaryBox) {
@@ -9009,11 +8348,7 @@ window.searchNovelFromDrawer = async function (keyword) {
 
                 <div>正在【${sourceName}】檢索${q ? `《${escapeHtml(q)}》` : "精選輕小說"}...</div>
 
-
-
             </div>
-
-
 
         `;
   }
@@ -9089,7 +8424,6 @@ function renderNovelSearchResults(novels) {
       const inShelf =
         typeof window.getNovelBookshelf === "function" &&
         window.getNovelBookshelf().some((b) => b.title === n.title);
-
       const shelfBtnClass = inShelf ? "btn-success" : "btn-outline-success";
 
       const shelfBtnText = inShelf
@@ -9271,7 +8605,6 @@ window.selectNovel = async function (
   intro = "",
 ) {
   const selectEl = document.getElementById("novelSourceSelect");
-
   const source = selectEl ? selectEl.value : currentNovelSource;
 
   novelState.currentNovel = {
@@ -9291,13 +8624,9 @@ window.selectNovel = async function (
     summaryBox.classList.remove("d-none");
 
     summaryBox.classList.add("d-flex");
-
     const coverEl = document.getElementById("novelSelectedCover");
-
     const titleEl = document.getElementById("novelSelectedTitle");
-
     const authorEl = document.getElementById("novelSelectedAuthor");
-
     const introEl = document.getElementById("novelSelectedIntro");
 
     if (coverEl)
@@ -9361,7 +8690,6 @@ window.selectNovel = async function (
   }
 
   novelState.chapters = chapters;
-
   const countEl = document.getElementById("novelSelectedChapterCount");
 
   if (countEl) countEl.textContent = `共 ${chapters.length} 章`;
@@ -9434,35 +8762,19 @@ function renderNovelChapterList(chapters, novelId, title) {
               .map(
                 (ch, idx) => `
 
-
-
                 <div class="col-12 col-sm-6">
 
-
-
-                    <button class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate py-2 px-3 d-flex align-items-center justify-content-between chapter-select-btn ${novelState.currentChapterIdx === idx ? "border-success text-success bg-success bg-opacity-10 active" : ""}" 
-
-
+                    <button class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate py-2 px-3 d-flex align-items-center justify-content-between chapter-select-btn ${novelState.currentChapterIdx === idx ? "border-success text-success bg-success bg-opacity-10 active" : ""}"
 
                             onclick="loadNovelChapter('${escapeHtml(novelId)}', '${escapeHtml(ch.id)}', ${idx}, '${escapeHtml(title)}')">
 
-
-
                         <span class="text-truncate">${escapeHtml(ch.title)}</span>
-
-
 
                         <i class="bi bi-chevron-right small opacity-50 ms-2"></i>
 
-
-
                     </button>
 
-
-
                 </div>
-
-
 
             `,
               )
@@ -9525,27 +8837,19 @@ window.loadNovelChapter = async function (
   }
 
   const titleEl = document.getElementById("novelBookTitle");
-
   const badgeEl = document.getElementById("novelChapterBadge");
-
   const headingEl = document.getElementById("novelChapterHeading");
-
   const paragraphsEl = document.getElementById("novelChapterParagraphs");
-
   const readingArea = document.getElementById("novelReadingArea");
-
   const placeholder = document.getElementById("legadoPlaceholder");
 
   if (placeholder) placeholder.style.display = "none";
-
   const histBox = document.getElementById("animeRecentHistoryBox");
 
   if (histBox) histBox.style.display = "none";
-
   const listContainer = document.querySelector(".episode-list-container");
 
   if (listContainer) listContainer.style.display = "flex";
-
   const screenCont = document.getElementById("kazumiScreenContainer");
 
   if (screenCont) {
@@ -9581,11 +8885,8 @@ window.loadNovelChapter = async function (
   }
 
   let loadedParagraphs = null;
-
   let loadedChapterTitle = "";
-
   const selectEl = document.getElementById("novelSourceSelect");
-
   const source = selectEl ? selectEl.value : currentNovelSource;
 
   try {
@@ -9602,7 +8903,6 @@ window.loadNovelChapter = async function (
         json.paragraphs.length > 0
       ) {
         loadedParagraphs = json.paragraphs;
-
         loadedChapterTitle = json.title;
       }
     }
@@ -9618,12 +8918,10 @@ window.loadNovelChapter = async function (
 
       `建議您可以嘗試切換頂部之小說書源（如 輕小說文庫 / 嗶哩輕小說）再次檢索。`,
     ];
-
     loadedChapterTitle = `章節正文暫缺`;
   }
 
   novelState.currentChapterIdx = chapterIdx;
-
   novelState.currentParagraphs = loadedParagraphs;
 
   const effectiveTitle =
@@ -9740,13 +9038,9 @@ window.openNovelChapterPicker = function () {
       summaryBox.classList.remove("d-none");
 
       summaryBox.classList.add("d-flex");
-
       const titleEl = document.getElementById("novelSelectedTitle");
-
       const authorEl = document.getElementById("novelSelectedAuthor");
-
       const introEl = document.getElementById("novelSelectedIntro");
-
       const coverEl = document.getElementById("novelSelectedCover");
 
       if (coverEl)
@@ -9761,7 +9055,6 @@ window.openNovelChapterPicker = function () {
     }
 
     renderLocalNovelChapterList();
-
     const modalEl = document.getElementById("novelSourceModal");
 
     if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
@@ -9776,7 +9069,6 @@ window.openNovelChapterPicker = function () {
     novelState.currentNovel.author,
     novelState.currentNovel.intro,
   );
-
   const modalEl = document.getElementById("novelSourceModal");
 
   if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
@@ -9788,9 +9080,7 @@ function renderLocalNovelChapterList() {
   const container = document.getElementById("novelSearchResultsContainer");
 
   if (!container) return;
-
   const chapters = novelState.chapters || [];
-
   const countEl = document.getElementById("novelSelectedChapterCount");
 
   if (countEl) countEl.textContent = `共 ${chapters.length} 章`;
@@ -9807,39 +9097,21 @@ function renderLocalNovelChapterList() {
               .map(
                 (ch, idx) => `
 
-
-
                 <div class="col-12 col-md-6 col-lg-4">
 
+                    <button class="btn btn-sm ${novelState.currentChapterIdx === idx ? "btn-success fw-bold text-white shadow-sm" : "btn-outline-light text-white-50"} w-100 text-truncate text-start px-3 py-2 border rounded-3"
 
-
-                    <button class="btn btn-sm ${novelState.currentChapterIdx === idx ? "btn-success fw-bold text-white shadow-sm" : "btn-outline-light text-white-50"} w-100 text-truncate text-start px-3 py-2 border rounded-3" 
-
-
-
-                            onclick="selectLocalNovelChapter(${idx})" 
-
-
+                            onclick="selectLocalNovelChapter(${idx})"
 
                             title="${escapeHtml(ch.title)}">
 
-
-
                         <i class="bi ${novelState.currentChapterIdx === idx ? "bi-bookmark-check-fill text-white" : "bi-file-text"} me-2"></i>
-
-
 
                         <span>${escapeHtml(ch.title)}</span>
 
-
-
                     </button>
 
-
-
                 </div>
-
-
 
             `,
               )
@@ -9856,7 +9128,6 @@ function renderLocalNovelChapterList() {
 
 window.selectLocalNovelChapter = function (idx) {
   loadLocalNovelChapter(idx);
-
   const modalEl = document.getElementById("novelSourceModal");
 
   if (modalEl) {
@@ -9870,41 +9141,30 @@ window.selectLocalNovelChapter = function (idx) {
 
 window.closeCurrentNovel = function () {
   novelState.currentNovel = null;
-
   novelState.chapters = [];
-
   novelState.currentChapterIdx = -1;
-
   novelState.currentParagraphs = [];
-
   const fileInput = document.getElementById("novelLocalFileInput");
 
   if (fileInput) fileInput.value = "";
-
   const titleEl = document.getElementById("novelBookTitle");
 
   if (titleEl) titleEl.textContent = "沉浸小說閱讀";
-
   const badgeEl = document.getElementById("novelChapterBadge");
 
   if (badgeEl) badgeEl.textContent = "尚未選擇章節";
-
   const headerSearch = document.getElementById("novelHeaderSearchInput");
 
   if (headerSearch) headerSearch.value = "";
-
   const standbySearch = document.getElementById("novelStandbySearchInput");
 
   if (standbySearch) standbySearch.value = "";
-
   const placeholder = document.getElementById("legadoPlaceholder");
 
   if (placeholder) placeholder.style.display = "block";
-
   const readingArea = document.getElementById("novelReadingArea");
 
   if (readingArea) readingArea.style.display = "none";
-
   const paragraphsEl = document.getElementById("novelChapterParagraphs");
 
   if (paragraphsEl) paragraphsEl.innerHTML = "";
@@ -9922,7 +9182,6 @@ window.closeCurrentNovel = function () {
 
 window.handleNovelFileUpload = async function (file) {
   if (!file) return;
-
   const fileName = file.name;
 
   const ext = fileName
@@ -9942,7 +9201,6 @@ window.handleNovelFileUpload = async function (file) {
     `正在讀取並解析電子書《${fileName}》...`,
     "bi-hourglass-split text-info",
   );
-
   const bookTitle = fileName.replace(/\.[^/.]+$/, "");
 
   if (ext === "txt") {
@@ -9970,9 +9228,7 @@ function parseAndLoadTxtBook(file, bookTitle) {
 
     const chapterRegex =
       /(?:^|\r?\n)[\t \u3000]*(第[\s0-9一二三四五六七八九十百千]+[章回節卷集話篇][^\r\n]*|Chapter\s*\d+[^\r\n]*)/gi;
-
     const matches = [];
-
     let m;
 
     while ((m = chapterRegex.exec(content)) !== null) {
@@ -10009,9 +9265,7 @@ function parseAndLoadTxtBook(file, bookTitle) {
 
         const end =
           i + 1 < matches.length ? matches[i + 1].index : content.length;
-
         const rawChText = content.slice(start, end).trim();
-
         const firstLineEnd = rawChText.indexOf("\n");
 
         const chBody =
@@ -10033,9 +9287,7 @@ function parseAndLoadTxtBook(file, bookTitle) {
       // 無明顯章節標記，按每 4000 字智慧切分
 
       const chunkSize = 4000;
-
       let start = 0;
-
       let chNum = 1;
 
       while (start < content.length) {
@@ -10060,7 +9312,6 @@ function parseAndLoadTxtBook(file, bookTitle) {
 
           paragraphs: splitTextIntoParagraphs(chunkText),
         });
-
         start = end;
 
         chNum++;
@@ -10094,13 +9345,9 @@ async function parseAndLoadEpubBook(file, bookTitle) {
     try {
       await new Promise((resolve, reject) => {
         const s = document.createElement("script");
-
         s.src = "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
-
         s.onload = resolve;
-
         s.onerror = reject;
-
         document.head.appendChild(s);
       });
     } catch (e) {
@@ -10115,7 +9362,6 @@ async function parseAndLoadEpubBook(file, bookTitle) {
 
   try {
     const zip = await JSZip.loadAsync(file);
-
     const htmlFiles = [];
 
     zip.forEach((relativePath, zipEntry) => {
@@ -10147,17 +9393,11 @@ async function parseAndLoadEpubBook(file, bookTitle) {
 
     for (let i = 0; i < htmlFiles.length; i++) {
       const rawHtml = await htmlFiles[i].async("text");
-
       const parser = new DOMParser();
-
       const doc = parser.parseFromString(rawHtml, "text/html");
-
       const h = doc.querySelector("h1, h2, h3, title");
-
       const title = (h ? h.textContent.trim() : "") || `第 ${i + 1} 節`;
-
       const pEls = doc.querySelectorAll("p");
-
       let paragraphs = [];
 
       if (pEls.length > 0) {
@@ -10209,7 +9449,6 @@ async function parseAndLoadEpubBook(file, bookTitle) {
 // ============================================================
 
 const LOCAL_NOVEL_DB_NAME = "WebLibraryLocalNovels";
-
 const LOCAL_NOVEL_STORE_NAME = "novel_chapters";
 
 function getLocalNovelDB() {
@@ -10259,7 +9498,6 @@ async function saveLocalNovelToDB(novelData) {
 
     return new Promise((resolve) => {
       const tx = db.transaction(LOCAL_NOVEL_STORE_NAME, "readwrite");
-
       const store = tx.objectStore(LOCAL_NOVEL_STORE_NAME);
 
       store.put(novelData);
@@ -10280,7 +9518,6 @@ async function getLocalNovelFromDB(id) {
     if (!db) {
       try {
         const raw = localStorage.getItem("novel_cache_" + id);
-
         return raw ? JSON.parse(raw) : null;
       } catch (e) {
         return null;
@@ -10289,9 +9526,7 @@ async function getLocalNovelFromDB(id) {
 
     return new Promise((resolve) => {
       const tx = db.transaction(LOCAL_NOVEL_STORE_NAME, "readonly");
-
       const store = tx.objectStore(LOCAL_NOVEL_STORE_NAME);
-
       const req = store.get(id);
 
       req.onsuccess = () => resolve(req.result || null);
@@ -10300,7 +9535,6 @@ async function getLocalNovelFromDB(id) {
     });
   } catch (e) {
     console.warn("讀取本機小說失敗:", e);
-
     return null;
   }
 }
@@ -10322,7 +9556,6 @@ function loadLocalBookIntoReader(bookTitle, chapters, existingId = null) {
 
     isLocal: true,
   };
-
   novelState.chapters = chapters;
 
   // 自動異步持久化至 IndexedDB
@@ -10338,7 +9571,6 @@ function loadLocalBookIntoReader(bookTitle, chapters, existingId = null) {
 
     updatedAt: new Date().toISOString(),
   });
-
   const countEl = document.getElementById("novelSelectedChapterCount");
 
   if (countEl) countEl.textContent = `共 ${chapters.length} 章`;
@@ -10356,27 +9588,18 @@ function loadLocalBookIntoReader(bookTitle, chapters, existingId = null) {
 function loadLocalNovelChapter(idx) {
   if (!novelState.chapters || idx < 0 || idx >= novelState.chapters.length)
     return;
-
   const ch = novelState.chapters[idx];
-
   novelState.currentChapterIdx = idx;
-
   novelState.currentParagraphs = ch.paragraphs || [];
-
   const placeholder = document.getElementById("legadoPlaceholder");
 
   if (placeholder) placeholder.style.display = "none";
-
   const readingArea = document.getElementById("novelReadingArea");
 
   if (readingArea) readingArea.style.display = "block";
-
   const titleEl = document.getElementById("novelBookTitle");
-
   const badgeEl = document.getElementById("novelChapterBadge");
-
   const headingEl = document.getElementById("novelChapterHeading");
-
   const paragraphsEl = document.getElementById("novelChapterParagraphs");
 
   if (titleEl) titleEl.textContent = novelState.currentNovel.title;
@@ -10432,13 +9655,9 @@ window.closeNovelReader = function () {
 
 function updateNovelNavButtons() {
   const headerPrev = document.getElementById("novelHeaderPrevBtn");
-
   const headerNext = document.getElementById("novelHeaderNextBtn");
-
   const bottomPrev = document.getElementById("novelBottomPrevBtn");
-
   const bottomNext = document.getElementById("novelBottomNextBtn");
-
   const hasPrev = novelState.currentChapterIdx > 0;
 
   const hasNext =
@@ -10467,7 +9686,6 @@ window.setNovelTheme = function (theme) {
 
   if (container) {
     const isCustom = container.classList.contains("novel-custom-color");
-
     container.className = `modal-content border-0 novel-theme-${theme}${isCustom ? " novel-custom-color" : ""}`;
   }
 
@@ -10492,7 +9710,6 @@ window.setNovelTheme = function (theme) {
   if (!novelState.customTextColor) {
     const defaultColor =
       theme === "sepia" ? "#2d241e" : theme === "white" ? "#1e293b" : "#e4e4e7";
-
     const picker = document.getElementById("novelCustomColorPicker");
 
     if (picker) picker.value = defaultColor;
@@ -10503,7 +9720,6 @@ window.setNovelTheme = function (theme) {
 
 window.setNovelCustomTextColor = function (color) {
   if (!color) return;
-
   novelState.customTextColor = color;
 
   try {
@@ -10519,7 +9735,6 @@ window.setNovelCustomTextColor = function (color) {
   }
 
   const headingEl = document.getElementById("novelChapterHeading");
-
   const paragraphsEl = document.getElementById("novelChapterParagraphs");
 
   if (headingEl) headingEl.style.setProperty("color", color, "important");
@@ -10555,7 +9770,6 @@ window.resetNovelCustomTextColor = function () {
   }
 
   const headingEl = document.getElementById("novelChapterHeading");
-
   const paragraphsEl = document.getElementById("novelChapterParagraphs");
 
   if (headingEl) headingEl.style.removeProperty("color");
@@ -10572,7 +9786,6 @@ window.resetNovelCustomTextColor = function () {
 
   const defaultColor =
     theme === "sepia" ? "#2d241e" : theme === "white" ? "#1e293b" : "#e4e4e7";
-
   const picker = document.getElementById("novelCustomColorPicker");
 
   if (picker) picker.value = defaultColor;
@@ -10587,7 +9800,6 @@ window.resetNovelCustomTextColor = function () {
 
 window.adjustNovelFontSize = function (delta) {
   novelState.fontSize = Math.min(28, Math.max(14, novelState.fontSize + delta));
-
   const articleBox = document.getElementById("novelArticleContent");
 
   if (articleBox) {
@@ -10634,14 +9846,12 @@ window.openLegadoWithTitle = function (title) {
 // --- D. Bangumi 官方每日新番時刻表模組 ---
 
 window.bangumiCalendarData = window.bangumiCalendarData || null;
-
 let currentCalendarDay = 1;
 
 window.openBangumiCalendar = async function () {
   const modalEl = document.getElementById("bangumiCalendarModal");
 
   if (!modalEl) return;
-
   const modal = new bootstrap.Modal(modalEl);
 
   modal.show();
@@ -10649,7 +9859,6 @@ window.openBangumiCalendar = async function () {
   // 今天是星期幾 (0 = 週日 -> 7)
 
   const today = new Date().getDay() || 7;
-
   currentCalendarDay = today;
 
   // 若尚未載入過數據，則發送 API
@@ -10658,7 +9867,6 @@ window.openBangumiCalendar = async function () {
     const loadingEl = document.getElementById("bgmCalLoading");
 
     if (loadingEl) loadingEl.classList.remove("d-none");
-
     const grid = document.getElementById("bangumiAnimeGrid");
 
     if (grid) grid.innerHTML = "";
@@ -10667,7 +9875,6 @@ window.openBangumiCalendar = async function () {
       const res = await fetch("https://api.bgm.tv/calendar");
 
       if (!res.ok) throw new Error("HTTP " + res.status);
-
       window.bangumiCalendarData = await res.json();
     } catch (e) {
       console.error("載入 Bangumi Calendar 失敗:", e);
@@ -10714,9 +9921,7 @@ function renderCalendarDayAnime(dayId) {
   const grid = document.getElementById("bangumiAnimeGrid");
 
   if (!grid) return;
-
   grid.innerHTML = "";
-
   const calData = window.bangumiCalendarData;
 
   if (!calData) {
@@ -10739,9 +9944,7 @@ function renderCalendarDayAnime(dayId) {
 
   dayData.items.forEach((anime) => {
     const col = document.createElement("div");
-
     col.className = "col-6 col-md-4 col-lg-3 col-xl-2";
-
     const title = anime.name_cn || anime.name;
 
     let cover =
@@ -10865,7 +10068,6 @@ window.collectBangumiAnime = function (title, url, cover) {
 
     createdAt: new Date().toISOString(),
   };
-
   state.bookmarks.unshift(newBookmark);
 
   saveToStorage();
@@ -10886,23 +10088,14 @@ window.collectBangumiAnime = function (title, url, cover) {
 
 window.triggerBangumiUserSync = async function (mode = "import") {
   const usernameInput = document.getElementById("bgmUsernameInput");
-
   const syncTypeSelect = document.getElementById("bgmSyncType");
-
   const subjectTypeSelect = document.getElementById("bgmSubjectType");
-
   const alertBox = document.getElementById("bgmSyncResultAlert");
-
   const syncBtn = document.getElementById("startBgmSyncBtn");
-
   const importOnlyBtn = document.getElementById("startBgmImportOnlyBtn");
-
   const twoWayBtn = document.getElementById("startBgmTwoWaySyncBtn");
-
   const username = (usernameInput ? usernameInput.value : "").trim();
-
   const syncType = syncTypeSelect ? syncTypeSelect.value : "3";
-
   const subjectType = subjectTypeSelect ? subjectTypeSelect.value : "2";
 
   // 儲存 Bangumi Personal Access Token (若有填寫)
@@ -10914,7 +10107,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
   }
 
   const token = window.getBangumiToken ? window.getBangumiToken() : "";
-
   const priority = window.getBgmPriority ? window.getBgmPriority() : "bangumi";
 
   // 雙向同步必須持有有效 Token
@@ -10938,7 +10130,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
   if (!username) {
     if (alertBox) {
       alertBox.className = "alert alert-warning py-2 small";
-
       alertBox.textContent = "請輸入 Bangumi 使用者名稱或數字 UID！";
 
       alertBox.classList.remove("d-none");
@@ -10948,7 +10139,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
   }
 
   const typeNames = { 1: "想看/想讀", 2: "看過/讀過", 3: "在看/在讀" };
-
   const currentTypeName = typeNames[syncType] || "在看/在讀";
 
   // 進入載入狀態與 UI 提示
@@ -10957,7 +10147,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
 
   if (syncBtn) {
     syncBtn.disabled = true;
-
     syncBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status"></span> 連線中...`;
   }
 
@@ -10977,7 +10166,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
 
   if (alertBox) {
     alertBox.className = "alert alert-info py-2 small";
-
     alertBox.innerHTML = `<div class="d-flex align-items-center gap-2"><div class="spinner-border spinner-border-sm text-primary"></div><span>正在${isTwoWay ? "進行雙向同步比對" : "自 Bangumi 取得"}【${escapeHtml(username)}】的「${currentTypeName}」數據...</span></div>`;
 
     alertBox.classList.remove("d-none");
@@ -10986,7 +10174,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
   try {
     const typesToFetch =
       subjectType === "all" ? [2, 1] : [parseInt(subjectType, 10)];
-
     let allItems = [];
 
     for (const sType of typesToFetch) {
@@ -11018,7 +10205,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
     if (allItems.length === 0) {
       if (alertBox) {
         alertBox.className = "alert alert-warning py-2 small";
-
         alertBox.textContent = `使用者【${username}】目前沒有符合條件的 Bangumi 記錄。`;
       }
 
@@ -11026,21 +10212,16 @@ window.triggerBangumiUserSync = async function (mode = "import") {
     }
 
     let addedCount = 0;
-
     let updatedCount = 0;
-
     let pushedCount = 0;
 
     for (const item of allItems) {
       const subject = item.subject || {};
-
       const subjectId = item.subject_id || subject.id;
-
       const isBook = item.requestedSubjectType === 1 || subject.type === 1;
 
       const title =
         subject.name_cn || subject.name || `Bangumi 作品 #${subjectId}`;
-
       const bgmUrl = `https://bgm.tv/subject/${subjectId}`;
 
       let cover =
@@ -11049,15 +10230,10 @@ window.triggerBangumiUserSync = async function (mode = "import") {
         subject.images?.medium ||
         subject.images?.small ||
         "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1000&q=80";
-
       cover = cover.replace(/^http:\/\//i, "https://");
-
       let currentEp = item.ep_status || 0;
-
       const totalEps = subject.eps || subject.total_episodes || "?";
-
       const scoreStr = subject.score ? `⭐ 評分 ${subject.score}` : "";
-
       const statusNum = parseInt(syncType, 10) || 3;
 
       const specificStatusLabel = isBook
@@ -11071,9 +10247,7 @@ window.triggerBangumiUserSync = async function (mode = "import") {
           : statusNum === 2
             ? "已看過"
             : "已在看";
-
       const category = isBook ? "resource" : "anime";
-
       const tags = ["Bangumi同步", specificStatusLabel, currentTypeName];
 
       if (isBook) tags.push("書籍", "漫畫", "小說");
@@ -11097,7 +10271,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
 
         if (isTwoWay && priority === "local" && token) {
           let localEp = 0;
-
           const epMatch = (existing.desc || "").match(/\[(\d+)\//);
 
           if (epMatch) localEp = parseInt(epMatch[1], 10) || 0;
@@ -11128,15 +10301,10 @@ window.triggerBangumiUserSync = async function (mode = "import") {
         const desc = isBook
           ? `Bangumi 書籍進度：[${currentEp}/${totalEps} 卷/話] ${scoreStr} · ${subject.short_summary || ""}`.trim()
           : `Bangumi 追番進度：[${currentEp}/${totalEps} 集] ${scoreStr} · ${subject.short_summary || ""}`.trim();
-
         existing.cover = cover;
-
         existing.desc = desc;
-
         existing.category = category;
-
         existing.bangumiStatus = statusNum;
-
         existing.bangumiSubjectId = subjectId;
 
         if (!Array.isArray(existing.tags)) existing.tags = [];
@@ -11205,7 +10373,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
 
           createdAt: new Date().toISOString(),
         };
-
         state.bookmarks.unshift(newBookmark);
 
         addedCount++;
@@ -11254,25 +10421,21 @@ window.triggerBangumiUserSync = async function (mode = "import") {
 
     if (alertBox) {
       alertBox.className = "alert alert-danger py-2 small";
-
       alertBox.textContent = `❌ 同步失敗：${err.message || "網路連線異常，請稍後重試"}`;
     }
   } finally {
     if (syncBtn) {
       syncBtn.disabled = false;
-
       syncBtn.innerHTML = `<i class="bi bi-cloud-arrow-down-fill"></i> 開始同步匯入`;
     }
 
     if (importOnlyBtn) {
       importOnlyBtn.disabled = false;
-
       importOnlyBtn.innerHTML = `<i class="bi bi-cloud-arrow-down"></i> 僅從 Bangumi 匯入網頁`;
     }
 
     if (twoWayBtn) {
       twoWayBtn.disabled = false;
-
       twoWayBtn.innerHTML = `<i class="bi bi-arrow-repeat"></i> 雙向全量同步`;
     }
   }
@@ -11306,11 +10469,8 @@ window.toggleBatchMode = function (forceState) {
 
 window.updateBatchUI = function () {
   const bar = document.getElementById("batchActionBar");
-
   const btn = document.getElementById("batchModeBtn");
-
   const btnText = document.getElementById("batchBtnText");
-
   const countBadge = document.getElementById("batchCountBadge");
 
   if (state.isBatchMode) {
@@ -11385,7 +10545,6 @@ window.batchChangeCategory = function (newCategory) {
     video: "影片影音",
     resource: "動漫資源",
   };
-
   let count = 0;
 
   state.bookmarks.forEach((b) => {
@@ -11421,11 +10580,9 @@ window.openBatchTagsModal = function () {
   const countSpan = document.getElementById("batchTagCountText");
 
   if (countSpan) countSpan.textContent = state.selectedBookmarkIds.size;
-
   const input = document.getElementById("batchNewTagInput");
 
   if (input) input.value = "";
-
   const modalEl = document.getElementById("batchTagsModal");
 
   if (modalEl) {
@@ -11437,7 +10594,6 @@ window.openBatchTagsModal = function () {
 
 window.applyBatchTags = function () {
   const input = document.getElementById("batchNewTagInput");
-
   const rawVal = input ? input.value.trim() : "";
 
   if (!rawVal) {
@@ -11449,7 +10605,6 @@ window.applyBatchTags = function () {
   const tagsToAdd = rawVal.split(/[,，\s]+/).filter((t) => t.trim() !== "");
 
   if (tagsToAdd.length === 0) return;
-
   let count = 0;
 
   state.bookmarks.forEach((b) => {
@@ -11469,7 +10624,6 @@ window.applyBatchTags = function () {
   updateUI();
 
   updateBatchUI();
-
   const modalEl = document.getElementById("batchTagsModal");
 
   if (modalEl) {
@@ -11533,7 +10687,6 @@ window.batchDeleteBookmarks = function () {
   state.bookmarks = state.bookmarks.filter(
     (b) => !state.selectedBookmarkIds.has(b.id),
   );
-
   state.selectedBookmarkIds.clear();
 
   saveToStorage(true); // 立即同步至伺服器
@@ -11579,7 +10732,6 @@ function escapeHtml(str) {
 
 window.searchKazumiAnime = async function (keyword = null) {
   const input = document.getElementById("kazumiSearchInput");
-
   const q = (keyword !== null ? keyword : input ? input.value : "").trim();
 
   if (!q) {
@@ -11589,26 +10741,20 @@ window.searchKazumiAnime = async function (keyword = null) {
   }
 
   if (input) input.value = q;
-
   const sourceSelect = document.getElementById("kazumiSourceSelect");
-
   const source = sourceSelect ? sourceSelect.value : "AGE";
-
   const loading = document.getElementById("kazumiSearchLoading");
-
   const grid = document.getElementById("kazumiResultsGrid");
 
   if (!grid) return;
 
   if (loading) loading.classList.remove("d-none");
-
   grid.innerHTML = "";
 
   try {
     const res = await fetch(
       `/api/kazumi/rule-search?q=${encodeURIComponent(q)}&source=${source}`,
     );
-
     const data = await res.json();
 
     if (loading) loading.classList.add("d-none");
@@ -11620,7 +10766,6 @@ window.searchKazumiAnime = async function (keyword = null) {
     ) {
       data.results.forEach((item) => {
         const col = document.createElement("div");
-
         col.className = "col";
 
         const cover =
@@ -11721,7 +10866,6 @@ window.searchKazumiAnime = async function (keyword = null) {
     }
   } catch (e) {
     if (loading) loading.classList.add("d-none");
-
     grid.innerHTML = `<div class="col-12 text-danger text-center py-3">搜尋失敗：${e.message}</div>`;
   }
 };
@@ -11739,25 +10883,18 @@ window.watchKazumiAnime = async function (title, detailUrl, source = "AGE") {
 
   document.getElementById("animePlayerTitle").textContent =
     `【Kazumi 在線】${title}`;
-
   const video = document.getElementById("kazumiVideoPlayer");
-
   const iframe = document.getElementById("kazumiIframePlayer");
-
   const iframeWrapper = document.getElementById("kazumiIframeWrapper");
 
   video.pause();
-
   video.controls = false;
 
   video.removeAttribute("controls");
-
   video.style.display = "none";
 
   if (iframeWrapper) iframeWrapper.style.display = "block";
-
   iframe.style.display = "block";
-
   iframe.src = "";
 
   const modal = new bootstrap.Modal(
@@ -11777,7 +10914,6 @@ window.watchKazumiAnime = async function (title, detailUrl, source = "AGE") {
     const epRes = await fetch(
       `/api/kazumi/rule-episodes?detailUrl=${encodeURIComponent(detailUrl)}&source=${source}`,
     );
-
     const epData = await epRes.json();
 
     if (
@@ -11807,27 +10943,20 @@ window.watchKazumiAnime = async function (title, detailUrl, source = "AGE") {
 
 function renderKazumiRuleEpisodes(animeTitle, episodes, source) {
   window.currentKazumiAnimeTitle = animeTitle;
-
   const modalTitle = document.getElementById("animePlayerTitle");
 
   if (modalTitle && episodes.length > 0)
     modalTitle.textContent = `${animeTitle} - ${episodes[0].title}`;
-
   const container = document.querySelector(".episode-list-container");
 
   if (!container) return;
-
   container.innerHTML = "";
 
   episodes.forEach((ep, idx) => {
     const btn = document.createElement("button");
-
     btn.className = `btn btn-sm ${idx === 0 ? "btn-primary active" : "btn-outline-secondary"} ep-btn text-truncate text-start`;
-
     btn.style.maxWidth = "100%";
-
     btn.title = ep.title;
-
     btn.innerHTML = `<i class="bi bi-play-fill"></i> ${escapeHtml(ep.title)}`;
 
     btn.onclick = () => {
@@ -11857,7 +10986,6 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
     const res = await fetch(
       `/api/kazumi/rule-play?playUrl=${encodeURIComponent(playUrl)}&source=${source}`,
     );
-
     const data = await res.json();
 
     if (data.success && data.playerUrl) {
@@ -11867,13 +10995,9 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
 
       const isDirect =
         data.isDirectStream || /\.(mp4|m3u8)(\?.*)?$/i.test(data.playerUrl);
-
       const video = document.getElementById("kazumiVideoPlayer");
-
       const iframe = document.getElementById("kazumiIframePlayer");
-
       const iframeWrapper = document.getElementById("kazumiIframeWrapper");
-
       const fallbackCard = document.getElementById("kazumiBlockedFallback");
 
       if (fallbackCard) fallbackCard.style.display = "none";
@@ -11890,7 +11014,6 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
 
         if (video) {
           video.style.display = "block";
-
           video.controls = false;
 
           video.removeAttribute("controls");
@@ -11899,7 +11022,6 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
             if (window.Hls && Hls.isSupported()) {
               if (window.kazumiHlsInstance) {
                 window.kazumiHlsInstance.destroy();
-
                 window.kazumiHlsInstance = null;
               }
 
@@ -11908,7 +11030,6 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
               hls.loadSource(data.playerUrl);
 
               hls.attachMedia(video);
-
               window.kazumiHlsInstance = hls;
 
               hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -11917,18 +11038,15 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
             } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
               if (window.kazumiHlsInstance) {
                 window.kazumiHlsInstance.destroy();
-
                 window.kazumiHlsInstance = null;
               }
 
               video.src = data.playerUrl;
-
               video.currentTime = 0;
 
               video.play().catch(() => {});
             } else {
               video.src = data.playerUrl;
-
               video.currentTime = 0;
 
               video.play().catch(() => {});
@@ -11936,12 +11054,10 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
           } else {
             if (window.kazumiHlsInstance) {
               window.kazumiHlsInstance.destroy();
-
               window.kazumiHlsInstance = null;
             }
 
             video.src = data.playerUrl;
-
             video.currentTime = 0;
 
             video.play().catch(() => {});
@@ -11957,7 +11073,6 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
 
         if (window.kazumiHlsInstance) {
           window.kazumiHlsInstance.destroy();
-
           window.kazumiHlsInstance = null;
         }
 
@@ -11986,7 +11101,6 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
 
         if (iframe) {
           iframe.style.display = "block";
-
           iframe.src = data.playerUrl;
         }
 
@@ -12014,7 +11128,6 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
       // 啟動彈幕流
 
       const epMatch = (epTitle || "").match(/\d+/);
-
       const epNo = epMatch ? parseInt(epMatch[0], 10) : 1;
 
       const cleanAnime =
@@ -12033,7 +11146,6 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
 
 window.openCurrentInNewTab = function () {
   const iframe = document.getElementById("kazumiIframePlayer");
-
   const video = document.getElementById("kazumiVideoPlayer");
 
   const url =
@@ -12085,9 +11197,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const priority = window.getBgmPriority
         ? window.getBgmPriority()
         : "bangumi";
-
       const priorityBangumiRadio = document.getElementById("priorityBangumi");
-
       const priorityLocalRadio = document.getElementById("priorityLocal");
 
       if (priority === "local" && priorityLocalRadio) {
@@ -12099,7 +11209,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const statusBox = document.getElementById("bgmTokenStatus");
 
       if (statusBox) statusBox.classList.add("d-none");
-
       const alertBox = document.getElementById("bgmSyncResultAlert");
 
       if (alertBox) alertBox.classList.add("d-none");
@@ -12116,7 +11225,6 @@ document.addEventListener("DOMContentLoaded", () => {
     applyDanmakuConfigToCSS();
 
     updateNovelSourcePills();
-
     const novelSourceSelect = document.getElementById("novelSourceSelect");
 
     if (novelSourceSelect) {
@@ -12129,11 +11237,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (savedColor) {
       novelState.customTextColor = savedColor;
-
       const picker = document.getElementById("novelCustomColorPicker");
 
       if (picker) picker.value = savedColor;
-
       const container = document.getElementById("novelContentContainer");
 
       if (container) {
@@ -12167,7 +11273,6 @@ function isMangaItem(item) {
 
 window.getBookmarkWatchStatusLabel = function (item) {
   if (!item) return "狀態";
-
   const isManga = isMangaItem(item);
 
   // 1. 優先檢查 bangumiStatus 數值 (3: 已在看/已在讀, 2: 已看過/已讀過, 1: 想看/想讀)
@@ -12243,7 +11348,6 @@ window.updateCardWatchStatus = async function (bookmarkId, newType) {
   const item = state.bookmarks.find((b) => b.id === bookmarkId);
 
   if (!item) return;
-
   const isManga = isMangaItem(item);
 
   const typeLabel = isManga
@@ -12285,7 +11389,6 @@ window.updateCardWatchStatus = async function (bookmarkId, newType) {
   );
 
   item.tags.push(typeLabel);
-
   item.bangumiStatus = newType;
 
   saveBookmarksLocally();
@@ -12316,7 +11419,6 @@ window.updateCardWatchStatus = async function (bookmarkId, newType) {
 
       if (statusInfo && statusInfo.subjectId) {
         subjectId = statusInfo.subjectId;
-
         item.bangumiSubjectId = subjectId;
 
         saveBookmarksLocally();
@@ -12499,7 +11601,6 @@ window.bangumiSubjectStatusCache = window.bangumiSubjectStatusCache || {};
 
 function cleanBangumiQueryTitle(rawTitle) {
   if (!rawTitle) return "";
-
   let t = String(rawTitle).trim();
 
   // 移除常見的包裝括號與前綴後綴標記
@@ -12515,9 +11616,7 @@ function cleanBangumiQueryTitle(rawTitle) {
     /(第[0-9一二三四五六七八九十百]+[季期部話集]|Season\s*\d+|S\d+|Part\s*\d+|P\d+|TV(動畫|版)?|劇場版|特別篇|OVA|OAD|全\d+[集話]|\d+話全|\d+集全|1080[pP]|720[pP]|4[kK]|BDRip|BD)/gi,
     " ",
   );
-
   t = t.replace(/\s+/g, " ").trim();
-
   return t;
 }
 
@@ -12525,7 +11624,6 @@ window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
   const cleanTitle = cleanBangumiQueryTitle(title);
 
   if (!cleanTitle && !title) return null;
-
   const queryKey = cleanTitle || title.trim();
 
   if (window.bangumiSubjectStatusCache[queryKey]) {
@@ -12541,16 +11639,13 @@ window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
   // 檢查本地現有書籤庫是否已綁定 subjectId 或具備狀態標籤
 
   let knownSubjectId = null;
-
   let localColType = 0;
 
   const existingBm = (state.bookmarks || []).find((b) => {
     if (!b) return false;
 
     if (b.title === title || b.title === queryKey) return true;
-
     const bClean = cleanBangumiQueryTitle(b.title);
-
     return bClean && (bClean === queryKey || bClean === title);
   });
 
@@ -12597,7 +11692,6 @@ window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
 
   try {
     let subjectId = knownSubjectId;
-
     let subjectTitle = queryKey;
 
     // 若尚未知曉 subjectId，則向後端 Bangumi Search 檢索
@@ -12606,7 +11700,6 @@ window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
       const searchRes = await fetch(
         `/api/bangumi/search?q=${encodeURIComponent(queryKey)}&type=${typeId}${token ? `&token=${encodeURIComponent(token)}` : ""}`,
       );
-
       const searchData = await searchRes.json();
 
       if (
@@ -12652,7 +11745,6 @@ window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
         const colRes = await fetch(
           `/api/bangumi/collection?subjectId=${subjectId}&token=${encodeURIComponent(token)}`,
         );
-
         const colData = await colRes.json();
 
         if (
@@ -12671,9 +11763,7 @@ window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
       }
 
       const resObj = { subjectId, type: colType, title: subjectTitle };
-
       window.bangumiSubjectStatusCache[queryKey] = resObj;
-
       window.bangumiSubjectStatusCache[title] = resObj;
 
       if (existingBm && !existingBm.bangumiSubjectId) {
@@ -12696,9 +11786,7 @@ window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
       type: localColType,
       title: queryKey,
     };
-
     window.bangumiSubjectStatusCache[queryKey] = fallbackObj;
-
     return fallbackObj;
   }
 
@@ -12709,14 +11797,11 @@ window.checkAndRenderBangumiStatus = async function (title, typeId, elementId) {
   const el = document.getElementById(elementId);
 
   if (!el) return;
-
   const isManga = typeId === 1;
-
   const info = await window.fetchBangumiSubjectStatus(title, typeId);
 
   if (!info) {
     el.textContent = "未標記";
-
     el.className = "text-white-50";
 
     return;
@@ -12739,7 +11824,6 @@ window.checkAndRenderBangumiStatus = async function (title, typeId, elementId) {
           : "text-danger fw-bold";
   } else {
     el.textContent = "未收藏";
-
     el.className = "text-white-50";
   }
 };
@@ -12776,11 +11860,8 @@ window.applyBangumiStatusChange = async function (
 
   if (success) {
     info.type = statusType;
-
     const cleanTitle = cleanBangumiQueryTitle(title);
-
     window.bangumiSubjectStatusCache[cleanTitle] = info;
-
     window.bangumiSubjectStatusCache[title] = info;
 
     // 同步更新本地書籤庫中匹配作品的狀態標記與卡片
@@ -12796,7 +11877,6 @@ window.applyBangumiStatusChange = async function (
         : statusType === 2
           ? "已看過"
           : "已在看";
-
     let updatedAnyBookmark = false;
 
     (state.bookmarks || []).forEach((bm) => {
@@ -12806,7 +11886,6 @@ window.applyBangumiStatusChange = async function (
         bm.bangumiSubjectId === info.subjectId
       ) {
         bm.bangumiSubjectId = info.subjectId;
-
         bm.bangumiStatus = statusType;
 
         if (!Array.isArray(bm.tags)) bm.tags = [];
@@ -12836,7 +11915,6 @@ window.applyBangumiStatusChange = async function (
         );
 
         bm.tags.push(typeLabel);
-
         updatedAnyBookmark = true;
       }
     });
@@ -12854,7 +11932,6 @@ window.applyBangumiStatusChange = async function (
         const mapLabels = isManga
           ? { 1: "想讀", 2: "已讀過", 3: "已在讀" }
           : { 1: "想看", 2: "已看過", 3: "已在看" };
-
         el.textContent = mapLabels[statusType] || "已收藏";
 
         el.className =
@@ -12919,7 +11996,6 @@ window.getWatchHistoryList = function () {
         item.cover = window.getFallbackAnimeCover
           ? window.getFallbackAnimeCover(item.title, item.platform)
           : "";
-
         hasFixed = true;
       } else if (item.platform === "youtube" && item.playUrl) {
         const ytMatch = item.playUrl.match(
@@ -12931,20 +12007,17 @@ window.getWatchHistoryList = function () {
           (!item.cover || item.cover.startsWith("data:image/svg"))
         ) {
           item.cover = `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`;
-
           hasFixed = true;
         }
       }
 
       if (item.epTitle && item.epTitle.includes("視頻")) {
         item.epTitle = item.epTitle.replace(/視頻/g, "影片");
-
         hasFixed = true;
       }
 
       if (item.title && item.title.includes("視頻")) {
         item.title = item.title.replace(/視頻/g, "影片");
-
         hasFixed = true;
       }
     });
@@ -12983,11 +12056,8 @@ window.toggleTheaterFloatingHistory = function (forceState) {
   const panel = document.getElementById("theaterFloatingHistoryPanel");
 
   if (!panel) return;
-
   const isShown = panel.style.display !== "none";
-
   const nextState = typeof forceState === "boolean" ? forceState : !isShown;
-
   panel.style.display = nextState ? "flex" : "none";
 
   if (nextState) {
@@ -13003,13 +12073,11 @@ window.toggleTheaterFloatingHistory = function (forceState) {
 
 document.addEventListener("click", (e) => {
   const panel = document.getElementById("theaterFloatingHistoryPanel");
-
   const btn = document.getElementById("theaterHistoryFloatingToggleBtn");
 
   if (!panel || panel.style.display === "none") return;
 
   if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
-
   panel.style.display = "none";
 });
 
@@ -13036,7 +12104,6 @@ window.saveWatchHistory = function (
 
   try {
     let history = window.getWatchHistoryList();
-
     const cleanTitle = title.trim();
 
     // 智能識別平台來源
@@ -13126,7 +12193,6 @@ window.saveWatchHistory = function (
     // 觸發雙向 UI 渲染
 
     window.renderAnimeHistoryStandby();
-
     window.renderWatchHistoryGrid();
   } catch (e) {
     console.error("儲存觀看歷史失敗:", e);
@@ -13153,7 +12219,6 @@ window.saveAnimePlayHistory = function (
     "anime",
   );
 };
-
 let lastAnimeThrottleTime = 0;
 
 window.throttleSaveAnimeProgress = function (currentTime, duration) {
@@ -13161,7 +12226,6 @@ window.throttleSaveAnimeProgress = function (currentTime, duration) {
 
   if (now - lastAnimeThrottleTime > 4000) {
     lastAnimeThrottleTime = now;
-
     window.saveCurrentAnimeProgressNow();
   }
 };
@@ -13181,7 +12245,6 @@ window.saveCurrentAnimeProgressNow = function () {
     (document.getElementById("animePlayerTitle")?.textContent || "")
       .split("-")[1]
       ?.trim() || "";
-
   const playUrl = window.currentKazumiPlayingUrl || "";
 
   // 嚴格守衛：待命狀態或無播放來源時絕不記錄
@@ -13194,18 +12257,14 @@ window.saveCurrentAnimeProgressNow = function () {
     animeTitle === "動漫劇院播放器"
   )
     return;
-
   let cur = 0;
-
   let dur = 0;
 
   if (video && video.style.display !== "none" && !isNaN(video.currentTime)) {
     cur = video.currentTime;
-
     dur = video.duration || 0;
   } else {
     cur = typeof virtualDanmakuTime === "number" ? virtualDanmakuTime : 0;
-
     dur = 0;
   }
 
@@ -13214,7 +12273,6 @@ window.saveCurrentAnimeProgressNow = function () {
     (window.getFallbackAnimeCover
       ? window.getFallbackAnimeCover(animeTitle, "anime")
       : "");
-
   window.saveWatchHistory(animeTitle, currentCover, epTitle, playUrl, cur, dur);
 };
 
@@ -13266,11 +12324,8 @@ window.renderAnimeHistoryStandby = function () {
 
     const formatSec = (s) => {
       if (!s || isNaN(s) || s < 0) return "00:00";
-
       const m = Math.floor(s / 60);
-
       const sec = Math.floor(s % 60);
-
       return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
     };
 
@@ -13414,11 +12469,7 @@ window.renderAnimeHistoryStandby = function () {
                   })
                   .join("")}
 
-
-
             </div>
-
-
 
         `;
   } catch (e) {
@@ -13455,11 +12506,8 @@ window.renderWatchHistoryGrid = function () {
 
   const formatSec = (s) => {
     if (!s || isNaN(s) || s < 0) return "00:00";
-
     const m = Math.floor(s / 60);
-
     const sec = Math.floor(s % 60);
-
     return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
   };
 
@@ -13508,7 +12556,6 @@ window.renderWatchHistoryGrid = function () {
           item.currentTime > 0
             ? `${formatSec(item.currentTime)} / ${item.duration > 0 ? formatSec(item.duration) : "--:--"}`
             : "剛剛開始";
-
         let platformBadge = "";
 
         if (item.platform === "youtube") {
@@ -13682,13 +12729,11 @@ window.resumeWatchHistory = function (id) {
       null,
       item.cover || "",
     );
-
     const video = document.getElementById("kazumiVideoPlayer");
 
     if (video && item.currentTime > 0) {
       const onLoaded = () => {
         video.removeEventListener("loadedmetadata", onLoaded);
-
         video.currentTime = item.currentTime;
       };
 
@@ -13696,13 +12741,11 @@ window.resumeWatchHistory = function (id) {
     }
   } else {
     openKazumiPlayer(item.title, item.playUrl);
-
     const video = document.getElementById("kazumiVideoPlayer");
 
     if (video && item.currentTime > 0) {
       const onLoaded = () => {
         video.removeEventListener("loadedmetadata", onLoaded);
-
         video.currentTime = item.currentTime;
       };
 
@@ -13732,9 +12775,7 @@ window.deleteWatchHistoryItem = function (id, e) {
   history = history.filter((h) => h.id !== id);
 
   localStorage.setItem("web_library_watch_history", JSON.stringify(history));
-
   window.renderWatchHistoryGrid();
-
   window.renderAnimeHistoryStandby();
 
   showToast("已刪除該筆觀看紀錄", "bi-trash text-secondary");
@@ -13747,9 +12788,7 @@ window.clearAllWatchHistory = function () {
   localStorage.removeItem("web_library_watch_history");
 
   localStorage.removeItem("web_library_anime_history");
-
   window.renderWatchHistoryGrid();
-
   window.renderAnimeHistoryStandby();
 
   showToast("已清空全部觀看紀錄！", "bi-trash-fill text-danger");
@@ -13768,7 +12807,6 @@ window.openWatchHistoryModal = function (e) {
   }
 
   window.renderWatchHistoryGrid();
-
   const modalEl = document.getElementById("watchHistoryModal");
 
   if (modalEl) {
@@ -13781,7 +12819,6 @@ window.openWatchHistoryModal = function (e) {
 
     if (isTheaterOpen) {
       document.body.classList.add("has-multi-modal");
-
       modalEl.style.zIndex = "1070";
     }
 
@@ -13810,7 +12847,6 @@ const whModalEl = document.getElementById("watchHistoryModal");
 if (whModalEl) {
   whModalEl.addEventListener("hidden.bs.modal", () => {
     document.body.classList.remove("has-multi-modal");
-
     const theaterModal = document.getElementById("animePlayerModal");
 
     if (
@@ -13858,7 +12894,6 @@ window.saveMangaReadHistory = function (
     if (history.length > 20) history = history.slice(0, 20);
 
     localStorage.setItem("web_library_manga_history", JSON.stringify(history));
-
     window.renderMangaHistoryStandby();
   } catch (e) {
     console.error("儲存漫畫閱讀歷史失敗:", e);
@@ -13877,7 +12912,6 @@ window.renderMangaHistoryStandby = function () {
 
     if (history.length === 0) {
       box.style.display = "none";
-
       box.innerHTML = "";
 
       return;
@@ -13917,67 +12951,35 @@ window.renderMangaHistoryStandby = function () {
                       .map(
                         (item, idx) => `
 
-
-
                         <div class="d-flex align-items-center gap-2 p-1 rounded-2 bg-dark bg-opacity-50 border border-secondary border-opacity-25" style="transition: background 0.15s;">
-
-
 
                             <img src="${escapeHtml(item.cover || "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='400' viewBox='0 0 300 400'%3E%3Crect fill='%231e293b' width='300' height='400'/%3E%3Cpath fill='%230284c7' d='M150 180c-20-10-50-10-70 0v60c20-10 50-10 70 0m0-60c20-10 50-10 70 0v60c-20-10-50-10-70 0' stroke='%230284c7' stroke-width='6' fill='none'/%3E%3Ctext x='50%25' y='75%25' fill='%2394a3b8' font-family='sans-serif' font-size='14' text-anchor='middle'%3E漫畫書籍%3C/text%3E%3C/svg%3E")}" style="width: 38px; height: 50px; object-fit: cover; border-radius: 4px; flex-shrink: 0;" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'400\' viewBox=\'0 0 300 400\'%3E%3Crect fill=\'%231e293b\' width=\'300\' height=\'400\'/%3E%3Cpath fill=\'%230284c7\' d=\'M150 180c-20-10-50-10-70 0v60c20-10 50-10 70 0m0-60c20-10 50-10 70 0v60c-20-10-50-10-70 0\' stroke=\'%230284c7\' stroke-width=\'6\' fill=\'none\'/%3E%3Ctext x=\'50%25\' y=\'75%25\' fill=\'%2394a3b8\' font-family=\'sans-serif\' font-size=\'14\' text-anchor=\'middle\'%3E漫畫書籍%3C/text%3E%3C/svg%3E'">
 
-
-
                             <div class="flex-grow-1 overflow-hidden">
-
-
 
                                 <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
 
-
-
                                 <div class="text-primary small text-truncate" style="font-size: 0.75rem;">${escapeHtml(item.chapterTitle || "第 1 話")}</div>
 
-
-
                             </div>
-
-
 
                             <div class="d-flex align-items-center gap-1 flex-shrink-0">
 
-
-
                                 <button class="btn btn-xs btn-primary px-2 text-nowrap rounded-pill" onclick="resumeMangaHistory(${idx})">
-
-
 
                                     <i class="bi bi-book-half"></i> 閱讀
 
-
-
                                 </button>
-
-
 
                                 <button class="btn btn-xs btn-link text-white-50 p-1" onclick="removeMangaHistoryItem(${idx})" title="刪除此紀錄">
 
-
-
                                     <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
-
-
 
                                 </button>
 
-
-
                             </div>
 
-
-
                         </div>
-
-
 
                     `,
                       )
@@ -14012,7 +13014,6 @@ window.removeMangaHistoryItem = function (idx) {
         "web_library_manga_history",
         JSON.stringify(history),
       );
-
       window.renderMangaHistoryStandby();
     }
   } catch (e) {
@@ -14025,7 +13026,6 @@ window.resumeMangaHistory = function (idx = 0) {
     const history = JSON.parse(
       localStorage.getItem("web_library_manga_history") || "[]",
     );
-
     const item = history[idx];
 
     if (!item) return;
@@ -14046,7 +13046,6 @@ window.resumeMangaHistory = function (idx = 0) {
         const matched = mangaState.chapters.find(
           (c) => c.title === item.chapterTitle,
         );
-
         const target = matched || mangaState.chapters[0];
 
         loadMangaChapter(item.mangaId, target.id, target.title, 0);
@@ -14059,7 +13058,6 @@ window.resumeMangaHistory = function (idx = 0) {
 
 window.clearMangaHistory = function () {
   localStorage.removeItem("web_library_manga_history");
-
   window.renderMangaHistoryStandby();
 
   showToast("已清除漫畫閱讀歷史！", "bi-trash text-secondary");
@@ -14081,13 +13079,11 @@ window.handleImportBookmarks = function (event) {
   const file = event.target.files && event.target.files[0];
 
   if (!file) return;
-
   const reader = new FileReader();
 
   reader.onload = async function (e) {
     try {
       const rawData = JSON.parse(e.target.result);
-
       let importedList = [];
 
       if (Array.isArray(rawData)) {
@@ -14110,7 +13106,6 @@ window.handleImportBookmarks = function (event) {
       }
 
       let addedCount = 0;
-
       let updatedCount = 0;
 
       importedList.forEach((item) => {
@@ -14339,7 +13334,6 @@ function getGameHubItems() {
     const stored = JSON.parse(
       localStorage.getItem("web_library_custom_games") || "[]",
     );
-
     return [...visibleDefaults, ...stored];
   } catch (e) {
     return DEFAULT_ACG_GAMES;
@@ -14348,7 +13342,6 @@ function getGameHubItems() {
 
 window.openGameHubModal = function () {
   window.renderGameHubGrid();
-
   const modalEl = document.getElementById("gameHubModal");
 
   if (modalEl) {
@@ -14362,9 +13355,7 @@ window.renderGameHubGrid = function (keyword = "") {
   const container = document.getElementById("gameHubGridContainer");
 
   if (!container) return;
-
   const term = (keyword || "").trim().toLowerCase();
-
   const items = getGameHubItems();
 
   const filtered = items.filter((g) => {
@@ -14377,7 +13368,6 @@ window.renderGameHubGrid = function (keyword = "") {
         g.tags.some((t) => t.toLowerCase().includes(term)))
     );
   });
-
   container.innerHTML = "";
 
   filtered.forEach((game) => {
@@ -14388,9 +13378,7 @@ window.renderGameHubGrid = function (keyword = "") {
           game.url.includes("unityroom.com") ||
           game.url.includes("bilibili.com/toy")))
     );
-
     const col = document.createElement("div");
-
     col.className = "col";
 
     col.innerHTML = `
@@ -14431,27 +13419,15 @@ window.renderGameHubGrid = function (keyword = "") {
 
                         ${(game.tags || []).map((t) => `<span class="badge bg-secondary-subtle text-light border border-secondary border-opacity-50 small" style="font-size: 0.68rem;">${escapeHtml(t)}</span>`).join("")}
 
-
-
                     </div>
-
-
 
                     <p class="small text-white-50 mb-3 flex-grow-1" style="font-size: 0.8rem; line-height: 1.45; color: #cbd5e1 !important;">
 
-
-
                         ${escapeHtml(game.desc)}
-
-
 
                     </p>
 
-
-
                     <div class="game-card-actions d-flex align-items-center gap-1.5 mt-auto pt-2 border-top border-secondary border-opacity-25">
-
-
 
                         ${
                           isExternal
@@ -14503,31 +13479,17 @@ window.renderGameHubGrid = function (keyword = "") {
                         `
                         }
 
-
-
                         <button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="deleteGameHubCard('${game.id}', ${!!game.isCustom})" title="${game.isCustom ? "刪除自定義卡片" : "移除此預設卡片"}">
-
-
 
                             <i class="bi bi-trash"></i>
 
-
-
                         </button>
-
-
 
                     </div>
 
-
-
                 </div>
 
-
-
             </div>
-
-
 
         `;
 
@@ -14542,27 +13504,15 @@ window.renderGameHubGrid = function (keyword = "") {
 
   addCol.innerHTML = `
 
-
-
         <div class="card h-100 border border-secondary border-opacity-50 shadow-sm rounded-3 d-flex flex-column align-items-center justify-content-center p-4 text-center cursor-pointer" style="background: rgba(30, 41, 59, 0.45); border-style: dashed !important; min-height: 180px; cursor: pointer; transition: background 0.2s;" onclick="openAddCustomGameModal()" title="點擊新增您喜愛的遊戲攻略或資料庫">
-
-
 
             <i class="bi bi-plus-circle-dotted fs-1 text-warning mb-2 opacity-75"></i>
 
-
-
             <h6 class="fw-bold text-white mb-1">新增自定義遊戲 / Wiki</h6>
-
-
 
             <p class="small text-white-50 mb-0" style="font-size: 0.78rem; color: #94a3b8 !important;">可自訂加入任何遊戲 Wiki 百科、素材工具或地圖</p>
 
-
-
         </div>
-
-
 
     `;
 
@@ -14756,7 +13706,6 @@ window.saveCustomGame = function () {
       `🎉 已成功加入《${title}》至遊戲專區！`,
       "bi-check-circle-fill text-success",
     );
-
     const modalEl = document.getElementById("addCustomGameModal");
 
     if (modalEl) {
@@ -14829,7 +13778,6 @@ window.resetDefaultGames = function () {
     "🎉 已成功恢復所有預設遊戲卡片！",
     "bi-arrow-counterclockwise text-success",
   );
-
   window.renderGameHubGrid();
 };
 
@@ -14845,7 +13793,6 @@ window.toggleCurrentNovelToBookshelf = async function () {
   }
 
   const cur = novelState.currentNovel;
-
   let shelf = window.getNovelBookshelf ? window.getNovelBookshelf() : [];
 
   if (shelf.some((b) => b.title === cur.title)) {
@@ -15047,7 +13994,6 @@ window.executeDockerAction = async function (action) {
 
     down: "移除容器 (Down)",
   };
-
   const title = actionNames[action] || action;
 
   if (typeof showToast === "function") {
@@ -15067,7 +14013,6 @@ window.executeDockerAction = async function (action) {
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
     const data = await res.json();
 
     if (data.inContainer) {
@@ -15084,7 +14029,6 @@ window.executeDockerAction = async function (action) {
       }
 
       window.checkDockerStatus();
-
       window.openDockerLogsModal();
 
       return;
@@ -15115,7 +14059,6 @@ window.executeDockerAction = async function (action) {
     }
 
     window.checkDockerStatus();
-
     window.openDockerLogsModal();
   } catch (e) {
     lastDockerOutput = {
@@ -15151,11 +14094,8 @@ window.openDockerLogsModal = function () {
   const modalEl = document.getElementById("dockerOutputModal");
 
   if (!modalEl) return;
-
   const cmdEl = document.getElementById("dockerOutputCmd");
-
   const contentEl = document.getElementById("dockerOutputContent");
-
   const badgeEl = document.getElementById("dockerOutputStatusBadge");
 
   if (cmdEl)
@@ -15187,7 +14127,6 @@ setTimeout(() => {
     window.checkDockerStatus();
   }
 }, 1200);
-
 
 // ==================== Task 2: 個人資料維護、頭像庫與偏好設定 ====================
 
@@ -15262,13 +14201,10 @@ function populateProfileForm(profileData, savedCustomAvatar) {
     if (confirmPwdInput) confirmPwdInput.value = '';
     if (displayUser) displayUser.textContent = profileData.name || profileData.username;
     if (userRole) userRole.textContent = profileData.role || '個人帳號';
-
     const isSpotlightOn = localStorage.getItem('web_library_spotlight_pref') !== 'false';
     if (glowPrefSwitch) glowPrefSwitch.checked = isSpotlightOn;
-
     const selectedAvatarInput = document.getElementById('profileSelectedAvatar');
     if (selectedAvatarInput) selectedAvatarInput.value = profileData.avatar;
-
     const avatarContainer = document.getElementById('avatarPickerContainer');
     if (avatarContainer) {
         avatarContainer.innerHTML = '';
@@ -15316,7 +14252,7 @@ window.openEditProfileModal = function() {
 
     const username = localStorage.getItem('web_library_user') || 'admin';
     const savedCustomAvatar = localStorage.getItem('web_library_custom_avatar_' + username);
-    
+
     let profileData = {
         username: username,
         name: username,
@@ -15362,11 +14298,10 @@ window.saveUserProfile = async function(e) {
     if (e && e.preventDefault) e.preventDefault();
     const saveBtn = document.getElementById('saveProfileBtn');
     const statusEl = document.getElementById('profileSaveStatus');
-
     const username = document.getElementById('profileUsernameInput')?.value || localStorage.getItem('web_library_user');
     const name = document.getElementById('profileNameInput')?.value.trim();
     const bio = document.getElementById('profileBioInput')?.value.trim();
-    
+
     // 嚴格讀取選取的頭像，絕不可遺失自訂圖片
     let avatar = document.getElementById('profileSelectedAvatar')?.value;
     if (!avatar) {
@@ -15387,7 +14322,6 @@ window.saveUserProfile = async function(e) {
         (existingPwdVal && newPassword === existingPwdVal) ||
         (!existingPwdVal && !oldPassword && (newPassword === '123456' || newPassword === 'admin' || newPassword === 'jyun'))
     );
-
 
     if (!name) {
         alert('請填寫顯示暱稱');
@@ -15465,12 +14399,12 @@ window.saveUserProfile = async function(e) {
             if (navUserName) navUserName.textContent = name;
             const topNavUser = document.getElementById('navUsername');
             if (topNavUser) topNavUser.textContent = name;
-            
+
             // 右上角導覽列頭像即時同步
             if (typeof updateNavUserAvatar === 'function') {
                 updateNavUserAvatar(avatar);
             }
-            
+
             const modalEl = document.getElementById('editProfileModal');
             if (modalEl) {
                 const modal = bootstrap.Modal.getInstance(modalEl);
@@ -15522,18 +14456,16 @@ window.handleCustomAvatarUpload = function(event) {
             canvas.width = size;
             canvas.height = size;
             const ctx = canvas.getContext('2d');
-
             const minDim = Math.min(img.width, img.height);
             const sx = (img.width - minDim) / 2;
             const sy = (img.height - minDim) / 2;
             ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
-
             const base64Url = canvas.toDataURL('image/jpeg', 0.85);
 
             // 寫入當前選中值與本地持久化
             const username = localStorage.getItem('web_library_user') || 'admin';
             localStorage.setItem('web_library_custom_avatar_' + username, base64Url);
-            
+
             document.querySelectorAll('.avatar-choice-item').forEach(el => el.classList.remove('selected'));
             document.getElementById('profileSelectedAvatar').value = base64Url;
             updateProfileModalAvatarPreview(base64Url);
@@ -15613,11 +14545,9 @@ window.flipFloatingPage = function(direction) {
     if (isFloatingPageAnimating) return;
     const targetPage = currentFloatingPage + direction;
     if (targetPage < 1 || targetPage > TOTAL_FLOATING_PAGES) return;
-
     const oldPageEl = document.getElementById(`bookPage${currentFloatingPage}`);
     const newPageEl = document.getElementById(`bookPage${targetPage}`);
     const mainCard = document.getElementById('floatingBookMain');
-
     isFloatingPageAnimating = true;
     playPageFlipSound();
 
@@ -15655,7 +14585,6 @@ window.flipFloatingPage = function(direction) {
                 duration: 0.46,
                 ease: "back.out(1.4)"
             }, 0.1);
-
         } else {
             // === 上一頁：上一頁帶著物理弧度從左側旁邊飛回來蓋在頂部 ===
             newPageEl.classList.remove('d-none');
@@ -15710,7 +14639,6 @@ function updateFloatingPageMeta() {
     const pageNumEl = document.getElementById('aboutPageNumberBadge');
     const prevBtn = document.getElementById('bookPrevPageBtn');
     const nextBtn = document.getElementById('bookNextPageBtn');
-
     const meta = FLOATING_PAGE_META[currentFloatingPage - 1];
     if (badgeEl) badgeEl.textContent = meta.badge;
     if (titleEl) titleEl.textContent = meta.title;
@@ -15718,7 +14646,6 @@ function updateFloatingPageMeta() {
 
     if (prevBtn) prevBtn.disabled = (currentFloatingPage <= 1);
     if (nextBtn) nextBtn.disabled = (currentFloatingPage >= TOTAL_FLOATING_PAGES);
-
     const indicators = document.querySelectorAll('#bookPageIndicators span');
     indicators.forEach((dot, idx) => {
         if (idx === currentFloatingPage - 1) {
@@ -15731,14 +14658,12 @@ function updateFloatingPageMeta() {
     });
 }
 
-
-
 // ==================== 全域深色模式主題管理 (Dark / Light Mode) ====================
 function applyThemeMode(theme) {
     const htmlEl = document.documentElement;
     const bodyEl = document.body;
     const isDark = (theme === 'dark');
-    
+
     if (isDark) {
         htmlEl.setAttribute('data-bs-theme', 'dark');
         htmlEl.setAttribute('data-theme', 'dark');
@@ -15751,8 +14676,8 @@ function applyThemeMode(theme) {
 
     const themeBtn = document.getElementById('themeToggleBtn');
     if (themeBtn) {
-        themeBtn.innerHTML = isDark 
-            ? '<i class="bi bi-sun-fill text-warning fs-5"></i>' 
+        themeBtn.innerHTML = isDark
+            ? '<i class="bi bi-sun-fill text-warning fs-5"></i>'
             : '<i class="bi bi-moon-stars-fill text-secondary fs-5"></i>';
         themeBtn.title = isDark ? '切換為淺色模式' : '切換為深色模式';
     }
@@ -15763,7 +14688,6 @@ function toggleThemeMode() {
     const bodyEl = document.body;
     const currentTheme = htmlEl.getAttribute('data-bs-theme') || (bodyEl.classList.contains('dark-theme') ? 'dark' : 'light');
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    
     window.applyThemeMode(newTheme);
     localStorage.setItem('web_library_theme', newTheme);
 };
@@ -15772,14 +14696,11 @@ function initThemeMode() {
     const savedTheme = localStorage.getItem('web_library_theme') || 'light';
     window.applyThemeMode(savedTheme);
 };
-
-
 window.updateNavUserAvatar = updateNavUserAvatar;
 window.updateProfileModalAvatarPreview = updateProfileModalAvatarPreview;
 window.applyThemeMode = applyThemeMode;
 window.toggleThemeMode = toggleThemeMode;
 window.initThemeMode = initThemeMode;
-
 
 window.checkPasswordStrength = function(val) {
     const bar = document.getElementById('pwdStrengthBar');
@@ -15798,7 +14719,6 @@ window.checkPasswordStrength = function(val) {
     if (/[a-z]/.test(val) && /[A-Z]/.test(val)) score += 20;
     if (/[0-9]/.test(val)) score += 15;
     if (/[^a-zA-Z0-9]/.test(val)) score += 15;
-
     bar.style.width = Math.min(score, 100) + '%';
     if (score < 40) {
         bar.className = 'progress-bar bg-danger';
@@ -15814,7 +14734,6 @@ window.checkPasswordStrength = function(val) {
         text.className = 'text-success fs-xs fw-semibold';
     }
 };
-
 
 // ==================== React Bits Spotlight 跟隨與 3D 阻尼微動效 ====================
 function initSpotlightTracking() {
@@ -15838,7 +14757,6 @@ function initSpotlightTracking() {
         }
 
         if (document.body.classList.contains('spotlight-disabled')) return;
-
         activeCard = card;
         const rect = card.getBoundingClientRect();
         targetX = e.clientX - rect.left;
