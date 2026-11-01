@@ -110,6 +110,31 @@ function initApp() {
       }, 300);
     }
 
+    // 載入使用者自訂的預設排序與預設啟動分類分頁
+    const curU = (state.currentUser || 'jyun').toLowerCase().trim();
+    const savedDefaultSort = localStorage.getItem('web_library_default_sort_' + curU) || 'newest';
+    const savedDefaultCat = localStorage.getItem('web_library_default_category_' + curU) || 'all';
+
+    state.sortMode = savedDefaultSort;
+    state.activeCategory = savedDefaultCat;
+
+    const initialSortEl = document.getElementById("sortSelect");
+    if (initialSortEl) {
+      initialSortEl.value = (savedDefaultSort === 'custom' || savedDefaultSort === 'time-desc') ? 'newest' : savedDefaultSort;
+      if (!initialSortEl.value) initialSortEl.value = 'newest';
+    }
+
+    const initialCatNav = document.getElementById("categoryNav");
+    if (initialCatNav) {
+      initialCatNav.querySelectorAll(".nav-link").forEach((l) => {
+        if (l.getAttribute("data-category") === savedDefaultCat) {
+          l.classList.add("active");
+        } else {
+          l.classList.remove("active");
+        }
+      });
+    }
+
     setupEventListeners();
 
     updateUI();
@@ -920,24 +945,27 @@ function getFilteredAndSortedBookmarks() {
   switch (state.sortMode) {
     case "pinned":
       result.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-
       break;
 
     case "clicks":
+    case "clicks-desc":
       result.sort((a, b) => (b.clicks || 0) - (a.clicks || 0));
-
       break;
 
     case "title":
+    case "title-asc":
       result.sort((a, b) => a.title.localeCompare(b.title, "zh-Hant"));
-
       break;
 
-    case "newest":
+    case "time-asc":
+      result.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      break;
 
+    case "custom":
+    case "time-desc":
+    case "newest":
     default:
       result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
       break;
   }
 
@@ -14203,6 +14231,22 @@ function populateProfileForm(profileData, savedCustomAvatar) {
     if (userRole) userRole.textContent = profileData.role || '個人帳號';
     const isSpotlightOn = localStorage.getItem('web_library_spotlight_pref') !== 'false';
     if (glowPrefSwitch) glowPrefSwitch.checked = isSpotlightOn;
+
+    const curPrefUser = (profileData.username || localStorage.getItem('web_library_user') || 'jyun').toLowerCase().trim();
+    const savedSortPref = localStorage.getItem('web_library_default_sort_' + curPrefUser) || profileData.defaultSort || 'newest';
+    const savedCatPref = localStorage.getItem('web_library_default_category_' + curPrefUser) || profileData.defaultCategory || 'all';
+
+    const prefSortEl = document.getElementById('profileDefaultSortSelect');
+    if (prefSortEl) {
+        prefSortEl.value = (savedSortPref === 'custom' || savedSortPref === 'time-desc') ? 'newest' : savedSortPref;
+        if (!prefSortEl.value) prefSortEl.value = 'newest';
+    }
+
+    const prefCatEl = document.getElementById('profileDefaultCategorySelect');
+    if (prefCatEl) {
+        prefCatEl.value = savedCatPref;
+        if (!prefCatEl.value) prefCatEl.value = 'all';
+    }
     const selectedAvatarInput = document.getElementById('profileSelectedAvatar');
     if (selectedAvatarInput) selectedAvatarInput.value = profileData.avatar;
     const avatarContainer = document.getElementById('avatarPickerContainer');
@@ -14311,8 +14355,39 @@ window.saveUserProfile = async function(e) {
     const oldPassword = document.getElementById('profileOldPasswordInput')?.value;
     const newPassword = document.getElementById('profileNewPasswordInput')?.value;
     const confirmPassword = document.getElementById('profileConfirmPasswordInput')?.value;
-    const defaultSort = document.getElementById('profileDefaultSortSelect')?.value;
+    const defaultSort = document.getElementById('profileDefaultSortSelect')?.value || 'newest';
+    const defaultCategory = document.getElementById('profileDefaultCategorySelect')?.value || 'all';
     const glowPref = document.getElementById('profileCardGlowPref')?.checked;
+
+    // 同步儲存個人首頁書籤偏好
+    const curSaveUser = (username || localStorage.getItem('web_library_user') || 'jyun').toLowerCase().trim();
+    localStorage.setItem('web_library_default_sort_' + curSaveUser, defaultSort);
+    localStorage.setItem('web_library_default_category_' + curSaveUser, defaultCategory);
+
+    // 即時套用至當前首頁狀態與 UI
+    state.sortMode = defaultSort;
+    state.activeCategory = defaultCategory;
+
+    const curSortSelect = document.getElementById('sortSelect');
+    if (curSortSelect) {
+        curSortSelect.value = (defaultSort === 'custom' || defaultSort === 'time-desc') ? 'newest' : defaultSort;
+        if (!curSortSelect.value) curSortSelect.value = 'newest';
+    }
+
+    const curCategoryNav = document.getElementById('categoryNav');
+    if (curCategoryNav) {
+        curCategoryNav.querySelectorAll('.nav-link').forEach((l) => {
+            if (l.getAttribute('data-category') === defaultCategory) {
+                l.classList.add('active');
+            } else {
+                l.classList.remove('active');
+            }
+        });
+    }
+
+    if (typeof renderBookmarks === 'function') {
+        renderBookmarks();
+    }
     // 比對是否設定了相同的密碼 (含目前密碼、已有密碼或預設密碼)
     const curRegList = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
     const curTargetUser = curRegList.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
@@ -14359,7 +14434,8 @@ window.saveUserProfile = async function(e) {
                     avatar,
                     oldPassword,
                     newPassword,
-                    defaultSort
+                    defaultSort,
+                    defaultCategory
                 })
             });
             const data = await res.json();
@@ -14385,6 +14461,8 @@ window.saveUserProfile = async function(e) {
             if (newPassword) {
                 target.password = newPassword;
             }
+            target.defaultSort = defaultSort;
+            target.defaultCategory = defaultCategory;
             localStorage.setItem('registeredUsers', JSON.stringify(list));
             savedSuccess = true;
         }

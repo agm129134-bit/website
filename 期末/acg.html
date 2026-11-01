@@ -1491,22 +1491,25 @@
     <div class="modal fade" id="gameToolModal" tabindex="-1" aria-labelledby="gameToolModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-fullscreen">
             <div class="modal-content bg-dark text-white border-0">
-                <div class="modal-header border-bottom border-secondary py-2 px-3 bg-black">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-warning text-dark fw-bold">在線運行</span>
-                        <h6 class="modal-title fw-bold mb-0 text-truncate text-white" id="gameToolModalTitle">遊戲工具視窗</h6>
+                <div class="modal-header border-bottom border-secondary py-2 px-2 px-md-3 bg-black d-flex align-items-center justify-content-between flex-nowrap" style="min-height: 52px;">
+                    <div class="d-flex align-items-center gap-1.5 gap-md-2 overflow-hidden me-2" style="min-width: 0; flex: 1 1 auto;">
+                        <span class="badge bg-warning text-dark fw-bold flex-shrink-0" style="font-size: 0.75rem;">在線運行</span>
+                        <h6 class="modal-title fw-bold mb-0 text-truncate text-white" id="gameToolModalTitle" style="font-size: 0.92rem;">遊戲工具視窗</h6>
                     </div>
-                    <div class="d-flex align-items-center gap-2 ms-auto">
-                        <button class="btn btn-sm btn-outline-light rounded-pill px-3" onclick="reloadGameToolIframe()" title="重新整理當前工具畫面">
-                            <i class="bi bi-arrow-clockwise"></i> 重新載入
+                    <div class="d-flex align-items-center gap-1.5 gap-md-2 flex-shrink-0 ms-auto">
+                        <button class="btn btn-sm btn-outline-light game-tool-header-btn" onclick="reloadGameToolIframe()" title="重新整理當前工具畫面">
+                            <i class="bi bi-arrow-clockwise"></i>
+                            <span class="d-none d-md-inline ms-1">重新載入</span>
                         </button>
-                        <button class="btn btn-sm btn-outline-info rounded-pill px-3" onclick="openGameToolInNewTab()" title="在新分頁開啟原始網站">
-                            <i class="bi bi-box-arrow-up-right"></i> 跳轉原網頁
+                        <button class="btn btn-sm btn-outline-info game-tool-header-btn" onclick="openGameToolInNewTab()" title="在新分頁開啟原始網站">
+                            <i class="bi bi-box-arrow-up-right"></i>
+                            <span class="d-none d-md-inline ms-1">跳轉原網頁</span>
                         </button>
-                        <button class="btn btn-sm btn-warning text-dark fw-bold rounded-pill px-3" onclick="backToGameHub()" title="返回遊戲專區選擇其他工具">
-                            <i class="bi bi-grid-fill"></i> 返回遊戲庫
+                        <button class="btn btn-sm btn-warning text-dark fw-bold game-tool-header-btn" onclick="backToGameHub()" title="返回遊戲專區選擇其他工具">
+                            <i class="bi bi-grid-fill"></i>
+                            <span class="d-none d-md-inline ms-1">返回遊戲庫</span>
                         </button>
-                        <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal" aria-label="關閉" onclick="closeGameToolViewer()"></button>
+                        <button type="button" class="btn-close btn-close-white ms-1 flex-shrink-0" data-bs-dismiss="modal" aria-label="關閉" onclick="closeGameToolViewer()"></button>
                     </div>
                 </div>
                 <div class="modal-body p-0 overflow-hidden position-relative" style="background: #0f172a;">

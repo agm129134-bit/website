@@ -704,12 +704,10 @@
                   aria-label="排序收藏"
                 >
                   <option value="newest" selected>最新收藏</option>
-
                   <option value="clicks">最多跳轉 (人氣)</option>
-
                   <option value="title">標題名稱 (A-Z)</option>
-
                   <option value="pinned">置頂優先</option>
+                  <option value="time-asc">建立時間 (舊到新)</option>
                 </select>
               </div>
 
@@ -1012,7 +1010,8 @@
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 bg-transparent shadow-none">
           <div class="floating-cards-wrapper position-relative p-2 p-md-3">
-            <!-- 底層裝飾堆疊陰影卡片 (營造多頁飄浮厚度感) -->
+            <!-- 底層裝飾堆疊陰影卡片 (多角度顯著向外散開，營造獨立飄浮展開手冊感) -->
+            <div class="stacked-card-shadow stacked-card-shadow-3"></div>
             <div class="stacked-card-shadow stacked-card-shadow-2"></div>
             <div class="stacked-card-shadow stacked-card-shadow-1"></div>
 
@@ -1061,26 +1060,29 @@
                     <h3 class="fw-black text-dark mt-1" style="letter-spacing: -0.5px;">全端架構與重大版本演進歷程</h3>
                   </div>
                   <div class="timeline-clean">
+                    <!-- v3.0 全端容器化與現代化旗艦 -->
                     <div class="p-3 bg-light rounded-3 mb-3 border">
                       <div class="d-flex align-items-center justify-content-between mb-1">
-                        <span class="badge bg-primary fw-bold">v3.9 旗艦進化</span>
-                        <small class="text-muted">最新版本</small>
+                        <span class="badge bg-primary fw-bold">v3.0 Docker 全端容器化與沉浸旗艦</span>
+                        <small class="text-muted">現行旗艦版本</small>
                       </div>
-                      <p class="small text-secondary mb-0">全面深色暗夜模式升級、自訂本機頭像上傳、獨立飄浮書頁 3D 翻頁動態、React Bits 雙色光暈卡片與全站對齊。</p>
+                      <p class="small text-secondary mb-0">全站全面容器化隔離部署 (Node.js 20 Alpine)，支援個人化頭像上傳、完整深色暗夜主題、React Bits 雙色光暈卡片與 3D 飄浮立體書頁動態。</p>
                     </div>
+                    <!-- v2.0 影音漫讀跨界生態 -->
                     <div class="p-3 bg-light rounded-3 mb-3 border">
                       <div class="d-flex align-items-center justify-content-between mb-1">
-                        <span class="badge bg-success fw-bold">v3.5 多鏡像容災</span>
-                        <small class="text-muted">穩定分支</small>
+                        <span class="badge bg-success fw-bold">v2.0 跨界 ACG 影音漫讀生態</span>
+                        <small class="text-muted">多媒體整合分支</small>
                       </div>
-                      <p class="small text-secondary mb-0">拷貝漫畫 2026 鏡像規則全面對齊，多節點自動容災探測，徹底解決章節空回傳與錯誤降級問題。</p>
+                      <p class="small text-secondary mb-0">深度對接 Kazumi Engine 動漫劇院串流、Tachimanga 垂直長條漫畫閱覽核心、遊戲工具庫與 Bangumi 番組計畫每日放送 API 即時雙向同步。</p>
                     </div>
+                    <!-- v1.0 核心書籤原型起步 -->
                     <div class="p-3 bg-light rounded-3 border">
                       <div class="d-flex align-items-center justify-content-between mb-1">
-                        <span class="badge bg-dark text-white fw-bold">v3.0 Docker 容器化</span>
-                        <small class="text-muted">基礎架構</small>
+                        <span class="badge bg-secondary fw-bold">v1.0 核心書籤管理原型</span>
+                        <small class="text-muted">初始開源里程碑</small>
                       </div>
-                      <p class="small text-secondary mb-0">Node.js 20 Alpine 容器化獨立隔離運行，本機 Volume 資料持久化與安全沙盒部署。</p>
+                      <p class="small text-secondary mb-0">奠定 Web Library 基礎架構：支援五大分類標籤、自訂排序篩選、LocalStorage 本地離線持久化儲存與全域即時模糊搜尋引擎。</p>
                     </div>
                   </div>
                 </div>
@@ -1298,19 +1300,21 @@
                     <div class="col-md-6">
                       <label class="form-label fw-bold small">首頁書籤預設排序方式</label>
                       <select class="form-select" id="profileDefaultSortSelect">
-                        <option value="custom">自訂拖曳排序 (預設)</option>
-                        <option value="time-desc">建立時間 (新到舊)</option>
+                        <option value="newest">最新收藏 / 建立時間 (新到舊)</option>
+                        <option value="clicks">最多跳轉 (人氣優先)</option>
+                        <option value="title">書籤標題 (A-Z)</option>
+                        <option value="pinned">置頂優先</option>
                         <option value="time-asc">建立時間 (舊到新)</option>
-                        <option value="clicks-desc">點擊次數 (高到低)</option>
-                        <option value="title-asc">書籤標題 (A-Z)</option>
                       </select>
                     </div>
                     <div class="col-md-6">
                       <label class="form-label fw-bold small">預設啟動分類分頁</label>
                       <select class="form-select" id="profileDefaultCategorySelect">
-                        <option value="all">全部書籤 (All)</option>
-                        <option value="favorite">我的常用標籤</option>
-                        <option value="acg">ACG 動漫與資源</option>
+                        <option value="all">全部收藏 (All)</option>
+                        <option value="anime">動畫 (Anime)</option>
+                        <option value="web">一般網頁 (Web)</option>
+                        <option value="video">影片串流 (B站/YT)</option>
+                        <option value="resource">動漫與資源 (Resource)</option>
                       </select>
                     </div>
                     <div class="col-12">
