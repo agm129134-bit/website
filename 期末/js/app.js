@@ -6627,10 +6627,122 @@ function bindBookshelfWaveEffect(bookEl) {
 
 // 渲染條漫立體書架
 
-// 綁定藏書閣右下角垃圾桶 Drag & Drop 事件
-window.setupBookshelfTrashBin = function(trashId, removeFn) {
-  const trash = document.getElementById(trashId);
-  if (!trash || trash.dataset.bound === 'true') return;
+// 薩諾斯粒子粉末瓦解特效引擎 (Thanos Snap Powder Disintegration)
+window.disintegrateBookToPowder = function(bookElement, onComplete) {
+  if (!bookElement) {
+    if (typeof onComplete === 'function') onComplete();
+    return;
+  }
+  const rect = bookElement.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) {
+    if (typeof onComplete === 'function') onComplete();
+    return;
+  }
+
+  // 1. 建立全螢幕最高層級透明繪圖 Canvas
+  const canvas = document.createElement('canvas');
+  canvas.style.position = 'fixed';
+  canvas.style.top = '0';
+  canvas.style.left = '0';
+  canvas.style.width = '100vw';
+  canvas.style.height = '100vh';
+  canvas.style.pointerEvents = 'none';
+  canvas.style.zIndex = '99999';
+  document.body.appendChild(canvas);
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+
+  // 2. 書本本體加上瓦解樣式 (高對比、超高亮、模糊與微縮漸隱)
+  bookElement.classList.add('book-disintegrating');
+
+  // 3. 生成 240 顆隨風飄散微粒粉末
+  const particleCount = 240;
+  const particles = [];
+  const colors = [
+    '#ef4444', '#f97316', '#f59e0b', '#fbbf24', '#ffffff', 
+    'rgba(239, 68, 68, 0.95)', 'rgba(249, 115, 22, 0.9)', 'rgba(251, 191, 36, 0.85)'
+  ];
+
+  for (let i = 0; i < particleCount; i++) {
+    const px = rect.left + Math.random() * rect.width;
+    const py = rect.top + Math.random() * rect.height;
+    const size = Math.random() * 2.8 + 1.2;
+    // 向右上捲揚風向角與亂流速度
+    const angle = -Math.PI / 3 + (Math.random() - 0.5) * 0.95;
+    const speed = Math.random() * 5.8 + 2.2;
+    particles.push({
+      x: px,
+      y: py,
+      vx: Math.cos(angle) * speed + (Math.random() - 0.5) * 1.6,
+      vy: Math.sin(angle) * speed - Math.random() * 2.2,
+      radius: size,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      alpha: 1.0,
+      decay: Math.random() * 0.022 + 0.016,
+      gravity: 0.07
+    });
+  }
+
+  // 4. 動畫微粒渲染循環
+  let animId;
+  function renderDust() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = 0;
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      if (p.alpha > 0.01) {
+        alive++;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += p.gravity;
+        p.alpha -= p.decay;
+        p.radius = Math.max(0.2, p.radius * 0.985);
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    if (alive > 0) {
+      animId = requestAnimationFrame(renderDust);
+    } else {
+      cancelAnimationFrame(animId);
+      if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      if (typeof onComplete === 'function') onComplete();
+    }
+  }
+
+  renderDust();
+};
+
+// 綁定全螢幕右下角固定懸浮垃圾桶 Drag & Drop 事件
+window.setupGlobalBookshelfTrashBin = function() {
+  let trash = document.getElementById("globalBookshelfTrashBin");
+  if (!trash) {
+    trash = document.createElement("div");
+    trash.id = "globalBookshelfTrashBin";
+    trash.className = "global-bookshelf-trash";
+    trash.title = "拖曳書本至此丟入垃圾桶刪除";
+    trash.innerHTML = `
+      <div class="trash-icon-wrap">
+        <i class="bi bi-trash3-fill"></i>
+      </div>
+      <div class="trash-label">
+        <span class="trash-title">拖曳丟入垃圾桶</span>
+        <span class="trash-desc">放開後化作粉末移出書架</span>
+      </div>
+    `;
+    document.body.appendChild(trash);
+  }
+  if (trash.dataset.bound === 'true') return;
   trash.dataset.bound = 'true';
 
   trash.addEventListener('dragover', (e) => {
@@ -6649,39 +6761,57 @@ window.setupBookshelfTrashBin = function(trashId, removeFn) {
     e.preventDefault();
     trash.classList.remove('trash-hover', 'trash-ready');
     trash.classList.add('trash-dumped');
-    setTimeout(() => trash.classList.remove('trash-dumped'), 300);
+    setTimeout(() => trash.classList.remove('trash-dumped'), 350);
     try {
       const raw = e.dataTransfer.getData('text/plain');
       if (raw) {
         const data = JSON.parse(raw);
         if (data && data.title) {
-          removeFn(data.title);
+          const targetBook = window._currentlyDraggedBookEl || document.querySelector(`.bookshelf-book[data-book-title="${data.title}"]`);
+          window.disintegrateBookToPowder(targetBook, () => {
+            if (data.type === 'manga' && typeof window.removeBookFromMangaShelf === 'function') {
+              window.removeBookFromMangaShelf(data.title);
+            } else if (data.type === 'novel' && typeof window.removeBookFromNovelShelf === 'function') {
+              window.removeBookFromNovelShelf(data.title);
+            }
+          });
         }
       }
     } catch (err) {
-      console.error("Trash drop error:", err);
+      console.error("Global trash drop error:", err);
     }
   });
 
   trash.addEventListener('click', () => {
     if (typeof showToast === 'function') {
-      showToast('💡 提示：將任何書本長按拖曳丟入垃圾桶即可刪除移出', 'bi-trash text-warning');
+      showToast('💡 提示：將任何書本長按拖曳丟進右下角垃圾桶，即可化作粉末刪除移出', 'bi-trash text-warning');
     }
   });
+};
+
+window.setupBookshelfTrashBin = window.setupGlobalBookshelfTrashBin;
+
+window.updateBookshelfTrashVisibility = function() {
+  const trash = document.getElementById("globalBookshelfTrashBin");
+  if (!trash) return;
+  const mangaCount = (typeof window.getMangaBookshelf === 'function' ? window.getMangaBookshelf().length : 0);
+  const novelCount = (typeof window.getNovelBookshelf === 'function' ? window.getNovelBookshelf().length : 0);
+  if (mangaCount > 0 || novelCount > 0) {
+    trash.style.display = "flex";
+  } else {
+    trash.style.display = "none";
+  }
 };
 
 window.renderMangaBookshelf = function () {
   const grid = document.getElementById("mangaBookshelfGrid");
   if (!grid) return;
-  const shelf = window.getMangaBookshelf();
+  const shelf = window.getMangaBookshelf ? window.getMangaBookshelf() : [];
   grid.innerHTML = "";
-  const trash = document.getElementById("mangaTrashBin");
-  if (typeof setupBookshelfTrashBin === 'function') {
-    setupBookshelfTrashBin("mangaTrashBin", window.removeBookFromMangaShelf);
-  }
+  window.setupGlobalBookshelfTrashBin();
+  window.updateBookshelfTrashVisibility();
 
   if (shelf.length === 0) {
-    if (trash) trash.style.display = "none";
     grid.innerHTML = `
             <div class="text-white-50 py-5 small text-center w-100 d-flex flex-column align-items-center justify-content-center">
                 <i class="bi bi-collection fs-1 text-primary opacity-50 mb-2"></i>
@@ -6695,14 +6825,12 @@ window.renderMangaBookshelf = function () {
     return;
   }
 
-  if (trash) trash.style.display = "flex";
-
   shelf.forEach((book) => {
     const bookEl = document.createElement("div");
     bookEl.className = "bookshelf-book";
     bookEl.setAttribute("draggable", "true");
     bookEl.setAttribute("data-book-title", book.title);
-    bookEl.setAttribute("title", "點擊開卷 · 長按拖曳至右下角垃圾桶可刪除");
+    bookEl.setAttribute("title", "點擊開卷 · 長按拖曳至右下角垃圾桶可粉碎刪除");
 
     bookEl.innerHTML = `
             <span class="bookshelf-badge bg-primary text-white">${escapeHtml(book.tag || "條漫")}</span>
@@ -6731,18 +6859,26 @@ window.renderMangaBookshelf = function () {
     let isDraggingBook = false;
     bookEl.addEventListener("dragstart", (e) => {
       isDraggingBook = true;
+      window._currentlyDraggedBookEl = bookEl;
       bookEl.classList.add("dragging-book");
       e.dataTransfer.setData("text/plain", JSON.stringify({ type: "manga", title: book.title }));
       e.dataTransfer.effectAllowed = "move";
-      const t = document.getElementById("mangaTrashBin");
-      if (t) t.classList.add("trash-ready");
+      const t = document.getElementById("globalBookshelfTrashBin");
+      if (t) {
+        t.style.display = "flex";
+        t.classList.add("trash-ready");
+      }
     });
 
     bookEl.addEventListener("dragend", () => {
       bookEl.classList.remove("dragging-book");
-      const t = document.getElementById("mangaTrashBin");
+      const t = document.getElementById("globalBookshelfTrashBin");
       if (t) t.classList.remove("trash-ready", "trash-hover");
-      setTimeout(() => { isDraggingBook = false; }, 80);
+      setTimeout(() => { 
+        isDraggingBook = false; 
+        window._currentlyDraggedBookEl = null;
+        window.updateBookshelfTrashVisibility();
+      }, 100);
     });
 
     bookEl.onclick = () => {
@@ -6752,7 +6888,9 @@ window.renderMangaBookshelf = function () {
       }
     };
 
-    bindBookshelfWaveEffect(bookEl);
+    if (typeof bindBookshelfWaveEffect === 'function') {
+      bindBookshelfWaveEffect(bookEl);
+    }
 
     grid.appendChild(bookEl);
   });
@@ -6777,7 +6915,7 @@ window.removeBookFromMangaShelf = function (title) {
     window.renderMangaBookshelf();
   }
   if (typeof showToast === "function") {
-    showToast(`🗑️ 已將《${title}》丟入垃圾桶移出條漫書架`, "bi-trash text-danger");
+    showToast(`✨ 《${title}》已化為粉末微塵，自條漫書架移出`, "bi-trash3-fill text-danger");
   }
 };
 
@@ -6788,13 +6926,10 @@ window.renderNovelBookshelf = function () {
   if (!grid) return;
   const shelf = window.getNovelBookshelf ? window.getNovelBookshelf() : [];
   grid.innerHTML = "";
-  const trash = document.getElementById("novelTrashBin");
-  if (typeof setupBookshelfTrashBin === 'function') {
-    setupBookshelfTrashBin("novelTrashBin", window.removeBookFromNovelShelf);
-  }
+  window.setupGlobalBookshelfTrashBin();
+  window.updateBookshelfTrashVisibility();
 
   if (shelf.length === 0) {
-    if (trash) trash.style.display = "none";
     grid.innerHTML = `
             <div class="text-muted py-5 small text-center w-100 d-flex flex-column align-items-center justify-content-center">
                 <i class="bi bi-book-half fs-1 text-success opacity-50 mb-2"></i>
@@ -6813,14 +6948,12 @@ window.renderNovelBookshelf = function () {
     return;
   }
 
-  if (trash) trash.style.display = "flex";
-
   shelf.forEach((book) => {
     const bookEl = document.createElement("div");
     bookEl.className = "bookshelf-book";
     bookEl.setAttribute("draggable", "true");
     bookEl.setAttribute("data-book-title", book.title);
-    bookEl.setAttribute("title", "點擊開卷 · 長按拖曳至右下角垃圾桶可刪除");
+    bookEl.setAttribute("title", "點擊開卷 · 長按拖曳至右下角垃圾桶可粉碎刪除");
 
     const isLocal = !!(
       book.isLocal ||
@@ -6861,18 +6994,26 @@ window.renderNovelBookshelf = function () {
     let isDraggingBook = false;
     bookEl.addEventListener("dragstart", (e) => {
       isDraggingBook = true;
+      window._currentlyDraggedBookEl = bookEl;
       bookEl.classList.add("dragging-book");
       e.dataTransfer.setData("text/plain", JSON.stringify({ type: "novel", title: book.title }));
       e.dataTransfer.effectAllowed = "move";
-      const t = document.getElementById("novelTrashBin");
-      if (t) t.classList.add("trash-ready");
+      const t = document.getElementById("globalBookshelfTrashBin");
+      if (t) {
+        t.style.display = "flex";
+        t.classList.add("trash-ready");
+      }
     });
 
     bookEl.addEventListener("dragend", () => {
       bookEl.classList.remove("dragging-book");
-      const t = document.getElementById("novelTrashBin");
+      const t = document.getElementById("globalBookshelfTrashBin");
       if (t) t.classList.remove("trash-ready", "trash-hover");
-      setTimeout(() => { isDraggingBook = false; }, 80);
+      setTimeout(() => { 
+        isDraggingBook = false; 
+        window._currentlyDraggedBookEl = null;
+        window.updateBookshelfTrashVisibility();
+      }, 100);
     });
 
     bookEl.onclick = async () => {
@@ -6948,7 +7089,7 @@ window.removeBookFromNovelShelf = function (title) {
     window.renderNovelBookshelf();
   }
   if (typeof showToast === "function") {
-    showToast(`🗑️ 已將《${title}》丟入垃圾桶移出小說書房`, "bi-trash text-danger");
+    showToast(`✨ 《${title}》已化為粉末微塵，自小說書房移出`, "bi-trash3-fill text-danger");
   }
 };
 
