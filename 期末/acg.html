@@ -350,38 +350,94 @@
         }
 
         .bookshelf-remove-btn {
+            display: none !important;
+        }
+
+        /* 藏書閣右下角互動垃圾桶與拖曳刪除 */
+        .bookshelf-trash-dropzone {
             position: absolute;
-            top: 6px;
-            right: 6px;
-            width: 26px;
-            height: 26px;
-            background: rgba(15, 23, 42, 0.82);
-            color: #ffffff;
-            border: 1.5px solid rgba(255, 255, 255, 0.45);
-            border-radius: 50%;
+            bottom: 2px;
+            right: 14px;
+            z-index: 50;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: 700;
-            opacity: 0;
-            transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
-            z-index: 100 !important;
-            transform: translateZ(60px);
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1.5px dashed rgba(239, 68, 68, 0.5);
+            color: #e2e8f0;
+            font-size: 0.82rem;
+            font-weight: 600;
             cursor: pointer;
-            pointer-events: auto !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+            user-select: none;
         }
 
-        .bookshelf-book:hover .bookshelf-remove-btn {
-            opacity: 1;
+        .bookshelf-trash-dropzone i {
+            font-size: 1rem;
+            color: #ef4444;
+            transition: transform 0.25s ease;
         }
 
-        .bookshelf-remove-btn:hover {
-            background: #ef4444;
-            transform: translateZ(60px) scale(1.22);
+        .bookshelf-trash-dropzone:hover {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.25);
+            color: #ffffff;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.45);
+        }
+
+        .bookshelf-trash-dropzone.trash-ready {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.3);
+            color: #ffffff;
+            animation: trashPulse 1s infinite alternate;
+        }
+
+        .bookshelf-trash-dropzone.trash-hover {
+            transform: scale(1.15) translateY(-3px);
             border-color: #ffffff;
-            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.7);
+            background: #ef4444 !important;
+            color: #ffffff !important;
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.85);
+        }
+
+        .bookshelf-trash-dropzone.trash-hover i {
+            color: #ffffff !important;
+            transform: rotate(-15deg) scale(1.25);
+        }
+
+        .bookshelf-trash-dropzone.trash-dumped {
+            animation: trashDumpShake 0.3s ease;
+        }
+
+        @keyframes trashPulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45); transform: scale(1); }
+            100% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); transform: scale(1.06); }
+        }
+
+        @keyframes trashDumpShake {
+            0%, 100% { transform: translateY(0); }
+            25% { transform: translateY(4px) scale(0.95); }
+            50% { transform: translateY(-4px) scale(1.08); }
+            75% { transform: translateY(2px) scale(1.02); }
+        }
+
+        .bookshelf-book {
+            cursor: grab !important;
+        }
+
+        .bookshelf-book:active {
+            cursor: grabbing !important;
+        }
+
+        .bookshelf-book.dragging-book {
+            opacity: 0.4 !important;
+            transform: scale(0.9) rotate(-4deg) !important;
         }
 
         /* 書本標題 */
@@ -1303,6 +1359,10 @@
                                     <!-- 由 JS 動態注入 3D 漫畫書本 -->
                                 </div>
                                 <div class="bookshelf-plank"></div>
+                                <div class="bookshelf-trash-dropzone" id="mangaTrashBin" title="拖曳書本至此丟入垃圾桶刪除" style="display: none;">
+                                    <i class="bi bi-trash3-fill"></i>
+                                    <span class="trash-text">垃圾桶</span>
+                                </div>
                             </div>
                             
                             <!-- 漫畫閱讀歷史紀錄區 -->
@@ -1465,6 +1525,10 @@
                                     <!-- 由 JS 動態注入 3D 小說書本 -->
                                 </div>
                                 <div class="bookshelf-plank"></div>
+                                <div class="bookshelf-trash-dropzone" id="novelTrashBin" title="拖曳書本至此丟入垃圾桶刪除" style="display: none;">
+                                    <i class="bi bi-trash3-fill"></i>
+                                    <span class="trash-text">垃圾桶</span>
+                                </div>
                             </div>
 
                             <!-- 上傳檔案隱藏 Input -->
@@ -2070,14 +2134,62 @@
         window.getNovelBookshelf = getNovelBookshelf;
         window.saveNovelBookshelf = saveNovelBookshelf;
 
+        // 綁定藏書閣右下角垃圾桶 Drag & Drop 事件
+        window.setupBookshelfTrashBin = function(trashId, removeFn) {
+            const trash = document.getElementById(trashId);
+            if (!trash || trash.dataset.bound === 'true') return;
+            trash.dataset.bound = 'true';
+
+            trash.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                trash.classList.add('trash-hover');
+            });
+
+            trash.addEventListener('dragleave', (e) => {
+                if (!trash.contains(e.relatedTarget)) {
+                    trash.classList.remove('trash-hover');
+                }
+            });
+
+            trash.addEventListener('drop', (e) => {
+                e.preventDefault();
+                trash.classList.remove('trash-hover', 'trash-ready');
+                trash.classList.add('trash-dumped');
+                setTimeout(() => trash.classList.remove('trash-dumped'), 300);
+                try {
+                    const raw = e.dataTransfer.getData('text/plain');
+                    if (raw) {
+                        const data = JSON.parse(raw);
+                        if (data && data.title) {
+                            removeFn(data.title);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Trash drop error:", err);
+                }
+            });
+
+            trash.addEventListener('click', () => {
+                if (typeof showToast === 'function') {
+                    showToast('💡 提示：將任何書本長按拖曳丟進垃圾桶即可刪除移出', 'bi-trash text-warning');
+                }
+            });
+        };
+
         // 渲染條漫立體書架
         window.renderMangaBookshelf = function() {
             const grid = document.getElementById("mangaBookshelfGrid");
             if (!grid) return;
             const shelf = getMangaBookshelf();
             grid.innerHTML = "";
+            const trash = document.getElementById("mangaTrashBin");
+            if (typeof setupBookshelfTrashBin === 'function') {
+                setupBookshelfTrashBin("mangaTrashBin", window.removeBookFromMangaShelf);
+            }
 
             if (shelf.length === 0) {
+                if (trash) trash.style.display = "none";
                 grid.innerHTML = `
                     <div class="text-white-50 py-5 small text-center w-100 d-flex flex-column align-items-center justify-content-center">
                         <i class="bi bi-collection fs-1 text-primary opacity-50 mb-2"></i>
@@ -2091,9 +2203,14 @@
                 return;
             }
 
+            if (trash) trash.style.display = "flex";
+
             shelf.forEach(book => {
                 const bookEl = document.createElement("div");
                 bookEl.className = "bookshelf-book";
+                bookEl.setAttribute("draggable", "true");
+                bookEl.setAttribute("data-book-title", book.title);
+                bookEl.setAttribute("title", "點擊開卷 · 長按拖曳至右下角垃圾桶可刪除");
                 bookEl.innerHTML = `
                     <span class="bookshelf-badge bg-primary text-white">${escapeHtml(book.tag || '條漫')}</span>
                     <div class="book-3d-chassis">
@@ -2114,11 +2231,29 @@
                             <div class="book-cover-gloss"></div>
                         </div>
                     </div>
-                    <button type="button" class="bookshelf-remove-btn" title="移出書架" onclick="event.preventDefault(); event.stopPropagation(); removeBookFromMangaShelf('${escapeHtml(book.title)}')">✕</button>
                     <div class="bookshelf-book-title" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
                     <div class="bookshelf-book-sub">點擊開卷</div>
                 `;
+
+                let isDraggingBook = false;
+                bookEl.addEventListener("dragstart", (e) => {
+                    isDraggingBook = true;
+                    bookEl.classList.add("dragging-book");
+                    e.dataTransfer.setData("text/plain", JSON.stringify({ type: "manga", title: book.title }));
+                    e.dataTransfer.effectAllowed = "move";
+                    const t = document.getElementById("mangaTrashBin");
+                    if (t) t.classList.add("trash-ready");
+                });
+
+                bookEl.addEventListener("dragend", () => {
+                    bookEl.classList.remove("dragging-book");
+                    const t = document.getElementById("mangaTrashBin");
+                    if (t) t.classList.remove("trash-ready", "trash-hover");
+                    setTimeout(() => { isDraggingBook = false; }, 80);
+                });
+
                 bookEl.onclick = () => {
+                    if (isDraggingBook) return;
                     if (typeof window.openMangaSearchModal === 'function') {
                         window.openMangaSearchModal(book.title);
                     }
@@ -2144,8 +2279,11 @@
             let shelf = getMangaBookshelf();
             shelf = shelf.filter(b => b.title !== title);
             saveMangaBookshelf(shelf);
+            if (typeof renderMangaBookshelf === 'function') {
+                renderMangaBookshelf();
+            }
             if (typeof showToast === 'function') {
-                showToast(`已將《${title}》移出條漫書架`, "bi-trash text-warning");
+                showToast(`🗑️ 已將《${title}》丟入垃圾桶移出條漫書架`, "bi-trash text-danger");
             }
         };
 
@@ -2219,8 +2357,13 @@
             if (!grid) return;
             const shelf = getNovelBookshelf();
             grid.innerHTML = "";
+            const trash = document.getElementById("novelTrashBin");
+            if (typeof setupBookshelfTrashBin === 'function') {
+                setupBookshelfTrashBin("novelTrashBin", window.removeBookFromNovelShelf);
+            }
 
             if (shelf.length === 0) {
+                if (trash) trash.style.display = "none";
                 grid.innerHTML = `
                     <div class="text-muted py-5 small text-center w-100 d-flex flex-column align-items-center justify-content-center">
                         <i class="bi bi-book-half fs-1 text-success opacity-50 mb-2"></i>
@@ -2234,9 +2377,14 @@
                 return;
             }
 
+            if (trash) trash.style.display = "flex";
+
             shelf.forEach(book => {
                 const bookEl = document.createElement("div");
                 bookEl.className = "bookshelf-book";
+                bookEl.setAttribute("draggable", "true");
+                bookEl.setAttribute("data-book-title", book.title);
+                bookEl.setAttribute("title", "點擊開卷 · 長按拖曳至右下角垃圾桶可刪除");
                 const isLocal = !!(book.isLocal || book.source === 'local' || (book.tag && book.tag.includes('本機')));
                 const badgeClass = isLocal ? "bg-info text-dark fw-bold" : "bg-success text-white";
                 const badgeText = isLocal ? "本機上傳" : "線上輕小說";
@@ -2262,12 +2410,29 @@
                             <div class="book-cover-gloss"></div>
                         </div>
                     </div>
-                    <button type="button" class="bookshelf-remove-btn" title="移出書房" onclick="event.preventDefault(); event.stopPropagation(); removeBookFromNovelShelf('${escapeHtml(book.title)}')">✕</button>
                     <div class="bookshelf-book-title text-dark" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
                     <div class="bookshelf-book-sub ${isLocal ? 'text-primary fw-semibold' : ''}">${subText}</div>
                 `;
 
+                let isDraggingBook = false;
+                bookEl.addEventListener("dragstart", (e) => {
+                    isDraggingBook = true;
+                    bookEl.classList.add("dragging-book");
+                    e.dataTransfer.setData("text/plain", JSON.stringify({ type: "novel", title: book.title }));
+                    e.dataTransfer.effectAllowed = "move";
+                    const t = document.getElementById("novelTrashBin");
+                    if (t) t.classList.add("trash-ready");
+                });
+
+                bookEl.addEventListener("dragend", () => {
+                    bookEl.classList.remove("dragging-book");
+                    const t = document.getElementById("novelTrashBin");
+                    if (t) t.classList.remove("trash-ready", "trash-hover");
+                    setTimeout(() => { isDraggingBook = false; }, 80);
+                });
+
                 bookEl.onclick = async () => {
+                    if (isDraggingBook) return;
                     if (isLocal) {
                         const bookId = book.id || ('local_' + book.title.replace(/\s+/g, '_'));
                         let localData = typeof getLocalNovelFromDB === 'function' ? await getLocalNovelFromDB(bookId) : null;
@@ -2317,8 +2482,11 @@
             let shelf = getNovelBookshelf();
             shelf = shelf.filter(b => b.title !== title);
             saveNovelBookshelf(shelf);
+            if (typeof renderNovelBookshelf === 'function') {
+                renderNovelBookshelf();
+            }
             if (typeof showToast === 'function') {
-                showToast(`已將《${title}》移出小說書房`, "bi-trash text-warning");
+                showToast(`🗑️ 已將《${title}》丟入垃圾桶移出小說書房`, "bi-trash text-danger");
             }
         };
 

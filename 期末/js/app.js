@@ -6627,63 +6627,84 @@ function bindBookshelfWaveEffect(bookEl) {
 
 // 渲染條漫立體書架
 
+// 綁定藏書閣右下角垃圾桶 Drag & Drop 事件
+window.setupBookshelfTrashBin = function(trashId, removeFn) {
+  const trash = document.getElementById(trashId);
+  if (!trash || trash.dataset.bound === 'true') return;
+  trash.dataset.bound = 'true';
+
+  trash.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    trash.classList.add('trash-hover');
+  });
+
+  trash.addEventListener('dragleave', (e) => {
+    if (!trash.contains(e.relatedTarget)) {
+      trash.classList.remove('trash-hover');
+    }
+  });
+
+  trash.addEventListener('drop', (e) => {
+    e.preventDefault();
+    trash.classList.remove('trash-hover', 'trash-ready');
+    trash.classList.add('trash-dumped');
+    setTimeout(() => trash.classList.remove('trash-dumped'), 300);
+    try {
+      const raw = e.dataTransfer.getData('text/plain');
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data && data.title) {
+          removeFn(data.title);
+        }
+      }
+    } catch (err) {
+      console.error("Trash drop error:", err);
+    }
+  });
+
+  trash.addEventListener('click', () => {
+    if (typeof showToast === 'function') {
+      showToast('💡 提示：將任何書本長按拖曳丟入垃圾桶即可刪除移出', 'bi-trash text-warning');
+    }
+  });
+};
+
 window.renderMangaBookshelf = function () {
   const grid = document.getElementById("mangaBookshelfGrid");
-
   if (!grid) return;
   const shelf = window.getMangaBookshelf();
   grid.innerHTML = "";
+  const trash = document.getElementById("mangaTrashBin");
+  if (typeof setupBookshelfTrashBin === 'function') {
+    setupBookshelfTrashBin("mangaTrashBin", window.removeBookFromMangaShelf);
+  }
 
   if (shelf.length === 0) {
+    if (trash) trash.style.display = "none";
     grid.innerHTML = `
-
-
-
             <div class="text-white-50 py-5 small text-center w-100 d-flex flex-column align-items-center justify-content-center">
-
-
-
                 <i class="bi bi-collection fs-1 text-primary opacity-50 mb-2"></i>
-
-
-
                 <div class="fw-semibold fs-6 text-white mb-1">條漫書架目前尚無藏書</div>
-
-
-
                 <div class="text-white-50 small mb-3">可在上方搜尋漫畫或選集抽屜點擊「+ 放進書架」，即可將喜愛的作品陳列於此！</div>
-
-
-
                 <button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="openMangaSearchModal('')">
-
-
-
                     <i class="bi bi-search me-1"></i> 前往搜尋漫畫
-
-
-
                 </button>
-
-
-
             </div>
-
-
-
         `;
-
     return;
   }
+
+  if (trash) trash.style.display = "flex";
 
   shelf.forEach((book) => {
     const bookEl = document.createElement("div");
     bookEl.className = "bookshelf-book";
+    bookEl.setAttribute("draggable", "true");
+    bookEl.setAttribute("data-book-title", book.title);
+    bookEl.setAttribute("title", "點擊開卷 · 長按拖曳至右下角垃圾桶可刪除");
 
     bookEl.innerHTML = `
-
-
-
             <span class="bookshelf-badge bg-primary text-white">${escapeHtml(book.tag || "條漫")}</span>
             <div class="book-3d-chassis">
                 <div class="book-3d-pages">
@@ -6703,18 +6724,29 @@ window.renderMangaBookshelf = function () {
                     <div class="book-cover-gloss"></div>
                 </div>
             </div>
-            <button type="button" class="bookshelf-remove-btn" title="移出書架" onclick="event.preventDefault(); event.stopPropagation(); removeBookFromMangaShelf('${escapeHtml(book.title)}')">✕</button>
             <div class="bookshelf-book-title" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
-
-
-
             <div class="bookshelf-book-sub">點擊開卷</div>
-
-
-
         `;
 
+    let isDraggingBook = false;
+    bookEl.addEventListener("dragstart", (e) => {
+      isDraggingBook = true;
+      bookEl.classList.add("dragging-book");
+      e.dataTransfer.setData("text/plain", JSON.stringify({ type: "manga", title: book.title }));
+      e.dataTransfer.effectAllowed = "move";
+      const t = document.getElementById("mangaTrashBin");
+      if (t) t.classList.add("trash-ready");
+    });
+
+    bookEl.addEventListener("dragend", () => {
+      bookEl.classList.remove("dragging-book");
+      const t = document.getElementById("mangaTrashBin");
+      if (t) t.classList.remove("trash-ready", "trash-hover");
+      setTimeout(() => { isDraggingBook = false; }, 80);
+    });
+
     bookEl.onclick = () => {
+      if (isDraggingBook) return;
       if (typeof window.openMangaSearchModal === "function") {
         window.openMangaSearchModal(book.title);
       }
@@ -6739,12 +6771,13 @@ window.renderMangaBookshelf = function () {
 
 window.removeBookFromMangaShelf = function (title) {
   let shelf = window.getMangaBookshelf();
-
   shelf = shelf.filter((b) => b.title !== title);
   window.saveMangaBookshelf(shelf);
-
+  if (typeof window.renderMangaBookshelf === "function") {
+    window.renderMangaBookshelf();
+  }
   if (typeof showToast === "function") {
-    showToast(`已將《${title}》移出條漫書架`, "bi-trash text-warning");
+    showToast(`🗑️ 已將《${title}》丟入垃圾桶移出條漫書架`, "bi-trash text-danger");
   }
 };
 
@@ -6752,76 +6785,42 @@ window.removeBookFromMangaShelf = function (title) {
 
 window.renderNovelBookshelf = function () {
   const grid = document.getElementById("novelBookshelfGrid");
-
   if (!grid) return;
   const shelf = window.getNovelBookshelf ? window.getNovelBookshelf() : [];
   grid.innerHTML = "";
+  const trash = document.getElementById("novelTrashBin");
+  if (typeof setupBookshelfTrashBin === 'function') {
+    setupBookshelfTrashBin("novelTrashBin", window.removeBookFromNovelShelf);
+  }
 
   if (shelf.length === 0) {
+    if (trash) trash.style.display = "none";
     grid.innerHTML = `
-
-
-
             <div class="text-muted py-5 small text-center w-100 d-flex flex-column align-items-center justify-content-center">
-
-
-
                 <i class="bi bi-book-half fs-1 text-success opacity-50 mb-2"></i>
-
-
-
                 <div class="fw-bold fs-6 novel-empty-tip-title mb-1">小說書房目前尚無藏書</div>
-
-
-
                 <div class="novel-empty-tip-desc small mb-3">可在上方搜尋輕小說或點擊「上傳電子書」，即可將喜愛的作品陳列於此！</div>
-
-
-
                 <div class="d-flex gap-2">
-
-
-
                     <button class="btn btn-sm btn-success rounded-pill px-3 fw-semibold shadow-sm" onclick="openNovelSearchModal('')">
-
-
-
                         <i class="bi bi-search me-1"></i> 搜尋線上小說
-
-
-
                     </button>
-
-
-
                     <button class="btn btn-sm btn-success rounded-pill px-3" onclick="document.getElementById('novelLocalFileInput').click()">
-
-
-
                         <i class="bi bi-upload me-1"></i> 上傳本機小說
-
-
-
                     </button>
-
-
-
                 </div>
-
-
-
             </div>
-
-
-
         `;
-
     return;
   }
+
+  if (trash) trash.style.display = "flex";
 
   shelf.forEach((book) => {
     const bookEl = document.createElement("div");
     bookEl.className = "bookshelf-book";
+    bookEl.setAttribute("draggable", "true");
+    bookEl.setAttribute("data-book-title", book.title);
+    bookEl.setAttribute("title", "點擊開卷 · 長按拖曳至右下角垃圾桶可刪除");
 
     const isLocal = !!(
       book.isLocal ||
@@ -6836,9 +6835,6 @@ window.renderNovelBookshelf = function () {
     const subText = isLocal ? "點擊開卷 (本機)" : "點擊翻閱 (線上)";
 
     bookEl.innerHTML = `
-
-
-
             <span class="bookshelf-badge ${badgeClass}">${escapeHtml(book.tag || badgeText)}</span>
             <div class="book-3d-chassis">
                 <div class="book-3d-pages">
@@ -6858,26 +6854,35 @@ window.renderNovelBookshelf = function () {
                     <div class="book-cover-gloss"></div>
                 </div>
             </div>
-            <button type="button" class="bookshelf-remove-btn" title="移出書房" onclick="event.preventDefault(); event.stopPropagation(); removeBookFromNovelShelf('${escapeHtml(book.title)}')">✕</button>
             <div class="bookshelf-book-title text-dark" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
-
-
-
             <div class="bookshelf-book-sub ${isLocal ? "text-primary fw-semibold" : ""}">${subText}</div>
-
-
-
         `;
 
+    let isDraggingBook = false;
+    bookEl.addEventListener("dragstart", (e) => {
+      isDraggingBook = true;
+      bookEl.classList.add("dragging-book");
+      e.dataTransfer.setData("text/plain", JSON.stringify({ type: "novel", title: book.title }));
+      e.dataTransfer.effectAllowed = "move";
+      const t = document.getElementById("novelTrashBin");
+      if (t) t.classList.add("trash-ready");
+    });
+
+    bookEl.addEventListener("dragend", () => {
+      bookEl.classList.remove("dragging-book");
+      const t = document.getElementById("novelTrashBin");
+      if (t) t.classList.remove("trash-ready", "trash-hover");
+      setTimeout(() => { isDraggingBook = false; }, 80);
+    });
+
     bookEl.onclick = async () => {
+      if (isDraggingBook) return;
       if (isLocal) {
         // 本機電子書開卷邏輯：自 IndexedDB 讀取完整章節
-
         const bookId = book.id || "local_" + book.title.replace(/\s+/g, "_");
         let localData = await getLocalNovelFromDB(bookId);
 
         // 若未找到，嘗試按標題查詢
-
         if (
           !localData &&
           window.novelState &&
@@ -6898,12 +6903,9 @@ window.renderNovelBookshelf = function () {
           loadLocalBookIntoReader(localData.title, localData.chapters, bookId);
 
           // 切換為閱讀中畫面
-
           const placeholder = document.getElementById("legadoPlaceholder");
-
           if (placeholder) placeholder.style.display = "none";
           const readingArea = document.getElementById("novelReadingArea");
-
           if (readingArea) readingArea.style.display = "block";
         } else {
           showToast(
@@ -6913,7 +6915,6 @@ window.renderNovelBookshelf = function () {
         }
       } else {
         // 線上小說：開啟搜尋與選集抽屜
-
         if (typeof window.openNovelSearchModal === "function") {
           window.openNovelSearchModal(book.title);
         }
@@ -6941,12 +6942,13 @@ window.renderNovelBookshelf = function () {
 
 window.removeBookFromNovelShelf = function (title) {
   let shelf = window.getNovelBookshelf();
-
   shelf = shelf.filter((b) => b.title !== title);
   window.saveNovelBookshelf(shelf);
-
+  if (typeof window.renderNovelBookshelf === "function") {
+    window.renderNovelBookshelf();
+  }
   if (typeof showToast === "function") {
-    showToast(`已將《${title}》移出小說書房`, "bi-trash text-warning");
+    showToast(`🗑️ 已將《${title}》丟入垃圾桶移出小說書房`, "bi-trash text-danger");
   }
 };
 
@@ -14500,8 +14502,12 @@ window.floatingPageFlightHistory = window.floatingPageFlightHistory || {};
 
 window.flipFloatingPage = function(direction) {
     if (isFloatingPageAnimating) return;
-    const targetPage = currentFloatingPage + direction;
-    if (targetPage < 1 || targetPage > TOTAL_FLOATING_PAGES) return;
+    let targetPage = currentFloatingPage + direction;
+    if (targetPage > TOTAL_FLOATING_PAGES) {
+        targetPage = 1;
+    } else if (targetPage < 1) {
+        targetPage = TOTAL_FLOATING_PAGES;
+    }
     const oldPageEl = document.getElementById(`bookPage${currentFloatingPage}`);
     const newPageEl = document.getElementById(`bookPage${targetPage}`);
     const mainCard = document.getElementById('floatingBookMain');
@@ -14685,8 +14691,15 @@ function updateFloatingPageMeta() {
     if (titleEl) titleEl.textContent = meta.title;
     if (pageNumEl) pageNumEl.textContent = `頁碼 ${currentFloatingPage} / ${TOTAL_FLOATING_PAGES}`;
 
-    if (prevBtn) prevBtn.disabled = (currentFloatingPage <= 1);
-    if (nextBtn) nextBtn.disabled = (currentFloatingPage >= TOTAL_FLOATING_PAGES);
+    if (prevBtn) prevBtn.disabled = false;
+    if (nextBtn) {
+        nextBtn.disabled = false;
+        if (currentFloatingPage === TOTAL_FLOATING_PAGES) {
+            nextBtn.innerHTML = '下一頁 (回首頁) <i class="bi bi-arrow-repeat ms-1"></i>';
+        } else {
+            nextBtn.innerHTML = '下一頁 <i class="bi bi-chevron-right ms-1"></i>';
+        }
+    }
     const indicators = document.querySelectorAll('#bookPageIndicators span');
     indicators.forEach((dot, idx) => {
         if (idx === currentFloatingPage - 1) {
