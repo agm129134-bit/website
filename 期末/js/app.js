@@ -6685,13 +6685,6 @@ window.renderMangaBookshelf = function () {
 
 
             <span class="bookshelf-badge bg-primary text-white">${escapeHtml(book.tag || "條漫")}</span>
-
-
-
-            <button type="button" class="bookshelf-remove-btn" title="移出書架" onclick="event.stopPropagation(); removeBookFromMangaShelf('${escapeHtml(book.title)}')">✕</button>
-
-
-
             <div class="book-3d-chassis">
                 <div class="book-3d-pages">
                     <div class="book-3d-inner-page">
@@ -6710,9 +6703,7 @@ window.renderMangaBookshelf = function () {
                     <div class="book-cover-gloss"></div>
                 </div>
             </div>
-
-
-
+            <button type="button" class="bookshelf-remove-btn" title="移出書架" onclick="event.preventDefault(); event.stopPropagation(); removeBookFromMangaShelf('${escapeHtml(book.title)}')">✕</button>
             <div class="bookshelf-book-title" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
 
 
@@ -6849,13 +6840,6 @@ window.renderNovelBookshelf = function () {
 
 
             <span class="bookshelf-badge ${badgeClass}">${escapeHtml(book.tag || badgeText)}</span>
-
-
-
-            <button type="button" class="bookshelf-remove-btn" title="移出書房" onclick="event.stopPropagation(); removeBookFromNovelShelf('${escapeHtml(book.title)}')">✕</button>
-
-
-
             <div class="book-3d-chassis">
                 <div class="book-3d-pages">
                     <div class="book-3d-inner-page">
@@ -6874,9 +6858,7 @@ window.renderNovelBookshelf = function () {
                     <div class="book-cover-gloss"></div>
                 </div>
             </div>
-
-
-
+            <button type="button" class="bookshelf-remove-btn" title="移出書房" onclick="event.preventDefault(); event.stopPropagation(); removeBookFromNovelShelf('${escapeHtml(book.title)}')">✕</button>
             <div class="bookshelf-book-title text-dark" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
 
 
@@ -14505,6 +14487,17 @@ function playPageFlipSound() {
 
 let isFloatingPageAnimating = false;
 
+// 隨機多方向物理航線庫 (Random Trajectory Matrix)
+const FLOATING_PAGE_FLIGHT_TRAJECTORIES = [
+    { id: 'top-left',     x: -1200, y: -260, rotation: -32, scale: 0.65 },
+    { id: 'top-right',    x: 1200,  y: -260, rotation: 32,  scale: 0.65 },
+    { id: 'bottom-left',  x: -1150, y: 280,  rotation: -22, scale: 0.68 },
+    { id: 'bottom-right', x: 1150,  y: 280,  rotation: 22,  scale: 0.68 },
+    { id: 'far-left',     x: -1300, y: -50,  rotation: -26, scale: 0.70 },
+    { id: 'far-right',    x: 1300,  y: -50,  rotation: 26,  scale: 0.70 }
+];
+window.floatingPageFlightHistory = window.floatingPageFlightHistory || {};
+
 window.flipFloatingPage = function(direction) {
     if (isFloatingPageAnimating) return;
     const targetPage = currentFloatingPage + direction;
@@ -14522,8 +14515,11 @@ window.flipFloatingPage = function(direction) {
         const frostedBg = isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.78)';
 
         if (direction > 0) {
-            // === 下一頁：當前白色頁面帶著加大弧度整個飛向螢幕遠方 (x: -1100, y: -70, rot: -28deg) ===
-            // 底下半透明毛玻璃底頁向中央回正歸位，並順暢由毛玻璃漸變轉為實體白色主頁，杜絕突兀飛回
+            // === 下一頁：當前白頁沿隨機方向（左上/右上/左下/右下等）飛向螢幕深處 ===
+            // 隨機抽選一條航線並記錄在歷史中
+            const traj = FLOATING_PAGE_FLIGHT_TRAJECTORIES[Math.floor(Math.random() * FLOATING_PAGE_FLIGHT_TRAJECTORIES.length)];
+            window.floatingPageFlightHistory[currentFloatingPage] = traj;
+
             const flyingClone = mainCard.cloneNode(true);
             flyingClone.id = 'floatingBookFlyingClone';
             flyingClone.style.position = 'absolute';
@@ -14531,11 +14527,11 @@ window.flipFloatingPage = function(direction) {
             flyingClone.style.left = '0';
             flyingClone.style.width = mainCard.offsetWidth + 'px';
             flyingClone.style.height = mainCard.offsetHeight + 'px';
-            flyingClone.style.zIndex = '12';
+            flyingClone.style.zIndex = '15';
             flyingClone.style.pointerEvents = 'none';
             mainCard.parentNode.appendChild(flyingClone);
 
-            // 主卡片在底層立即切換為新頁面內容，並預先套用底下毛玻璃頁面(#stackedCard1)的歪斜堆疊姿態
+            // 主卡片在底層即時切換為目標頁面內容，並以毛玻璃堆疊姿態就位
             currentFloatingPage = targetPage;
             updateFloatingPageMeta();
             oldPageEl.classList.add('d-none');
@@ -14560,18 +14556,18 @@ window.flipFloatingPage = function(direction) {
                 }
             });
 
-            // 1. 頂層克隆白頁飛向螢幕遠方 (加大、飛遠、強烈風壓透視感)
+            // 1. 克隆白頁沿隨機方向飛向畫面外 (多方向飛離，絕不千篇一律)
             tl.to(flyingClone, {
-                x: -1100,
-                y: -70,
-                rotation: -28,
-                scale: 0.72,
+                x: traj.x,
+                y: traj.y,
+                rotation: traj.rotation,
+                scale: traj.scale,
                 opacity: 0,
                 duration: 0.54,
                 ease: "power2.in"
             }, 0);
 
-            // 2. 底下原本歪斜堆疊的書頁向中央回正歸位，並順暢由毛玻璃漸變轉為實體白色主頁
+            // 2. 底下原本歪斜堆疊的書頁向中央回正歸位，並順暢漸變轉為實體白色主頁
             tl.to(mainCard, {
                 x: 0,
                 y: 0,
@@ -14583,17 +14579,20 @@ window.flipFloatingPage = function(direction) {
                 ease: "power2.out"
             }, 0.05);
 
-            // 3. 底層堆疊卡片微幅跟隨
             if (stack1) {
                 tl.fromTo(stack1, { scale: 0.96 }, { scale: 0.98, duration: 0.45, ease: "power1.out" }, 0.05);
             }
         } else {
-            // === 上一頁：上一頁飛回動效速度改慢至 0.68s，白頁變回毛玻璃沉入下方堆疊 ===
+            // === 上一頁：從當初飛出去的隨機方向「由畫面外」優雅俯衝飄回中央 ===
+            // 讀取該頁飛出的航線，若無紀錄則自外部隨機方向飛入
+            const originTraj = window.floatingPageFlightHistory[targetPage] || FLOATING_PAGE_FLIGHT_TRAJECTORIES[Math.floor(Math.random() * FLOATING_PAGE_FLIGHT_TRAJECTORIES.length)];
+
             currentFloatingPage = targetPage;
             updateFloatingPageMeta();
             oldPageEl.classList.add('d-none');
             newPageEl.classList.remove('d-none');
 
+            // 建立由畫面外飛回的頁面克隆
             const incomingFlyer = mainCard.cloneNode(true);
             incomingFlyer.id = 'floatingBookIncomingFlyer';
             incomingFlyer.style.position = 'absolute';
@@ -14601,20 +14600,20 @@ window.flipFloatingPage = function(direction) {
             incomingFlyer.style.left = '0';
             incomingFlyer.style.width = mainCard.offsetWidth + 'px';
             incomingFlyer.style.height = mainCard.offsetHeight + 'px';
-            incomingFlyer.style.zIndex = '12';
+            incomingFlyer.style.zIndex = '15';
             incomingFlyer.style.pointerEvents = 'none';
             mainCard.parentNode.appendChild(incomingFlyer);
 
-            // 主卡片（剛才看的那一頁）留在原處，準備退回半透明毛玻璃底層
+            // 暫時還原主卡片顯示剛才的頁面，沉入毛玻璃堆疊
             oldPageEl.classList.remove('d-none');
             newPageEl.classList.add('d-none');
 
-            // 設置 incomingFlyer 初始在遠方
+            // 關鍵：將 incomingFlyer 定位在當初飛出去的螢幕極外側起點
             gsap.set(incomingFlyer, {
-                x: -1100,
-                y: -70,
-                rotation: -28,
-                scale: 0.72,
+                x: originTraj.x,
+                y: originTraj.y,
+                rotation: originTraj.rotation,
+                scale: originTraj.scale,
                 opacity: 0
             });
 
@@ -14629,18 +14628,18 @@ window.flipFloatingPage = function(direction) {
                 }
             });
 
-            // 1. 上一頁自左側遠方平滑優雅飛回覆蓋 (0.68s 柔順慢速)
+            // 1. 上一頁自畫面外該方向「真・俯衝飄回」至中央 (0.72s 柔順慢速滑行，杜絕倒帶感)
             tl.to(incomingFlyer, {
                 x: 0,
                 y: 0,
                 rotation: 0,
                 scale: 1,
                 opacity: 1,
-                duration: 0.68,
-                ease: "power2.out"
+                duration: 0.72,
+                ease: "power3.out"
             }, 0);
 
-            // 2. 當前白頁變回半透明毛玻璃，柔和沉入下方堆疊
+            // 2. 當前白頁平滑轉為毛玻璃，柔順沉入下方堆疊
             tl.to(mainCard, {
                 x: -18,
                 y: -12,

@@ -351,22 +351,26 @@
 
         .bookshelf-remove-btn {
             position: absolute;
-            top: 5px;
-            right: 5px;
-            width: 22px;
-            height: 22px;
-            background: rgba(0, 0, 0, 0.65);
+            top: 6px;
+            right: 6px;
+            width: 26px;
+            height: 26px;
+            background: rgba(15, 23, 42, 0.82);
             color: #ffffff;
-            border: none;
+            border: 1.5px solid rgba(255, 255, 255, 0.45);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 12px;
+            font-weight: 700;
             opacity: 0;
-            transition: opacity 0.2s ease, transform 0.2s ease;
-            z-index: 5;
+            transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+            z-index: 100 !important;
+            transform: translateZ(60px);
             cursor: pointer;
+            pointer-events: auto !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
         }
 
         .bookshelf-book:hover .bookshelf-remove-btn {
@@ -375,7 +379,9 @@
 
         .bookshelf-remove-btn:hover {
             background: #ef4444;
-            transform: scale(1.15);
+            transform: translateZ(60px) scale(1.22);
+            border-color: #ffffff;
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.7);
         }
 
         /* 書本標題 */
@@ -2090,25 +2096,25 @@
                 bookEl.className = "bookshelf-book";
                 bookEl.innerHTML = `
                     <span class="bookshelf-badge bg-primary text-white">${escapeHtml(book.tag || '條漫')}</span>
-                    <button type="button" class="bookshelf-remove-btn" title="移出書架" onclick="event.stopPropagation(); removeBookFromMangaShelf('${escapeHtml(book.title)}')">✕</button>
                     <div class="book-3d-chassis">
-                <div class="book-3d-pages">
-                    <div class="book-3d-inner-page">
-                        <div class="book-inner-sketch">MANGA</div>
-                        <div class="book-inner-content">
-                            <div class="book-inner-vol">Vol.01</div>
-                            <div class="book-inner-title">${escapeHtml(book.title)}</div>
-                            <div class="book-inner-desc">EPISODE · START</div>
+                        <div class="book-3d-pages">
+                            <div class="book-3d-inner-page">
+                                <div class="book-inner-sketch">MANGA</div>
+                                <div class="book-inner-content">
+                                    <div class="book-inner-vol">Vol.01</div>
+                                    <div class="book-inner-title">${escapeHtml(book.title)}</div>
+                                    <div class="book-inner-desc">EPISODE · START</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="book-3d-spine"></div>
+                        <div class="book-3d-cover">
+                            <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80'">
+                            <div class="book-cover-crease"></div>
+                            <div class="book-cover-gloss"></div>
                         </div>
                     </div>
-                </div>
-                <div class="book-3d-spine"></div>
-                <div class="book-3d-cover">
-                    <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80'">
-                    <div class="book-cover-crease"></div>
-                    <div class="book-cover-gloss"></div>
-                </div>
-            </div>
+                    <button type="button" class="bookshelf-remove-btn" title="移出書架" onclick="event.preventDefault(); event.stopPropagation(); removeBookFromMangaShelf('${escapeHtml(book.title)}')">✕</button>
                     <div class="bookshelf-book-title" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
                     <div class="bookshelf-book-sub">點擊開卷</div>
                 `;
@@ -2238,25 +2244,25 @@
 
                 bookEl.innerHTML = `
                     <span class="bookshelf-badge ${badgeClass}">${escapeHtml(book.tag || badgeText)}</span>
-                    <button type="button" class="bookshelf-remove-btn" title="移出書房" onclick="event.stopPropagation(); removeBookFromNovelShelf('${escapeHtml(book.title)}')">✕</button>
                     <div class="book-3d-chassis">
-                <div class="book-3d-pages">
-                    <div class="book-3d-inner-page">
-                        <div class="book-inner-sketch">NOVEL</div>
-                        <div class="book-inner-content">
-                            <div class="book-inner-vol">${isLocal ? "本機檔" : "第 1 卷"}</div>
-                            <div class="book-inner-title">${escapeHtml(book.title)}</div>
-                            <div class="book-inner-desc">CHAPTER · OPEN</div>
+                        <div class="book-3d-pages">
+                            <div class="book-3d-inner-page">
+                                <div class="book-inner-sketch">NOVEL</div>
+                                <div class="book-inner-content">
+                                    <div class="book-inner-vol">${isLocal ? "本機檔" : "第 1 卷"}</div>
+                                    <div class="book-inner-title">${escapeHtml(book.title)}</div>
+                                    <div class="book-inner-desc">CHAPTER · OPEN</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="book-3d-spine"></div>
+                        <div class="book-3d-cover">
+                            <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80'">
+                            <div class="book-cover-crease"></div>
+                            <div class="book-cover-gloss"></div>
                         </div>
                     </div>
-                </div>
-                <div class="book-3d-spine"></div>
-                <div class="book-3d-cover">
-                    <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80'">
-                    <div class="book-cover-crease"></div>
-                    <div class="book-cover-gloss"></div>
-                </div>
-            </div>
+                    <button type="button" class="bookshelf-remove-btn" title="移出書房" onclick="event.preventDefault(); event.stopPropagation(); removeBookFromNovelShelf('${escapeHtml(book.title)}')">✕</button>
                     <div class="bookshelf-book-title text-dark" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
                     <div class="bookshelf-book-sub ${isLocal ? 'text-primary fw-semibold' : ''}">${subText}</div>
                 `;
