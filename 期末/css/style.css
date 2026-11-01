@@ -2733,7 +2733,7 @@ body.dark-theme .text-muted {
 /* ==================== Task: 獨立飄浮層疊書頁 (Stacked Floating Cards) ==================== */
 .floating-cards-wrapper {
   position: relative;
-  min-height: 480px;
+  min-height: 650px;
 }
 
 .stacked-card-shadow {
@@ -2746,7 +2746,7 @@ body.dark-theme .text-muted {
   border: 1.5px solid rgba(226, 232, 240, 0.9);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
   pointer-events: none;
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  transition: opacity 0.3s ease;
   will-change: transform, opacity;
 }
 
@@ -2781,12 +2781,40 @@ body.dark-theme .text-muted {
   position: relative;
   z-index: 2;
   background: #ffffff;
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  transition: box-shadow 0.3s ease;
 }
 
 [data-bs-theme="dark"] .floating-book-card {
   background: #1e293b;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+/* 關於網頁手冊卡片統一恆定高度與防抽動規範 */
+.floating-book-card .card-body {
+  height: 520px !important;
+  min-height: 520px !important;
+  max-height: 520px !important;
+  overflow-y: auto !important;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+
+.floating-book-card .card-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.floating-book-card .card-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.floating-book-card .card-body::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+}
+
+.floating-book-card .card-body::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.7);
 }
 
 /* ==================== Task: Spotlight 停用模式開關控制 ==================== */
@@ -3032,6 +3060,11 @@ body.dark-theme .action-jump-btn:hover {
   perspective: 1200px;
 }
 .about-page-content {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  box-sizing: border-box;
   transform-origin: center left;
   will-change: transform, opacity;
 }

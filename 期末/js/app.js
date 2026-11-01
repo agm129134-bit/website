@@ -14529,6 +14529,7 @@ window.flipFloatingPage = function(direction) {
             flyingClone.style.height = mainCard.offsetHeight + 'px';
             flyingClone.style.zIndex = '15';
             flyingClone.style.pointerEvents = 'none';
+            flyingClone.style.boxSizing = 'border-box';
             mainCard.parentNode.appendChild(flyingClone);
 
             // 主卡片在底層即時切換為目標頁面內容，並以毛玻璃堆疊姿態就位
@@ -14536,6 +14537,8 @@ window.flipFloatingPage = function(direction) {
             updateFloatingPageMeta();
             oldPageEl.classList.add('d-none');
             newPageEl.classList.remove('d-none');
+            const mainBody = mainCard.querySelector('.card-body');
+            if (mainBody) mainBody.scrollTop = 0;
 
             gsap.set(mainCard, {
                 x: -18,
@@ -14552,22 +14555,24 @@ window.flipFloatingPage = function(direction) {
                     flyingClone.remove();
                     gsap.set(mainCard, { clearProps: 'all' });
                     if (stack1) gsap.set(stack1, { clearProps: 'all' });
+                    const cb = mainCard.querySelector('.card-body');
+                    if (cb) cb.scrollTop = 0;
                     isFloatingPageAnimating = false;
                 }
             });
 
-            // 1. 克隆白頁沿隨機方向飛向畫面外 (多方向飛離，絕不千篇一律)
+            // 1. 克隆白頁沿隨機方向飛向畫面外 (放慢至 0.86s，優雅飄揚，呼吸感極致)
             tl.to(flyingClone, {
                 x: traj.x,
                 y: traj.y,
                 rotation: traj.rotation,
                 scale: traj.scale,
                 opacity: 0,
-                duration: 0.54,
-                ease: "power2.in"
+                duration: 0.86,
+                ease: "power2.inOut"
             }, 0);
 
-            // 2. 底下原本歪斜堆疊的書頁向中央回正歸位，並順暢漸變轉為實體白色主頁
+            // 2. 底下原本歪斜堆疊的書頁向中央回正歸位，並順暢漸變轉為實體白色主頁 (放慢至 0.82s)
             tl.to(mainCard, {
                 x: 0,
                 y: 0,
@@ -14575,12 +14580,12 @@ window.flipFloatingPage = function(direction) {
                 scale: 1,
                 opacity: 1,
                 backgroundColor: activeCardBg,
-                duration: 0.50,
+                duration: 0.82,
                 ease: "power2.out"
             }, 0.05);
 
             if (stack1) {
-                tl.fromTo(stack1, { scale: 0.96 }, { scale: 0.98, duration: 0.45, ease: "power1.out" }, 0.05);
+                tl.fromTo(stack1, { scale: 0.96 }, { scale: 0.98, duration: 0.78, ease: "power1.out" }, 0.05);
             }
         } else {
             // === 上一頁：從當初飛出去的隨機方向「由畫面外」優雅俯衝飄回中央 ===
@@ -14591,6 +14596,8 @@ window.flipFloatingPage = function(direction) {
             updateFloatingPageMeta();
             oldPageEl.classList.add('d-none');
             newPageEl.classList.remove('d-none');
+            const mainBody = mainCard.querySelector('.card-body');
+            if (mainBody) mainBody.scrollTop = 0;
 
             // 建立由畫面外飛回的頁面克隆
             const incomingFlyer = mainCard.cloneNode(true);
@@ -14602,6 +14609,7 @@ window.flipFloatingPage = function(direction) {
             incomingFlyer.style.height = mainCard.offsetHeight + 'px';
             incomingFlyer.style.zIndex = '15';
             incomingFlyer.style.pointerEvents = 'none';
+            incomingFlyer.style.boxSizing = 'border-box';
             mainCard.parentNode.appendChild(incomingFlyer);
 
             // 暫時還原主卡片顯示剛才的頁面，沉入毛玻璃堆疊
@@ -14624,22 +14632,24 @@ window.flipFloatingPage = function(direction) {
                     newPageEl.classList.remove('d-none');
                     gsap.set(mainCard, { clearProps: 'all' });
                     if (stack1) gsap.set(stack1, { clearProps: 'all' });
+                    const cb = mainCard.querySelector('.card-body');
+                    if (cb) cb.scrollTop = 0;
                     isFloatingPageAnimating = false;
                 }
             });
 
-            // 1. 上一頁自畫面外該方向「真・俯衝飄回」至中央 (0.72s 柔順慢速滑行，杜絕倒帶感)
+            // 1. 上一頁自畫面外該方向「真・俯衝飄回」至中央 (放慢至 0.96s，超柔順慢速滑行著陸，杜絕倒帶與抽動感)
             tl.to(incomingFlyer, {
                 x: 0,
                 y: 0,
                 rotation: 0,
                 scale: 1,
                 opacity: 1,
-                duration: 0.72,
+                duration: 0.96,
                 ease: "power3.out"
             }, 0);
 
-            // 2. 當前白頁平滑轉為毛玻璃，柔順沉入下方堆疊
+            // 2. 當前白頁平滑轉為毛玻璃，柔順沉入下方堆疊 (放慢至 0.88s)
             tl.to(mainCard, {
                 x: -18,
                 y: -12,
@@ -14647,9 +14657,13 @@ window.flipFloatingPage = function(direction) {
                 scale: 0.98,
                 opacity: 0.86,
                 backgroundColor: frostedBg,
-                duration: 0.62,
+                duration: 0.88,
                 ease: "power2.inOut"
             }, 0);
+
+            if (stack1) {
+                tl.fromTo(stack1, { scale: 0.98 }, { scale: 0.96, duration: 0.82, ease: "power1.inOut" }, 0.05);
+            }
         }
     } else {
         if (oldPageEl) oldPageEl.classList.add('d-none');
