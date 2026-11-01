@@ -6627,19 +6627,44 @@ function bindBookshelfWaveEffect(bookEl) {
 
 // 渲染條漫立體書架
 
-// 薩諾斯粒子粉末瓦解特效引擎 (Thanos Snap Powder Disintegration)
-window.disintegrateBookToPowder = function(bookElement, onComplete) {
-  if (!bookElement) {
-    if (typeof onComplete === 'function') onComplete();
-    return;
-  }
-  const rect = bookElement.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) {
-    if (typeof onComplete === 'function') onComplete();
-    return;
+// 判斷當前是否處於漫畫或小說立體書架頁面 (首頁、其他分頁一律不顯示垃圾桶)
+window.isBookshelfPageActive = function() {
+  const mangaModal = document.getElementById("mangaReaderModal");
+  const isMangaModalOpen = mangaModal && (mangaModal.classList.contains("show") || mangaModal.style.display === "block");
+  const mangaPlaceholder = document.getElementById("tachimangaPlaceholder");
+  const isMangaShelfVisible = isMangaModalOpen && (!mangaPlaceholder || mangaPlaceholder.style.display !== "none");
+
+  const novelModal = document.getElementById("novelReaderModal");
+  const isNovelModalOpen = novelModal && (novelModal.classList.contains("show") || novelModal.style.display === "block");
+  const novelReadingArea = document.getElementById("novelReadingArea");
+  const isNovelShelfVisible = isNovelModalOpen && (!novelReadingArea || novelReadingArea.style.display === "none");
+
+  return !!(isMangaShelfVisible || isNovelShelfVisible);
+};
+
+// 灰燼粉末慢速升騰特效 (出現在垃圾桶/滑鼠放開處，調慢至 1.4~1.8 秒浪漫慢速漂浮)
+window.disintegrateBookToPowder = function(bookElement, onComplete, originCoords) {
+  // 1. 書架上的書本原地平滑縮小淡出
+  if (bookElement) {
+    bookElement.classList.add('book-disintegrating');
   }
 
-  // 1. 建立全螢幕最高層級透明繪圖 Canvas
+  // 2. 取得粉末生成的發射中心點：優先取滑鼠放開處座標，次之取垃圾桶中心
+  let originX = window.innerWidth - 80;
+  let originY = window.innerHeight - 60;
+  if (originCoords && typeof originCoords.x === 'number' && typeof originCoords.y === 'number') {
+    originX = originCoords.x;
+    originY = originCoords.y;
+  } else {
+    const trashEl = document.getElementById("globalBookshelfTrashBin");
+    if (trashEl) {
+      const tRect = trashEl.getBoundingClientRect();
+      originX = tRect.left + tRect.width / 2;
+      originY = tRect.top + tRect.height / 2;
+    }
+  }
+
+  // 3. 建立全螢幕最高層級透明繪圖 Canvas
   const canvas = document.createElement('canvas');
   canvas.style.position = 'fixed';
   canvas.style.top = '0';
@@ -6654,38 +6679,36 @@ window.disintegrateBookToPowder = function(bookElement, onComplete) {
   canvas.height = window.innerHeight;
   const ctx = canvas.getContext('2d');
 
-  // 2. 書本本體加上瓦解樣式 (高對比、超高亮、模糊與微縮漸隱)
-  bookElement.classList.add('book-disintegrating');
-
-  // 3. 生成 240 顆隨風飄散微粒粉末
-  const particleCount = 240;
+  // 4. 在垃圾桶滑鼠處生成 180 顆緩慢升騰飄浮的灰燼微塵
+  const particleCount = 180;
   const particles = [];
   const colors = [
-    '#ef4444', '#f97316', '#f59e0b', '#fbbf24', '#ffffff', 
+    '#ef4444', '#f97316', '#f59e0b', '#fbbf24', '#ffffff', '#fecaca',
     'rgba(239, 68, 68, 0.95)', 'rgba(249, 115, 22, 0.9)', 'rgba(251, 191, 36, 0.85)'
   ];
 
   for (let i = 0; i < particleCount; i++) {
-    const px = rect.left + Math.random() * rect.width;
-    const py = rect.top + Math.random() * rect.height;
-    const size = Math.random() * 2.8 + 1.2;
-    // 向右上捲揚風向角與亂流速度
-    const angle = -Math.PI / 3 + (Math.random() - 0.5) * 0.95;
-    const speed = Math.random() * 5.8 + 2.2;
+    const px = originX + (Math.random() - 0.5) * 44;
+    const py = originY + (Math.random() - 0.5) * 36;
+    const size = Math.random() * 2.8 + 1.4;
+
+    const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.1;
+    const speed = Math.random() * 2.4 + 0.8; // 大幅調慢初速度
     particles.push({
       x: px,
       y: py,
-      vx: Math.cos(angle) * speed + (Math.random() - 0.5) * 1.6,
-      vy: Math.sin(angle) * speed - Math.random() * 2.2,
+      vx: Math.cos(angle) * speed + (Math.random() - 0.5) * 1.2,
+      vy: Math.sin(angle) * speed - Math.random() * 1.4,
       radius: size,
       color: colors[Math.floor(Math.random() * colors.length)],
       alpha: 1.0,
-      decay: Math.random() * 0.022 + 0.016,
-      gravity: 0.07
+      decay: Math.random() * 0.008 + 0.006, // 壽命調慢延長至 1.4 ~ 1.8 秒
+      sway: (Math.random() - 0.5) * 0.15,
+      life: 0
     });
   }
 
-  // 4. 動畫微粒渲染循環
+  // 5. 慢速流體灰燼動畫循環
   let animId;
   function renderDust() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -6695,11 +6718,12 @@ window.disintegrateBookToPowder = function(bookElement, onComplete) {
       const p = particles[i];
       if (p.alpha > 0.01) {
         alive++;
-        p.x += p.vx;
+        p.life++;
+        p.x += p.vx + Math.sin(p.life * 0.06) * 0.45;
         p.y += p.vy;
-        p.vy += p.gravity;
+        p.vy += 0.015;
         p.alpha -= p.decay;
-        p.radius = Math.max(0.2, p.radius * 0.985);
+        p.radius = Math.max(0.2, p.radius * 0.992);
 
         ctx.save();
         ctx.globalAlpha = Math.max(0, p.alpha);
@@ -6768,13 +6792,15 @@ window.setupGlobalBookshelfTrashBin = function() {
         const data = JSON.parse(raw);
         if (data && data.title) {
           const targetBook = window._currentlyDraggedBookEl || document.querySelector(`.bookshelf-book[data-book-title="${data.title}"]`);
+          // 獲取滑鼠放開時在垃圾桶上的座標
+          const mouseCoords = { x: e.clientX, y: e.clientY };
           window.disintegrateBookToPowder(targetBook, () => {
             if (data.type === 'manga' && typeof window.removeBookFromMangaShelf === 'function') {
               window.removeBookFromMangaShelf(data.title);
             } else if (data.type === 'novel' && typeof window.removeBookFromNovelShelf === 'function') {
               window.removeBookFromNovelShelf(data.title);
             }
-          });
+          }, mouseCoords);
         }
       }
     } catch (err) {
@@ -6784,19 +6810,50 @@ window.setupGlobalBookshelfTrashBin = function() {
 
   trash.addEventListener('click', () => {
     if (typeof showToast === 'function') {
-      showToast('💡 提示：將任何書本長按拖曳丟進右下角垃圾桶，即可化作粉末刪除移出', 'bi-trash text-warning');
+      showToast('💡 提示：將任何書本長按拖曳丟進右下角垃圾桶，即可在垃圾桶處化作粉末移出', 'bi-trash text-warning');
+    }
+  });
+
+  // Modal 監聽確保首頁與關閉時隱藏垃圾桶
+  ['mangaReaderModal', 'novelReaderModal'].forEach(id => {
+    const modal = document.getElementById(id);
+    if (modal && !modal.dataset.trashBound) {
+      modal.dataset.trashBound = 'true';
+      modal.addEventListener('hidden.bs.modal', () => {
+        const t = document.getElementById("globalBookshelfTrashBin");
+        if (t) t.style.display = "none";
+      });
+      modal.addEventListener('shown.bs.modal', () => {
+        if (typeof window.updateBookshelfTrashVisibility === 'function') {
+          window.updateBookshelfTrashVisibility();
+        }
+      });
     }
   });
 };
 
 window.setupBookshelfTrashBin = window.setupGlobalBookshelfTrashBin;
 
+// 更新右下角垃圾桶可見度：嚴格限定只有在漫畫或小說的書架頁面才顯示
 window.updateBookshelfTrashVisibility = function() {
   const trash = document.getElementById("globalBookshelfTrashBin");
   if (!trash) return;
+
+  // 若非漫畫或小說書架頁面，強制隱藏
+  if (typeof window.isBookshelfPageActive === 'function' && !window.isBookshelfPageActive()) {
+    trash.style.display = "none";
+    return;
+  }
+
+  const mangaModal = document.getElementById("mangaReaderModal");
+  const isMangaOpen = mangaModal && (mangaModal.classList.contains("show") || mangaModal.style.display === "block");
+  const novelModal = document.getElementById("novelReaderModal");
+  const isNovelOpen = novelModal && (novelModal.classList.contains("show") || novelModal.style.display === "block");
+
   const mangaCount = (typeof window.getMangaBookshelf === 'function' ? window.getMangaBookshelf().length : 0);
   const novelCount = (typeof window.getNovelBookshelf === 'function' ? window.getNovelBookshelf().length : 0);
-  if (mangaCount > 0 || novelCount > 0) {
+
+  if ((isMangaOpen && mangaCount > 0) || (isNovelOpen && novelCount > 0)) {
     trash.style.display = "flex";
   } else {
     trash.style.display = "none";

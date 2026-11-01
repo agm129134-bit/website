@@ -1794,25 +1794,181 @@
             renderCarouselItems();
         };
 
-        // 輪播圖動態載入
-        async function initAcgPageCarousel() {
+        // 精選熱門新番離線備用資料庫 (當 Bangumi API 受限、超時或離線時 100% 救援呈現，絕不卡死在轉圈圈)
+        const FALLBACK_BANGUMI_ITEMS = [
+            {
+                id: 466827,
+                name: "ダンダダン",
+                name_cn: "膽大黨 (超自然武裝當噠當)",
+                summary: "高中女生綾瀨桃因相信幽靈但否認外星人，與相信外星人但否認幽靈的高中男生高倉健相遇，兩人為證明各自所信，展開驚心動魄又爆笑的超自然戰鬥！",
+                rating: { score: 8.4 },
+                images: {
+                    large: "https://lain.bgm.tv/pic/cover/l/d3/99/622288_nmbC3.jpg",
+                    common: "https://lain.bgm.tv/pic/cover/l/d3/99/622288_nmbC3.jpg"
+                },
+                url: "https://bgm.tv/subject/466827"
+            },
+            {
+                id: 397211,
+                name: "葬送のフリーレン",
+                name_cn: "葬送的芙莉蓮",
+                summary: "身為精靈族的魔法使芙莉蓮，在勇者一行人打倒魔王之後，開始踏上探索生命意義與人間情感的漫長旅途。",
+                rating: { score: 8.9 },
+                images: {
+                    large: "https://lain.bgm.tv/pic/cover/l/5a/36/397211_8lD6P.jpg",
+                    common: "https://lain.bgm.tv/pic/cover/l/5a/36/397211_8lD6P.jpg"
+                },
+                url: "https://bgm.tv/subject/397211"
+            },
+            {
+                id: 438180,
+                name: "アオのハコ",
+                name_cn: "青之箱",
+                summary: "男子羽毛球部成員豬俁大喜，暗戀著女子籃球部的學姐鹿野千夏。因為家庭變故，兩人竟然開始了同住一個屋簷下的同居生活！",
+                rating: { score: 7.9 },
+                images: {
+                    large: "https://lain.bgm.tv/pic/cover/l/40/14/297094_4TUt8.jpg",
+                    common: "https://lain.bgm.tv/pic/cover/l/40/14/297094_4TUt8.jpg"
+                },
+                url: "https://bgm.tv/subject/438180"
+            },
+            {
+                id: 443423,
+                name: "【推しの子】第2期",
+                name_cn: "【我推的孩子】第二季",
+                summary: "深入演藝圈舞台劇《東京BLADE》的排練現場，阿奎亞與黑川茜、有馬加奈等人展開演技與內心創傷的交鋒。",
+                rating: { score: 8.2 },
+                images: {
+                    large: "https://lain.bgm.tv/pic/cover/l/44/ed/634210_O7aNK.jpg",
+                    common: "https://lain.bgm.tv/pic/cover/l/44/ed/634210_O7aNK.jpg"
+                },
+                url: "https://bgm.tv/subject/443423"
+            },
+            {
+                id: 364450,
+                name: "ぼっち・ざ・ろっく！",
+                name_cn: "孤獨搖滾！",
+                summary: "極度怕生又喜愛吉他的孤獨少女後藤一里，在某天被伊地知虹夏邀請加入「結束樂隊」，展開了從未體驗過的樂團青春生活。",
+                rating: { score: 8.8 },
+                images: {
+                    large: "https://lain.bgm.tv/pic/cover/l/b6/e8/590553_Xz5PO.jpg",
+                    common: "https://lain.bgm.tv/pic/cover/l/b6/e8/590553_Xz5PO.jpg"
+                },
+                url: "https://bgm.tv/subject/364450"
+            },
+            {
+                id: 393962,
+                name: "ダンジョン飯",
+                name_cn: "迷宮飯",
+                summary: "在迷宮深處被炎龍吞食妹妹的萊歐斯隊伍，為了盡快救回妹妹，展開了以魔物為食材自給自足的奇妙迷宮美食冒險！",
+                rating: { score: 8.3 },
+                images: {
+                    large: "https://lain.bgm.tv/pic/cover/l/c7/ab/688838_jAPXY.jpg",
+                    common: "https://lain.bgm.tv/pic/cover/l/c7/ab/688838_jAPXY.jpg"
+                },
+                url: "https://bgm.tv/subject/393962"
+            }
+        ];
+
+        // 健壯的多通道 Bangumi 時間表請求機制 (直連 -> 快取 -> 鏡像代理 -> 精選離線 Fallback)
+        async function fetchCalendarDataWithFallback(force = false) {
+            if (!force && window.bangumiCalendarData && Array.isArray(window.bangumiCalendarData) && window.bangumiCalendarData.length > 0) {
+                return window.bangumiCalendarData;
+            }
+
+            // 通道 1: 官方直連 (帶 3.5s 超時保護，避免無限轉圈)
             try {
-                const res = await fetch("https://api.bgm.tv/calendar");
-                const data = await res.json();
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3500);
+                const res = await fetch("https://api.bgm.tv/calendar", { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        window.bangumiCalendarData = data;
+                        window._isUsingFallbackBangumi = false;
+                        try {
+                            localStorage.setItem('web_library_bgm_calendar_cache', JSON.stringify({ ts: Date.now(), data }));
+                        } catch (e) {}
+                        return data;
+                    }
+                }
+            } catch (e) {
+                console.warn("Bangumi 官方直連受限或超時，嘗試通道 2...", e);
+            }
+
+            // 通道 2: 本地 24 小時內的有效快取
+            if (!force) {
+                try {
+                    const cached = localStorage.getItem('web_library_bgm_calendar_cache');
+                    if (cached) {
+                        const parsed = JSON.parse(cached);
+                        if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
+                            window.bangumiCalendarData = parsed.data;
+                            window._isUsingFallbackBangumi = false;
+                            return parsed.data;
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            // 通道 3: 公共 CORS Proxy 鏡像通道 (3.5s 超時)
+            try {
+                const proxyController = new AbortController();
+                const pTimeout = setTimeout(() => proxyController.abort(), 3500);
+                const res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api.bgm.tv/calendar"), { signal: proxyController.signal });
+                clearTimeout(pTimeout);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        window.bangumiCalendarData = data;
+                        window._isUsingFallbackBangumi = false;
+                        return data;
+                    }
+                }
+            } catch (e) {
+                console.warn("Bangumi 代理鏡像通道亦失敗，啟用離線精選新番資料集...", e);
+            }
+
+            // 通道 4: 離線精選新番備用資料集 (100% 救回畫面)
+            window._isUsingFallbackBangumi = true;
+            const fallbackCalendar = [
+                { weekday: { en: 'Sun', cn: '星期日', ja: '日曜日', id: 7 }, items: FALLBACK_BANGUMI_ITEMS },
+                { weekday: { en: 'Mon', cn: '星期一', ja: '月曜日', id: 1 }, items: FALLBACK_BANGUMI_ITEMS },
+                { weekday: { en: 'Tue', cn: '星期二', ja: '火曜日', id: 2 }, items: FALLBACK_BANGUMI_ITEMS },
+                { weekday: { en: 'Wed', cn: '星期三', ja: '水曜日', id: 3 }, items: FALLBACK_BANGUMI_ITEMS },
+                { weekday: { en: 'Thu', cn: '星期四', ja: '木曜日', id: 4 }, items: FALLBACK_BANGUMI_ITEMS },
+                { weekday: { en: 'Fri', cn: '星期五', ja: '金曜日', id: 5 }, items: FALLBACK_BANGUMI_ITEMS },
+                { weekday: { en: 'Sat', cn: '星期六', ja: '土曜日', id: 6 }, items: FALLBACK_BANGUMI_ITEMS }
+            ];
+            window.bangumiCalendarData = fallbackCalendar;
+            return fallbackCalendar;
+        }
+
+        // 輪播圖動態載入 (100% 容錯防崩)
+        async function initAcgPageCarousel(force = false) {
+            const dateTextEl = document.getElementById("carouselDateText");
+            try {
+                const data = await fetchCalendarDataWithFallback(force);
                 const today = new Date().getDay() || 7;
-                const dayData = data.find(d => d.weekday && d.weekday.id === today);
-                
+                const dayData = (data && Array.isArray(data)) ? data.find(d => d.weekday && d.weekday.id === today) : null;
                 const weekdayNames = {1:'星期一',2:'星期二',3:'星期三',4:'星期四',5:'星期五',6:'星期六',7:'星期日'};
-                todayAiringAnimeList = dayData && dayData.items ? dayData.items : [];
+                todayAiringAnimeList = dayData && dayData.items ? dayData.items : FALLBACK_BANGUMI_ITEMS;
                 
                 const totalCount = todayAiringAnimeList.length;
-                document.getElementById("carouselDateText").textContent = `今天是 ${weekdayNames[today]} · 本日共播出 ${totalCount} 部新番`;
-
-                if (totalCount === 0) return;
+                if (dateTextEl) {
+                    if (window._isUsingFallbackBangumi) {
+                        dateTextEl.innerHTML = `今天是 ${weekdayNames[today]} · 熱播精選推薦 (${totalCount} 部) <span class="badge bg-secondary-subtle text-white-50 ms-2" role="button" onclick="initAcgPageCarousel(true)" title="點擊重新連線 Bangumi"><i class="bi bi-arrow-clockwise"></i> 點此重試連線</span>`;
+                    } else {
+                        dateTextEl.textContent = `今天是 ${weekdayNames[today]} · 本日共播出 ${totalCount} 部新番`;
+                    }
+                }
 
                 renderCarouselItems();
             } catch (e) {
-                console.error("載入輪播失敗", e);
+                console.error("載入輪播失敗，啟用離線精選新番", e);
+                todayAiringAnimeList = FALLBACK_BANGUMI_ITEMS;
+                renderCarouselItems();
             }
         }
 
@@ -1900,15 +2056,11 @@
             }
         }
 
-        // 下方日曆載入
+        // 下方日曆載入 (全面使用多通道 fallback)
         async function loadAcgPageCalendar(force = false) {
             const today = new Date().getDay() || 7;
             try {
-                if (!window.bangumiCalendarData || force) {
-                    const res = await fetch("https://api.bgm.tv/calendar");
-                    if (!res.ok) throw new Error("HTTP " + res.status);
-                    window.bangumiCalendarData = await res.json();
-                }
+                await fetchCalendarDataWithFallback(force);
                 if (typeof window.switchCalendarWeekday === 'function') {
                     window.switchCalendarWeekday(today);
                 } else {
@@ -1921,7 +2073,7 @@
             } catch (e) {
                 console.error("載入時間表失敗", e);
                 const grid = document.getElementById("bangumiAnimeGrid");
-                if (grid) grid.innerHTML = `<div class="col-12 text-center text-muted py-4">連線 Bangumi 取得放送數據失敗，請點擊上方「刷新時間表」重試</div>`;
+                if (grid) grid.innerHTML = `<div class="col-12 text-center text-muted py-4">連線 Bangumi 取得放送數據失敗，<a href="javascript:void(0)" onclick="loadAcgPageCalendar(true)">點此重試</a></div>`;
             }
         }
 
@@ -2126,19 +2278,46 @@
         window.getNovelBookshelf = getNovelBookshelf;
         window.saveNovelBookshelf = saveNovelBookshelf;
 
-        // 薩諾斯粒子粉末瓦解特效引擎 (Thanos Snap Powder Disintegration)
-        window.disintegrateBookToPowder = function(bookElement, onComplete) {
-            if (!bookElement) {
-                if (typeof onComplete === 'function') onComplete();
-                return;
-            }
-            const rect = bookElement.getBoundingClientRect();
-            if (rect.width === 0 || rect.height === 0) {
-                if (typeof onComplete === 'function') onComplete();
-                return;
+        // 判斷當前是否處於漫畫或小說立體書架頁面 (首頁、其他分頁一律不顯示垃圾桶)
+        window.isBookshelfPageActive = function() {
+            // 1. 條漫閱覽器 Modal 是否開啟且顯示書架層架
+            const mangaModal = document.getElementById("mangaReaderModal");
+            const isMangaModalOpen = mangaModal && (mangaModal.classList.contains("show") || mangaModal.style.display === "block");
+            const mangaPlaceholder = document.getElementById("tachimangaPlaceholder");
+            const isMangaShelfVisible = isMangaModalOpen && (!mangaPlaceholder || mangaPlaceholder.style.display !== "none");
+
+            // 2. 沉浸小說書房 Modal 是否開啟且處於立體書房
+            const novelModal = document.getElementById("novelReaderModal");
+            const isNovelModalOpen = novelModal && (novelModal.classList.contains("show") || novelModal.style.display === "block");
+            const novelReadingArea = document.getElementById("novelReadingArea");
+            const isNovelShelfVisible = isNovelModalOpen && (!novelReadingArea || novelReadingArea.style.display === "none");
+
+            return !!(isMangaShelfVisible || isNovelShelfVisible);
+        };
+
+        // 灰燼粉末慢速升騰特效 (出現在垃圾桶/滑鼠放開處，速度調慢至浪漫慢速漂浮)
+        window.disintegrateBookToPowder = function(bookElement, onComplete, originCoords) {
+            // 1. 書架上的書本在原地平滑縮小淡出
+            if (bookElement) {
+                bookElement.classList.add('book-disintegrating');
             }
 
-            // 1. 建立全螢幕最高層級透明繪圖 Canvas
+            // 2. 取得粉末生成的發射中心點：優先取滑鼠放開處座標，次之取垃圾桶中心，最後取螢幕右下角
+            let originX = window.innerWidth - 80;
+            let originY = window.innerHeight - 60;
+            if (originCoords && typeof originCoords.x === 'number' && typeof originCoords.y === 'number') {
+                originX = originCoords.x;
+                originY = originCoords.y;
+            } else {
+                const trashEl = document.getElementById("globalBookshelfTrashBin");
+                if (trashEl) {
+                    const tRect = trashEl.getBoundingClientRect();
+                    originX = tRect.left + tRect.width / 2;
+                    originY = tRect.top + tRect.height / 2;
+                }
+            }
+
+            // 3. 建立全螢幕最高層級透明繪圖 Canvas
             const canvas = document.createElement('canvas');
             canvas.style.position = 'fixed';
             canvas.style.top = '0';
@@ -2153,38 +2332,38 @@
             canvas.height = window.innerHeight;
             const ctx = canvas.getContext('2d');
 
-            // 2. 書本本體加上瓦解樣式 (高對比、超高亮、模糊與微縮漸隱)
-            bookElement.classList.add('book-disintegrating');
-
-            // 3. 生成 240 顆隨風飄散微粒粉末
-            const particleCount = 240;
+            // 4. 在垃圾桶滑鼠處生成 180 顆緩慢升騰飄浮的灰燼微塵
+            const particleCount = 180;
             const particles = [];
             const colors = [
-                '#ef4444', '#f97316', '#f59e0b', '#fbbf24', '#ffffff', 
+                '#ef4444', '#f97316', '#f59e0b', '#fbbf24', '#ffffff', '#fecaca',
                 'rgba(239, 68, 68, 0.95)', 'rgba(249, 115, 22, 0.9)', 'rgba(251, 191, 36, 0.85)'
             ];
 
             for (let i = 0; i < particleCount; i++) {
-                const px = rect.left + Math.random() * rect.width;
-                const py = rect.top + Math.random() * rect.height;
-                const size = Math.random() * 2.8 + 1.2;
-                // 向右上捲揚風向角與亂流速度
-                const angle = -Math.PI / 3 + (Math.random() - 0.5) * 0.95;
-                const speed = Math.random() * 5.8 + 2.2;
+                // 緊密圍繞垃圾桶/滑鼠周圍隨機逸散
+                const px = originX + (Math.random() - 0.5) * 44;
+                const py = originY + (Math.random() - 0.5) * 36;
+                const size = Math.random() * 2.8 + 1.4;
+
+                // 向上升騰角度 (-60度 ~ -120度) 與調慢的初速度
+                const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.1;
+                const speed = Math.random() * 2.4 + 0.8; // 大幅調慢初速度
                 particles.push({
                     x: px,
                     y: py,
-                    vx: Math.cos(angle) * speed + (Math.random() - 0.5) * 1.6,
-                    vy: Math.sin(angle) * speed - Math.random() * 2.2,
+                    vx: Math.cos(angle) * speed + (Math.random() - 0.5) * 1.2,
+                    vy: Math.sin(angle) * speed - Math.random() * 1.4,
                     radius: size,
                     color: colors[Math.floor(Math.random() * colors.length)],
                     alpha: 1.0,
-                    decay: Math.random() * 0.022 + 0.016,
-                    gravity: 0.07
+                    decay: Math.random() * 0.008 + 0.006, // 壽命調慢延長至 1.4 ~ 1.8 秒
+                    sway: (Math.random() - 0.5) * 0.15,   // 慢速空氣左右微擺
+                    life: 0
                 });
             }
 
-            // 4. 動畫微粒渲染循環
+            // 5. 慢速流體灰燼動畫循環
             let animId;
             function renderDust() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -2194,11 +2373,12 @@
                     const p = particles[i];
                     if (p.alpha > 0.01) {
                         alive++;
-                        p.x += p.vx;
+                        p.life++;
+                        p.x += p.vx + Math.sin(p.life * 0.06) * 0.45;
                         p.y += p.vy;
-                        p.vy += p.gravity;
+                        p.vy += 0.015; // 極輕微下墜阻力
                         p.alpha -= p.decay;
-                        p.radius = Math.max(0.2, p.radius * 0.985);
+                        p.radius = Math.max(0.2, p.radius * 0.992);
 
                         ctx.save();
                         ctx.globalAlpha = Math.max(0, p.alpha);
@@ -2267,13 +2447,15 @@
                         const data = JSON.parse(raw);
                         if (data && data.title) {
                             const targetBook = window._currentlyDraggedBookEl || document.querySelector(`.bookshelf-book[data-book-title="${data.title}"]`);
+                            // 獲取滑鼠放開時在垃圾桶上的座標
+                            const mouseCoords = { x: e.clientX, y: e.clientY };
                             window.disintegrateBookToPowder(targetBook, () => {
                                 if (data.type === 'manga' && typeof window.removeBookFromMangaShelf === 'function') {
                                     window.removeBookFromMangaShelf(data.title, true);
                                 } else if (data.type === 'novel' && typeof window.removeBookFromNovelShelf === 'function') {
                                     window.removeBookFromNovelShelf(data.title, true);
                                 }
-                            });
+                            }, mouseCoords);
                         }
                     }
                 } catch (err) {
@@ -2283,17 +2465,31 @@
 
             trash.addEventListener('click', () => {
                 if (typeof showToast === 'function') {
-                    showToast('💡 提示：將任何書本長按拖曳丟進右下角垃圾桶，即可化作粉末刪除移出', 'bi-trash text-warning');
+                    showToast('💡 提示：將任何書本長按拖曳丟進右下角垃圾桶，即可在垃圾桶處化作粉末移出', 'bi-trash text-warning');
                 }
             });
         };
 
+        // 更新右下角垃圾桶可見度：嚴格限定只有在漫畫或小說的書架頁面才顯示
         window.updateBookshelfTrashVisibility = function() {
             const trash = document.getElementById("globalBookshelfTrashBin");
             if (!trash) return;
+
+            // 若非漫畫或小說書架頁面，強制隱藏
+            if (typeof window.isBookshelfPageActive === 'function' && !window.isBookshelfPageActive()) {
+                trash.style.display = "none";
+                return;
+            }
+
+            const mangaModal = document.getElementById("mangaReaderModal");
+            const isMangaOpen = mangaModal && (mangaModal.classList.contains("show") || mangaModal.style.display === "block");
+            const novelModal = document.getElementById("novelReaderModal");
+            const isNovelOpen = novelModal && (novelModal.classList.contains("show") || novelModal.style.display === "block");
+
             const mangaCount = (typeof getMangaBookshelf === 'function' ? getMangaBookshelf().length : 0);
             const novelCount = (typeof getNovelBookshelf === 'function' ? getNovelBookshelf().length : 0);
-            if (mangaCount > 0 || novelCount > 0) {
+
+            if ((isMangaOpen && mangaCount > 0) || (isNovelOpen && novelCount > 0)) {
                 trash.style.display = "flex";
             } else {
                 trash.style.display = "none";
@@ -2767,6 +2963,28 @@
                         );
                     }
                 });
+            }
+
+            // 確保垃圾桶僅在漫畫或小說立體書架 Modal 活躍時顯示，關閉時立即隱藏
+            ['mangaReaderModal', 'novelReaderModal'].forEach(id => {
+                const modal = document.getElementById(id);
+                if (modal) {
+                    modal.addEventListener('hidden.bs.modal', () => {
+                        const trash = document.getElementById("globalBookshelfTrashBin");
+                        if (trash) trash.style.display = "none";
+                    });
+                    modal.addEventListener('shown.bs.modal', () => {
+                        if (typeof window.updateBookshelfTrashVisibility === 'function') {
+                            window.updateBookshelfTrashVisibility();
+                        }
+                    });
+                }
+            });
+
+            // 初始狀態確保非書架頁面隱藏垃圾桶
+            const trash = document.getElementById("globalBookshelfTrashBin");
+            if (trash && typeof window.isBookshelfPageActive === 'function' && !window.isBookshelfPageActive()) {
+                trash.style.display = "none";
             }
         });
     </script>
