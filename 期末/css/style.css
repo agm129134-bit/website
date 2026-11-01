@@ -2108,31 +2108,191 @@ body.has-multi-modal .modal-backdrop:last-of-type {
     margin-top: -2px;
 }
 
-/* 書架立體實木/金屬擱板 (Plank) */
-
-.bookshelf-plank {
-    height: 16px;
+/* ==================== 3D 擬真實體書本與木質書架 (Opening Cover) ==================== */
+.book-3d-chassis {
+    position: relative;
     width: 100%;
-    background: linear-gradient(180deg, #475569 0%, #334155 45%, #1e293b 100%);
+    aspect-ratio: 2 / 3;
+    perspective: 1000px;
+    transform-style: preserve-3d;
+}
+
+/* 書本內頁厚度 (White Paper Block) */
+.book-3d-pages {
+    position: absolute;
+    top: 3px;
+    left: 8px;
+    right: 2px;
+    bottom: 3px;
+    background: #faf7f2;
+    border-radius: 0 6px 6px 0;
+    box-shadow: inset -4px 0 6px rgba(0, 0, 0, 0.08), inset 0 2px 4px rgba(0, 0, 0, 0.05), 0 4px 10px rgba(0, 0, 0, 0.25);
+    background-image: repeating-linear-gradient(to right, #faf7f2, #faf7f2 2px, #ece3d2 2px, #ece3d2 3px);
+    overflow: hidden;
+    z-index: 1;
+}
+
+/* 翻開後可見之內頁插畫與文字 (Inside Spread) */
+.book-3d-inner-page {
+    position: absolute;
+    inset: 0;
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #ffffff 0%, #f6f1e7 100%);
+    box-shadow: inset 10px 0 15px rgba(0, 0, 0, 0.08);
+}
+
+.book-inner-sketch {
+    width: 100%;
+    height: 60%;
+    border-radius: 3px;
+    background: repeating-linear-gradient(45deg, rgba(200, 190, 175, 0.15), rgba(200, 190, 175, 0.15) 2px, transparent 2px, transparent 6px);
+    border: 1px dashed rgba(180, 160, 140, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: #a89f91;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.book-inner-content {
+    text-align: left;
+    padding-top: 4px;
+}
+
+.book-inner-vol {
+    font-size: 8px;
+    font-weight: 700;
+    color: #b08968;
+    letter-spacing: 0.5px;
+}
+
+.book-inner-title {
+    font-size: 9px;
+    font-weight: 700;
+    color: #4a4036;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+.book-inner-desc {
+    font-size: 7.5px;
+    color: #8c8275;
+    letter-spacing: 0.5px;
+    margin-top: 1px;
+}
+
+/* 書脊圓柱立體光影 (Left Spine) */
+.book-3d-spine {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 14px;
+    border-radius: 4px 0 0 4px;
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.6) 0%, rgba(255, 255, 255, 0.25) 30%, rgba(0, 0, 0, 0.25) 70%, transparent 100%);
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* 3D 可掀開封面 (Opening Cover) */
+.book-3d-cover {
+    position: absolute;
+    inset: 0;
+    border-radius: 4px 8px 8px 4px;
+    overflow: hidden;
+    transform-origin: left center;
+    transition: transform 0.45s cubic-bezier(0.2, 1, 0.3, 1), box-shadow 0.45s ease;
+    z-index: 4;
+    transform-style: preserve-3d;
+    background: #1e293b;
+    box-shadow: -4px 6px 14px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.28);
+}
+
+.book-3d-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* 書脊開合折痕 (Spine Crease) */
+.book-cover-crease {
+    position: absolute;
+    left: 10px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.45) 0%, rgba(255, 255, 255, 0.25) 45%, rgba(0, 0, 0, 0.35) 100%);
+    pointer-events: none;
+    z-index: 6;
+}
+
+/* 封面光澤 (Cover Gloss) */
+.book-cover-gloss {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(130deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.05) 32%, transparent 65%);
+    pointer-events: none;
+    z-index: 7;
+}
+
+/* 滑鼠懸停：封面掀開 3D 動態 (仿圖三，無右側書籤) */
+.bookshelf-book:hover .book-3d-cover {
+    transform: rotateY(-38deg) rotateZ(1deg);
+    box-shadow: -14px 16px 28px rgba(0, 0, 0, 0.65), 0 6px 12px rgba(0, 0, 0, 0.35);
+}
+
+/* 書架立體實木擱板 (Solid Wood Plank) */
+.bookshelf-plank {
+    height: 20px;
+    width: 100%;
+    background: linear-gradient(180deg, #d4ba97 0%, #b8976a 38%, #8d6b41 100%);
     border-radius: 4px;
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45), inset 0 2px 0 rgba(255, 255, 255, 0.4);
     position: relative;
     z-index: 1;
+}
+
+.bookshelf-plank::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(212, 186, 151, 0.8) 100%);
+    border-radius: 3px 3px 0 0;
 }
 
 .bookshelf-plank::after {
     content: '';
     position: absolute;
     top: 100%;
-    left: 12px;
-    right: 12px;
-    height: 14px;
-    background: radial-gradient(ellipse at center top, rgba(0, 0, 0, 0.75) 0%, transparent 75%);
+    left: 10px;
+    right: 10px;
+    height: 18px;
+    background: radial-gradient(ellipse at center top, rgba(0, 0, 0, 0.65) 0%, transparent 75%);
 }
 
-.bookshelf-book:hover .bookshelf-book-cover-wrap {
-    box-shadow: -12px 24px 38px rgba(0, 0, 0, 0.85), 0 10px 18px rgba(0, 0, 0, 0.55), 0 0 20px rgba(56, 189, 248, 0.25);
-    border-color: rgba(255, 255, 255, 0.35);
+/* 深色模式下的木質層板 */
+[data-bs-theme="dark"] .bookshelf-plank,
+.dark-theme .bookshelf-plank,
+.novel-theme-dark .bookshelf-plank {
+    background: linear-gradient(180deg, #443428 0%, #30241b 40%, #1e1610 100%) !important;
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.85), inset 0 1.5px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+[data-bs-theme="dark"] .bookshelf-plank::before,
+.dark-theme .bookshelf-plank::before,
+.novel-theme-dark .bookshelf-plank::before {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(68, 52, 40, 0.8) 100%) !important;
 }
 
 /* ========================================================
@@ -3497,4 +3657,12 @@ body.dark-theme .action-jump-btn:hover {
 
 .novel-theme-dark #novelReadingArea .border-top {
   border-top: 1.5px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+/* ==================== 輪播圖在深色模式下的控制箭頭高對比強化 ==================== */
+[data-bs-theme="dark"] .carousel-control-prev-icon,
+[data-bs-theme="dark"] .carousel-control-next-icon,
+body.dark-theme .carousel-control-prev-icon,
+body.dark-theme .carousel-control-next-icon {
+  filter: brightness(0) invert(1) drop-shadow(0 2px 5px rgba(0, 0, 0, 0.9)) !important;
 }

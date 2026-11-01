@@ -6810,14 +6810,23 @@ window.renderMangaBookshelf = function () {
 
 
 
-            <div class="bookshelf-book-cover-wrap">
-
-
-
-                <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80'">
-
-
-
+            <div class="book-3d-chassis">
+                <div class="book-3d-pages">
+                    <div class="book-3d-inner-page">
+                        <div class="book-inner-sketch">MANGA</div>
+                        <div class="book-inner-content">
+                            <div class="book-inner-vol">Vol.01</div>
+                            <div class="book-inner-title">${escapeHtml(book.title)}</div>
+                            <div class="book-inner-desc">EPISODE · START</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="book-3d-spine"></div>
+                <div class="book-3d-cover">
+                    <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80'">
+                    <div class="book-cover-crease"></div>
+                    <div class="book-cover-gloss"></div>
+                </div>
             </div>
 
 
@@ -6972,14 +6981,23 @@ window.renderNovelBookshelf = function () {
 
 
 
-            <div class="bookshelf-book-cover-wrap">
-
-
-
-                <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80'">
-
-
-
+            <div class="book-3d-chassis">
+                <div class="book-3d-pages">
+                    <div class="book-3d-inner-page">
+                        <div class="book-inner-sketch">NOVEL</div>
+                        <div class="book-inner-content">
+                            <div class="book-inner-vol">${isLocal ? "本機檔" : "第 1 卷"}</div>
+                            <div class="book-inner-title">${escapeHtml(book.title)}</div>
+                            <div class="book-inner-desc">CHAPTER · OPEN</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="book-3d-spine"></div>
+                <div class="book-3d-cover">
+                    <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80'">
+                    <div class="book-cover-crease"></div>
+                    <div class="book-cover-gloss"></div>
+                </div>
             </div>
 
 
@@ -14626,59 +14644,84 @@ window.flipFloatingPage = function(direction) {
     const oldPageEl = document.getElementById(`bookPage${currentFloatingPage}`);
     const newPageEl = document.getElementById(`bookPage${targetPage}`);
     const mainCard = document.getElementById('floatingBookMain');
+    const stack1 = document.getElementById('stackedCard1');
     isFloatingPageAnimating = true;
     playPageFlipSound();
 
-    if (typeof gsap !== 'undefined' && oldPageEl && newPageEl) {
-        if (direction > 0) {
-            // === 下一頁：當前頁面向左整個優雅飛出螢幕外，露下一頁彈升出來 ===
-            newPageEl.classList.remove('d-none');
-            gsap.set(newPageEl, { scale: 0.92, y: 22, opacity: 0.7, zIndex: 1 });
-            gsap.set(oldPageEl, { zIndex: 2 });
+    if (typeof gsap !== 'undefined' && oldPageEl && newPageEl && mainCard) {
+        const isDark = document.body.getAttribute('data-bs-theme') === 'dark' || document.body.classList.contains('dark-theme');
+        const activeCardBg = isDark ? '#1e293b' : '#ffffff';
 
+        if (direction > 0) {
+            // === 下一頁：當前白色頁面整個飛走，露出底下半透明毛玻璃頁面，底頁轉白成為下一頁 ===
             const tl = gsap.timeline({
                 onComplete: () => {
+                    currentFloatingPage = targetPage;
+                    updateFloatingPageMeta();
                     oldPageEl.classList.add('d-none');
-                    gsap.set(oldPageEl, { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1, zIndex: 1 });
+                    newPageEl.classList.remove('d-none');
+
+                    // 主卡片在中央瞬間就位，底層毛玻璃卡片還原至堆疊位置
+                    gsap.set(mainCard, { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 });
+                    if (stack1) {
+                        gsap.set(stack1, { x: -18, y: -12, rotation: -3.2, scale: 0.98, opacity: 0.85, clearProps: 'backgroundColor' });
+                    }
+                    gsap.fromTo(mainCard, { scale: 0.98 }, { scale: 1, duration: 0.22, ease: "back.out(1.4)" });
                     isFloatingPageAnimating = false;
                 }
             });
 
-            // 當前頁整個往左側飛出
-            tl.to(oldPageEl, {
-                x: -380,
-                y: -25,
+            // 1. 當前白色主頁面帶著 3D 弧度整個往左側飛出
+            tl.to(mainCard, {
+                x: -460,
+                y: -40,
                 rotation: -18,
-                scale: 0.85,
+                scale: 0.86,
                 opacity: 0,
-                duration: 0.44,
+                duration: 0.42,
                 ease: "power2.in"
             }, 0);
 
-            // 下一頁從底層彈出露臉
-            tl.to(newPageEl, {
-                scale: 1,
-                y: 0,
-                opacity: 1,
-                duration: 0.46,
-                ease: "back.out(1.4)"
-            }, 0.1);
+            // 2. 底下半透明毛玻璃書頁向中央回正，並由毛玻璃漸變轉為實體白色主頁
+            if (stack1) {
+                tl.to(stack1, {
+                    x: 0,
+                    y: 0,
+                    rotation: 0,
+                    scale: 1,
+                    opacity: 1,
+                    backgroundColor: activeCardBg,
+                    duration: 0.44,
+                    ease: "power2.out"
+                }, 0.06);
+            }
         } else {
-            // === 上一頁：上一頁帶著物理弧度從左側旁邊飛回來蓋在頂部 ===
+            // === 上一頁：飛出去的畫面帶物理動態飛回來，白色頁面變回半透明毛玻璃沉入下方 ===
+            currentFloatingPage = targetPage;
+            updateFloatingPageMeta();
+            oldPageEl.classList.add('d-none');
             newPageEl.classList.remove('d-none');
-            gsap.set(oldPageEl, { zIndex: 1 });
-            gsap.set(newPageEl, { x: -380, y: -25, rotation: -18, scale: 0.85, opacity: 0, zIndex: 2 });
+
+            // 底層毛玻璃卡片從中央就位，隨即退回底層堆疊
+            if (stack1) {
+                gsap.set(stack1, { x: 0, y: 0, rotation: 0, scale: 1, backgroundColor: activeCardBg, opacity: 1 });
+            }
+
+            // 主卡片從左側高空帶角度飛回中央
+            gsap.set(mainCard, { x: -460, y: -40, rotation: -18, scale: 0.86, opacity: 0 });
 
             const tl = gsap.timeline({
                 onComplete: () => {
-                    oldPageEl.classList.add('d-none');
-                    gsap.set(oldPageEl, { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 });
+                    gsap.set(mainCard, { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 });
+                    if (stack1) {
+                        gsap.set(stack1, { clearProps: 'backgroundColor' });
+                    }
                     isFloatingPageAnimating = false;
                 }
             });
 
-            // 上一頁飛回覆蓋
-            tl.to(newPageEl, {
+            // 1. 上一頁自左側飛回覆蓋在頂層
+            tl.to(mainCard, {
                 x: 0,
                 y: 0,
                 rotation: 0,
@@ -14688,27 +14731,26 @@ window.flipFloatingPage = function(direction) {
                 ease: "power3.out"
             }, 0);
 
-            // 當前頁順暢淡入底層
-            tl.to(oldPageEl, {
-                scale: 0.94,
-                y: 15,
-                opacity: 0.4,
-                duration: 0.38,
-                ease: "power2.inOut"
-            }, 0);
-        }
-
-        if (mainCard) {
-            gsap.fromTo(mainCard, { y: 2 }, { y: 0, duration: 0.3 });
+            // 2. 剛才的頁面變回半透明毛玻璃，退回下方堆疊
+            if (stack1) {
+                tl.to(stack1, {
+                    x: -18,
+                    y: -12,
+                    rotation: -3.2,
+                    scale: 0.98,
+                    opacity: 0.85,
+                    duration: 0.46,
+                    ease: "power2.inOut"
+                }, 0);
+            }
         }
     } else {
         if (oldPageEl) oldPageEl.classList.add('d-none');
         if (newPageEl) newPageEl.classList.remove('d-none');
+        currentFloatingPage = targetPage;
+        updateFloatingPageMeta();
         isFloatingPageAnimating = false;
     }
-
-    currentFloatingPage = targetPage;
-    updateFloatingPageMeta();
 };
 
 function updateFloatingPageMeta() {

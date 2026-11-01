@@ -89,24 +89,41 @@
             .acg-poster-img { width: 140px; margin-bottom: 1rem; }
         }
 
-        /* 輪播圖控制箭頭與指示器層級提升，確保滑鼠點擊切換 */
+        /* 輪播圖控制箭頭升級：高對比毛玻璃圓形控制鈕 (深色模式與淺色皆極致清晰) */
         .carousel-control-prev,
         .carousel-control-next {
             z-index: 25 !important;
-            width: 65px;
+            width: 48px !important;
+            height: 48px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            background: rgba(15, 23, 42, 0.75) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
+            border-radius: 50% !important;
+            margin: 0 16px !important;
             cursor: pointer;
-            opacity: 0.75;
-            transition: opacity 0.2s ease;
+            opacity: 0.88 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
         }
         .carousel-control-prev:hover,
         .carousel-control-next:hover {
-            opacity: 1;
+            opacity: 1 !important;
+            background: rgba(30, 41, 59, 0.95) !important;
+            border-color: rgba(255, 255, 255, 0.75) !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(255, 255, 255, 0.35) !important;
+            transform: translateY(-50%) scale(1.1) !important;
         }
         .carousel-control-prev-icon,
         .carousel-control-next-icon {
-            width: 2.2rem;
-            height: 2.2rem;
-            filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.75));
+            width: 1.6rem !important;
+            height: 1.6rem !important;
+            filter: brightness(0) invert(1) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8)) !important;
         }
         .carousel-indicators {
             z-index: 25 !important;
@@ -181,48 +198,143 @@
             text-align: center;
         }
 
-        .bookshelf-book-cover-wrap {
+        /* 3D 書本機身底盤 */
+        .book-3d-chassis {
             position: relative;
             width: 100%;
             aspect-ratio: 2 / 3;
-            border-radius: 4px 8px 8px 4px;
-            overflow: hidden;
-            box-shadow: -5px 8px 18px rgba(0, 0, 0, 0.55), 0 2px 4px rgba(0, 0, 0, 0.3);
-            background: #1e293b;
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            perspective: 1000px;
+            transform-style: preserve-3d;
         }
 
-        .bookshelf-book-cover-wrap img {
+        /* 書本內頁厚度 (White Paper Block) */
+        .book-3d-pages {
+            position: absolute;
+            top: 3px;
+            left: 8px;
+            right: 2px;
+            bottom: 3px;
+            background: #faf7f2;
+            border-radius: 0 6px 6px 0;
+            box-shadow: inset -4px 0 6px rgba(0, 0, 0, 0.08), inset 0 2px 4px rgba(0, 0, 0, 0.05), 0 4px 10px rgba(0, 0, 0, 0.25);
+            background-image: repeating-linear-gradient(to right, #faf7f2, #faf7f2 2px, #ece3d2 2px, #ece3d2 3px);
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        /* 翻開後可見之內頁插畫與文字 */
+        .book-3d-inner-page {
+            position: absolute;
+            inset: 0;
+            padding: 10px 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background: linear-gradient(135deg, #ffffff 0%, #f6f1e7 100%);
+            box-shadow: inset 10px 0 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .book-inner-sketch {
+            width: 100%;
+            height: 60%;
+            border-radius: 3px;
+            background: repeating-linear-gradient(45deg, rgba(200, 190, 175, 0.15), rgba(200, 190, 175, 0.15) 2px, transparent 2px, transparent 6px);
+            border: 1px dashed rgba(180, 160, 140, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            color: #a89f91;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .book-inner-content {
+            text-align: left;
+            padding-top: 4px;
+        }
+
+        .book-inner-vol {
+            font-size: 8px;
+            font-weight: 700;
+            color: #b08968;
+            letter-spacing: 0.5px;
+        }
+
+        .book-inner-title {
+            font-size: 9px;
+            font-weight: 700;
+            color: #4a4036;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2;
+        }
+
+        .book-inner-desc {
+            font-size: 7.5px;
+            color: #8c8275;
+            letter-spacing: 0.5px;
+            margin-top: 1px;
+        }
+
+        /* 書脊立體圓柱光影 */
+        .book-3d-spine {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 14px;
+            border-radius: 4px 0 0 4px;
+            background: linear-gradient(to right, rgba(0, 0, 0, 0.6) 0%, rgba(255, 255, 255, 0.25) 30%, rgba(0, 0, 0, 0.25) 70%, transparent 100%);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* 3D 可翻開封面 */
+        .book-3d-cover {
+            position: absolute;
+            inset: 0;
+            border-radius: 4px 8px 8px 4px;
+            overflow: hidden;
+            transform-origin: left center;
+            transition: transform 0.45s cubic-bezier(0.2, 1, 0.3, 1), box-shadow 0.45s ease;
+            z-index: 4;
+            transform-style: preserve-3d;
+            background: #1e293b;
+            box-shadow: -4px 6px 14px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.28);
+        }
+
+        .book-3d-cover img {
             width: 100%;
             height: 100%;
             object-fit: cover;
             display: block;
         }
 
-        /* 模擬書脊光影與厚度折痕 */
-        .bookshelf-book-cover-wrap::before {
-            content: '';
+        .book-cover-crease {
             position: absolute;
+            left: 10px;
             top: 0;
-            left: 0;
             bottom: 0;
-            width: 20px;
-            background: linear-gradient(to right, rgba(0, 0, 0, 0.55) 0%, rgba(255, 255, 255, 0.22) 20%, rgba(0, 0, 0, 0.25) 50%, transparent 100%);
+            width: 3px;
+            background: linear-gradient(to right, rgba(0, 0, 0, 0.45) 0%, rgba(255, 255, 255, 0.25) 45%, rgba(0, 0, 0, 0.35) 100%);
             pointer-events: none;
-            z-index: 3;
+            z-index: 6;
         }
 
-        /* 書側頁邊立體感 */
-        .bookshelf-book-cover-wrap::after {
-            content: '';
+        .book-cover-gloss {
             position: absolute;
-            top: 3px;
-            right: 0;
-            bottom: 3px;
-            width: 4px;
-            background: repeating-linear-gradient(to bottom, #f1f5f9, #f1f5f9 1px, #94a3b8 1px, #94a3b8 2px);
-            border-radius: 0 2px 2px 0;
-            z-index: 2;
+            inset: 0;
+            background: linear-gradient(130deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.05) 32%, transparent 65%);
+            pointer-events: none;
+            z-index: 7;
+        }
+
+        /* 滑鼠懸停：封面掀開 3D 動態 (仿圖三，無右側書籤) */
+        .bookshelf-book:hover .book-3d-cover {
+            transform: rotateY(-38deg) rotateZ(1deg);
+            box-shadow: -14px 16px 28px rgba(0, 0, 0, 0.65), 0 6px 12px rgba(0, 0, 0, 0.35);
         }
 
         /* 書本右上角標籤與移除按鈕 */
@@ -284,25 +396,36 @@
             margin-top: -2px;
         }
 
-        /* 書架立體實木/科技金屬擱板 (Plank) */
+        /* 書架立體實木擱板 (Solid Wood Plank) */
         .bookshelf-plank {
-            height: 16px;
+            height: 20px;
             width: 100%;
-            background: linear-gradient(180deg, #475569 0%, #334155 45%, #1e293b 100%);
+            background: linear-gradient(180deg, #d4ba97 0%, #b8976a 38%, #8d6b41 100%);
             border-radius: 4px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45), inset 0 2px 0 rgba(255, 255, 255, 0.4);
             position: relative;
             z-index: 1;
+        }
+
+        .bookshelf-plank::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(212, 186, 151, 0.8) 100%);
+            border-radius: 3px 3px 0 0;
         }
 
         .bookshelf-plank::after {
             content: '';
             position: absolute;
             top: 100%;
-            left: 12px;
-            right: 12px;
-            height: 14px;
-            background: radial-gradient(ellipse at center top, rgba(0, 0, 0, 0.75) 0%, transparent 75%);
+            left: 10px;
+            right: 10px;
+            height: 18px;
+            background: radial-gradient(ellipse at center top, rgba(0, 0, 0, 0.65) 0%, transparent 75%);
         }
 
         /* 書本懸浮抽書動效 */
@@ -2007,9 +2130,24 @@
                 bookEl.innerHTML = `
                     <span class="bookshelf-badge bg-primary text-white">${escapeHtml(book.tag || '條漫')}</span>
                     <button type="button" class="bookshelf-remove-btn" title="移出書架" onclick="event.stopPropagation(); removeBookFromMangaShelf('${escapeHtml(book.title)}')">✕</button>
-                    <div class="bookshelf-book-cover-wrap">
-                        <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80'">
+                    <div class="book-3d-chassis">
+                <div class="book-3d-pages">
+                    <div class="book-3d-inner-page">
+                        <div class="book-inner-sketch">MANGA</div>
+                        <div class="book-inner-content">
+                            <div class="book-inner-vol">Vol.01</div>
+                            <div class="book-inner-title">${escapeHtml(book.title)}</div>
+                            <div class="book-inner-desc">EPISODE · START</div>
+                        </div>
                     </div>
+                </div>
+                <div class="book-3d-spine"></div>
+                <div class="book-3d-cover">
+                    <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80'">
+                    <div class="book-cover-crease"></div>
+                    <div class="book-cover-gloss"></div>
+                </div>
+            </div>
                     <div class="bookshelf-book-title" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
                     <div class="bookshelf-book-sub">點擊開卷</div>
                 `;
@@ -2142,9 +2280,24 @@
                 bookEl.innerHTML = `
                     <span class="bookshelf-badge ${badgeClass}">${escapeHtml(book.tag || badgeText)}</span>
                     <button type="button" class="bookshelf-remove-btn" title="移出書房" onclick="event.stopPropagation(); removeBookFromNovelShelf('${escapeHtml(book.title)}')">✕</button>
-                    <div class="bookshelf-book-cover-wrap">
-                        <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80'">
+                    <div class="book-3d-chassis">
+                <div class="book-3d-pages">
+                    <div class="book-3d-inner-page">
+                        <div class="book-inner-sketch">NOVEL</div>
+                        <div class="book-inner-content">
+                            <div class="book-inner-vol">${isLocal ? "本機檔" : "第 1 卷"}</div>
+                            <div class="book-inner-title">${escapeHtml(book.title)}</div>
+                            <div class="book-inner-desc">CHAPTER · OPEN</div>
+                        </div>
                     </div>
+                </div>
+                <div class="book-3d-spine"></div>
+                <div class="book-3d-cover">
+                    <img src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80'">
+                    <div class="book-cover-crease"></div>
+                    <div class="book-cover-gloss"></div>
+                </div>
+            </div>
                     <div class="bookshelf-book-title text-dark" title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</div>
                     <div class="bookshelf-book-sub ${isLocal ? 'text-primary fw-semibold' : ''}">${subText}</div>
                 `;
