@@ -3909,3 +3909,116 @@ body.dark-theme .carousel-control-prev-icon,
 body.dark-theme .carousel-control-next-icon {
   filter: brightness(0) invert(1) drop-shadow(0 2px 5px rgba(0, 0, 0, 0.9)) !important;
 }
+
+/* ==================== 手機風格頂部膠囊通知 (Dynamic Island Mobile Toast) ==================== */
+.mobile-top-toast-container {
+  position: fixed;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999999;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  max-width: 90vw;
+}
+
+.mobile-top-toast {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: #f8fafc;
+  padding: 6px 18px 8px 16px;
+  transform: translateY(-120px) scale(0.92);
+  opacity: 0;
+  transition: transform 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.28s ease;
+  user-select: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+.mobile-top-toast:active {
+  cursor: grabbing;
+}
+
+.mobile-top-toast.toast-show {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+.mobile-top-toast.toast-swiping {
+  transition: none !important;
+}
+
+.mobile-top-toast.toast-dismissing {
+  transform: translateY(-130px) scale(0.9) !important;
+  opacity: 0 !important;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease !important;
+}
+
+.mobile-top-toast .toast-swipe-handle {
+  width: 32px;
+  height: 3.5px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  margin-bottom: 4px;
+  transition: background 0.2s ease;
+}
+
+.mobile-top-toast:hover .toast-swipe-handle {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.mobile-top-toast .toast-inner-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.mobile-top-toast .toast-icon {
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mobile-top-toast .toast-text {
+  color: #f1f5f9;
+  letter-spacing: 0.2px;
+  word-break: break-word;
+}
+
+.mobile-top-toast .toast-close-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.95rem;
+  padding: 0 0 0 6px;
+  margin-left: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s ease;
+}
+
+.mobile-top-toast .toast-close-btn:hover {
+  color: #ffffff;
+}
+
+/* 隱藏舊的右下角 Toast 容器，徹底避免遮擋右下角操作按鈕 */
+.toast-container.bottom-0.end-0 {
+  display: none !important;
+}

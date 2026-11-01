@@ -1750,17 +1750,8 @@
         </div>
     </div>
 
-    <!-- Toast 提示 -->
-    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 2090;">
-        <div id="actionToast" class="toast align-items-center text-white bg-dark border-0 rounded-4 shadow" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="d-flex">
-                <div class="toast-body d-flex align-items-center gap-2" id="toastMessage">
-                    <i class="bi bi-check-circle-fill text-success fs-5"></i> 操作成功！
-                </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-        </div>
-    </div>
+    <!-- 手機風格頂部膠囊通知 (Dynamic Island Mobile Toast Container) -->
+    <div id="mobileTopToastContainer" class="mobile-top-toast-container"></div>
 
     <!-- GSAP 3 高效能專業動畫庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
@@ -2606,16 +2597,6 @@
             }
             if (typeof showToast === 'function') {
                 showToast(`✨ 《${title}》已化為粉末微塵，自條漫書架移出`, "bi-trash3-fill text-danger");
-            }
-        };
-            let shelf = getMangaBookshelf();
-            shelf = shelf.filter(b => b.title !== title);
-            saveMangaBookshelf(shelf);
-            if (typeof renderMangaBookshelf === 'function') {
-                renderMangaBookshelf();
-            }
-            if (typeof showToast === 'function') {
-                showToast(`🗑️ 已將《${title}》丟入垃圾桶移出條漫書架`, "bi-trash text-danger");
             }
         };
 

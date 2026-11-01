@@ -4818,36 +4818,8 @@
       </div>
     </div>
 
-    <!-- 4. 浮動 Toast 提示通知 -->
-
-    <div
-      class="toast-container position-fixed bottom-0 end-0 p-3"
-      style="z-index: 1090"
-    >
-      <div
-        id="actionToast"
-        class="toast align-items-center text-white bg-dark border-0 rounded-4 shadow"
-        role="alert"
-        aria-live="assertive"
-        aria-atomic="true"
-      >
-        <div class="d-flex">
-          <div
-            class="toast-body d-flex align-items-center gap-2"
-            id="toastMessage"
-          >
-            <i class="bi bi-check-circle-fill text-success fs-5"></i> 操作成功！
-          </div>
-
-          <button
-            type="button"
-            class="btn-close btn-close-white me-2 m-auto"
-            data-bs-dismiss="toast"
-            aria-label="Close"
-          ></button>
-        </div>
-      </div>
-    </div>
+    <!-- 4. 手機風格頂部膠囊通知 (Dynamic Island Mobile Toast Container) -->
+    <div id="mobileTopToastContainer" class="mobile-top-toast-container"></div>
 
     <!-- 3.9 Docker 容器控制日誌與執行結果 Modal -->
 

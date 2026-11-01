@@ -2257,22 +2257,126 @@ function exportDataAsJSON() {
   showToast("書籤備份 JSON 已開始下載！", "bi-download text-success");
 }
 
-// 浮動通知提示 (Toast)
+// ==================== 手機風格頂部膠囊通知 (Dynamic Island Mobile Toast) ====================
+let _topToastTimer = null;
+let _topToastEl = null;
 
 function showToast(message, iconClass = "bi-check-circle-fill text-success") {
-  const toastEl = document.getElementById("actionToast");
-  const msgEl = document.getElementById("toastMessage");
-
-  if (!toastEl || !msgEl) {
-    console.log(`[WebLibrary Toast] ${message}`);
-
-    return;
+  let container = document.getElementById("mobileTopToastContainer");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "mobileTopToastContainer";
+    container.className = "mobile-top-toast-container";
+    document.body.appendChild(container);
   }
 
-  msgEl.innerHTML = `<i class="bi ${iconClass} fs-5"></i> <span>${message}</span>`;
-  const toast = new bootstrap.Toast(toastEl, { delay: 3500 });
+  if (!_topToastEl) {
+    _topToastEl = document.createElement("div");
+    _topToastEl.className = "mobile-top-toast";
+    _topToastEl.innerHTML = `
+      <div class="toast-swipe-handle" title="上滑可關閉通知"></div>
+      <div class="toast-inner-content">
+        <span class="toast-icon" id="topToastIcon"></span>
+        <span class="toast-text" id="topToastText"></span>
+        <button type="button" class="toast-close-btn" id="topToastClose" title="關閉通知">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    `;
+    container.appendChild(_topToastEl);
 
-  toast.show();
+    // 支援觸控與滑鼠上滑滑掉 (Swipe Up to Dismiss)
+    let startY = 0;
+    let isTouching = false;
+
+    const onPointerDown = (e) => {
+      isTouching = true;
+      startY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+      _topToastEl.classList.add("toast-swiping");
+      if (_topToastTimer) clearTimeout(_topToastTimer);
+    };
+
+    const onPointerMove = (e) => {
+      if (!isTouching) return;
+      const y = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+      const deltaY = y - startY;
+      // 僅處理向上滑動
+      if (deltaY < 0) {
+        _topToastEl.style.transform = `translateY(${deltaY}px) scale(${Math.max(0.85, 1 + deltaY / 300)})`;
+        _topToastEl.style.opacity = `${Math.max(0, 1 + deltaY / 75)}`;
+      }
+    };
+
+    const onPointerUp = (e) => {
+      if (!isTouching) return;
+      isTouching = false;
+      _topToastEl.classList.remove("toast-swiping");
+      const y = e.clientY || (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : startY);
+      const deltaY = y - startY;
+
+      if (deltaY < -18) {
+        // 上滑超過 18px，觸發滑掉離開
+        dismissTopToast();
+      } else {
+        // 未達閾值，平滑彈回原位
+        _topToastEl.style.transform = "";
+        _topToastEl.style.opacity = "";
+        startAutoDismiss();
+      }
+    };
+
+    _topToastEl.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", onPointerUp);
+    document.addEventListener("pointercancel", onPointerUp);
+
+    const closeBtn = _topToastEl.querySelector("#topToastClose");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dismissTopToast();
+      });
+    }
+  }
+
+  const iconEl = _topToastEl.querySelector("#topToastIcon");
+  const textEl = _topToastEl.querySelector("#topToastText");
+  if (iconEl) iconEl.innerHTML = `<i class="bi ${iconClass}"></i>`;
+  if (textEl) textEl.innerHTML = message;
+
+  if (_topToastTimer) clearTimeout(_topToastTimer);
+  _topToastEl.classList.remove("toast-dismissing");
+  _topToastEl.style.transform = "";
+  _topToastEl.style.opacity = "";
+
+  void _topToastEl.offsetWidth;
+  _topToastEl.classList.add("toast-show");
+
+  startAutoDismiss();
+}
+
+window.showToast = showToast;
+
+function dismissTopToast() {
+  if (_topToastTimer) clearTimeout(_topToastTimer);
+  if (_topToastEl) {
+    _topToastEl.classList.remove("toast-show");
+    _topToastEl.classList.add("toast-dismissing");
+    setTimeout(() => {
+      if (_topToastEl) {
+        _topToastEl.classList.remove("toast-dismissing");
+        _topToastEl.style.transform = "";
+        _topToastEl.style.opacity = "";
+      }
+    }, 280);
+  }
+}
+
+function startAutoDismiss() {
+  if (_topToastTimer) clearTimeout(_topToastTimer);
+  _topToastTimer = setTimeout(() => {
+    dismissTopToast();
+  }, 3500);
 }
 
 // ==========================================
