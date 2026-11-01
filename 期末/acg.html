@@ -439,29 +439,10 @@
             text-align: center;
         }
 
-        /* 自然 3D 抽書波浪起伏動態 (Hover Elevation & Tilt Wave) */
+        /* 書本懸停微升 (保持水平一線) */
         .bookshelf-book:hover {
-            transform: translateY(-18px) scale(1.08) rotateY(-8deg) rotateZ(-1.5deg);
+            transform: translateY(-6px);
             z-index: 10;
-        }
-
-        .bookshelf-book:hover .bookshelf-book-cover-wrap {
-            box-shadow: -12px 24px 38px rgba(0, 0, 0, 0.85), 0 10px 18px rgba(0, 0, 0, 0.55), 0 0 20px rgba(56, 189, 248, 0.25);
-            border-color: rgba(255, 255, 255, 0.35);
-        }
-
-        /* 當滑鼠懸停某本書時，兩側相鄰書本產生微起伏波浪 (Wave Ripple) */
-        .bookshelf-book:hover + .bookshelf-book {
-            transform: translateY(-6px) scale(1.02) rotateY(-3deg);
-        }
-
-        .bookshelf-books-row:has(.bookshelf-book:hover) .bookshelf-book:not(:hover) {
-            opacity: 0.88;
-            filter: contrast(0.95);
-        }
-        .bookshelf-books-row .bookshelf-book:hover {
-            opacity: 1 !important;
-            filter: contrast(1.05) brightness(1.03) !important;
         }
     </style>
 </head>
@@ -2029,29 +2010,9 @@
         const DEFAULT_NOVEL_SHELF = [];
 
                 function bindBookshelfWaveEffect(bookEl) {
-            if (!bookEl || typeof gsap === 'undefined') return;
-            bookEl.addEventListener('mouseenter', () => {
-                gsap.to(bookEl, { y: -22, scale: 1.1, rotateY: -8, rotateZ: -1.5, duration: 0.35, ease: "back.out(2)", overwrite: "auto" });
-                const prev = bookEl.previousElementSibling;
-                if (prev && prev.classList.contains("bookshelf-book")) {
-                    gsap.to(prev, { y: -8, scale: 1.03, rotateY: -3, duration: 0.28, ease: "power1.out", overwrite: "auto" });
-                }
-                const next = bookEl.nextElementSibling;
-                if (next && next.classList.contains("bookshelf-book")) {
-                    gsap.to(next, { y: -8, scale: 1.03, rotateY: 3, duration: 0.28, ease: "power1.out", overwrite: "auto" });
-                }
-            });
-            bookEl.addEventListener('mouseleave', () => {
-                gsap.to(bookEl, { y: 0, scale: 1, rotateY: 0, rotateZ: 0, duration: 0.35, ease: "power2.out", overwrite: "auto" });
-                const prev = bookEl.previousElementSibling;
-                if (prev && prev.classList.contains("bookshelf-book")) {
-                    gsap.to(prev, { y: 0, scale: 1, rotateY: 0, duration: 0.3, ease: "power2.out", overwrite: "auto" });
-                }
-                const next = bookEl.nextElementSibling;
-                if (next && next.classList.contains("bookshelf-book")) {
-                    gsap.to(next, { y: 0, scale: 1, rotateY: 0, duration: 0.3, ease: "power2.out", overwrite: "auto" });
-                }
-            });
+            if (!bookEl) return;
+            // 嚴格保證水平對齊在一條直線上
+            bookEl.style.transform = '';
         }
 
         function getMangaBookshelf() {
@@ -2160,16 +2121,14 @@
                 grid.appendChild(bookEl);
             });
 
-            // GSAP 3D 擺入動態
             if (typeof gsap !== 'undefined') {
                 gsap.from("#mangaBookshelfGrid .bookshelf-book", {
-                    y: 35,
+                    y: 20,
                     opacity: 0,
-                    rotateY: -15,
-                    scale: 0.9,
-                    stagger: 0.08,
-                    duration: 0.55,
-                    ease: "back.out(1.5)"
+                    duration: 0.4,
+                    stagger: 0.04,
+                    ease: "power2.out",
+                    clearProps: "all"
                 });
             }
         };
@@ -2338,13 +2297,12 @@
 
             if (typeof gsap !== 'undefined') {
                 gsap.from("#novelBookshelfGrid .bookshelf-book", {
-                    y: 35,
+                    y: 20,
                     opacity: 0,
-                    rotateY: -15,
-                    scale: 0.9,
-                    stagger: 0.08,
-                    duration: 0.55,
-                    ease: "back.out(1.5)"
+                    duration: 0.4,
+                    stagger: 0.04,
+                    ease: "power2.out",
+                    clearProps: "all"
                 });
             }
         };

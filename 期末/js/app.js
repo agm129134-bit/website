@@ -6620,127 +6620,9 @@ if (!window.saveNovelBookshelf) {
 // ============================================================
 
 function bindBookshelfWaveEffect(bookEl) {
-  if (!bookEl || typeof gsap === "undefined") return;
-
-  bookEl.addEventListener("mouseenter", () => {
-    // 1. 當前書本：3D 拔起 + 微傾角 + 深度投影
-
-    gsap.to(bookEl, {
-      y: -22,
-
-      scale: 1.1,
-
-      rotateY: -8,
-
-      rotateZ: -1.5,
-
-      duration: 0.35,
-
-      ease: "back.out(2)",
-
-      overwrite: "auto",
-    });
-
-    // 2. 琴鍵式相鄰波浪：前一本微幅起伏
-
-    const prev = bookEl.previousElementSibling;
-
-    if (prev && prev.classList.contains("bookshelf-book")) {
-      gsap.to(prev, {
-        y: -8,
-
-        scale: 1.03,
-
-        rotateY: -3,
-
-        duration: 0.28,
-
-        ease: "power1.out",
-
-        overwrite: "auto",
-      });
-    }
-
-    // 3. 琴鍵式相鄰波浪：後一本微幅起伏
-
-    const next = bookEl.nextElementSibling;
-
-    if (next && next.classList.contains("bookshelf-book")) {
-      gsap.to(next, {
-        y: -8,
-
-        scale: 1.03,
-
-        rotateY: 3,
-
-        duration: 0.28,
-
-        ease: "power1.out",
-
-        overwrite: "auto",
-      });
-    }
-  });
-
-  bookEl.addEventListener("mouseleave", () => {
-    // 當前書本彈簧復位
-
-    gsap.to(bookEl, {
-      y: 0,
-
-      scale: 1,
-
-      rotateY: 0,
-
-      rotateZ: 0,
-
-      duration: 0.35,
-
-      ease: "power2.out",
-
-      overwrite: "auto",
-    });
-
-    // 前一本復位
-
-    const prev = bookEl.previousElementSibling;
-
-    if (prev && prev.classList.contains("bookshelf-book")) {
-      gsap.to(prev, {
-        y: 0,
-
-        scale: 1,
-
-        rotateY: 0,
-
-        duration: 0.3,
-
-        ease: "power2.out",
-
-        overwrite: "auto",
-      });
-    }
-
-    // 後一本復位
-
-    const next = bookEl.nextElementSibling;
-
-    if (next && next.classList.contains("bookshelf-book")) {
-      gsap.to(next, {
-        y: 0,
-
-        scale: 1,
-
-        rotateY: 0,
-
-        duration: 0.3,
-
-        ease: "power2.out",
-
-        overwrite: "auto",
-      });
-    }
-  });
+  if (!bookEl) return;
+  // 書本嚴格水平在一條直線上，移除殘留琴鍵波浪與不對稱旋轉
+  bookEl.style.transform = '';
 }
 
 // 渲染條漫立體書架
@@ -6854,19 +6736,12 @@ window.renderMangaBookshelf = function () {
 
   if (typeof gsap !== "undefined") {
     gsap.from("#mangaBookshelfGrid .bookshelf-book", {
-      y: 35,
-
+      y: 20,
       opacity: 0,
-
-      rotateY: -15,
-
-      scale: 0.9,
-
-      stagger: 0.06,
-
-      duration: 0.45,
-
-      ease: "back.out(1.5)",
+      duration: 0.4,
+      stagger: 0.04,
+      ease: "power2.out",
+      clearProps: "all"
     });
   }
 };
@@ -7072,19 +6947,12 @@ window.renderNovelBookshelf = function () {
 
   if (typeof gsap !== "undefined") {
     gsap.from("#novelBookshelfGrid .bookshelf-book", {
-      y: 35,
-
+      y: 20,
       opacity: 0,
-
-      rotateY: -15,
-
-      scale: 0.9,
-
-      stagger: 0.06,
-
-      duration: 0.45,
-
-      ease: "back.out(1.5)",
+      duration: 0.4,
+      stagger: 0.04,
+      ease: "power2.out",
+      clearProps: "all"
     });
   }
 };
@@ -14651,98 +14519,138 @@ window.flipFloatingPage = function(direction) {
     if (typeof gsap !== 'undefined' && oldPageEl && newPageEl && mainCard) {
         const isDark = document.body.getAttribute('data-bs-theme') === 'dark' || document.body.classList.contains('dark-theme');
         const activeCardBg = isDark ? '#1e293b' : '#ffffff';
+        const frostedBg = isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.78)';
 
         if (direction > 0) {
-            // === 下一頁：當前白色頁面整個飛走，露出底下半透明毛玻璃頁面，底頁轉白成為下一頁 ===
-            const tl = gsap.timeline({
-                onComplete: () => {
-                    currentFloatingPage = targetPage;
-                    updateFloatingPageMeta();
-                    oldPageEl.classList.add('d-none');
-                    newPageEl.classList.remove('d-none');
+            // === 下一頁：當前白色頁面帶著加大弧度整個飛向螢幕遠方 (x: -1100, y: -70, rot: -28deg) ===
+            // 底下半透明毛玻璃底頁向中央回正歸位，並順暢由毛玻璃漸變轉為實體白色主頁，杜絕突兀飛回
+            const flyingClone = mainCard.cloneNode(true);
+            flyingClone.id = 'floatingBookFlyingClone';
+            flyingClone.style.position = 'absolute';
+            flyingClone.style.top = '0';
+            flyingClone.style.left = '0';
+            flyingClone.style.width = mainCard.offsetWidth + 'px';
+            flyingClone.style.height = mainCard.offsetHeight + 'px';
+            flyingClone.style.zIndex = '12';
+            flyingClone.style.pointerEvents = 'none';
+            mainCard.parentNode.appendChild(flyingClone);
 
-                    // 主卡片在中央瞬間就位，底層毛玻璃卡片還原至堆疊位置
-                    gsap.set(mainCard, { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 });
-                    if (stack1) {
-                        gsap.set(stack1, { x: -18, y: -12, rotation: -3.2, scale: 0.98, opacity: 0.85, clearProps: 'backgroundColor' });
-                    }
-                    gsap.fromTo(mainCard, { scale: 0.98 }, { scale: 1, duration: 0.22, ease: "back.out(1.4)" });
-                    isFloatingPageAnimating = false;
-                }
-            });
-
-            // 1. 當前白色主頁面帶著 3D 弧度整個往左側飛出
-            tl.to(mainCard, {
-                x: -460,
-                y: -40,
-                rotation: -18,
-                scale: 0.86,
-                opacity: 0,
-                duration: 0.42,
-                ease: "power2.in"
-            }, 0);
-
-            // 2. 底下半透明毛玻璃書頁向中央回正，並由毛玻璃漸變轉為實體白色主頁
-            if (stack1) {
-                tl.to(stack1, {
-                    x: 0,
-                    y: 0,
-                    rotation: 0,
-                    scale: 1,
-                    opacity: 1,
-                    backgroundColor: activeCardBg,
-                    duration: 0.44,
-                    ease: "power2.out"
-                }, 0.06);
-            }
-        } else {
-            // === 上一頁：飛出去的畫面帶物理動態飛回來，白色頁面變回半透明毛玻璃沉入下方 ===
+            // 主卡片在底層立即切換為新頁面內容，並預先套用底下毛玻璃頁面(#stackedCard1)的歪斜堆疊姿態
             currentFloatingPage = targetPage;
             updateFloatingPageMeta();
             oldPageEl.classList.add('d-none');
             newPageEl.classList.remove('d-none');
 
-            // 底層毛玻璃卡片從中央就位，隨即退回底層堆疊
-            if (stack1) {
-                gsap.set(stack1, { x: 0, y: 0, rotation: 0, scale: 1, backgroundColor: activeCardBg, opacity: 1 });
-            }
-
-            // 主卡片從左側高空帶角度飛回中央
-            gsap.set(mainCard, { x: -460, y: -40, rotation: -18, scale: 0.86, opacity: 0 });
+            gsap.set(mainCard, {
+                x: -18,
+                y: -12,
+                rotation: -3.2,
+                scale: 0.98,
+                opacity: 0.86,
+                backgroundColor: frostedBg,
+                zIndex: 4
+            });
 
             const tl = gsap.timeline({
                 onComplete: () => {
-                    gsap.set(mainCard, { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 });
-                    if (stack1) {
-                        gsap.set(stack1, { clearProps: 'backgroundColor' });
-                    }
+                    flyingClone.remove();
+                    gsap.set(mainCard, { clearProps: 'all' });
+                    if (stack1) gsap.set(stack1, { clearProps: 'all' });
                     isFloatingPageAnimating = false;
                 }
             });
 
-            // 1. 上一頁自左側飛回覆蓋在頂層
+            // 1. 頂層克隆白頁飛向螢幕遠方 (加大、飛遠、強烈風壓透視感)
+            tl.to(flyingClone, {
+                x: -1100,
+                y: -70,
+                rotation: -28,
+                scale: 0.72,
+                opacity: 0,
+                duration: 0.54,
+                ease: "power2.in"
+            }, 0);
+
+            // 2. 底下原本歪斜堆疊的書頁向中央回正歸位，並順暢由毛玻璃漸變轉為實體白色主頁
             tl.to(mainCard, {
                 x: 0,
                 y: 0,
                 rotation: 0,
                 scale: 1,
                 opacity: 1,
-                duration: 0.48,
-                ease: "power3.out"
+                backgroundColor: activeCardBg,
+                duration: 0.50,
+                ease: "power2.out"
+            }, 0.05);
+
+            // 3. 底層堆疊卡片微幅跟隨
+            if (stack1) {
+                tl.fromTo(stack1, { scale: 0.96 }, { scale: 0.98, duration: 0.45, ease: "power1.out" }, 0.05);
+            }
+        } else {
+            // === 上一頁：上一頁飛回動效速度改慢至 0.68s，白頁變回毛玻璃沉入下方堆疊 ===
+            currentFloatingPage = targetPage;
+            updateFloatingPageMeta();
+            oldPageEl.classList.add('d-none');
+            newPageEl.classList.remove('d-none');
+
+            const incomingFlyer = mainCard.cloneNode(true);
+            incomingFlyer.id = 'floatingBookIncomingFlyer';
+            incomingFlyer.style.position = 'absolute';
+            incomingFlyer.style.top = '0';
+            incomingFlyer.style.left = '0';
+            incomingFlyer.style.width = mainCard.offsetWidth + 'px';
+            incomingFlyer.style.height = mainCard.offsetHeight + 'px';
+            incomingFlyer.style.zIndex = '12';
+            incomingFlyer.style.pointerEvents = 'none';
+            mainCard.parentNode.appendChild(incomingFlyer);
+
+            // 主卡片（剛才看的那一頁）留在原處，準備退回半透明毛玻璃底層
+            oldPageEl.classList.remove('d-none');
+            newPageEl.classList.add('d-none');
+
+            // 設置 incomingFlyer 初始在遠方
+            gsap.set(incomingFlyer, {
+                x: -1100,
+                y: -70,
+                rotation: -28,
+                scale: 0.72,
+                opacity: 0
+            });
+
+            const tl = gsap.timeline({
+                onComplete: () => {
+                    incomingFlyer.remove();
+                    oldPageEl.classList.add('d-none');
+                    newPageEl.classList.remove('d-none');
+                    gsap.set(mainCard, { clearProps: 'all' });
+                    if (stack1) gsap.set(stack1, { clearProps: 'all' });
+                    isFloatingPageAnimating = false;
+                }
+            });
+
+            // 1. 上一頁自左側遠方平滑優雅飛回覆蓋 (0.68s 柔順慢速)
+            tl.to(incomingFlyer, {
+                x: 0,
+                y: 0,
+                rotation: 0,
+                scale: 1,
+                opacity: 1,
+                duration: 0.68,
+                ease: "power2.out"
             }, 0);
 
-            // 2. 剛才的頁面變回半透明毛玻璃，退回下方堆疊
-            if (stack1) {
-                tl.to(stack1, {
-                    x: -18,
-                    y: -12,
-                    rotation: -3.2,
-                    scale: 0.98,
-                    opacity: 0.85,
-                    duration: 0.46,
-                    ease: "power2.inOut"
-                }, 0);
-            }
+            // 2. 當前白頁變回半透明毛玻璃，柔和沉入下方堆疊
+            tl.to(mainCard, {
+                x: -18,
+                y: -12,
+                rotation: -3.2,
+                scale: 0.98,
+                opacity: 0.86,
+                backgroundColor: frostedBg,
+                duration: 0.62,
+                ease: "power2.inOut"
+            }, 0);
         }
     } else {
         if (oldPageEl) oldPageEl.classList.add('d-none');
