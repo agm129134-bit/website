@@ -50,7 +50,7 @@ const server = http.createServer((req, res) => {
     }
 
     // 攔截 /api/bookmarks、/api/user 與 /api/bangumi 跨裝置同步、雙向同步與 Tampermonkey 收藏路由
-    if (req.url.startsWith('/api/bookmarks') || req.url.startsWith('/api/user') || req.url.startsWith('/api/bangumi')) {
+    if (req.url.startsWith('/api/bookmarks') || req.url.startsWith('/api/user') || req.url.startsWith('/api/bookshelf') || req.url.startsWith('/api/bangumi')) {
         return handleSyncRoute(req, res);
     }
 

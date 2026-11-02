@@ -432,6 +432,88 @@ async function handleSyncRoute(req, res) {
         }
 
         // ==========================================
+        // 0.9 跨裝置立體書架同步端點 /api/user/bookshelf 與 /api/bookshelf
+        // ==========================================
+        if (pathname === '/api/user/bookshelf' || pathname === '/api/bookshelf') {
+            // GET: 從伺服器拉取該帳號最新漫畫與小說立體書架
+            if (req.method === 'GET') {
+                let username = query.user || query.username || getDefaultActiveUser();
+                if ((username === '期末展示學生' || username === 'default') && getDefaultActiveUser() !== 'default') {
+                    username = getDefaultActiveUser();
+                } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
+                    _currentSessionUser = sanitizeUsername(username);
+                }
+                const safeUser = sanitizeUsername(username);
+                const shelfPath = path.join(DATA_DIR, `bookshelf_${safeUser}.json`);
+
+                if (!fs.existsSync(shelfPath)) {
+                    return sendJson(res, 200, {
+                        success: true,
+                        user: safeUser,
+                        manga: [],
+                        novel: [],
+                        isNew: true,
+                        message: '帳號尚無伺服器端立體書架存檔'
+                    });
+                }
+
+                try {
+                    const parsed = JSON.parse(fs.readFileSync(shelfPath, 'utf-8') || '{}');
+                    return sendJson(res, 200, {
+                        success: true,
+                        user: safeUser,
+                        manga: Array.isArray(parsed.manga) ? parsed.manga : [],
+                        novel: Array.isArray(parsed.novel) ? parsed.novel : [],
+                        updatedAt: parsed.updatedAt || null
+                    });
+                } catch (e) {
+                    return sendJson(res, 500, { success: false, error: '書架讀取失敗: ' + e.message });
+                }
+            }
+
+            // POST: 將客戶端立體書架 (條漫與沉浸小說) 寫入伺服器端
+            else if (req.method === 'POST') {
+                const body = await parseRequestBody(req);
+                let username = body.user || body.username || query.user || getDefaultActiveUser();
+                if ((username === '期末展示學生' || username === 'default') && getDefaultActiveUser() !== 'default') {
+                    username = getDefaultActiveUser();
+                } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
+                    _currentSessionUser = sanitizeUsername(username);
+                }
+                const safeUser = sanitizeUsername(username);
+                const shelfPath = path.join(DATA_DIR, `bookshelf_${safeUser}.json`);
+
+                let currentShelf = { user: safeUser, manga: [], novel: [], updatedAt: new Date().toISOString() };
+                if (fs.existsSync(shelfPath)) {
+                    try {
+                        const parsed = JSON.parse(fs.readFileSync(shelfPath, 'utf-8') || '{}');
+                        if (Array.isArray(parsed.manga)) currentShelf.manga = parsed.manga;
+                        if (Array.isArray(parsed.novel)) currentShelf.novel = parsed.novel;
+                    } catch (e) {}
+                }
+
+                if (Array.isArray(body.manga)) {
+                    currentShelf.manga = body.manga;
+                }
+                if (Array.isArray(body.novel)) {
+                    currentShelf.novel = body.novel;
+                }
+                currentShelf.updatedAt = new Date().toISOString();
+
+                fs.writeFileSync(shelfPath, JSON.stringify(currentShelf, null, 2), 'utf-8');
+
+                return sendJson(res, 200, {
+                    success: true,
+                    user: safeUser,
+                    mangaCount: currentShelf.manga.length,
+                    novelCount: currentShelf.novel.length,
+                    savedAt: currentShelf.updatedAt,
+                    message: '立體書架收藏已成功同步至伺服器！'
+                });
+            }
+        }
+
+        // ==========================================
         // 1. 跨電腦書籤收藏同步端點 /api/user/bookmarks 與 Tampermonkey 收藏端點 /api/bookmarks
         // ==========================================
         if (pathname === '/api/user/bookmarks' || pathname === '/api/bookmarks') {

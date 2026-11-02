@@ -743,6 +743,9 @@
                 };
 
                 localStorage.setItem('web_library_user', matchedUser.username);
+                if (matchedUser.avatar) {
+                    localStorage.setItem('web_library_custom_avatar_' + matchedUser.username, matchedUser.avatar);
+                }
                 if (rememberMe) {
                     localStorage.setItem('currentUser', JSON.stringify(userInfo));
                     sessionStorage.removeItem('currentUser');
@@ -984,6 +987,9 @@
                     loginTime: new Date().toISOString()
                 };
                 localStorage.setItem('web_library_user', targetUser.username);
+                if (targetUser.avatar) {
+                    localStorage.setItem('web_library_custom_avatar_' + targetUser.username, targetUser.avatar);
+                }
                 localStorage.setItem('currentUser', JSON.stringify(userInfo));
                 showToast(`🎉 歡迎回來，${userInfo.name}！正在為您自動登入...`, 'bi-check-circle-fill text-success');
                 setTimeout(() => {

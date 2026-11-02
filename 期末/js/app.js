@@ -758,6 +758,10 @@ function updateUI() {
     navUsername.textContent = cleanName;
   }
 
+  if (typeof updateNavUserAvatar === "function") {
+    updateNavUserAvatar();
+  }
+
   const userApiTokenInput = document.getElementById("userApiTokenInput");
 
   if (userApiTokenInput) userApiTokenInput.value = state.apiToken;
@@ -6620,12 +6624,87 @@ if (!window.getMangaBookshelf) {
   };
 }
 
+let _bookshelfSyncDebounceTimer = null;
+
+// 跨裝置立體書架同步核心：將本地漫畫/小說書架推送到伺服器端
+window.syncBookshelfToServer = function(type, list) {
+  const user = (localStorage.getItem("web_library_user") || "jyun").toLowerCase().trim();
+  if (!user || user === "訪客" || user === "guest") return;
+
+  clearTimeout(_bookshelfSyncDebounceTimer);
+  _bookshelfSyncDebounceTimer = setTimeout(async () => {
+    try {
+      const payload = { user: user };
+      if (type === 'manga') {
+        payload.manga = list;
+      } else if (type === 'novel') {
+        payload.novel = list;
+      } else {
+        payload.manga = window.getMangaBookshelf ? window.getMangaBookshelf() : [];
+        payload.novel = window.getNovelBookshelf ? window.getNovelBookshelf() : [];
+      }
+      await fetch('/api/user/bookshelf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      console.log(`[Bookshelf Sync] ${type} 立體書架已跨裝置持久化至伺服器`);
+    } catch (e) {
+      console.warn('[Bookshelf Sync] 同步至伺服器提示 (離線模式):', e.message);
+    }
+  }, 350);
+};
+
+// 跨裝置立體書架同步核心：從伺服器端拉取書架並合併更新至本地
+window.syncBookshelfFromServer = async function(username) {
+  const user = (username || localStorage.getItem("web_library_user") || "jyun").toLowerCase().trim();
+  if (!user || user === "訪客" || user === "guest") return;
+
+  try {
+    const res = await fetch(`/api/user/bookshelf?user=${encodeURIComponent(user)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.success) {
+      // 漫畫立體書架雙向對齊
+      if (Array.isArray(data.manga)) {
+        const localManga = window.getMangaBookshelf ? window.getMangaBookshelf() : [];
+        if (data.isNew && localManga.length > 0) {
+          window.syncBookshelfToServer('manga', localManga);
+        } else if (!data.isNew) {
+          localStorage.setItem("web_library_manga_bookshelf", JSON.stringify(data.manga));
+          if (typeof window.renderMangaBookshelf === "function") {
+            window.renderMangaBookshelf();
+          }
+        }
+      }
+      // 沉浸小說立體書架雙向對齊
+      if (Array.isArray(data.novel)) {
+        const localNovel = window.getNovelBookshelf ? window.getNovelBookshelf() : [];
+        if (data.isNew && localNovel.length > 0) {
+          window.syncBookshelfToServer('novel', localNovel);
+        } else if (!data.isNew) {
+          localStorage.setItem("web_library_novel_bookshelf", JSON.stringify(data.novel));
+          if (typeof window.renderNovelBookshelf === "function") {
+            window.renderNovelBookshelf();
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[Bookshelf Sync] 從伺服器拉取立體書架失敗 (離線屬正常):', e.message);
+  }
+};
+
 if (!window.saveMangaBookshelf) {
   window.saveMangaBookshelf = function (list) {
     localStorage.setItem("web_library_manga_bookshelf", JSON.stringify(list));
 
     if (typeof window.renderMangaBookshelf === "function") {
       window.renderMangaBookshelf();
+    }
+
+    if (typeof window.syncBookshelfToServer === "function") {
+      window.syncBookshelfToServer('manga', list);
     }
   };
 }
@@ -6713,6 +6792,10 @@ if (!window.saveNovelBookshelf) {
 
     if (typeof window.renderNovelBookshelf === "function") {
       window.renderNovelBookshelf();
+    }
+
+    if (typeof window.syncBookshelfToServer === "function") {
+      window.syncBookshelfToServer('novel', list);
     }
   };
 }
@@ -9337,9 +9420,9 @@ window.selectLocalNovelChapter = function (idx) {
   }
 };
 
-// 關閉當前小說，回到待命搜尋狀態
+// 關閉當前小說，回到待命搜尋狀態 (支援 silent 靜默模式)
 
-window.closeCurrentNovel = function () {
+window.closeCurrentNovel = function (silent = false) {
   novelState.currentNovel = null;
   novelState.chapters = [];
   novelState.currentChapterIdx = -1;
@@ -9371,7 +9454,9 @@ window.closeCurrentNovel = function () {
 
   updateNovelNavButtons();
 
-  showToast("已關閉當前小說，回到待命狀態", "bi-x-circle text-success");
+  if (!silent && typeof showToast === "function") {
+    showToast("已關閉當前小說，回到待命狀態", "bi-x-circle text-success");
+  }
 };
 
 // ==========================================
@@ -10028,9 +10113,9 @@ window.openLegadoReader = function (arg = null) {
     return;
   }
 
-  // 否則開啟純淨待命閱讀器
+  // 否則開啟純淨待命閱讀器 (靜默進入待命，不彈出干擾通知)
 
-  closeCurrentNovel();
+  closeCurrentNovel(true);
 
   const modal = bootstrap.Modal.getOrCreateInstance(
     document.getElementById("novelReaderModal"),
@@ -14350,13 +14435,13 @@ const AVATAR_PRESETS = [
     { id: 'avatar-6', label: '音律節奏', icon: '<i class="bi bi-music-note-beamed fs-4"></i>', bg: '#06b6d4' }
 ];
 
-// 右上角導航列使用者頭像即時同步
+// 右上角導航列使用者頭像即時同步 (支援多設備雲端自動拉取與快取相容)
 function updateNavUserAvatar(avatar) {
     const wrapper = document.getElementById('navUserAvatarWrapper');
     if (!wrapper) return;
+    const effectiveUser = (localStorage.getItem('web_library_user') || 'jyun').toLowerCase().trim();
     if (!avatar) {
-        const username = localStorage.getItem('web_library_user') || 'admin';
-        avatar = localStorage.getItem('web_library_custom_avatar_' + username) || 'default';
+        avatar = localStorage.getItem('web_library_custom_avatar_' + effectiveUser) || 'default';
     }
     if (avatar && (avatar.startsWith('data:image/') || avatar.startsWith('http'))) {
         wrapper.innerHTML = `<img src="${avatar}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; display: block;" alt="avatar">`;
@@ -14364,6 +14449,31 @@ function updateNavUserAvatar(avatar) {
         const preset = AVATAR_PRESETS.find(p => p.id === avatar) || AVATAR_PRESETS[0];
         const iconHtml = (preset.icon || '<i class="bi bi-person-fill"></i>').replace(/fs-4/g, 'fs-6');
         wrapper.innerHTML = `<span style="width: 22px; height: 22px; border-radius: 50%; background: ${preset.bg}; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; overflow: hidden;">${iconHtml}</span>`;
+    }
+
+    // 背景非同步向伺服器驗證與拉取最新使用者 Profile (若不同設備登入自動補齊自訂頭像)
+    if (!window._avatarSyncLock && effectiveUser && effectiveUser !== '訪客' && effectiveUser !== 'guest') {
+        window._avatarSyncLock = true;
+        fetch(`/api/user/profile?username=${encodeURIComponent(effectiveUser)}`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                window._avatarSyncLock = false;
+                if (data && data.success && data.profile && data.profile.avatar) {
+                    const serverAvatar = data.profile.avatar;
+                    const cachedAvatar = localStorage.getItem('web_library_custom_avatar_' + effectiveUser);
+                    if (serverAvatar && serverAvatar !== 'default' && serverAvatar !== cachedAvatar) {
+                        localStorage.setItem('web_library_custom_avatar_' + effectiveUser, serverAvatar);
+                        if (serverAvatar.startsWith('data:image/') || serverAvatar.startsWith('http')) {
+                            wrapper.innerHTML = `<img src="${serverAvatar}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; display: block;" alt="avatar">`;
+                        } else {
+                            const preset = AVATAR_PRESETS.find(p => p.id === serverAvatar) || AVATAR_PRESETS[0];
+                            const iconHtml = (preset.icon || '<i class="bi bi-person-fill"></i>').replace(/fs-4/g, 'fs-6');
+                            wrapper.innerHTML = `<span style="width: 22px; height: 22px; border-radius: 50%; background: ${preset.bg}; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; overflow: hidden;">${iconHtml}</span>`;
+                        }
+                    }
+                }
+            })
+            .catch(() => { window._avatarSyncLock = false; });
     }
 };
 
@@ -15162,6 +15272,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (typeof window.updateNavUserAvatar === 'function') {
         window.updateNavUserAvatar();
+    }
+    if (typeof window.syncBookshelfFromServer === 'function') {
+        window.syncBookshelfFromServer();
     }
     if (typeof applySpotlightPref === 'function') {
         applySpotlightPref(localStorage.getItem('web_library_spotlight_pref') !== 'false');

@@ -1765,6 +1765,9 @@
             initAcgPageCarousel();
             loadAcgPageCalendar();
             initAcgGsapAnimations();
+            if (typeof window.syncBookshelfFromServer === 'function') {
+                window.syncBookshelfFromServer();
+            }
         });
 
         // 輪播數量管理 (0 代表全部顯示)
@@ -2240,6 +2243,9 @@
         function saveMangaBookshelf(list) {
             localStorage.setItem('web_library_manga_bookshelf', JSON.stringify(list));
             renderMangaBookshelf();
+            if (typeof window.syncBookshelfToServer === 'function') {
+                window.syncBookshelfToServer('manga', list);
+            }
         }
 
         function getNovelBookshelf() {
@@ -2262,6 +2268,9 @@
         function saveNovelBookshelf(list) {
             localStorage.setItem('web_library_novel_bookshelf', JSON.stringify(list));
             renderNovelBookshelf();
+            if (typeof window.syncBookshelfToServer === 'function') {
+                window.syncBookshelfToServer('novel', list);
+            }
         }
 
         window.getMangaBookshelf = getMangaBookshelf;
