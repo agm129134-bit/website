@@ -112,7 +112,7 @@ function startServer(port) {
 
         // 自動開啟預設瀏覽器 (支援 Windows / macOS / Linux)
         const openCommand = process.platform === 'win32' ? `start ${localUrl}` : (process.platform === 'darwin' ? `open ${localUrl}` : `xdg-open ${localUrl}`);
-        exec(openCommand, () => {});
+        if (!process.env.PORT && !process.env.RENDER) { exec(openCommand, () => {}); }
     });
 }
 

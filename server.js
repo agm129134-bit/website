@@ -1,14 +1,15 @@
-// server.js - 課堂練習伺服器 (專屬開原本的 Bootstrap5)
-var express = require("express");
-var server = express();
+/**
+ * Web Library 雲端平台主入口 (相容 Render / Vercel / Railway 與本機環境)
+ * 自動引導並啟動期末專案 (零外部依賴、純原生 Node.js 架構)
+ */
+const path = require('path');
+const fs = require('fs');
 
-server.use(express.static(__dirname + "/Bootstrap5")); // 指定靜態檔案目錄為 Bootstrap5
+const targetServer = path.join(__dirname, '期末', 'server.js');
 
-server.get("/*splat", function(req, res) {
-    res.send("Page not found", 404);
-});
-
-server.listen(8080);
-console.log("Express run on port: 8080 (Bootstrap5 課堂練習)");
-// run: node server.js
-// browser: http://localhost:8080
+if (fs.existsSync(targetServer)) {
+    require(targetServer);
+} else {
+    console.error('❌ 找不到期末專案伺服器檔案:', targetServer);
+    process.exit(1);
+}

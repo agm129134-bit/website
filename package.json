@@ -1,5 +1,18 @@
 {
-  "dependencies": {
-    "express": "^5.3.0"
-  }
+  "name": "web-library",
+  "version": "3.0.0",
+  "description": "個人化網頁收藏圖書館 & ACG 多媒體平台",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "echo 'No build step required for zero-dependency native Node.js'"
+  },
+  "keywords": [
+    "web-library",
+    "bookmarks",
+    "acg",
+    "bangumi"
+  ],
+  "author": "Jyun",
+  "license": "ISC"
 }
