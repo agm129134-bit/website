@@ -12,6 +12,10 @@ ENV PORT=8090
 # 建立專案工作目錄
 WORKDIR /app
 
+# 複製依賴描述清單並安裝生產依賴 (包含 nedb-promises)
+COPY package*.json ./
+RUN npm install --omit=dev
+
 # 複製專案原始碼至容器
 COPY . .
 
