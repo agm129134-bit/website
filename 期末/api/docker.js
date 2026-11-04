@@ -38,7 +38,7 @@ function handleDockerRoute(req, res) {
             }));
         }
 
-        exec('docker ps -a --filter "name=web-library" --format "{{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"', { cwd: ROOT_DIR }, (err, stdout, stderr) => {
+        exec('docker ps -a --filter "name=web-library" --format "{{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"', { cwd: ROOT_DIR, timeout: 2000 }, (err, stdout, stderr) => {
             if (err) {
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                 return res.end(JSON.stringify({

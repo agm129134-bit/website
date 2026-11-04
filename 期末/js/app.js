@@ -147,8 +147,18 @@ async function seamlessNavigateTo(url, isPopState = false) {
     if (url.includes("acg.html")) {
       if (typeof window.initAcgPageCarousel === "function") window.initAcgPageCarousel(true);
       if (typeof window.initAcgTabs === "function") window.initAcgTabs();
+      // 切換至 ACG 專區時自動即時載入每週完整放送時間表與動態效果
+      if (typeof window.loadAcgPageCalendar === "function") window.loadAcgPageCalendar();
+      if (typeof window.initAcgGsapAnimations === "function") window.initAcgGsapAnimations();
+      if (typeof window.syncBookshelfFromServer === "function") window.syncBookshelfFromServer();
     } else {
-      window.renderBookmarks();
+      // 切回首頁時完整更新 UI (包含統計計數 updateStats、標籤 renderTagChips、卡片 renderBookmarks、右上角使用者名稱與自訂頭像)
+      if (typeof updateUI === "function") {
+        updateUI();
+      } else {
+        window.renderBookmarks();
+      }
+      if (typeof updateNavUserAvatar === "function") updateNavUserAvatar();
       if (typeof window.initSpotlightSearch === "function") window.initSpotlightSearch();
     }
 
@@ -1051,6 +1061,9 @@ window.resetAllFilters = function () {
 
 // 收藏卡片生成渲染
 function renderBookmarks(skipAnimation = false) {
+  // 自動連動更新頂部統計計數與分類標籤數字，杜絕統計歸零
+  if (typeof updateStats === "function") updateStats();
+
   const container = document.getElementById("bookmarkContainer");
   const emptyState = document.getElementById("emptyState");
   const items = getFilteredAndSortedBookmarks();
@@ -12573,7 +12586,10 @@ window.checkDockerStatus = async function (isManual = false) {
   const dropdownWrapper = document.getElementById("dockerDropdownWrapper");
 
   try {
-    const res = await fetch("/api/docker/status");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch("/api/docker/status", { signal: controller.signal });
+    clearTimeout(timeoutId);
     if (!res.ok) throw new Error("伺服器未運行");
     const data = await res.json();
 

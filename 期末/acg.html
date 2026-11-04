@@ -2234,6 +2234,7 @@
                 if (grid) grid.innerHTML = `<div class="col-12 text-center text-muted py-4">連線 Bangumi 取得放送數據失敗，<a href="javascript:void(0)" onclick="loadAcgPageCalendar(true)">點此重試</a></div>`;
             }
         }
+        window.loadAcgPageCalendar = loadAcgPageCalendar;
 
         // ==================== GSAP 專業動態管理 ====================
         function initAcgGsapAnimations() {
@@ -2458,6 +2459,7 @@
                 trash.style.display = "none";
             }
         });
+        window.initAcgGsapAnimations = initAcgGsapAnimations;
     </script>
 
     <!-- 全螢幕固定懸浮垃圾桶 (條漫與沉浸小說立體書房 拖曳刪除) -->
