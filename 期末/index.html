@@ -14,8 +14,16 @@
     <!-- 身分認證守衛：未登入者強制導向登入頁 (第一頁，採用 sessionStorage 會話保護) -->
     <script>
       (function authGuard() {
-        try { localStorage.clear(); } catch(e) {}
-        const user = sessionStorage.getItem("currentUser");
+        let user = sessionStorage.getItem("currentUser");
+        if (!user) {
+          try {
+            const remembered = JSON.parse(localStorage.getItem("rememberedUser") || "null");
+            if (remembered && remembered.user && (!remembered.expiresAt || Date.now() < remembered.expiresAt)) {
+              sessionStorage.setItem("currentUser", JSON.stringify(remembered.user));
+              user = JSON.stringify(remembered.user);
+            }
+          } catch(e) {}
+        }
         if (!user) {
           window.location.replace("login.html");
         }
@@ -124,7 +132,7 @@
             <!-- 音量拉桿控制 -->
             <div class="d-flex align-items-center gap-2 text-white-50 fs-xs" style="width: 140px;">
               <i class="bi bi-volume-down-fill" id="islandVolumeIcon"></i>
-              <input type="range" class="form-range island-volume-range" id="islandVolumeSlider" min="0" max="1" step="0.05" value="0.8" title="音量調節" />
+              <input type="range" class="form-range island-volume-range" id="islandVolumeSlider" min="0" max="1" step="0.05" value="0.5" title="音量調節" />
               <i class="bi bi-volume-up-fill"></i>
             </div>
           </div>
@@ -211,9 +219,9 @@
             </div>
           </div>
           <div class="d-flex align-items-center gap-2">
-            <button type="button" class="btn btn-sm btn-dark rounded-circle text-white p-2" id="watchBarPrevBtn" title="上一首"><i class="bi bi-skip-start-fill"></i></button>
-            <button type="button" class="btn btn-sm btn-info rounded-circle text-white p-2" id="watchBarPlayBtn" title="播放/暫停" style="width:36px;height:36px;"><i class="bi bi-play-fill fs-5" id="watchBarPlayIcon"></i></button>
-            <button type="button" class="btn btn-sm btn-dark rounded-circle text-white p-2" id="watchBarNextBtn" title="下一首"><i class="bi bi-skip-end-fill"></i></button>
+            <button type="button" class="btn btn-dark text-white shadow-sm" id="watchBarPrevBtn" title="上一首"><i class="bi bi-skip-start-fill"></i></button>
+            <button type="button" class="btn btn-info text-white shadow-sm" id="watchBarPlayBtn" title="播放/暫停"><i class="bi bi-play-fill fs-5" id="watchBarPlayIcon"></i></button>
+            <button type="button" class="btn btn-dark text-white shadow-sm" id="watchBarNextBtn" title="下一首"><i class="bi bi-skip-end-fill"></i></button>
           </div>
         </div>
       </div>

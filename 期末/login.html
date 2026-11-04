@@ -562,6 +562,15 @@
                     const user = data.user;
                     sessionStorage.setItem('currentUser', JSON.stringify(user));
 
+                    const rememberMe = document.getElementById('rememberMeCheckbox')?.checked;
+                    if (rememberMe) {
+                        const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 天效期
+                        localStorage.setItem('rememberedUser', JSON.stringify({ user, expiresAt }));
+                        localStorage.setItem('currentUser', JSON.stringify(user));
+                    } else {
+                        localStorage.removeItem('rememberedUser');
+                    }
+
                     showToast(`歡迎回來，${user.name || user.username}！`, "bi-check-circle-fill text-success");
                     setTimeout(() => {
                         window.location.href = 'index.html';

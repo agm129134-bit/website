@@ -205,8 +205,8 @@ function loadFromStorage() {
 window.logoutUser = function () {
   if (confirm("確定要登出個人圖書館帳號嗎？")) {
     sessionStorage.removeItem("currentUser");
-
-    sessionStorage.removeItem("currentUser");
+    localStorage.removeItem("rememberedUser");
+    localStorage.removeItem("currentUser");
 
     showToast(
       "已成功登出帳號，正在返回登入頁面...",
@@ -2268,6 +2268,53 @@ function showToast(message, iconClass = "bi-check-circle-fill text-success") {
   console.log(`[Toast Fallback] ${message}`);
 }
 
+
+// 靈動島通知手勢滑動 / 點擊快速清除 (恢復音樂膠囊或待命狀態)
+window.dismissIslandNotification = function () {
+  if (_islandNotifTimer) {
+    clearTimeout(_islandNotifTimer);
+    _islandNotifTimer = null;
+  }
+  const island = document.getElementById("dynamicIsland");
+  if (!island || !island.classList.contains("notifying")) return;
+
+  island.classList.add("swipe-up-dismiss");
+  setTimeout(() => {
+    island.classList.remove("swipe-up-dismiss");
+    if (typeof islandMusicState !== "undefined" && islandMusicState.isExpanded) {
+      island.className = "dynamic-island expanded";
+    } else if (typeof islandMusicState !== "undefined" && islandMusicState.isPlaying) {
+      island.className = "dynamic-island playing";
+    } else {
+      island.className = "dynamic-island idle";
+    }
+  }, 200);
+};
+
+// 全域影音播放互斥監聽器：當播放影片或動畫時，音樂播放器自動暫停
+function pauseIslandMusicForVideo() {
+  if (typeof islandMusicState !== "undefined" && islandMusicState.isPlaying) {
+    if (typeof islandAudio !== "undefined" && islandAudio) {
+      islandAudio.pause();
+    }
+    if (typeof stopWebAudioFallback === "function") {
+      stopWebAudioFallback();
+    }
+    islandMusicState.isPlaying = false;
+    if (typeof updateIslandUI === "function") {
+      updateIslandUI();
+    }
+    showToast("🎬 檢測到影片播放，背景音樂已自動暫停", "bi-pause-circle-fill text-warning");
+  }
+}
+
+// 1. 全域捕獲任何 HTML5 <video> 或非音樂播放事件
+document.addEventListener("play", (e) => {
+  if (typeof islandAudio !== "undefined" && e.target !== islandAudio) {
+    pauseIslandMusicForVideo();
+  }
+}, true);
+
 window.showToast = showToast;
 
 // ==================== 音樂庫 & iPhone 動態島雙模核心 (開源線上串流引擎) ====================
@@ -2278,6 +2325,7 @@ const DEFAULT_SEED_TRACKS = [];
 let userMusicTracks = [];
 let islandAudio = new Audio();
 islandAudio.preload = "auto";
+islandAudio.volume = 0.5; // 音樂音量預設改 50%
 let islandCurrentIndex = 0;
 let islandMusicState = {
   isPlaying: false,
@@ -2310,7 +2358,7 @@ function playWebAudioFallback(trackTitle) {
       const freq = melodyFreqs[noteIdx % melodyFreqs.length];
       osc.frequency.setValueAtTime(freq, webAudioCtx.currentTime);
 
-      gain.gain.setValueAtTime(0.08 * (islandAudio.volume || 0.8), webAudioCtx.currentTime);
+      gain.gain.setValueAtTime(0.08 * (islandAudio.volume || 0.5), webAudioCtx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, webAudioCtx.currentTime + 0.6);
 
       osc.connect(gain);
@@ -2384,6 +2432,55 @@ function initDynamicIslandMusic() {
   const closeSearchBtn = document.getElementById("watchCloseSearchBtn");
 
   if (!island || !bar) return;
+
+  // 音量拉桿與音效預設 50%
+  if (volumeSlider) {
+    volumeSlider.value = "0.5";
+  }
+  if (islandAudio) {
+    islandAudio.volume = 0.5;
+  }
+
+  // 通知上滑手勢監聽 (Swipe-Up to Dismiss Notification)
+  const notifEl = document.getElementById("islandNotification");
+  if (notifEl) {
+    let startY = 0;
+    let isDragging = false;
+
+    notifEl.addEventListener("pointerdown", (e) => {
+      if (!island.classList.contains("notifying")) return;
+      startY = e.clientY;
+      isDragging = true;
+    });
+
+    notifEl.addEventListener("pointermove", (e) => {
+      if (!isDragging) return;
+      const diffY = e.clientY - startY;
+      // 向上滑動超過 14px 即判定為上滑滑掉
+      if (diffY < -14) {
+        isDragging = false;
+        window.dismissIslandNotification();
+      }
+    });
+
+    notifEl.addEventListener("pointerup", () => { isDragging = false; });
+    notifEl.addEventListener("pointercancel", () => { isDragging = false; });
+
+    // 點擊通知亦可快速滑掉
+    notifEl.addEventListener("click", () => {
+      if (island.classList.contains("notifying")) {
+        window.dismissIslandNotification();
+      }
+    });
+  }
+
+  // 監聽 Kazumi 動漫劇場與影片燈箱彈窗展示事件，互斥暫停音樂
+  ["kazumiModal", "videoPlayerModal", "kazumiTheaterModal"].forEach((modalId) => {
+    const el = document.getElementById(modalId);
+    if (el) {
+      el.addEventListener("show.bs.modal", pauseIslandMusicForVideo);
+    }
+  });
 
   // 取得目前登入使用者名稱
   function getCurrentUser() {

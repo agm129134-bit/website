@@ -4067,12 +4067,13 @@ body.dark-theme .carousel-control-next-icon {
   width: 220px;
   height: 38px;
   border-radius: 9999px;
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
-  opacity: 0.9;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  opacity: 0.42;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dynamic-island.idle:hover {
@@ -4687,4 +4688,40 @@ body.dark-theme .carousel-control-next-icon {
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+/* 底部播放狀態列控制按鈕：保證為 36x36px 正圓形且圖標完美居中，杜絕被壓成扁橢圓跑版 */
+.watch-music-bar .btn {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+  aspect-ratio: 1 / 1 !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.watch-music-bar .btn:hover {
+  transform: scale(1.12);
+}
+
+/* 靈動島通知手勢上滑消除與拖曳游標 */
+.dynamic-island.swipe-up-dismiss {
+  transform: translateY(-40px) scale(0.85) !important;
+  opacity: 0 !important;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease !important;
+  pointer-events: none;
+}
+
+.island-notification {
+  cursor: grab;
+  user-select: none;
+  touch-action: pan-y;
+}
+.island-notification:active {
+  cursor: grabbing;
 }
