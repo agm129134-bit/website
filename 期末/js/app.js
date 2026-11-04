@@ -45,9 +45,6 @@ function updatePlayModeUI() {
     drawerModeBtn.title = cfg.title;
   }
 }
-window.toggleIslandPlayMode = toggleIslandPlayMode;
-window.updatePlayModeUI = updatePlayModeUI;
-
 // ==================== 主頁與 ACG 專區無縫切換 (SPA / PJAX 動態局部抽換) ====================
 function initSeamlessPageTransitions() {
   document.addEventListener("click", (e) => {
@@ -135,16 +132,7 @@ window._mangaBookshelfMemory = window._mangaBookshelfMemory || [];
 window._novelBookshelfMemory = window._novelBookshelfMemory || [];
 
 // ==========================================
-// 1. 預設初始範例資料 (清空，交由使用者自行新增或由 Qwen 設計)
-
-// ==========================================
-
-const DEFAULT_BOOKMARKS = [];
-
-// ==========================================
-
 // 2. 狀態管理器 (State)
-
 // ==========================================
 
 const state = {
@@ -161,9 +149,7 @@ const state = {
 };
 
 // ==========================================
-
 // 3. 初始化與本地存儲 (Storage) & 跨電腦同步
-
 // ==========================================
 
 function initApp() {
@@ -275,9 +261,7 @@ function loadFromStorage() {
 
   // 優先讀取登入驗證身分 (currentUser)
 
-  const authUserStr =
-    sessionStorage.getItem("currentUser") ||
-    sessionStorage.getItem("currentUser");
+  const authUserStr = sessionStorage.getItem("currentUser");
 
   if (authUserStr) {
     try {
@@ -560,9 +544,7 @@ function saveToStorage(immediate = false) {
 }
 
 // ==========================================
-
 // 3.1 Bangumi 雙向同步 (Token 管理與 API 代理回寫)
-
 // ==========================================
 
 window.toggleTokenVisibility = function (inputId, btnEl) {
@@ -811,9 +793,7 @@ window.syncEpisodeProgressToBangumi = async function (
 };
 
 // ==========================================
-
 // 4. UI 渲染邏輯 (Card Rendering)
-
 // ==========================================
 
 function updateUI() {
@@ -1351,9 +1331,7 @@ function renderBookmarks(skipAnimation = false) {
 }
 
 // ==========================================
-
 // 圖片大圖檢視器 (Lightbox Image Preview)
-
 // ==========================================
 
 window.openImagePreview = function (imgSrc, title = "圖片預覽") {
@@ -1389,9 +1367,7 @@ window.openImagePreview = function (imgSrc, title = "圖片預覽") {
 };
 
 // ==========================================
-
 // 5. 使用者互動事件 (Actions & Events)
-
 // ==========================================
 
 function setupEventListeners() {
@@ -1798,11 +1774,8 @@ function setupEventListeners() {
 }
 
 // ==========================================
-
 // 6. 收藏 CRUD 核心函式
-
 // ==========================================
-
 // 跳轉連結並累計計數
 
 window.jumpToBookmark = function (id) {
@@ -2186,12 +2159,7 @@ document.addEventListener("play", (e) => {
   }
 }, true);
 
-window.showToast = showToast;
-
 // ==================== 音樂庫 & iPhone 動態島雙模核心 (開源線上串流引擎) ====================
-
-// 預設曲庫留白 (使用者要求完全不預設假歌，依據 NeDB 使用者收藏動態加載)
-const DEFAULT_SEED_TRACKS = [];
 
 let userMusicTracks = [];
 let islandAudio = new Audio();
@@ -2208,6 +2176,14 @@ function formatIslandTime(seconds) {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s < 10 ? "0" : ""}${s}`;
+}
+
+// 共用 "MM:SS" 時間格式 (彈幕時間軸、觀看紀錄進度)；非數值/負值一律回傳 "00:00"
+function formatMmSs(sec) {
+  const s = Math.floor(Number(sec));
+  if (!(s > 0)) return "00:00";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
 }
 
 function initDynamicIslandMusic() {
@@ -2952,11 +2928,8 @@ if (document.readyState === "loading") {
 }
 
 // ==========================================
-
 // 7. ACG 專用模組邏輯 (Kazumi / Tachimanga / Legado)
-
 // ==========================================
-
 // --- 0. Kazumi 播放來源規則引擎 (仿 Kazumi 原生播放來源抽屜) ---
 
 const KAZUMI_SOURCES = [
@@ -3671,7 +3644,6 @@ function openTheaterWithUrl(
 ) {
   window.currentKazumiPlayingUrl = playerUrl;
   window.currentKazumiAnimeTitle = animeTitle;
-  window.currentKazumiEpTitle = epTitle;
 
   if (animeCover) kazumiState.cover = animeCover;
 
@@ -4637,31 +4609,8 @@ window.closeCurrentAnime = function () {
   showToast("已關閉當前動畫，回到待命搜尋狀態", "bi-stop-circle text-danger");
 };
 
-window.switchEpisode = function (epNum, btn) {
-  document.querySelectorAll(".ep-btn").forEach((b) => {
-    b.classList.remove("btn-primary", "active");
-
-    b.classList.add("btn-outline-secondary");
-  });
-
-  btn.classList.remove("btn-outline-secondary");
-
-  btn.classList.add("btn-primary", "active");
-  const video = document.getElementById("kazumiVideoPlayer");
-  video.currentTime = 0;
-
-  video.play().catch(() => {});
-
-  showToast(
-    `Kazumi: 已切換至 第 ${String(epNum).padStart(2, "0")} 話，串流載入中...`,
-    "bi-play-circle-fill text-danger",
-  );
-};
-
 // ==========================================
-
 // Kazumi 彈幕引擎與設置核心 (外觀/播放/時間軸嚴格對齊)
-
 // ==========================================
 
 const DANMAKU_SETTINGS_KEY = "kazumi_danmaku_settings";
@@ -4750,7 +4699,6 @@ window.clearAllDanmakuState = function () {
 
   clearDanmakuScreen();
   currentDanmakuQueue = [];
-  window.currentDanmakuList = [];
   window.currentPlayingAnime = null;
   virtualDanmakuTime = 0;
   lastSyncVideoTime = 0;
@@ -4950,7 +4898,6 @@ async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
     item.numericTime = parseFloat(item.time) || 0;
   });
   currentDanmakuQueue = danmakuQueue;
-  window.currentDanmakuList = danmakuQueue;
   lastSyncVideoTime = 0;
   virtualDanmakuTime = 0;
   isDanmakuPaused = false;
@@ -5262,20 +5209,13 @@ function getDanmakuMaxDuration() {
   return maxSec;
 }
 
-function formatDanmakuMinSec(totalSeconds) {
-  const s = Math.max(0, Math.floor(totalSeconds));
-  const m = Math.floor(s / 60);
-  const remS = s % 60;
-  return `${String(m).padStart(2, "0")}:${String(remS).padStart(2, "0")}`;
-}
-
 function updateDanmakuTimeDisplay(currentSec, totalSec = null) {
   const maxSec = totalSec || getDanmakuMaxDuration();
   const cur = Math.max(0, Math.min(currentSec, maxSec));
   const timeDisplay = document.getElementById("theaterDanmakuTimeDisplay");
 
   if (timeDisplay) {
-    timeDisplay.textContent = `${formatDanmakuMinSec(cur)} / ${formatDanmakuMinSec(maxSec)}`;
+    timeDisplay.textContent = `${formatMmSs(cur)} / ${formatMmSs(maxSec)}`;
   }
 
   const slider = document.getElementById("danmakuTimelineSlider");
@@ -5338,25 +5278,8 @@ window.jumpToDanmakuTime = function (sec) {
   }
 
   showToast(
-    `⏱️ 影片與彈幕已跳轉至 ${formatDanmakuMinSec(sec)}！`,
+    `⏱️ 影片與彈幕已跳轉至 ${formatMmSs(sec)}！`,
     "bi-clock-history text-info",
-  );
-};
-
-// 點擊百分比快捷按鈕跳轉 (0%, 25%, 50%, 75%) (影片與彈幕同步)
-
-window.jumpToDanmakuPercent = function (pct) {
-  const maxSec = getDanmakuMaxDuration();
-  const target = (maxSec * pct) / 100;
-  window.seekMasterTimeline(target);
-
-  if (isDanmakuPaused) {
-    window.toggleMasterPlayPause();
-  }
-
-  showToast(
-    `🚀 影片與彈幕已跳轉至 ${pct}% (${formatDanmakuMinSec(target)})`,
-    "bi-fast-forward-fill text-warning",
   );
 };
 
@@ -5367,7 +5290,7 @@ window.jumpDanmakuRelative = function (deltaSec) {
   window.seekMasterTimeline(target);
 
   showToast(
-    `⏱️ 影片與彈幕 ${deltaSec > 0 ? "+" : ""}${deltaSec}s (${formatDanmakuMinSec(target)})`,
+    `⏱️ 影片與彈幕 ${deltaSec > 0 ? "+" : ""}${deltaSec}s (${formatMmSs(target)})`,
     "bi-arrow-left-right text-info",
   );
 };
@@ -5379,7 +5302,7 @@ window.onDanmakuTimelineSliderInput = function (val) {
   const timeDisplay = document.getElementById("theaterDanmakuTimeDisplay");
 
   if (timeDisplay) {
-    timeDisplay.textContent = `${formatDanmakuMinSec(sec)} / ${formatDanmakuMinSec(getDanmakuMaxDuration())}`;
+    timeDisplay.textContent = `${formatMmSs(sec)} / ${formatMmSs(getDanmakuMaxDuration())}`;
   }
 };
 
@@ -5394,15 +5317,13 @@ window.onDanmakuTimelineSliderChange = function (val) {
   }
 
   showToast(
-    `⏱️ 影片與彈幕已對齊至 ${formatDanmakuMinSec(sec)}`,
+    `⏱️ 影片與彈幕已對齊至 ${formatMmSs(sec)}`,
     "bi-sliders text-success",
   );
 };
 
 // ==========================================
-
 // Kazumi 動漫劇院純淨化：音量控制系統 (按鈕、拉桿、滾輪、鍵盤方向鍵 ↑↓、M 鍵靜音)
-
 // ==========================================
 
 let kazumiCurrentVolume = parseInt(
@@ -5598,9 +5519,7 @@ window.adjustKazumiVolume = function (delta) {
 };
 
 // ==========================================
-
 // 彈幕列表側邊欄功能 (右側完全不遮擋左側畫面，即時瀏覽與搜尋)
-
 // ==========================================
 
 window.switchTheaterSidebarTab = function (tabName) {
@@ -5652,17 +5571,6 @@ window.switchTheaterSidebarTab = function (tabName) {
     if (panelEp) panelEp.classList.remove("d-none");
   }
 };
-
-window.openDanmakuListModal = function () {
-  window.switchTheaterSidebarTab("danmaku");
-};
-
-function formatDanmakuSeconds(sec) {
-  const s = Math.max(0, Math.floor(sec || 0));
-  const m = Math.floor(s / 60);
-  const rem = s % 60;
-  return `${m.toString().padStart(2, "0")}:${rem.toString().padStart(2, "0")}`;
-}
 
 window.filterDanmakuList = function (keyword) {
   const kw = (keyword || "").trim().toLowerCase();
@@ -5724,7 +5632,7 @@ function renderDanmakuList(list, keyword = "") {
 
   container.innerHTML = list
     .map((item, idx) => {
-      const timeStr = formatDanmakuSeconds(item.numericTime || item.time || 0);
+      const timeStr = formatMmSs(item.numericTime || item.time || 0);
       const color = item.color || "#ffffff";
 
       return `
@@ -5753,9 +5661,7 @@ window.fireTestDanmaku = function (text, color) {
 };
 
 // ==========================================
-
 // Kazumi 彈幕設置面板 UI 交互
-
 // ==========================================
 
 window.openDanmakuSettingsModal = function () {
@@ -6010,10 +5916,6 @@ window.saveDandanplayFromModal = function () {
       "bi-key-fill text-success",
     );
   }
-};
-
-window.promptDandanplayConfig = function () {
-  window.openDanmakuSettingsModal();
 };
 
 // 彈幕按鈕事件綁定
@@ -6621,9 +6523,7 @@ function initKazumiFullscreenInteractions() {
 }
 
 // ==========================================
-
 // Kazumi 彈幕開關與全域控制
-
 // ==========================================
 
 window.toggleDanmaku = function () {
@@ -6676,9 +6576,7 @@ window.toggleDanmaku = function () {
 };
 
 // ==========================================
-
 // Kazumi 全螢幕與沈浸式浮動控制核心
-
 // ==========================================
 
 let fsHideTimer = null;
@@ -6817,10 +6715,6 @@ window.onFullscreenMouseMove = function (e) {
   startFsIdleTimer();
 };
 
-function onFullscreenMouseMove(e) {
-  window.onFullscreenMouseMove(e);
-}
-
 function startFsIdleTimer() {
   const container = document.getElementById("kazumiScreenContainer");
 
@@ -6923,9 +6817,7 @@ window.sendFsDanmaku = function () {
 };
 
 // ==========================================
-
 // B. Tachimanga 條漫閱讀器與全網檢索模組
-
 // ==========================================
 
 let currentMangaZoom = 1.0;
@@ -6939,9 +6831,7 @@ let mangaState = {
 };
 
 // ==========================================
-
 // 全域立體書架管理輔助函式 (相容 acg.html 與 index.html)
-
 // ==========================================
 
 if (!window.getMangaBookshelf) {
@@ -7147,9 +7037,7 @@ if (!window.saveNovelBookshelf) {
 }
 
 // ============================================================
-
 // 3D 擬真立體書架全域核心引擎 (支援琴鍵式相鄰波浪聯動 & 3D 抽書起伏)
-
 // ============================================================
 
 function bindBookshelfWaveEffect(bookEl) {
@@ -7364,8 +7252,6 @@ window.setupGlobalBookshelfTrashBin = function() {
     }
   });
 };
-
-window.setupBookshelfTrashBin = window.setupGlobalBookshelfTrashBin;
 
 // 更新右下角垃圾桶可見度：嚴格限定只有在漫畫或小說的書架頁面才顯示
 window.updateBookshelfTrashVisibility = function() {
@@ -8469,9 +8355,7 @@ window.closeCurrentManga = function () {
 };
 
 // ==========================================
-
 // --- C. Legado 沉浸小說閱讀器全功能引擎 ---
-
 // ==========================================
 
 let novelState = {
@@ -8500,12 +8384,6 @@ let novelState = {
       return null;
     }
   })(), // 使用者自訂正文字體顏色
-};
-
-// 待命畫面快速搜尋推薦點擊
-
-window.quickSearchNovel = function (keyword) {
-  openNovelSearchModal(keyword);
 };
 
 // 待命畫面觸發搜尋
@@ -8560,9 +8438,7 @@ window.openNovelSearchModal = function (defaultKeyword = "") {
 };
 
 // ============================================================
-
 // Legado 輕小說多書源切換與檢索核心 (Wenku8 輕小說文庫 vs Bilinovel 嗶哩輕小說)
-
 // ============================================================
 
 let currentNovelSource =
@@ -8620,8 +8496,6 @@ window.setNovelSource = function (src) {
 
   searchNovelFromDrawer(kw);
 };
-window.onNovelSourceChanged = window.setNovelSource;
-
 // 在抽屜中進行小說檢索（支援 Wenku8 與 Bilinovel 多書源）
 
 window.searchNovelFromDrawer = async function (keyword) {
@@ -9240,9 +9114,7 @@ window.closeCurrentNovel = function (silent = false) {
 };
 
 // ==========================================
-
 // 本機電子書解析引擎 (.txt / .epub)
-
 // ==========================================
 
 window.handleNovelFileUpload = async function (file) {
@@ -9489,11 +9361,8 @@ async function parseAndLoadEpubBook(file, bookTitle) {
 }
 
 // 載入本機書籍到閱讀器
-
 // ============================================================
-
 // 本機小說 IndexedDB 永續存儲引擎 (突破 localStorage 5MB 限制)
-
 // ============================================================
 
 const LOCAL_NOVEL_DB_NAME = "WebLibraryLocalNovels";
@@ -10050,9 +9919,7 @@ window.collectBangumiAnime = function (title, url, cover) {
 };
 
 // ==========================================
-
 // 8. Bangumi 帳號追番清單一鍵同步核心 (支援單向匯入與雙向衝突優先同步)
-
 // ==========================================
 
 window.triggerBangumiUserSync = async function (mode = "import") {
@@ -10398,9 +10265,7 @@ window.triggerBangumiUserSync = async function (mode = "import") {
 };
 
 // ==========================================
-
 // 9. 批量管理 (Batch Management) 核心邏輯
-
 // ==========================================
 
 window.toggleBatchMode = function (forceState) {
@@ -10677,9 +10542,7 @@ function escapeHtml(str) {
 }
 
 // ==========================================
-
 // 8. KazumiRules 前端即時搜尋與播放
-
 // ==========================================
 
 window.searchKazumiAnime = async function (keyword = null) {
@@ -10760,10 +10623,6 @@ window.searchKazumiAnime = async function (keyword = null) {
     if (loading) loading.classList.add("d-none");
     grid.innerHTML = `<div class="col-12 text-danger text-center py-3">搜尋失敗：${e.message}</div>`;
   }
-};
-
-window.quickKazumiSearch = function (keyword) {
-  searchKazumiAnime(keyword);
 };
 
 // 點擊「在線觀看全集」
@@ -11142,9 +11001,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==========================================
-
 // C. 歷史紀錄、Bangumi 狀態辨識/同步與書籤匯入
-
 // ==========================================
 
 function isMangaItem(item) {
@@ -11329,32 +11186,12 @@ window.updateCardWatchStatus = async function (bookmarkId, newType) {
       "bi-key text-warning",
     );
   }
-
-  // 同步後端檔案庫
-
-  const currentUser =
-    sessionStorage.getItem("currentUser") ||
-    sessionStorage.getItem("currentUser") ||
-    "default";
-
-  try {
-    await fetch("/api/bookmarks/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user: currentUser, bookmarks: state.bookmarks }),
-    });
-  } catch (e) {}
 };
 
 // 搜尋結果加入圖書館
 
-window.addAnimeSearchResultToLibrary = async function (title, cover, url) {
+window.addAnimeSearchResultToLibrary = function (title, cover, url) {
   if (!title) return;
-
-  const currentUser =
-    sessionStorage.getItem("currentUser") ||
-    sessionStorage.getItem("currentUser") ||
-    "default";
 
   const newBookmark = {
     id: "bm_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
@@ -11390,70 +11227,6 @@ window.addAnimeSearchResultToLibrary = async function (title, cover, url) {
   renderBookmarks();
 
   renderCategoryTabs();
-
-  try {
-    await fetch("/api/bookmarks/add", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user: currentUser, bookmark: newBookmark }),
-    });
-  } catch (e) {}
-
-  showToast(
-    `🎉 已成功將《${title}》收藏至個人圖書館！`,
-    "bi-bookmark-plus-fill text-success",
-  );
-};
-
-window.addMangaSearchResultToLibrary = async function (title, cover, mangaId) {
-  if (!title) return;
-
-  const currentUser =
-    sessionStorage.getItem("currentUser") ||
-    sessionStorage.getItem("currentUser") ||
-    "default";
-
-  const newBookmark = {
-    id: "bm_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
-    title: title.trim(),
-    url: `https://www.webmota.com/comic/${encodeURIComponent(mangaId)}`,
-    cover:
-      cover ||
-      "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80",
-    category: "resource",
-    tags: ["漫畫", "條漫", "Tachimanga"],
-    desc: `從漫畫庫收藏之作品《${title.trim()}》`,
-    pinned: false,
-    clicks: 0,
-    createdAt: new Date().toISOString(),
-  };
-
-  const exists = state.bookmarks.some((b) => b.title === newBookmark.title);
-
-  if (exists) {
-    showToast(
-      `《${title}》已在您的圖書館收藏中！`,
-      "bi-bookmark-check-fill text-warning",
-    );
-
-    return;
-  }
-
-  state.bookmarks.unshift(newBookmark);
-
-  saveBookmarksLocally();
-
-  renderBookmarks();
-
-  renderCategoryTabs();
-
-  try {
-    await fetch("/api/bookmarks/add", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user: currentUser, bookmark: newBookmark }),
-    });
-  } catch (e) {}
 
   showToast(
     `🎉 已成功將《${title}》收藏至個人圖書館！`,
@@ -12152,13 +11925,6 @@ window.renderAnimeHistoryStandby = function () {
       return;
     }
 
-    const formatSec = (s) => {
-      if (!s || isNaN(s) || s < 0) return "00:00";
-      const m = Math.floor(s / 60);
-      const sec = Math.floor(s % 60);
-      return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
-    };
-
     box.innerHTML = `
             <div class="d-flex flex-column gap-2 overflow-auto pe-1" style="max-height: 420px; min-height: 80px;">
                 ${history
@@ -12175,7 +11941,7 @@ window.renderAnimeHistoryStandby = function () {
 
                     const timeStr =
                       item.currentTime > 0
-                        ? `${formatSec(item.currentTime)} / ${item.duration > 0 ? formatSec(item.duration) : "--:--"}`
+                        ? `${formatMmSs(item.currentTime)} / ${item.duration > 0 ? formatMmSs(item.duration) : "--:--"}`
                         : "剛開始";
 
                     let platformBadge =
@@ -12248,13 +12014,6 @@ window.renderWatchHistoryGrid = function () {
     b.textContent = `${history.length} 部`;
   });
 
-  const formatSec = (s) => {
-    if (!s || isNaN(s) || s < 0) return "00:00";
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
-  };
-
   containers.forEach((container) => {
     if (history.length === 0) {
       container.innerHTML = `
@@ -12280,7 +12039,7 @@ window.renderWatchHistoryGrid = function () {
 
         const timeStr =
           item.currentTime > 0
-            ? `${formatSec(item.currentTime)} / ${item.duration > 0 ? formatSec(item.duration) : "--:--"}`
+            ? `${formatMmSs(item.currentTime)} / ${item.duration > 0 ? formatMmSs(item.duration) : "--:--"}`
             : "剛剛開始";
         let platformBadge = "";
 
@@ -12390,16 +12149,6 @@ window.resumeWatchHistory = function (id) {
   }
 };
 
-// 向下相容單筆接續
-
-window.resumeAnimeHistory = function (idx = 0) {
-  const history = window.getWatchHistoryList();
-
-  if (history[idx]) {
-    window.resumeWatchHistory(history[idx].id);
-  }
-};
-
 window.deleteWatchHistoryItem = function (id, e) {
   if (e) {
     e.preventDefault();
@@ -12428,10 +12177,6 @@ window.clearAllWatchHistory = function () {
   window.renderAnimeHistoryStandby();
 
   showToast("已清空全部觀看紀錄！", "bi-trash-fill text-danger");
-};
-
-window.clearAnimeHistory = function () {
-  window.clearAllWatchHistory();
 };
 
 window.openWatchHistoryModal = function (e) {
@@ -12776,9 +12521,7 @@ document.addEventListener("DOMContentLoaded", () => {
 document.addEventListener("DOMContentLoaded", initApp);
 
 // ==========================================
-
 // ACG 專區：遊戲專區與工具攻略庫 (Game Hub)
-
 // ==========================================
 
 const DEFAULT_ACG_GAMES = [
@@ -13227,10 +12970,6 @@ window.deleteGameHubCard = function (id, isCustom) {
   }
 };
 
-window.deleteCustomGame = function (id) {
-  window.deleteGameHubCard(id, true);
-};
-
 window.resetDefaultGames = function () {
   sessionStorage.removeItem("web_library_hidden_default_games");
 
@@ -13334,7 +13073,7 @@ window.checkDockerStatus = async function (isManual = false) {
         // 探測宿主機 8090 是否開啟 (設定 1.5 秒超時)
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 1500);
-        const probeRes = await fetch(
+        await fetch(
           "http://localhost:8090/api/docker/status",
           {
             method: "GET",
@@ -14316,12 +14055,6 @@ function initThemeMode() {
     const savedTheme = sessionStorage.getItem('web_library_theme') || 'light';
     window.applyThemeMode(savedTheme);
 };
-window.updateNavUserAvatar = updateNavUserAvatar;
-window.updateProfileModalAvatarPreview = updateProfileModalAvatarPreview;
-window.applyThemeMode = applyThemeMode;
-window.toggleThemeMode = toggleThemeMode;
-window.initThemeMode = initThemeMode;
-
 window.checkPasswordStrength = function(val) {
     const bar = document.getElementById('pwdStrengthBar');
     const text = document.getElementById('pwdStrengthText');
