@@ -2270,69 +2270,12 @@ function showToast(message, iconClass = "bi-check-circle-fill text-success") {
 
 window.showToast = showToast;
 
-// ==================== 圖二 Apple Watch 經典蜂巢瀑布流音樂庫 & iPhone 動態島雙模核心 ====================
+// ==================== 音樂庫 & iPhone 動態島雙模核心 (開源線上串流引擎) ====================
 
-// 預設種子曲庫 (若後端 NeDB 初次為空時使用，並自動同步持久化至 NeDB)
-const DEFAULT_SEED_TRACKS = [
-  {
-    id: "track_madoka",
-    title: "コネクト (Connect)",
-    artist: "ClariS · 魔法少女小圓 OP",
-    cover: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=300&q=80",
-    src: "https://cdn.freesound.org/previews/708/708170_11861866-lq.mp3"
-  },
-  {
-    id: "track_sao",
-    title: "Crossing Field",
-    artist: "LiSA · 刀劍神域 SAO OP",
-    cover: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300&q=80",
-    src: "https://cdn.freesound.org/previews/689/689886_11861866-lq.mp3"
-  },
-  {
-    id: "track_frieren",
-    title: "Anytime Anywhere",
-    artist: "milet · 葬送的芙莉蓮 ED",
-    cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80",
-    src: "https://cdn.freesound.org/previews/612/612610_11861866-lq.mp3"
-  },
-  {
-    id: "track_precure",
-    title: "Precure Smile",
-    artist: "光之美少女 · 陽光活力調",
-    cover: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=300&q=80",
-    src: "https://cdn.freesound.org/previews/682/682855_11861866-lq.mp3"
-  },
-  {
-    id: "track_eva",
-    title: "残酷な天使のテーゼ",
-    artist: "高橋洋子 · EVA 經典主題",
-    cover: "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=300&q=80",
-    src: "https://cdn.freesound.org/previews/562/562479_11861866-lq.mp3"
-  },
-  {
-    id: "track_ghibli",
-    title: "風の通り道 (風之甬道)",
-    artist: "久石讓 · 龍貓 Lo-Fi",
-    cover: "https://images.unsplash.com/photo-1448375240586-882707db888b?w=300&q=80",
-    src: "https://cdn.freesound.org/previews/665/665183_11861866-lq.mp3"
-  },
-  {
-    id: "track_lofi_cyber",
-    title: "Night City Chill",
-    artist: "Cyberpunk · 賽博龐克夜曲",
-    cover: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=300&q=80",
-    src: "https://cdn.freesound.org/previews/530/530704_11861866-lq.mp3"
-  },
-  {
-    id: "track_tokyo_lofi",
-    title: "Tokyo Midnight Library",
-    artist: "Web Library · 伴讀專注調",
-    cover: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300&q=80",
-    src: "https://cdn.freesound.org/previews/659/659293_11861866-lq.mp3"
-  }
-];
+// 預設曲庫留白 (使用者要求完全不預設假歌，依據 NeDB 使用者收藏動態加載)
+const DEFAULT_SEED_TRACKS = [];
 
-let userMusicTracks = [...DEFAULT_SEED_TRACKS];
+let userMusicTracks = [];
 let islandAudio = new Audio();
 islandAudio.preload = "auto";
 let islandCurrentIndex = 0;
@@ -2341,7 +2284,7 @@ let islandMusicState = {
   isExpanded: false
 };
 
-// Web Audio API 兜底音樂合成引擎 (保證外部音訊即使被阻擋或 404 也絕不啞火，100% 播放和弦旋律)
+// Web Audio API 兜底保護 (當網路斷線時提供輕量防報錯保障)
 let webAudioCtx = null;
 let webAudioInterval = null;
 let isWebAudioPlaying = false;
@@ -2354,7 +2297,6 @@ function playWebAudioFallback(trackTitle) {
     if (!webAudioCtx) webAudioCtx = new AudioContext();
     if (webAudioCtx.state === "suspended") webAudioCtx.resume();
 
-    // 經典 Lo-Fi / 8-bit 和弦進行 (Cmaj7 - Am7 - Dm7 - G7 旋律頻率)
     const melodyFreqs = [261.63, 329.63, 392.00, 493.88, 523.25, 440.00, 349.23, 293.66];
     let noteIdx = 0;
     isWebAudioPlaying = true;
@@ -2378,10 +2320,8 @@ function playWebAudioFallback(trackTitle) {
       osc.stop(webAudioCtx.currentTime + 0.65);
       noteIdx++;
     }, 400);
-
-    console.info(`[Web Audio Engine] 外部音訊受限，已無縫啟動 ACG 旋律兜底合成器播放: [${trackTitle}]`);
   } catch (e) {
-    console.warn("[Web Audio Synthesizer Error]:", e);
+    console.warn("[Web Audio Fallback Error]:", e);
   }
 }
 
@@ -2423,7 +2363,7 @@ function initDynamicIslandMusic() {
   const progressFill = document.getElementById("islandProgressFill");
   const progressBar = document.getElementById("islandProgressBar");
 
-  // Apple Watch 蜂巢浮層元件
+  // 音樂庫浮層元件
   const watchModal = document.getElementById("watchMusicModal");
   const watchBackdrop = document.getElementById("watchMusicBackdrop");
   const watchCloseBtn = document.getElementById("watchMusicModalCloseBtn");
@@ -2436,7 +2376,7 @@ function initDynamicIslandMusic() {
   const watchBarPrevBtn = document.getElementById("watchBarPrevBtn");
   const watchBarNextBtn = document.getElementById("watchBarNextBtn");
 
-  // 搜尋相關
+  // 線上搜尋相關元件
   const searchInput = document.getElementById("watchMusicSearchInput");
   const searchBtn = document.getElementById("watchMusicSearchBtn");
   const searchDrawer = document.getElementById("watchSearchDrawer");
@@ -2448,7 +2388,7 @@ function initDynamicIslandMusic() {
   // 取得目前登入使用者名稱
   function getCurrentUser() {
     try {
-      const stored = localStorage.getItem("currentUser") || localStorage.getItem("web_library_user");
+      const stored = localStorage.getItem("currentUser") || localStorage.getItem("web_library_user") || sessionStorage.getItem("currentUser");
       if (stored) {
         if (stored.startsWith("{")) {
           const u = JSON.parse(stored);
@@ -2460,22 +2400,22 @@ function initDynamicIslandMusic() {
     return "jyun";
   }
 
-  // 1. 自 NeDB 資料庫非同步載入音樂清單
+  // 1. 自 NeDB 資料庫非同步載入音樂清單 (留白設計，無假歌)
   async function loadMusicFromNeDB() {
     const user = getCurrentUser();
     try {
       const res = await fetch(`/api/user/music?user=${encodeURIComponent(user)}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.success && Array.isArray(data.tracks) && data.tracks.length > 0) {
+        if (data.success && Array.isArray(data.tracks)) {
           userMusicTracks = data.tracks;
         } else {
-          // 資料庫尚無資料，將預設種子存入 NeDB
-          saveMusicToNeDB(DEFAULT_SEED_TRACKS);
+          userMusicTracks = [];
         }
       }
     } catch (err) {
-      console.warn("[NeDB Music Load]: 使用本地預設曲目", err);
+      console.warn("[NeDB Music Load]: 資料庫載入異常，留空白", err);
+      userMusicTracks = [];
     }
     updateIslandUI();
     renderWatchHoneycomb();
@@ -2495,36 +2435,23 @@ function initDynamicIslandMusic() {
     }
   }
 
-  // 2. 渲染圖二真實 Apple Watch 蜂巢氣泡簇 (Honeycomb Bubble Cluster)
+  // 2. 渲染音樂庫圓形氣泡流 (完全留白設計)
   function renderWatchHoneycomb() {
     if (!watchHoneycombCluster) return;
     watchHoneycombCluster.innerHTML = "";
 
     if (!userMusicTracks || userMusicTracks.length === 0) {
       watchHoneycombCluster.innerHTML = `
-        <div class="text-center text-white-50 py-5">
-          <i class="bi bi-music-note-beamed fs-1 text-info mb-2 d-block"></i>
-          <div>目前蜂巢庫尚無收藏歌曲</div>
-          <div class="fs-xs mt-1">請使用上方搜尋列，搜尋 Bangumi 動漫 OP/ED 與角色歌加入收藏！</div>
-          <button type="button" class="btn btn-sm btn-outline-info rounded-pill mt-3 px-3" id="watchRestoreSeedBtn">
-            <i class="bi bi-arrow-repeat me-1"></i>載入精選示範歌曲
-          </button>
+        <div class="text-center text-white-50 py-5 my-4">
+          <i class="bi bi-music-note-beamed fs-1 text-info opacity-50 mb-3 d-block"></i>
+          <h6 class="text-white fw-bold">音樂庫目前是空的</h6>
+          <div class="fs-xs text-white-50 mt-1">請於上方搜尋欄輸入歌名或歌手，搜尋線上真實歌曲並加入！</div>
         </div>
       `;
-      const restoreBtn = document.getElementById("watchRestoreSeedBtn");
-      if (restoreBtn) {
-        restoreBtn.addEventListener("click", () => {
-          userMusicTracks = [...DEFAULT_SEED_TRACKS];
-          saveMusicToNeDB(userMusicTracks);
-          renderWatchHoneycomb();
-          updateIslandUI();
-          showIslandNotice("已成功載入精選示範歌曲庫！");
-        });
-      }
       return;
     }
 
-    // 依據圖二蜂巢排列法則：奇數行與偶數行交錯密鋪 (例如 4 首、5 首、4 首、5 首交錯)
+    // 依據六角錯落排列法：奇數行與偶數行交錯
     const rowCapacity = [4, 5, 4, 5, 4, 5];
     let trackPointer = 0;
     let rowIndex = 0;
@@ -2564,7 +2491,7 @@ function initDynamicIslandMusic() {
           </button>
         `;
 
-        // 點擊氣泡選歌播放
+        // 點擊氣泡選歌播放 (真實原音)
         bubble.addEventListener("click", (e) => {
           if (e.target.closest(".watch-bubble-del")) return;
           if (islandCurrentIndex === actualIdx && islandMusicState.isPlaying) {
@@ -2603,7 +2530,7 @@ function initDynamicIslandMusic() {
       await fetch(`/api/user/music?user=${encodeURIComponent(user)}&id=${encodeURIComponent(trackId)}`, {
         method: "DELETE"
       });
-      showIslandNotice(`已自蜂巢庫移除 [${title || '歌曲'}]`);
+      showIslandNotice(`已自音樂庫移除 [${title || '歌曲'}]`);
     } catch (e) {
       console.warn("[NeDB Delete Error]:", e);
     }
@@ -2611,7 +2538,7 @@ function initDynamicIslandMusic() {
     updateIslandUI();
   }
 
-  // 4. 載入並開播曲目 (音訊播放修復與 Web Audio 兜底保護)
+  // 4. 載入並開播曲目 (播放正確的真實原聲音訊)
   function loadAndPlayTrack(index) {
     if (!userMusicTracks || userMusicTracks.length === 0) return;
     if (index < 0) index = userMusicTracks.length - 1;
@@ -2621,7 +2548,6 @@ function initDynamicIslandMusic() {
     const track = userMusicTracks[islandCurrentIndex];
     stopWebAudioFallback();
 
-    // 判斷是否有有效的 audio src
     if (track.src && track.src.trim().length > 5) {
       islandAudio.src = track.src;
       islandAudio.play().then(() => {
@@ -2629,14 +2555,13 @@ function initDynamicIslandMusic() {
         updateIslandUI();
         renderWatchHoneycomb();
       }).catch(err => {
-        console.warn("[Audio Play Error]: 外部音訊被阻擋，切換 Web Audio 兜底", err);
+        console.warn("[Audio Play Error]: 外部音訊被阻擋", err);
         islandMusicState.isPlaying = true;
         playWebAudioFallback(track.title);
         updateIslandUI();
         renderWatchHoneycomb();
       });
     } else {
-      // 若為 Bangumi 收藏無直連音訊，啟動 Web Audio ACG 和弦合成器優雅伴奏
       islandMusicState.isPlaying = true;
       playWebAudioFallback(track.title);
       updateIslandUI();
@@ -2657,14 +2582,18 @@ function initDynamicIslandMusic() {
       pauseIslandTrack();
     } else {
       if (!islandAudio.src || islandAudio.src === "" || islandAudio.src === window.location.href) {
-        loadAndPlayTrack(islandCurrentIndex);
+        if (userMusicTracks.length > 0) {
+          loadAndPlayTrack(islandCurrentIndex);
+        } else {
+          showIslandNotice("音樂庫尚無歌曲，請搜尋線上歌曲加入！");
+        }
       } else {
         islandAudio.play().then(() => {
           islandMusicState.isPlaying = true;
           updateIslandUI();
           renderWatchHoneycomb();
         }).catch(() => {
-          loadAndPlayTrack(islandCurrentIndex);
+          if (userMusicTracks.length > 0) loadAndPlayTrack(islandCurrentIndex);
         });
       }
     }
@@ -2673,7 +2602,7 @@ function initDynamicIslandMusic() {
   // 5. 更新 UI 狀態
   function updateIslandUI() {
     const track = userMusicTracks[islandCurrentIndex] || {
-      title: "蜂巢音樂庫",
+      title: "音樂庫",
       artist: "單擊選歌 · 長按音控",
       cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80"
     };
@@ -2687,7 +2616,7 @@ function initDynamicIslandMusic() {
     if (drawerArtist) drawerArtist.textContent = track.artist;
     if (drawerCover) drawerCover.src = track.cover;
 
-    // Watch 浮層底部資訊
+    // 浮層底部資訊
     if (watchBarTitle) watchBarTitle.textContent = track.title;
     if (watchBarArtist) watchBarArtist.textContent = track.artist;
     if (watchBarCover) watchBarCover.src = track.cover;
@@ -2697,7 +2626,6 @@ function initDynamicIslandMusic() {
     if (mainPlayIcon) mainPlayIcon.className = `bi ${playIconClass} fs-5`;
     if (watchBarPlayIcon) watchBarPlayIcon.className = `bi ${playIconClass} fs-5`;
 
-    // 更新島容器外觀狀態 (若未在通知狀態中)
     if (!island.classList.contains("notifying")) {
       if (islandMusicState.isExpanded) {
         island.className = "dynamic-island expanded";
@@ -2709,7 +2637,7 @@ function initDynamicIslandMusic() {
     }
   }
 
-  // 6. 開啟與關閉 Apple Watch 蜂巢選歌全螢幕模態 (圖二)
+  // 6. 開啟與關閉音樂庫全螢幕模態
   function openWatchMusicModal() {
     if (!watchModal) return;
     renderWatchHoneycomb();
@@ -2748,7 +2676,7 @@ function initDynamicIslandMusic() {
     if (e.target.closest("#islandQuickPlayBtn")) return;
 
     if (!isLongPressTriggered) {
-      // 點一下：在當前頁面打開圖二 Apple Watch 蜂巢瀑布流選歌頁
+      // 點一下：在當前頁面打開音樂庫
       openWatchMusicModal();
     }
   });
@@ -2822,15 +2750,15 @@ function initDynamicIslandMusic() {
     }
   });
 
-  // Watch 浮層事件綁定
+  // 浮層事件綁定
   if (watchBackdrop) watchBackdrop.addEventListener("click", closeWatchMusicModal);
   if (watchCloseBtn) watchCloseBtn.addEventListener("click", closeWatchMusicModal);
   if (watchBarPlayBtn) watchBarPlayBtn.addEventListener("click", toggleIslandPlay);
   if (watchBarPrevBtn) watchBarPrevBtn.addEventListener("click", () => loadAndPlayTrack(islandCurrentIndex - 1));
   if (watchBarNextBtn) watchBarNextBtn.addEventListener("click", () => loadAndPlayTrack(islandCurrentIndex + 1));
 
-  // 8. Bangumi 音樂搜尋與一鍵收藏
-  async function performBangumiMusicSearch(kw) {
+  // 8. 開源線上真實歌曲搜尋與原曲播放 (借鏡 APlayer/Meting 架構)
+  async function performOnlineMusicSearch(kw) {
     if (!kw || !kw.trim()) return;
     kw = kw.trim();
     if (searchDrawer) searchDrawer.style.display = "block";
@@ -2838,64 +2766,88 @@ function initDynamicIslandMusic() {
       searchList.innerHTML = `
         <div class="text-center text-white-50 py-3 w-100 col-12">
           <span class="spinner-border spinner-border-sm text-info me-2"></span>
-          正在自 Bangumi 音樂庫搜尋 [${kw}]...
+          正在線上搜尋真實原聲歌曲 [${kw}]...
         </div>
       `;
     }
 
     try {
-      const res = await fetch(`/api/bangumi/search?q=${encodeURIComponent(kw)}&type=3`);
-      if (!res.ok) throw new Error("搜尋請求失敗");
+      const res = await fetch(`/api/music/search?q=${encodeURIComponent(kw)}`);
+      if (!res.ok) throw new Error("線上搜尋請求失敗");
       const json = await res.json();
-      const list = (json.data && Array.isArray(json.data.data)) ? json.data.data : [];
+      const list = (json.tracks && Array.isArray(json.tracks)) ? json.tracks : [];
 
       if (!searchList) return;
       if (list.length === 0) {
-        searchList.innerHTML = `<div class="text-white-50 small py-3 col-12 text-center">找不到與「${kw}」相關的 Bangumi 音樂專輯或單曲</div>`;
+        searchList.innerHTML = `<div class="text-white-50 small py-3 col-12 text-center">找不到與「${kw}」相關的線上歌曲</div>`;
         return;
       }
 
       searchList.innerHTML = "";
-      list.slice(0, 10).forEach(item => {
-        const coverImg = (item.images && (item.images.common || item.images.medium || item.images.large)) || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80';
-        const title = item.name_cn || item.name || "未命名音樂";
-        const date = item.air_date || item.date || "經典專輯";
-
+      list.forEach(item => {
         const card = document.createElement("div");
         card.className = "watch-search-card";
         card.innerHTML = `
-          <img src="${coverImg}" class="watch-search-thumb" alt="${title}" loading="lazy" />
+          <img src="${item.cover}" class="watch-search-thumb" alt="${item.title}" loading="lazy" />
           <div class="text-truncate flex-grow-1">
-            <div class="fw-bold text-white small text-truncate" title="${title}">${title}</div>
-            <div class="text-white-50 fs-xs text-truncate">${date} · Bangumi 認證</div>
+            <div class="fw-bold text-white small text-truncate" title="${item.title}">${item.title}</div>
+            <div class="text-white-50 fs-xs text-truncate">${item.artist} · ${item.album || '單曲'}</div>
           </div>
-          <button type="button" class="btn btn-sm btn-info text-white rounded-pill px-2 py-0 fs-xs flex-shrink-0 watch-fav-btn" title="收藏至 Apple Watch 蜂巢庫">
-            <i class="bi bi-star-fill me-1"></i>收藏
-          </button>
+          <div class="d-flex align-items-center gap-1 flex-shrink-0">
+            <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-2 py-0 fs-xs watch-listen-btn" title="試聽此首原曲">
+              <i class="bi bi-play-fill me-1"></i>試聽
+            </button>
+            <button type="button" class="btn btn-sm btn-info text-white rounded-pill px-2 py-0 fs-xs watch-fav-btn" title="收藏至音樂庫">
+              <i class="bi bi-star-fill me-1"></i>收藏
+            </button>
+          </div>
         `;
 
+        // 點擊「試聽」：直接播放這首歌的真實原聲音訊
+        const listenBtn = card.querySelector(".watch-listen-btn");
+        listenBtn.addEventListener("click", () => {
+          stopWebAudioFallback();
+          islandAudio.src = item.src;
+          islandAudio.play().then(() => {
+            islandMusicState.isPlaying = true;
+            if (watchBarTitle) watchBarTitle.textContent = item.title;
+            if (watchBarArtist) watchBarArtist.textContent = item.artist;
+            if (watchBarCover) watchBarCover.src = item.cover;
+            if (titleEl) titleEl.textContent = item.title;
+            if (subEl) subEl.textContent = item.artist;
+            if (coverMini) coverMini.src = item.cover;
+            if (drawerTitle) drawerTitle.textContent = item.title;
+            if (drawerArtist) drawerArtist.textContent = item.artist;
+            if (drawerCover) drawerCover.src = item.cover;
+            updateIslandUI();
+            showIslandNotice(`正在試聽原曲：${item.title}`);
+          }).catch(err => {
+            console.warn("[Listen Audio Error]:", err);
+          });
+        });
+
+        // 點擊「⭐ 收藏」：將真實歌曲儲存至 NeDB 並動態加入氣泡網格
         const favBtn = card.querySelector(".watch-fav-btn");
         favBtn.addEventListener("click", async () => {
           const newTrack = {
-            id: `bgm_${item.id}`,
-            title: title,
-            artist: date ? `Bangumi · ${date}` : "ACG 原聲庫",
-            cover: coverImg,
-            bgmId: item.id,
-            src: "" // 預設使用 Web Audio 兜底合成器播放
+            id: item.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            title: item.title,
+            artist: item.artist,
+            cover: item.cover,
+            src: item.src,
+            duration: item.duration || 30
           };
 
-          // 避免重複加入
-          const exists = userMusicTracks.some(t => t.id === newTrack.id || (t.bgmId && t.bgmId === item.id));
+          const exists = userMusicTracks.some(t => t.id === newTrack.id || (t.title === newTrack.title && t.artist === newTrack.artist));
           if (!exists) {
             userMusicTracks.unshift(newTrack);
             await saveMusicToNeDB(userMusicTracks);
             renderWatchHoneycomb();
-            favBtn.className = "btn btn-sm btn-success text-white rounded-pill px-2 py-0 fs-xs flex-shrink-0";
+            favBtn.className = "btn btn-sm btn-success text-white rounded-pill px-2 py-0 fs-xs";
             favBtn.innerHTML = `<i class="bi bi-check-lg me-1"></i>已收藏`;
-            showIslandNotice(`已收藏 [${title}] 至蜂巢音樂庫！`);
+            showIslandNotice(`已收藏 [${item.title}] 至音樂庫！`);
           } else {
-            showIslandNotice(`[${title}] 已在您的蜂巢音樂庫中`);
+            showIslandNotice(`[${item.title}] 已在您的音樂庫中`);
           }
         });
 
@@ -2909,9 +2861,9 @@ function initDynamicIslandMusic() {
   }
 
   if (searchBtn && searchInput) {
-    searchBtn.addEventListener("click", () => performBangumiMusicSearch(searchInput.value));
+    searchBtn.addEventListener("click", () => performOnlineMusicSearch(searchInput.value));
     searchInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") performBangumiMusicSearch(searchInput.value);
+      if (e.key === "Enter") performOnlineMusicSearch(searchInput.value);
     });
   }
 
@@ -2927,7 +2879,7 @@ function initDynamicIslandMusic() {
     pill.addEventListener("click", () => {
       const kw = pill.getAttribute("data-kw");
       if (searchInput) searchInput.value = kw;
-      performBangumiMusicSearch(kw);
+      performOnlineMusicSearch(kw);
     });
   });
 
@@ -2967,7 +2919,7 @@ function initDynamicIslandMusic() {
     });
   }
 
-  // 首次自 NeDB 載入音樂數據
+  // 首次自 NeDB 載入音樂數據 (若空則留白)
   loadMusicFromNeDB();
 }
 

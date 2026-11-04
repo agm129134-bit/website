@@ -622,6 +622,73 @@ async function handleSyncRoute(req, res) {
         }
 
         // ==========================================
+        // 0.96 開源線上歌曲即時搜尋端點 /api/music/search?q=... (真實歌曲、高清封面與正版串流音訊)
+        // ==========================================
+        if (pathname === '/api/music/search' && req.method === 'GET') {
+            const keyword = (query.q || query.term || query.keyword || '').trim();
+            if (!keyword) {
+                return sendJson(res, 400, { success: false, error: '請輸入欲搜尋之歌曲或歌手關鍵字' });
+            }
+
+            try {
+                // 透過官方 Music Search API 取得真實音源與專輯資訊 (免 API Key、免防盜鏈、高可用真實原聲)
+                const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(keyword)}&media=music&entity=song&limit=15`;
+                
+                const fetchRes = await new Promise((resolve, reject) => {
+                    const itunesReq = https.get(itunesUrl, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                        },
+                        timeout: 8000
+                    }, (resStream) => {
+                        let data = '';
+                        resStream.on('data', chunk => data += chunk);
+                        resStream.on('end', () => {
+                            try {
+                                resolve(JSON.parse(data));
+                            } catch (e) {
+                                reject(e);
+                            }
+                        });
+                    });
+                    itunesReq.on('error', reject);
+                    itunesReq.on('timeout', () => {
+                        itunesReq.destroy();
+                        reject(new Error('搜尋請求超時'));
+                    });
+                });
+
+                const rawList = fetchRes && Array.isArray(fetchRes.results) ? fetchRes.results : [];
+                const formattedTracks = rawList.map(item => {
+                    const coverUrl = (item.artworkUrl100 || '').replace('100x100bb', '600x600bb');
+                    return {
+                        id: `online_${item.trackId || Date.now()}`,
+                        title: item.trackName || '未命名歌曲',
+                        artist: item.artistName || '未知歌手',
+                        album: item.collectionName || '精選單曲',
+                        cover: coverUrl || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80',
+                        src: item.previewUrl || '', // 官方真實正版音訊串流！
+                        duration: item.trackTimeMillis ? Math.round(item.trackTimeMillis / 1000) : 30,
+                        releaseDate: item.releaseDate ? item.releaseDate.substring(0, 10) : ''
+                    };
+                }).filter(t => !!t.src);
+
+                return sendJson(res, 200, {
+                    success: true,
+                    query: keyword,
+                    count: formattedTracks.length,
+                    tracks: formattedTracks
+                });
+            } catch (err) {
+                console.error('[Online Music Search Error]:', err.message);
+                return sendJson(res, 500, {
+                    success: false,
+                    error: '線上歌曲搜尋服務異常: ' + err.message
+                });
+            }
+        }
+
+        // ==========================================
         // 1. 跨電腦書籤收藏同步端點 /api/user/bookmarks 與 Tampermonkey 收藏端點 /api/bookmarks (NeDB 存取)
         // ==========================================
         if (pathname === '/api/user/bookmarks' || pathname === '/api/bookmarks') {

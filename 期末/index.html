@@ -61,7 +61,7 @@
     <div id="dynamicIslandContainer" class="dynamic-island-container">
       <div id="dynamicIsland" class="dynamic-island idle" role="region" aria-label="動態島多功能控制中心">
         <!-- 1. 簡約膠囊狀態列 (Compact Capsule Bar: 單擊開啟選歌頁、長按展開音控) -->
-        <div class="island-bar" id="islandBar" title="單擊：開啟 Apple Watch 蜂巢選歌頁 | 長按：微調音樂控制">
+        <div class="island-bar" id="islandBar" title="單擊：開啟音樂庫 | 長按：微調音樂控制">
           <div class="island-left" id="islandLeft">
             <div class="island-music-disc" id="islandMusicDisc">
               <img id="islandCoverMini" src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&q=80" alt="Cover" />
@@ -70,7 +70,7 @@
           </div>
 
           <div class="island-center" id="islandCenter">
-            <span class="island-title" id="islandTitle">蜂巢音樂庫</span>
+            <span class="island-title" id="islandTitle">音樂庫</span>
             <span class="island-sub" id="islandSub">單擊選歌 · 長按音控</span>
           </div>
 
@@ -93,11 +93,11 @@
               </div>
               <div class="text-truncate">
                 <div class="fw-bold text-white small text-truncate" id="islandDrawerTitle">未播放音樂</div>
-                <div class="text-white-50 fs-xs text-truncate" id="islandDrawerArtist">點擊下方開啟蜂巢選歌庫</div>
+                <div class="text-white-50 fs-xs text-truncate" id="islandDrawerArtist">點擊選歌按鈕開啟音樂庫</div>
               </div>
             </div>
             <div class="d-flex align-items-center gap-1 flex-shrink-0">
-              <button type="button" class="btn btn-sm btn-outline-info rounded-pill py-0 px-2 fs-xs me-1" id="islandOpenWatchBtn" title="開啟全螢幕 Apple Watch 蜂巢選歌">
+              <button type="button" class="btn btn-sm btn-outline-info rounded-pill py-0 px-2 fs-xs me-1" id="islandOpenWatchBtn" title="開啟全螢幕音樂庫">
                 <i class="bi bi-grid-3x3-gap-fill me-1"></i>選歌
               </button>
               <button type="button" class="btn btn-sm btn-link text-white-50 p-0 text-decoration-none" id="islandCloseDrawerBtn" title="收起控制面板">
@@ -149,40 +149,37 @@
       </div>
     </div>
 
-    <!-- 4. 全螢幕 Apple Watch 經典蜂巢瀑布流選歌頁面 (圖二 Honeycomb Bubble Cluster Overlay) -->
+    <!-- 4. 全螢幕音樂庫選歌頁面 (圓形氣泡流) -->
     <div id="watchMusicModal" class="watch-music-modal" style="display:none;" aria-hidden="true">
       <div class="watch-music-backdrop" id="watchMusicBackdrop"></div>
       <div class="watch-music-content">
-        <!-- 頂部功能導航與 Bangumi 搜尋列 -->
+        <!-- 頂部功能導航與線上音樂搜尋列 -->
         <div class="watch-music-header">
           <div class="d-flex align-items-center gap-2">
             <span class="watch-header-badge"><i class="bi bi-disc-fill text-info"></i></span>
             <div>
-              <h5 class="text-white mb-0 fw-bold d-flex align-items-center gap-2">
-                <span>Apple Watch 蜂巢音樂庫</span>
-                <span class="badge bg-secondary bg-opacity-50 text-info fw-normal fs-xs">圖二蜂巢流</span>
-              </h5>
-              <div class="text-white-50 fs-xs">密鋪氣泡流 · 懸停看歌名 · 點擊立即播放</div>
+              <h5 class="text-white mb-0 fw-bold">音樂庫</h5>
+              <div class="text-white-50 fs-xs">點擊氣泡即可播放 · 線上搜尋真實歌曲加入</div>
             </div>
           </div>
 
-          <!-- Bangumi 音樂即時搜尋列 -->
+          <!-- 線上音樂即時搜尋列 (開源串流引擎) -->
           <div class="watch-search-box">
             <div class="input-group input-group-sm">
               <span class="input-group-text bg-dark border-secondary text-info"><i class="bi bi-search"></i></span>
-              <input type="text" class="form-control bg-dark text-white border-secondary" id="watchMusicSearchInput" placeholder="搜尋 Bangumi ACG 音樂、OP/ED、角色歌、專輯..." />
+              <input type="text" class="form-control bg-dark text-white border-secondary" id="watchMusicSearchInput" placeholder="搜尋線上真實歌曲、歌手（如：Connect、LiSA、YOASOBI）..." />
               <button class="btn btn-info text-white fw-medium px-3" type="button" id="watchMusicSearchBtn">
                 搜尋
               </button>
             </div>
             <!-- 快速推薦快捷標籤 -->
             <div class="watch-quick-tags mt-1 d-flex flex-wrap gap-1">
-              <span class="text-white-50 fs-xs me-1">熱門:</span>
-              <button type="button" class="watch-tag-pill" data-kw="魔法少女小圓">小圓</button>
-              <button type="button" class="watch-tag-pill" data-kw="刀劍神域">刀劍神域</button>
-              <button type="button" class="watch-tag-pill" data-kw="葬送的芙莉蓮">芙莉蓮</button>
-              <button type="button" class="watch-tag-pill" data-kw="光之美少女">光之美少女</button>
-              <button type="button" class="watch-tag-pill" data-kw="EVA 新世紀福音戰士">EVA</button>
+              <span class="text-white-50 fs-xs me-1">推薦:</span>
+              <button type="button" class="watch-tag-pill" data-kw="Connect ClariS">Connect</button>
+              <button type="button" class="watch-tag-pill" data-kw="Crossing Field LiSA">Crossing Field</button>
+              <button type="button" class="watch-tag-pill" data-kw="YOASOBI">YOASOBI</button>
+              <button type="button" class="watch-tag-pill" data-kw="米津玄師">米津玄師</button>
+              <button type="button" class="watch-tag-pill" data-kw="Ado">Ado</button>
               <button type="button" class="watch-tag-pill" data-kw="久石讓">久石讓</button>
             </div>
           </div>
@@ -190,10 +187,10 @@
           <button type="button" class="btn-close btn-close-white" id="watchMusicModalCloseBtn" aria-label="關閉選歌頁"></button>
         </div>
 
-        <!-- 搜尋結果暫存展示抽屜 (若正在搜尋時展開) -->
+        <!-- 線上歌曲搜尋結果暫存展示抽屜 (若正在搜尋時展開) -->
         <div class="watch-search-drawer" id="watchSearchDrawer" style="display:none;">
           <div class="d-flex align-items-center justify-content-between mb-2">
-            <span class="text-white-50 small"><i class="bi bi-cloud-arrow-down-fill text-info me-1"></i> Bangumi 音樂庫搜尋結果</span>
+            <span class="text-white-50 small"><i class="bi bi-cloud-arrow-down-fill text-info me-1"></i> 線上歌曲搜尋結果（點擊直接試聽原曲 · 點 ⭐ 收藏入庫）</span>
             <button type="button" class="btn btn-sm btn-link text-white-50 text-decoration-none py-0" id="watchCloseSearchBtn">收起搜尋結果</button>
           </div>
           <div class="watch-search-list" id="watchSearchList">
@@ -201,13 +198,13 @@
           </div>
         </div>
 
-        <!-- 中央主舞台：圖二真實 Apple Watch 蜂巢氣泡簇 (Honeycomb Bubble Cluster) -->
+        <!-- 中央主舞台：圓形氣泡流 -->
         <div class="watch-honeycomb-wrapper" id="watchHoneycombWrapper">
-          <div class="watch-honeycomb-tip text-center text-white-50 fs-xs mb-3">
+          <div class="watch-honeycomb-tip text-center text-white-50 fs-xs mb-3" id="watchTipText">
             <i class="bi bi-hand-index-thumb text-info me-1"></i> 滑鼠懸停顯示曲目名稱與歌手，點擊氣泡即可切換播放
           </div>
           <div class="watch-honeycomb-cluster" id="watchHoneycombCluster">
-            <!-- 由 JS 動態注入六角蜂巢錯位圓形封面氣泡 -->
+            <!-- 由 JS 動態注入圓形封面氣泡 -->
           </div>
         </div>
 
@@ -228,8 +225,6 @@
             <button type="button" class="btn btn-sm btn-dark rounded-circle text-white p-2" id="watchBarNextBtn" title="下一首"><i class="bi bi-skip-end-fill"></i></button>
           </div>
         </div>
-      </div>
-    </div>
       </div>
     </div>
     <!-- 頂部導航列 (Navbar - 簡約白色背景 + 1px 底邊框) -->
