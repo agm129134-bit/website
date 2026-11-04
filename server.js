@@ -1,15 +1,30 @@
-/**
- * Web Library 雲端平台主入口 (相容 Render / Vercel / Railway 與本機環境)
- * 自動引導並啟動期末專案 (零外部依賴、純原生 Node.js 架構)
- */
-const path = require('path');
-const fs = require('fs');
+//server.js
+var express = require("express");
+var DB = require('nedb-promises'); 
+var bodyParser = require('body-parser');
+server = express();
 
-const targetServer = path.join(__dirname, '期末', 'server.js');
+server.use(express.static(__dirname+"/Bootstrap5"));//web root
+server.use(bodyParser.urlencoded({ extended: true }));
+server.use(bodyParser.json());
 
-if (fs.existsSync(targetServer)) {
-    require(targetServer);
-} else {
-    console.error('❌ 找不到期末專案伺服器檔案:', targetServer);
-    process.exit(1);
-}
+var Contact = new DB({ filename: 'contact.db', autoload: true });
+
+server.get("/contact",function(req,res){ //web root
+ 	res.send("Hello, World!"); //回傳固定內容
+	Contact.insert(req.query);
+ });
+
+server.post("/contact", async function(req,res){
+	const contact = await Contact.insert(req.body);
+	res.status(201).json(contact)
+	;
+});
+
+server.get("/*splat", function(req,res){ //other pages, express 4 use * 
+ 	res.send("Page not found", 404);
+ });
+ server.listen(80);
+console.log("Express run on port: 80");
+//run: node server.js
+//browser: http://localhost:8080
