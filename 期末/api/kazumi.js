@@ -463,34 +463,57 @@ async function crawl7sefunPlayer(playUrl) {
     }
 }
 
-// 5. Girigirilove (ani.girigirilove.com) 資源搜尋模組
+// 5. Girigirilove (ani.girigirilove.com) 官方高速 JSON API 資源搜尋與 m3u8 直出串流模組
+function toSimplifiedAnimeTitle(str) {
+    if (!str) return '';
+    const map = {
+        '圓': '圆', '偵': '侦', '戰': '战', '鬥': '斗', '機': '机', '隊': '队', 
+        '劇': '剧', '場': '场', '傳': '传', '說': '说', '異': '异', '轉': '转', 
+        '戀': '恋', '愛': '爱', '結': '结', '術': '术', '迴': '回', '斬': '斩', '終': '终', 
+        '殺': '杀', '龍': '龙', '貓': '猫', '網': '网', '點': '点', '鋼': '钢', '鍊': '炼', 
+        '櫻': '樱', '衛': '卫', '靈': '灵', '國': '国', '變': '变', '實': '实', '錄': '录',
+        '誌': '志', '學': '学', '園': '园', '風': '风', '門': '门', '開': '开', '關': '关',
+        '電': '电', '視': '视', '聽': '听', '話': '话', '語': '语', '進': '进', '擊': '击',
+        '滅': '灭', '寶': '宝', '夢': '梦', '線': '线', '發': '发', '現': '现', '動': '动'
+    };
+    return str.split('').map(c => map[c] || c).join('');
+}
+
 async function crawlGiriSearch(keyword) {
     try {
-        const url = `https://share.acgnx.cc/search.php?keyword=${encodeURIComponent(keyword)}`;
-        const res = await fetchWithTimeout(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Referer': 'https://ani.girigirilove.com/' }
-        }, 8000);
-        if (!res.ok) return [];
-        const html = await res.text();
-        const results = [];
-        const re = /<a[^>]+href="(show-[a-zA-Z0-9]+\.html)"[^>]*>([\s\S]*?)<\/a>/g;
-        let m;
-        const seen = new Set();
-        while ((m = re.exec(html)) !== null) {
-            const href = m[1];
-            const title = m[2].replace(/<[^>]+>/g, '').trim();
-            if (title && !seen.has(href)) {
-                seen.add(href);
-                results.push({
-                    title: title,
-                    detailUrl: `https://share.acgnx.cc/${href}`,
-                    cover: 'https://ani.girigirilove.com/brand/icon.png',
-                    source: 'Giri'
-                });
-                if (results.length >= 12) break;
+        let fetchRows = async (kw) => {
+            const url = `https://m3u8.girigirilove.com/api.php/Vod/get_list?vod_name=${encodeURIComponent(kw)}&limit=24`;
+            const res = await fetchWithTimeout(url, {
+                headers: { 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                    'Referer': 'https://ani.girigirilove.com/',
+                    'Accept': 'application/json'
+                }
+            }, 8000);
+            if (!res.ok) return [];
+            const json = await res.json();
+            return (json.info && Array.isArray(json.info.rows)) ? json.info.rows : 
+                   (json.data && Array.isArray(json.data.rows)) ? json.data.rows : 
+                   (Array.isArray(json.list) ? json.list : []);
+        };
+
+        let rows = await fetchRows(keyword);
+        // 若繁體查詢無結果，自動嘗試簡化標題回退查詢（例如「小圓」->「小圆」）
+        if (rows.length === 0) {
+            const simpKw = toSimplifiedAnimeTitle(keyword);
+            if (simpKw && simpKw !== keyword) {
+                rows = await fetchRows(simpKw);
             }
         }
-        return results;
+        
+        return rows.map(item => ({
+            title: item.vod_name || item.name || '未命名番劇',
+            detailUrl: `https://m3u8.girigirilove.com/api.php/Vod/get_detail?vod_id=${item.vod_id || item.id}`,
+            cover: item.vod_pic || item.pic || 'https://ani.girigirilove.com/brand/icon.png',
+            remarks: item.vod_remarks || '',
+            year: item.vod_year || '',
+            source: 'Giri'
+        }));
     } catch (e) {
         console.warn('[Giri Search failed]:', e.message);
         return [];
@@ -499,18 +522,43 @@ async function crawlGiriSearch(keyword) {
 
 async function crawlGiriEpisodes(detailUrl) {
     try {
-        const res = await fetchWithTimeout(detailUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0' }
+        let url = detailUrl;
+        if (/^\d+$/.test(detailUrl)) {
+            url = `https://m3u8.girigirilove.com/api.php/Vod/get_detail?vod_id=${detailUrl}`;
+        }
+        const res = await fetchWithTimeout(url, {
+            headers: { 
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://ani.girigirilove.com/',
+                'Accept': 'application/json'
+            }
         }, 8000);
         if (!res.ok) return [];
-        const html = await res.text();
-        const magnetMatch = html.match(/(magnet:\?xt=urn:btih:[a-zA-Z0-9]+)/i);
-        const magnet = magnetMatch ? magnetMatch[1] : '';
-        return [{
-            name: 'BT 磁力資源連結 (可貼入下載器 / 播放器)',
-            playUrl: magnet || detailUrl
-        }];
+        const json = await res.json();
+        const info = json.info || json.data || {};
+        const playFrom = (info.vod_play_from || '').split('$$$');
+        const playUrlGroups = (info.vod_play_url || '').split('$$$');
+        const episodes = [];
+
+        for (let g = 0; g < playUrlGroups.length; g++) {
+            const rawFrom = playFrom[g] || `線路${g + 1}`;
+            const sourceLabel = rawFrom.toLowerCase() === 'cht' ? '繁中' : (rawFrom.toLowerCase() === 'chs' ? '簡中' : rawFrom);
+            const epList = playUrlGroups[g].split('#').filter(Boolean);
+            for (const ep of epList) {
+                const parts = ep.split('$');
+                const epTitle = parts[0] ? parts[0].trim() : `第${episodes.length + 1}話`;
+                const epUrl = parts[1] ? parts[1].trim() : parts[0];
+                if (epUrl) {
+                    episodes.push({
+                        name: `[${sourceLabel}] ${epTitle}`,
+                        playUrl: epUrl
+                    });
+                }
+            }
+        }
+        return episodes;
     } catch (e) {
+        console.warn('[Giri Episodes failed]:', e.message);
         return [];
     }
 }

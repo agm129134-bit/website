@@ -1741,14 +1741,17 @@ function setupEventListeners() {
 
   // 6. 複製 Token 按鈕
 
-  document.getElementById("copyTokenBtn").addEventListener("click", () => {
-    navigator.clipboard.writeText(state.apiToken).then(() => {
-      showToast(
-        "API Token 已複製到剪貼簿！",
-        "bi-clipboard-check text-success",
-      );
+  const copyBtn = document.getElementById("copyTokenBtn");
+  if (copyBtn) {
+    copyBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(state.apiToken).then(() => {
+        showToast(
+          "API Token 已複製到剪貼簿！",
+          "bi-clipboard-check text-success",
+        );
+      });
     });
-  });
+  }
 
   // 下載 / 檢視 Userscript 腳本
 
@@ -2367,7 +2370,7 @@ const KAZUMI_SOURCES = [
   {
     id: "Giri",
     name: "Girigirilove (ani.girigiri)",
-    desc: "BT 磁力與番劇發布索引庫",
+    desc: "官方高速番劇庫 · 支援繁簡 m3u8 線上即時串流",
   },
 
   {
@@ -13536,19 +13539,19 @@ const DEFAULT_ACG_GAMES = [
   },
 
   {
-    id: "game_sao_adxdls",
+    id: "game_adx_charts",
 
-    title: "SAO 刀劍神域攻略資源庫 - adxdls.saop.cc",
+    title: "AstroDX 譜面資源庫 (ADX Charts) - maimai 譜面下載與社群資源",
 
     url: "https://adxdls.saop.cc/",
 
-    badge: "SAO專題資源",
+    badge: "maimai 譜面庫",
 
-    badgeClass: "bg-info text-dark",
+    badgeClass: "bg-primary text-white",
 
-    tags: ["刀劍神域", "SAO", "攻略資源", "SAOP", "整合指南"],
+    tags: ["AstroDX", "maimai", "音遊", "街機模擬器", "譜面下載", "ADX Charts"],
 
-    desc: "專注於《刀劍神域 (Sword Art Online)》全系列遊戲與同人資源的整合站點，提供深度攻略解析、系統指南與社群資源導航。",
+    desc: "專為 maimai 模擬器 AstroDX 打造的社群譜面資源庫，收錄數千首社群與官方精選譜面、版本與曲風瀏覽、線上試聽試玩與一鍵匯入導入指南。",
 
     isCustom: false,
   },
