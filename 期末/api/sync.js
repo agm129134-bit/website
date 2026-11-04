@@ -8,6 +8,7 @@ const {
     accountsDb,
     bookmarksDb,
     bookshelfDb,
+    musicDb,
     hashPassword,
     verifyPassword
 } = require('./db');
@@ -508,6 +509,114 @@ async function handleSyncRoute(req, res) {
                     novelCount: novel.length,
                     savedAt: updatedAt,
                     message: '立體書架收藏已成功同步至 NeDB 資料庫！'
+                });
+            }
+        }
+
+        // ==========================================
+        // 0.95 個人 Apple Watch 音樂庫管理 /api/user/music (NeDB 存取)
+        // ==========================================
+        if (pathname === '/api/user/music') {
+            const defaultUser = await getDefaultActiveUser();
+            let username = query.user || query.username || defaultUser;
+            if ((username === '期末展示學生' || username === 'default') && defaultUser !== 'default') {
+                username = defaultUser;
+            } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
+                _currentSessionUser = sanitizeUsername(username);
+            }
+            const safeUser = sanitizeUsername(username);
+
+            // 1. GET: 取得目前使用者收藏的所有音樂曲目清單
+            if (req.method === 'GET') {
+                const record = await musicDb.findOne({ user: safeUser });
+                const tracks = record && Array.isArray(record.tracks) ? record.tracks : [];
+                return sendJson(res, 200, {
+                    success: true,
+                    user: safeUser,
+                    count: tracks.length,
+                    tracks: tracks,
+                    updatedAt: record ? record.updatedAt : null
+                });
+            }
+
+            // 2. POST: 收藏新曲目或覆寫儲存整個音樂庫
+            if (req.method === 'POST') {
+                const body = await parseRequestBody(req);
+                const targetUser = sanitizeUsername(body.user || body.username || safeUser);
+                const record = await musicDb.findOne({ user: targetUser });
+                let tracks = record && Array.isArray(record.tracks) ? [...record.tracks] : [];
+
+                if (Array.isArray(body.tracks)) {
+                    tracks = body.tracks;
+                } else if (body.track && (body.track.title || body.track.name)) {
+                    const t = body.track;
+                    const newTrack = {
+                        id: t.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+                        title: t.title || t.name || '未命名音樂',
+                        artist: t.artist || t.singer || 'ACG 經典',
+                        cover: t.cover || t.image || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80',
+                        src: t.src || t.audioUrl || '',
+                        bgmId: t.bgmId || null,
+                        duration: t.duration || 0,
+                        addedAt: new Date().toISOString()
+                    };
+
+                    const existingIndex = tracks.findIndex(item => 
+                        (newTrack.bgmId && item.bgmId === newTrack.bgmId) ||
+                        (newTrack.id && item.id === newTrack.id) ||
+                        (item.title === newTrack.title && item.artist === newTrack.artist)
+                    );
+
+                    if (existingIndex >= 0) {
+                        tracks[existingIndex] = { ...tracks[existingIndex], ...newTrack, updatedAt: new Date().toISOString() };
+                    } else {
+                        tracks.unshift(newTrack);
+                    }
+                }
+
+                const updatedAt = new Date().toISOString();
+                await musicDb.update(
+                    { user: targetUser },
+                    { $set: { user: targetUser, count: tracks.length, tracks, updatedAt } },
+                    { upsert: true }
+                );
+
+                return sendJson(res, 200, {
+                    success: true,
+                    user: targetUser,
+                    count: tracks.length,
+                    tracks: tracks,
+                    savedAt: updatedAt,
+                    message: '音樂庫已成功同步至 NeDB 資料庫！'
+                });
+            }
+
+            // 3. DELETE: 刪除指定的收藏歌曲或清空
+            if (req.method === 'DELETE') {
+                const targetUser = sanitizeUsername(query.user || safeUser);
+                const trackId = query.id || query.trackId;
+                const record = await musicDb.findOne({ user: targetUser });
+                let tracks = record && Array.isArray(record.tracks) ? [...record.tracks] : [];
+
+                if (trackId) {
+                    tracks = tracks.filter(t => t.id !== trackId && String(t.bgmId) !== String(trackId));
+                } else {
+                    tracks = [];
+                }
+
+                const updatedAt = new Date().toISOString();
+                await musicDb.update(
+                    { user: targetUser },
+                    { $set: { user: targetUser, count: tracks.length, tracks, updatedAt } },
+                    { upsert: true }
+                );
+
+                return sendJson(res, 200, {
+                    success: true,
+                    user: targetUser,
+                    count: tracks.length,
+                    tracks: tracks,
+                    message: trackId ? '已自 NeDB 音樂庫移除該曲目' : '音樂庫已成功清空'
                 });
             }
         }

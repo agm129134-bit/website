@@ -4025,7 +4025,7 @@ body.dark-theme .carousel-control-next-icon {
 
 
 /* ==========================================================================
-   iPhone 靈動島 (Dynamic Island) & Apple Watch 瀑布流音樂庫核心樣式
+   iPhone 靈動島 (Dynamic Island) & Apple Watch 經典蜂巢瀑布流核心樣式 (圖二)
    ========================================================================== */
 
 .dynamic-island-container {
@@ -4049,14 +4049,17 @@ body.dark-theme .carousel-control-next-icon {
   overflow: hidden;
   cursor: pointer;
   box-sizing: border-box;
-  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-              height 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-              border-radius 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+  transform-origin: top center;
+  transition: width 0.42s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.42s cubic-bezier(0.16, 1, 0.3, 1),
+              border-radius 0.42s cubic-bezier(0.16, 1, 0.3, 1),
               background 0.3s ease,
               opacity 0.3s ease,
-              box-shadow 0.3s ease,
-              border-color 0.3s ease;
+              box-shadow 0.35s ease,
+              border-color 0.3s ease,
+              transform 0.2s ease;
   user-select: none;
+  will-change: width, height, border-radius;
 }
 
 /* 1. 靜態閒置 (Idle) - 半透明微膠囊 */
@@ -4064,58 +4067,58 @@ body.dark-theme .carousel-control-next-icon {
   width: 220px;
   height: 38px;
   border-radius: 9999px;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  opacity: 0.85;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
+  opacity: 0.9;
 }
 
 .dynamic-island.idle:hover {
   opacity: 1;
-  background: rgba(15, 23, 42, 0.75);
-  border-color: rgba(255, 255, 255, 0.25);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(56, 189, 248, 0.4);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.42), 0 0 12px rgba(56, 189, 248, 0.2);
   transform: scale(1.02);
 }
 
-/* 2. 播放中 (Playing) - 完整高亮顯示 + 頻譜跳動 */
+/* 2. 播放中 (Playing) - 高亮膠囊 + 頻譜跳動 */
 .dynamic-island.playing {
-  width: 300px;
+  width: 290px;
   height: 42px;
   border-radius: 9999px;
-  background: rgba(15, 23, 42, 0.94);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 16px rgba(56, 189, 248, 0.2);
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55), 0 0 18px rgba(56, 189, 248, 0.25);
   opacity: 1;
 }
 
-/* 3. 展開抽屜 (Expanded) - Apple Watch 蜂巢瀑布流音樂庫 */
+/* 3. 長按原地展開的音樂微調面板 (Expanded Mini Controller) */
 .dynamic-island.expanded {
-  width: 440px;
-  height: 430px;
-  border-radius: 34px;
+  width: 370px;
+  height: 136px;
+  border-radius: 28px;
   background: rgba(15, 23, 42, 0.96);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65), 0 0 35px rgba(99, 102, 241, 0.25);
+  backdrop-filter: blur(34px);
+  -webkit-backdrop-filter: blur(34px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(56, 189, 248, 0.22);
   opacity: 1;
   cursor: default;
 }
 
-/* 4. 通知彈窗 (Notifying) - 靈動島形變提示 */
+/* 4. 通知彈窗 (Notifying) - 靈動島提示 */
 .dynamic-island.notifying {
   width: 330px;
   height: 44px;
   border-radius: 9999px;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(52, 211, 153, 0.45);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(52, 211, 153, 0.25);
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(26px);
+  border: 1px solid rgba(52, 211, 153, 0.5);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 22px rgba(52, 211, 153, 0.3);
   opacity: 1;
 }
 
@@ -4129,12 +4132,10 @@ body.dark-theme .carousel-control-next-icon {
   justify-content: space-between;
   padding: 0 14px;
   box-sizing: border-box;
+  transition: opacity 0.25s ease;
 }
 
-.dynamic-island.expanded .island-bar {
-  display: none;
-}
-
+.dynamic-island.expanded .island-bar,
 .dynamic-island.notifying .island-bar {
   display: none;
 }
@@ -4203,7 +4204,7 @@ body.dark-theme .carousel-control-next-icon {
 
 .island-sub {
   font-size: 0.68rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.55);
   margin-top: -2px;
 }
 
@@ -4239,8 +4240,8 @@ body.dark-theme .carousel-control-next-icon {
   border: none;
   color: #ffffff;
   padding: 0;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4250,18 +4251,19 @@ body.dark-theme .carousel-control-next-icon {
 }
 
 .island-quick-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
   transform: scale(1.1);
 }
 
-/* ==================== 抽屜展開頁面 (Expanded Drawer) ==================== */
+/* ==================== 長按展開抽屜 (Mini Island Controller) ==================== */
 .island-drawer {
   display: none;
   width: 100%;
   height: 100%;
-  padding: 16px 20px;
+  padding: 12px 16px;
   box-sizing: border-box;
   flex-direction: column;
+  animation: islandFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dynamic-island.expanded .island-drawer {
@@ -4272,122 +4274,47 @@ body.dark-theme .carousel-control-next-icon {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 12px;
+  padding-bottom: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  margin-bottom: 14px;
 }
 
-/* Apple Watch 蜂巢 / 瀑布流封面流容器 */
-.island-honeycomb-flow {
-  flex-grow: 1;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  overflow-y: auto;
-  padding: 6px 4px 12px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-}
-
-.island-honeycomb-flow::-webkit-scrollbar {
-  width: 4px;
-}
-.island-honeycomb-flow::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-}
-
-/* Apple Watch 圓形蜂巢氣泡曲目卡片 */
-.island-watch-item {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  cursor: pointer;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.island-watch-item:hover {
-  transform: scale(1.16) translateY(-4px);
-  z-index: 10;
-}
-
-.island-watch-cover {
-  width: 72px;
-  height: 72px;
+.island-drawer-disc {
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-  border: 2px solid rgba(255, 255, 255, 0.15);
-  position: relative;
-  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
 }
 
-.island-watch-item.active .island-watch-cover {
-  border-color: #38bdf8;
-  box-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
-  animation: islandPulseGlow 2s infinite;
-}
-
-.island-watch-cover img {
+.island-drawer-disc img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.island-watch-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+/* 音量滑桿自訂 */
+.island-volume-range {
+  height: 4px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  outline: none;
+}
+.island-volume-range::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  background-color: #38bdf8;
+  border-radius: 50%;
+  cursor: pointer;
 }
 
-.island-watch-item:hover .island-watch-overlay {
-  opacity: 1;
-}
-
-.island-watch-item.active .island-watch-overlay {
-  opacity: 1;
-  background: rgba(14, 165, 233, 0.4);
-}
-
-.island-watch-tooltip {
-  position: absolute;
-  bottom: -32px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.72rem;
-  color: #ffffff;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  z-index: 20;
-}
-
-.island-watch-item:hover .island-watch-tooltip {
-  opacity: 1;
-  transform: translateX(-50%) translateY(2px);
-}
-
-/* 抽屜底部控制與進度條 */
+/* 抽屜底部時間軸 */
 .island-drawer-footer {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: auto;
+  padding-top: 4px;
 }
 
-/* ==================== 靈動島彈窗通知 (Notification) ==================== */
+/* ==================== 靈動島通知 (Notification) ==================== */
 .island-notification {
   display: none;
   width: 100%;
@@ -4419,7 +4346,310 @@ body.dark-theme .carousel-control-next-icon {
   white-space: nowrap;
 }
 
-/* 動畫定義 */
+/* ==========================================================================
+   圖二真實 Apple Watch 蜂巢瀑布流全螢幕模態 (Honeycomb Bubble Cluster Modal)
+   ========================================================================== */
+.watch-music-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1090;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+}
+
+.watch-music-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 7, 15, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  animation: islandFadeIn 0.3s ease;
+}
+
+.watch-music-content {
+  position: relative;
+  z-index: 2;
+  width: 90vw;
+  max-width: 960px;
+  height: 86vh;
+  max-height: 780px;
+  background: radial-gradient(circle at 50% 25%, #111827 0%, #030712 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 36px;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85), 0 0 40px rgba(56, 189, 248, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: watchModalPop 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.watch-music-header {
+  padding: 18px 24px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.watch-header-badge {
+  font-size: 1.6rem;
+  display: flex;
+  align-items: center;
+}
+
+.watch-search-box {
+  flex-grow: 1;
+  max-width: 480px;
+}
+
+.watch-tag-pill {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  font-size: 0.68rem;
+  padding: 1px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.watch-tag-pill:hover {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+/* 搜尋結果抽屜 */
+.watch-search-drawer {
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 14px 20px;
+  max-height: 220px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.watch-search-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.watch-search-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.watch-search-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.watch-search-thumb {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* 中央主舞台：圖二 Apple Watch 經典蜂巢氣泡簇 */
+.watch-honeycomb-wrapper {
+  flex-grow: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 24px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* 蜂巢密鋪佈局：奇偶行錯落對齊 (如圖二經典六角排列) */
+.watch-honeycomb-cluster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+.watch-honeycomb-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+/* 偶數行位移或微錯落，呈現真正的蜂巢六角密鋪 */
+.watch-honeycomb-row.even {
+  transform: translateX(0);
+}
+
+/* 圓形封面氣泡卡片 */
+.watch-bubble-item {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease;
+}
+
+.watch-bubble-item:hover {
+  transform: scale(1.22);
+  z-index: 20;
+}
+
+.watch-bubble-circle {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2.5px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+  position: relative;
+  background: #0f172a;
+}
+
+.watch-bubble-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.watch-bubble-item:hover .watch-bubble-circle img {
+  transform: scale(1.08);
+}
+
+/* 懸浮播放按鈕覆蓋層 */
+.watch-bubble-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.watch-bubble-item:hover .watch-bubble-overlay {
+  opacity: 1;
+}
+
+/* 當前播放中的氣泡外框發光環 (脈衝呼吸) */
+.watch-bubble-item.active .watch-bubble-circle {
+  border-color: #38bdf8;
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.75), 0 0 10px rgba(56, 189, 248, 0.4);
+  animation: watchPulseGlow 2s infinite ease-in-out;
+}
+
+.watch-bubble-item.active .watch-bubble-overlay {
+  opacity: 1;
+  background: rgba(14, 165, 233, 0.35);
+}
+
+/* 懸停歌曲名與演出者微膠囊 (Tooltip) */
+.watch-bubble-tooltip {
+  position: absolute;
+  bottom: -32px;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 12px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  color: #f8fafc;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+  transition: all 0.22s ease;
+  z-index: 30;
+}
+
+.watch-bubble-item:hover .watch-bubble-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* 氣泡右上角微型刪除按鈕 */
+.watch-bubble-del {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.9);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+  z-index: 25;
+}
+
+.watch-bubble-item:hover .watch-bubble-del {
+  opacity: 1;
+}
+
+.watch-bubble-del:hover {
+  background: #dc2626;
+  transform: scale(1.15);
+}
+
+/* 底部播放狀態列 */
+.watch-music-bar {
+  padding: 12px 24px;
+  background: rgba(15, 23, 42, 0.85);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.watch-current-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.watch-current-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 動畫設定 */
 @keyframes islandDiscSpin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -4430,17 +4660,31 @@ body.dark-theme .carousel-control-next-icon {
   50% { height: 14px; }
 }
 
-@keyframes islandPulseGlow {
-  0%, 100% { box-shadow: 0 0 14px rgba(56, 189, 248, 0.4); }
-  50% { box-shadow: 0 0 25px rgba(56, 189, 248, 0.85); }
+@keyframes islandFadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes watchModalPop {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes watchPulseGlow {
+  0%, 100% { box-shadow: 0 0 16px rgba(56, 189, 248, 0.4), 0 0 0 2px rgba(56, 189, 248, 0.6); }
+  50% { box-shadow: 0 0 30px rgba(56, 189, 248, 0.9), 0 0 0 3px rgba(56, 189, 248, 0.95); }
 }
 
 @media (max-width: 576px) {
   .dynamic-island.expanded {
-    width: 94vw;
-    height: 400px;
+    width: 92vw;
   }
-  .island-honeycomb-flow {
-    grid-template-columns: repeat(3, 1fr);
+  .watch-bubble-item {
+    width: 60px;
+    height: 60px;
+  }
+  .watch-music-header {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

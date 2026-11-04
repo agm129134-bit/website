@@ -12,15 +12,17 @@ if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// 建立三個獨立的 NoSQL 集合
+// 建立四個獨立的 NoSQL 集合
 const accountsDb = Datastore.create({ filename: path.join(DATA_DIR, 'accounts.db'), autoload: true });
 const bookmarksDb = Datastore.create({ filename: path.join(DATA_DIR, 'bookmarks.db'), autoload: true });
 const bookshelfDb = Datastore.create({ filename: path.join(DATA_DIR, 'bookshelf.db'), autoload: true });
+const musicDb = Datastore.create({ filename: path.join(DATA_DIR, 'music.db'), autoload: true });
 
 // 建立唯一索引以加速查詢並防範重複資料
 accountsDb.ensureIndex({ fieldName: 'username', unique: true }).catch(() => {});
 bookmarksDb.ensureIndex({ fieldName: 'user', unique: true }).catch(() => {});
 bookshelfDb.ensureIndex({ fieldName: 'user', unique: true }).catch(() => {});
+musicDb.ensureIndex({ fieldName: 'user', unique: true }).catch(() => {});
 
 // ==========================================
 // 密碼加鹽安全雜湊 (Salted Hash via Node.js Native Crypto scrypt)
@@ -145,6 +147,7 @@ module.exports = {
     accountsDb,
     bookmarksDb,
     bookshelfDb,
+    musicDb,
     hashPassword,
     verifyPassword,
     autoMigrate
