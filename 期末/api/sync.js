@@ -162,7 +162,7 @@ async function handleSyncRoute(req, res) {
                 if (!userList.includes('jyun')) userList.unshift('jyun');
                 return sendJson(res, 200, { success: true, users: userList });
             } catch (e) {
-                return sendJson(res, 200, { success: true, users: ['jyun', 'admin', 'student'] });
+                return sendJson(res, 200, { success: true, users: ['jyun'] });
             }
         }
 

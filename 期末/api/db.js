@@ -87,8 +87,6 @@ async function autoMigrate() {
             console.log(`[NeDB] 成功自動遷移 ${accounts.length} 筆帳號至 accounts.db (密碼全面升級加鹽加密)`);
         } else if (accountsCount === 0) {
             await accountsDb.insert([
-                { username: 'admin', password: hashPassword('***REMOVED***'), name: '管理員 (Admin)', role: '系統管理員', avatar: 'default', bio: '系統全域管理員' },
-                { username: 'student', password: hashPassword('***REMOVED***'), name: '學生 (Student)', role: '學生研究員', avatar: 'avatar-4', bio: '探索個人化網頁圖書館' },
                 { username: 'jyun', password: hashPassword('***REMOVED***'), name: 'Jyun', role: '核心開發者', avatar: 'default', bio: '專案核心作者' }
             ]);
         }

@@ -777,7 +777,7 @@ function updateStats() {
   if (statVideo) statVideo.textContent = videoCount;
   const statRes = document.getElementById("statResCount");
 
-  if (statRes) statRes.textContent = animeCount + resCount;
+  if (statRes) statRes.textContent = resCount;
   const bAll = document.getElementById("badgeAllCount");
 
   if (bAll) bAll.textContent = totalCount;
@@ -875,7 +875,7 @@ function getFilteredAndSortedBookmarks() {
       result = result.filter(isAnimeItem);
     } else if (state.activeCategory === "resource") {
       result = result.filter(
-        (b) => b.category === "resource" || isAnimeItem(b),
+        (b) => (b.category === "resource" || !b.category) && !isAnimeItem(b),
       );
     } else {
       result = result.filter(
@@ -13513,6 +13513,42 @@ const DEFAULT_ACG_GAMES = [
     tags: ["魔法紀錄", "小圓外傳", "GameKee", "角色圖鑑", "活動攻略"],
 
     desc: "魔法少女小圓外傳最齊全的中文圖鑑與攻略站，收錄魔法少女養成數據、記憶結晶評價與活動關卡打法。",
+
+    isCustom: false,
+  },
+
+  {
+    id: "game_madoka_exedra",
+
+    title: "魔法少女小圓 Magia Exedra - Game8 攻略Wiki",
+
+    url: "https://game8.jp/madoka-exedra",
+
+    badge: "新作攻略Wiki",
+
+    badgeClass: "bg-danger text-white",
+
+    tags: ["魔法少女小圓", "Magia Exedra", "Game8", "首抽推薦", "最新攻略"],
+
+    desc: "Game8 官方認證《魔法少女小圓 Magia Exedra》綜合攻略Wiki，提供首抽節奏榜、最強角色養成、活動關卡攻略與最新情報速報。",
+
+    isCustom: false,
+  },
+
+  {
+    id: "game_sao_adxdls",
+
+    title: "SAO 刀劍神域攻略資源庫 - adxdls.saop.cc",
+
+    url: "https://adxdls.saop.cc/",
+
+    badge: "SAO專題資源",
+
+    badgeClass: "bg-info text-dark",
+
+    tags: ["刀劍神域", "SAO", "攻略資源", "SAOP", "整合指南"],
+
+    desc: "專注於《刀劍神域 (Sword Art Online)》全系列遊戲與同人資源的整合站點，提供深度攻略解析、系統指南與社群資源導航。",
 
     isCustom: false,
   },

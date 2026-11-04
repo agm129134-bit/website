@@ -148,24 +148,6 @@
             transform: translateY(-1px);
             box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
         }
-
-        .demo-chip {
-            background-color: #f1f5f9;
-            border: 1px solid #e2e8f0;
-            color: #334155;
-            font-size: 0.8rem;
-            font-weight: 500;
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-
-        .demo-chip:hover {
-            background-color: #e2e8f0;
-            color: #0f172a;
-            border-color: #cbd5e1;
-        }
     </style>
 </head>
 <body>
@@ -190,21 +172,7 @@
             </button>
         </div>
 
-        <!-- 一鍵填入展示帳號 (僅於登入分頁呈現) -->
-        <div class="mb-3 p-2 bg-light rounded-2 border" id="demoAccountsBox">
-            <div class="text-secondary small mb-2 fw-semibold d-flex align-items-center justify-content-between">
-                <span><i class="bi bi-person-badge"></i> 評分展示帳號：</span>
-                <span class="text-muted" style="font-size: 0.75rem;">點擊自動帶入</span>
-            </div>
-            <div class="d-flex gap-2">
-                <button type="button" class="btn demo-chip flex-fill text-center" onclick="fillAccount('admin', '***REMOVED***')">
-                    <i class="bi bi-shield-check text-primary"></i> 管理員 (admin)
-                </button>
-                <button type="button" class="btn demo-chip flex-fill text-center" onclick="fillAccount('student', '***REMOVED***')">
-                    <i class="bi bi-mortarboard text-success"></i> 學生 (student)
-                </button>
-            </div>
-        </div>
+        
 
         <!-- 錯誤或警告提示框 -->
         <div id="loginAlertBox" class="alert alert-danger py-2 px-3 small d-none rounded-2 mb-3">
@@ -444,13 +412,11 @@
             const loginForm = document.getElementById('loginForm');
             const regForm = document.getElementById('registerForm');
             const forgotForm = document.getElementById('forgotForm');
-            const demoBox = document.getElementById('demoAccountsBox');
-
+            
             if (isForgot) {
                 if (tabLogin) tabLogin.classList.remove('active');
                 if (tabReg) tabReg.classList.remove('active');
-                if (demoBox) demoBox.classList.add('d-none');
-                if (loginForm) loginForm.classList.add('d-none');
+                                if (loginForm) loginForm.classList.add('d-none');
                 if (regForm) regForm.classList.add('d-none');
                 if (forgotForm) forgotForm.classList.remove('d-none');
                 document.getElementById('forgotUsernameInput')?.focus();
@@ -465,8 +431,7 @@
             if (isLogin) {
                 tabLogin?.classList.add('active');
                 tabReg?.classList.remove('active');
-                demoBox?.classList.remove('d-none');
-                loginForm?.classList.remove('d-none');
+                                loginForm?.classList.remove('d-none');
                 regForm?.classList.add('d-none');
                 document.getElementById('usernameInput')?.focus();
 
@@ -476,8 +441,7 @@
             } else {
                 tabReg?.classList.add('active');
                 tabLogin?.classList.remove('active');
-                demoBox?.classList.add('d-none');
-                loginForm?.classList.add('d-none');
+                                loginForm?.classList.add('d-none');
                 regForm?.classList.remove('d-none');
                 document.getElementById('regUsernameInput')?.focus();
 
@@ -504,18 +468,6 @@
         setupPasswordToggle('toggleRegPasswordBtn', 'regPasswordInput', 'toggleRegPasswordIcon');
         setupPasswordToggle('toggleForgotPwdBtn', 'forgotPasswordInput', 'toggleForgotPwdIcon');
         setupPasswordToggle('toggleForgotConfirmPwdBtn', 'forgotConfirmPasswordInput', 'toggleForgotConfirmPwdIcon');
-
-        // 5. 一鍵填入展示帳號
-        function fillAccount(username, password) {
-            switchAuthMode('login');
-            const uInput = document.getElementById('usernameInput');
-            const pInput = document.getElementById('passwordInput');
-            if (uInput) uInput.value = username;
-            if (pInput) pInput.value = password;
-            hideAlert();
-            showToast(`已自動帶入展示帳號 (${username})`, "bi-check-circle text-success");
-            pInput?.focus();
-        }
 
         // 6. 錯誤提示與 Toast 訊息
         function showAlert(msg) {
