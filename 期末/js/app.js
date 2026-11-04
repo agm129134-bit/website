@@ -120,6 +120,14 @@ async function seamlessNavigateTo(url, isPopState = false) {
     // 保留頂部常駐的 dynamicIslandContainer 與全螢幕選歌模態框 watchMusicModal
     const preservedIds = new Set(["dynamicIslandContainer", "watchMusicModal"]);
 
+    // 0. 同步頁面專屬 <head><style> (如 acg.html 的輪播/書架樣式)，否則只換 body 會讓樣式全失
+    document.head.querySelectorAll("style[data-page-style]").forEach(s => s.remove());
+    newDoc.head.querySelectorAll("style").forEach(s => {
+      const style = document.importNode(s, true);
+      style.setAttribute("data-page-style", "");
+      document.head.appendChild(style);
+    });
+
     // 1. 替換頂部導航列 (Navbar)
     const newNav = newDoc.querySelector("nav.navbar");
     const curNav = document.querySelector("nav.navbar");

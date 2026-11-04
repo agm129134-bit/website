@@ -52,7 +52,7 @@
 
     function readCalendarCache() {
         try {
-            const parsed = JSON.parse(localStorage.getItem(CAL_CACHE_KEY));
+            const parsed = JSON.parse(sessionStorage.getItem(CAL_CACHE_KEY));
             return Array.isArray(parsed?.data) && parsed.data.length ? parsed : null;
         } catch (e) { return null; }
     }
@@ -84,7 +84,7 @@
         const live = await fetchCalendarJson(BGM_CALENDAR_URL)
             || await fetchCalendarJson("https://api.allorigins.win/raw?url=" + encodeURIComponent(BGM_CALENDAR_URL));
         if (live) {
-            try { localStorage.setItem(CAL_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: live })); } catch (e) { }
+            try { sessionStorage.setItem(CAL_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: live })); } catch (e) { }
             return useCalendar(live, false);
         }
 
