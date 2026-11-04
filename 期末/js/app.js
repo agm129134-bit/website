@@ -148,7 +148,7 @@ async function seamlessNavigateTo(url, isPopState = false) {
       if (typeof window.initAcgPageCarousel === "function") window.initAcgPageCarousel(true);
       if (typeof window.initAcgTabs === "function") window.initAcgTabs();
     } else {
-      if (typeof window.renderBookmarks === "function") window.renderBookmarks();
+      window.renderBookmarks();
       if (typeof window.initSpotlightSearch === "function") window.initSpotlightSearch();
     }
 
@@ -635,11 +635,10 @@ window.verifyBangumiToken = async function () {
         '<i class="bi bi-exclamation-circle"></i> 請先貼上 Bangumi Access Token 再進行驗證。';
     }
 
-    if (typeof showToast === "function")
-      showToast(
-        "請先輸入 Bangumi Access Token",
-        "bi-exclamation-circle text-warning",
-      );
+    showToast(
+      "請先輸入 Bangumi Access Token",
+      "bi-exclamation-circle text-warning",
+    );
 
     return;
   }
@@ -686,11 +685,10 @@ window.verifyBangumiToken = async function () {
         usernameInput.value = uidStr;
       }
 
-      if (typeof showToast === "function")
-        showToast(
-          `🎉 Bangumi 令牌驗證成功：${displayName}`,
-          "bi-shield-check text-success",
-        );
+      showToast(
+        `🎉 Bangumi 令牌驗證成功：${displayName}`,
+        "bi-shield-check text-success",
+      );
     } else {
       const errMsg =
         result.error ||
@@ -702,8 +700,7 @@ window.verifyBangumiToken = async function () {
         statusBox.innerHTML = `<i class="bi bi-x-circle-fill"></i> 驗證失敗：${escapeHtml(errMsg)}`;
       }
 
-      if (typeof showToast === "function")
-        showToast(`❌ 令牌驗證失敗：${errMsg}`, "bi-x-circle text-danger");
+      showToast(`❌ 令牌驗證失敗：${errMsg}`, "bi-x-circle text-danger");
     }
   } catch (err) {
     console.error("驗證 Bangumi Token 出錯", err);
@@ -713,8 +710,7 @@ window.verifyBangumiToken = async function () {
       statusBox.innerHTML = `<i class="bi bi-wifi-off"></i> 連線伺服器失敗：${escapeHtml(err.message)}`;
     }
 
-    if (typeof showToast === "function")
-      showToast("伺服器連線失敗", "bi-wifi-off text-danger");
+    showToast("伺服器連線失敗", "bi-wifi-off text-danger");
   } finally {
     if (verifyBtn) {
       verifyBtn.disabled = false;
@@ -848,9 +844,7 @@ function updateUI() {
     navUsername.textContent = cleanName;
   }
 
-  if (typeof updateNavUserAvatar === "function") {
-    updateNavUserAvatar();
-  }
+  updateNavUserAvatar();
 
   const userApiTokenInput = document.getElementById("userApiTokenInput");
 
@@ -3729,7 +3723,7 @@ function openTheaterWithUrl(
   if (screenCont) {
     screenCont.classList.remove("is-standby");
 
-    if (typeof startFsIdleTimer === "function") startFsIdleTimer();
+    startFsIdleTimer();
   }
 
   // 處理受 SAMEORIGIN 阻擋之線路（如 lmm85 封鎖）
@@ -4105,7 +4099,7 @@ window.openKazumiPlayer = function (title = "", src = "") {
   if (screenCont) {
     screenCont.classList.remove("is-standby");
 
-    if (typeof startFsIdleTimer === "function") startFsIdleTimer();
+    startFsIdleTimer();
   }
 
   // 辨識是否為 Bilibili 影片 (支援 BV號、av號、番劇 ss/ep 或一般網址)
@@ -6954,9 +6948,7 @@ window.toggleMangaBookshelfItem = function (title, cover, btnEl) {
       btnEl.title = "將此漫畫放進條漫立體書架";
     }
 
-    if (typeof showToast === "function") {
-      showToast(`已將《${title}》移出條漫書架`, "bi-trash text-warning");
-    }
+    showToast(`已將《${title}》移出條漫書架`, "bi-trash text-warning");
   } else {
     shelf.unshift({
       title: title.trim(),
@@ -6973,12 +6965,10 @@ window.toggleMangaBookshelfItem = function (title, cover, btnEl) {
       btnEl.title = "已在條漫書架中，點擊可移出";
     }
 
-    if (typeof showToast === "function") {
-      showToast(
-        `🎉 成功將《${title}》收藏進條漫立體書架！`,
-        "bi-star-fill text-warning",
-      );
-    }
+    showToast(
+      `🎉 成功將《${title}》收藏進條漫立體書架！`,
+      "bi-star-fill text-warning",
+    );
   }
 
   if (typeof window.renderMangaBookshelf === "function") {
@@ -7180,9 +7170,7 @@ window.setupGlobalBookshelfTrashBin = function() {
   });
 
   trash.addEventListener('click', () => {
-    if (typeof showToast === 'function') {
-      showToast('💡 提示：將任何書本長按拖曳丟進右下角垃圾桶，即可在垃圾桶處化作粉末移出', 'bi-trash text-warning');
-    }
+    showToast('💡 提示：將任何書本長按拖曳丟進右下角垃圾桶，即可在垃圾桶處化作粉末移出', 'bi-trash text-warning');
   });
 
   // Modal 監聽確保首頁與關閉時隱藏垃圾桶
@@ -7320,9 +7308,7 @@ window.renderMangaBookshelf = function () {
       }
     };
 
-    if (typeof bindBookshelfWaveEffect === 'function') {
-      bindBookshelfWaveEffect(bookEl);
-    }
+    bindBookshelfWaveEffect(bookEl);
 
     grid.appendChild(bookEl);
   });
@@ -7346,9 +7332,7 @@ window.removeBookFromMangaShelf = function (title) {
   if (typeof window.renderMangaBookshelf === "function") {
     window.renderMangaBookshelf();
   }
-  if (typeof showToast === "function") {
-    showToast(`✨ 《${title}》已化為粉末微塵，自條漫書架移出`, "bi-trash3-fill text-danger");
-  }
+  showToast(`✨ 《${title}》已化為粉末微塵，自條漫書架移出`, "bi-trash3-fill text-danger");
 };
 
 // 渲染小說立體書架 (智能區分本機上傳與線上搜尋開卷)
@@ -7471,9 +7455,7 @@ window.renderNovelBookshelf = function () {
       }
     };
 
-    if (typeof bindBookshelfWaveEffect === "function") {
-      bindBookshelfWaveEffect(bookEl);
-    }
+    bindBookshelfWaveEffect(bookEl);
 
     grid.appendChild(bookEl);
   });
@@ -7497,9 +7479,7 @@ window.removeBookFromNovelShelf = function (title) {
   if (typeof window.renderNovelBookshelf === "function") {
     window.renderNovelBookshelf();
   }
-  if (typeof showToast === "function") {
-    showToast(`✨ 《${title}》已化為粉末微塵，自小說書房移出`, "bi-trash3-fill text-danger");
-  }
+  showToast(`✨ 《${title}》已化為粉末微塵，自小說書房移出`, "bi-trash3-fill text-danger");
 };
 
 // 監聽 Modal 開啟自動觸發書架渲染與 GSAP 彈性擺入
@@ -7553,9 +7533,7 @@ window.toggleNovelBookshelfItem = function (title, cover, btnEl) {
       btnEl.title = "將此小說放進立體書房";
     }
 
-    if (typeof showToast === "function") {
-      showToast(`已將《${title}》移出小說書房`, "bi-trash text-warning");
-    }
+    showToast(`已將《${title}》移出小說書房`, "bi-trash text-warning");
   } else {
     shelf.unshift({
       title: title.trim(),
@@ -7572,12 +7550,10 @@ window.toggleNovelBookshelfItem = function (title, cover, btnEl) {
       btnEl.title = "已在小說書房中，點擊可移出";
     }
 
-    if (typeof showToast === "function") {
-      showToast(
-        `🎉 成功將《${title}》收藏進小說立體書房！`,
-        "bi-star-fill text-warning",
-      );
-    }
+    showToast(
+      `🎉 成功將《${title}》收藏進小說立體書房！`,
+      "bi-star-fill text-warning",
+    );
   }
 
   if (typeof window.renderNovelBookshelf === "function") {
@@ -8781,7 +8757,7 @@ window.loadNovelChapter = async function (
   if (screenCont) {
     screenCont.classList.remove("is-standby");
 
-    if (typeof startFsIdleTimer === "function") startFsIdleTimer();
+    startFsIdleTimer();
   }
 
   if (readingArea) readingArea.style.display = "block";
@@ -9029,7 +9005,7 @@ window.closeCurrentNovel = function (silent = false) {
 
   updateNovelNavButtons();
 
-  if (!silent && typeof showToast === "function") {
+  if (!silent) {
     showToast("已關閉當前小說，回到待命狀態", "bi-x-circle text-success");
   }
 };
@@ -9856,8 +9832,7 @@ window.triggerBangumiUserSync = async function (mode = "import") {
       alertBox.classList.remove("d-none");
     }
 
-    if (typeof showToast === "function")
-      showToast("雙向同步需填寫 Bangumi Token", "bi-key-fill text-warning");
+    showToast("雙向同步需填寫 Bangumi Token", "bi-key-fill text-warning");
 
     return;
   }
@@ -10103,8 +10078,7 @@ window.triggerBangumiUserSync = async function (mode = "import") {
       ? `🎉 雙向全量同步成功！(新增 ${addedCount} / 更新 ${updatedCount} / 回寫 ${pushedCount})`
       : `🎉 成功自 Bangumi 匯入 ${addedCount + updatedCount} 部作品！`;
 
-    if (typeof showToast === "function")
-      showToast(toastMsg, "bi-check-circle-fill text-success");
+    showToast(toastMsg, "bi-check-circle-fill text-success");
 
     // 1.8 秒後自動關閉 Modal
 
@@ -12824,9 +12798,7 @@ window.toggleCurrentMangaToBookshelf = function () {
 
 window.toggleCurrentNovelToBookshelf = async function () {
   if (!novelState.currentNovel || !novelState.currentNovel.title) {
-    if (typeof showToast === "function") {
-      showToast("目前尚未開啟任何小說！", "bi-exclamation-circle text-info");
-    }
+    showToast("目前尚未開啟任何小說！", "bi-exclamation-circle text-info");
 
     return;
   }
@@ -12835,12 +12807,10 @@ window.toggleCurrentNovelToBookshelf = async function () {
   let shelf = window.getNovelBookshelf ? window.getNovelBookshelf() : [];
 
   if (shelf.some((b) => b.title === cur.title)) {
-    if (typeof showToast === "function") {
-      showToast(
-        `《${cur.title}》已在您的小說書房中！`,
-        "bi-bookmark-check text-success",
-      );
-    }
+    showToast(
+      `《${cur.title}》已在您的小說書房中！`,
+      "bi-bookmark-check text-success",
+    );
 
     return;
   }
@@ -12880,12 +12850,10 @@ window.toggleCurrentNovelToBookshelf = async function () {
     window.saveNovelBookshelf(shelf);
   }
 
-  if (typeof showToast === "function") {
-    showToast(
-      `🎉 成功將${isLocal ? "本機小說" : "線上小說"}《${cur.title}》收藏進小說立體書房！`,
-      "bi-star-fill text-warning",
-    );
-  }
+  showToast(
+    `🎉 成功將${isLocal ? "本機小說" : "線上小說"}《${cur.title}》收藏進小說立體書房！`,
+    "bi-star-fill text-warning",
+  );
 };
 
 // ==================== Docker 容器生命週期控制 (Port 8095) ====================
@@ -12998,7 +12966,7 @@ window.checkDockerStatus = async function (isManual = false) {
       navBadge.textContent = data.running ? "8095 (Up)" : "8095";
     }
 
-    if (isManual && typeof showToast === "function") {
+    if (isManual) {
       showToast(
         `Docker 狀態：${badge ? badge.textContent : "檢測完成"}`,
         "bi-box-seam text-primary",
@@ -13022,12 +12990,10 @@ window.executeDockerAction = async function (action) {
   };
   const title = actionNames[action] || action;
 
-  if (typeof showToast === "function") {
-    showToast(
-      `正在執行 Docker ${title}... 請稍候`,
-      "bi-hourglass-split text-info",
-    );
-  }
+  showToast(
+    `正在執行 Docker ${title}... 請稍候`,
+    "bi-hourglass-split text-info",
+  );
 
   try {
     const res = await fetch("/api/docker/action", {
@@ -13046,9 +13012,7 @@ window.executeDockerAction = async function (action) {
         status: "容器沙盒提示 (In Docker)",
       };
 
-      if (typeof showToast === "function") {
-        showToast("當前正在 Docker 容器內部運行", "bi-box-seam text-primary");
-      }
+      showToast("當前正在 Docker 容器內部運行", "bi-box-seam text-primary");
 
       window.checkDockerStatus();
       window.openDockerLogsModal();
@@ -13063,19 +13027,15 @@ window.executeDockerAction = async function (action) {
     };
 
     if (data.success) {
-      if (typeof showToast === "function") {
-        showToast(
-          `Docker ${title} 成功完成！`,
-          "bi-check-circle-fill text-success",
-        );
-      }
+      showToast(
+        `Docker ${title} 成功完成！`,
+        "bi-check-circle-fill text-success",
+      );
     } else {
-      if (typeof showToast === "function") {
-        showToast(
-          `Docker 執行警報：${data.error || "請檢查日誌"}`,
-          "bi-exclamation-triangle-fill text-warning",
-        );
-      }
+      showToast(
+        `Docker 執行警報：${data.error || "請檢查日誌"}`,
+        "bi-exclamation-triangle-fill text-warning",
+      );
     }
 
     window.checkDockerStatus();
@@ -13087,12 +13047,10 @@ window.executeDockerAction = async function (action) {
       status: "離線提示",
     };
 
-    if (typeof showToast === "function") {
-      showToast(
-        `後端未連線，已生成終端機指令`,
-        "bi-info-circle text-secondary",
-      );
-    }
+    showToast(
+      `後端未連線，已生成終端機指令`,
+      "bi-info-circle text-secondary",
+    );
 
     window.openDockerLogsModal();
   }
@@ -13400,9 +13358,7 @@ window.saveUserProfile = async function(e) {
         });
     }
 
-    if (typeof renderBookmarks === 'function') {
-        renderBookmarks();
-    }
+    renderBookmarks();
     // 比對是否設定了相同的密碼 (含目前密碼、已有密碼或預設密碼)
     const curRegList = JSON.parse(sessionStorage.getItem('registeredUsers') || '[]');
     const curTargetUser = curRegList.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
@@ -13494,9 +13450,7 @@ window.saveUserProfile = async function(e) {
             if (topNavUser) topNavUser.textContent = name;
 
             // 右上角導覽列頭像即時同步
-            if (typeof updateNavUserAvatar === 'function') {
-                updateNavUserAvatar(avatar);
-            }
+            updateNavUserAvatar(avatar);
 
             const modalEl = document.getElementById('editProfileModal');
             if (modalEl) {
@@ -13510,17 +13464,11 @@ window.saveUserProfile = async function(e) {
                 if (easterEggModalEl) {
                     const easterEggModal = bootstrap.Modal.getOrCreateInstance(easterEggModalEl);
                     easterEggModal.show();
-                } else if (typeof showToast === 'function') {
-                    showToast('🎉 哈哈！你用了跟原本一模一樣的密碼！個人資料已更新。', 'bi-emoji-laughing text-warning');
                 } else {
-                    alert('哈哈！你用了跟原本一模一樣的密碼！個人資料已更新。');
+                    showToast('🎉 哈哈！你用了跟原本一模一樣的密碼！個人資料已更新。', 'bi-emoji-laughing text-warning');
                 }
             } else {
-                if (typeof showToast === 'function') {
-                    showToast('個人資料與偏好設定已成功更新！');
-                } else {
-                    alert('個人資料與偏好設定已成功更新！');
-                }
+                showToast('個人資料與偏好設定已成功更新！');
             }
         }
     } catch (err) {
@@ -13566,9 +13514,7 @@ window.handleCustomAvatarUpload = function(event) {
             // 即刻反映在右上角頭像預覽
             updateNavUserAvatar(base64Url);
 
-            if (typeof showToast === 'function') {
-                showToast('已載入自訂圖片！點擊下方「儲存個人資料」即可永久生效');
-            }
+            showToast('已載入自訂圖片！點擊下方「儲存個人資料」即可永久生效');
         };
         img.src = e.target.result;
     };
@@ -13994,12 +13940,8 @@ function initSpotlightTracking() {
 
 document.addEventListener('DOMContentLoaded', () => {
     initSpotlightTracking();
-    if (typeof window.initThemeMode === 'function') {
-        window.initThemeMode();
-    }
-    if (typeof window.updateNavUserAvatar === 'function') {
-        window.updateNavUserAvatar();
-    }
+    window.initThemeMode();
+    window.updateNavUserAvatar();
     if (typeof window.syncBookshelfFromServer === 'function') {
         window.syncBookshelfFromServer();
     }

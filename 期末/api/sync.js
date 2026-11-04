@@ -70,6 +70,39 @@ async function getDefaultActiveUser() {
     return 'default';
 }
 
+// 解析請求所屬帳號：展示/預設帳號歸屬至目前活躍使用者，真實帳號則記為最後活躍者；回傳純化後名稱
+async function resolveRequestUser(candidate) {
+    const defaultUser = await getDefaultActiveUser();
+    let username = candidate || defaultUser;
+    if ((username === '期末展示學生' || username === 'default') && defaultUser !== 'default') {
+        username = defaultUser;
+    } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
+        _currentSessionUser = sanitizeUsername(username);
+    }
+    return sanitizeUsername(username);
+}
+
+// 讀取 user 參數：優先 query，其次 POST/DELETE body
+async function readUserParam(req, query) {
+    if (query.user) return query.user;
+    if (req.method === 'POST' || req.method === 'DELETE') {
+        const body = await parseRequestBody(req);
+        return body.user || body.username;
+    }
+    return undefined;
+}
+
+// 覆寫使用者音樂庫並回傳更新時間
+async function saveMusicTracks(user, tracks) {
+    const updatedAt = new Date().toISOString();
+    await musicDb.update(
+        { user },
+        { $set: { user, count: tracks.length, tracks, updatedAt } },
+        { upsert: true }
+    );
+    return updatedAt;
+}
+
 // 轉發請求至 Bangumi 官方 API (避開瀏覽器 CORS 限制)
 function forwardToBangumi(apiPath, method, token, bodyData = null) {
     return new Promise((resolve, reject) => {
@@ -266,11 +299,7 @@ async function handleSyncRoute(req, res) {
         // 0.5 刪除使用者帳號及其所有雲端書籤 /api/user/delete (NeDB 同步清理)
         // ==========================================
         if (pathname === '/api/user/delete') {
-            let username = query.user;
-            if (!username && (req.method === 'POST' || req.method === 'DELETE')) {
-                const body = await parseRequestBody(req);
-                username = body.user || body.username;
-            }
+            const username = await readUserParam(req, query);
             if (!username) {
                 return sendJson(res, 400, { success: false, error: '缺少 user 參數' });
             }
@@ -291,11 +320,7 @@ async function handleSyncRoute(req, res) {
         // 0.6 清空使用者帳號書籤 /api/user/clear (NeDB 書籤重設)
         // ==========================================
         if (pathname === '/api/user/clear') {
-            let username = query.user;
-            if (!username && (req.method === 'POST' || req.method === 'DELETE')) {
-                const body = await parseRequestBody(req);
-                username = body.user || body.username;
-            }
+            const username = await readUserParam(req, query);
             if (!username) {
                 return sendJson(res, 400, { success: false, error: '缺少 user 參數' });
             }
@@ -449,14 +474,7 @@ async function handleSyncRoute(req, res) {
         if (pathname === '/api/user/bookshelf' || pathname === '/api/bookshelf') {
             // GET: 從 NeDB 拉取該帳號最新漫畫與小說立體書架
             if (req.method === 'GET') {
-                const defaultUser = await getDefaultActiveUser();
-                let username = query.user || query.username || defaultUser;
-                if ((username === '期末展示學生' || username === 'default') && defaultUser !== 'default') {
-                    username = defaultUser;
-                } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
-                    _currentSessionUser = sanitizeUsername(username);
-                }
-                const safeUser = sanitizeUsername(username);
+                const safeUser = await resolveRequestUser(query.user || query.username);
 
                 const record = await bookshelfDb.findOne({ user: safeUser });
                 if (!record) {
@@ -481,14 +499,7 @@ async function handleSyncRoute(req, res) {
             // POST: 將客戶端立體書架 (條漫與沉浸小說) 寫入 NeDB
             else if (req.method === 'POST') {
                 const body = await parseRequestBody(req);
-                const defaultUser = await getDefaultActiveUser();
-                let username = body.user || body.username || query.user || defaultUser;
-                if ((username === '期末展示學生' || username === 'default') && defaultUser !== 'default') {
-                    username = defaultUser;
-                } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
-                    _currentSessionUser = sanitizeUsername(username);
-                }
-                const safeUser = sanitizeUsername(username);
+                const safeUser = await resolveRequestUser(body.user || body.username || query.user);
 
                 const existing = await bookshelfDb.findOne({ user: safeUser }) || { manga: [], novel: [] };
                 let manga = Array.isArray(body.manga) ? body.manga : (existing.manga || []);
@@ -516,14 +527,7 @@ async function handleSyncRoute(req, res) {
         // 0.95 個人 Apple Watch 音樂庫管理 /api/user/music (NeDB 存取)
         // ==========================================
         if (pathname === '/api/user/music' || pathname === '/api/music') {
-            const defaultUser = await getDefaultActiveUser();
-            let username = query.user || query.username || defaultUser;
-            if ((username === '期末展示學生' || username === 'default') && defaultUser !== 'default') {
-                username = defaultUser;
-            } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
-                _currentSessionUser = sanitizeUsername(username);
-            }
-            const safeUser = sanitizeUsername(username);
+            const safeUser = await resolveRequestUser(query.user || query.username);
 
             // 1. GET: 取得目前使用者收藏的所有音樂曲目清單
             if (req.method === 'GET') {
@@ -573,12 +577,7 @@ async function handleSyncRoute(req, res) {
                     }
                 }
 
-                const updatedAt = new Date().toISOString();
-                await musicDb.update(
-                    { user: targetUser },
-                    { $set: { user: targetUser, count: tracks.length, tracks, updatedAt } },
-                    { upsert: true }
-                );
+                const updatedAt = await saveMusicTracks(targetUser, tracks);
 
                 return sendJson(res, 200, {
                     success: true,
@@ -603,12 +602,7 @@ async function handleSyncRoute(req, res) {
                     tracks = [];
                 }
 
-                const updatedAt = new Date().toISOString();
-                await musicDb.update(
-                    { user: targetUser },
-                    { $set: { user: targetUser, count: tracks.length, tracks, updatedAt } },
-                    { upsert: true }
-                );
+                await saveMusicTracks(targetUser, tracks);
 
                 return sendJson(res, 200, {
                     success: true,
@@ -777,14 +771,7 @@ async function handleSyncRoute(req, res) {
         if (pathname === '/api/user/bookmarks' || pathname === '/api/bookmarks') {
             // GET: 從 NeDB 拉取該帳號最新收藏
             if (req.method === 'GET') {
-                const defaultUser = await getDefaultActiveUser();
-                let username = query.user || defaultUser;
-                if ((username === '期末展示學生' || username === 'default') && defaultUser !== 'default') {
-                    username = defaultUser;
-                } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
-                    _currentSessionUser = sanitizeUsername(username);
-                }
-                const safeUser = sanitizeUsername(username);
+                const safeUser = await resolveRequestUser(query.user);
 
                 const record = await bookmarksDb.findOne({ user: safeUser });
                 if (!record) {
@@ -810,14 +797,7 @@ async function handleSyncRoute(req, res) {
             // POST: 將客戶端收藏寫入 NeDB
             else if (req.method === 'POST') {
                 const body = await parseRequestBody(req);
-                const defaultUser = await getDefaultActiveUser();
-                let username = body.user || query.user || defaultUser;
-                if ((username === '期末展示學生' || username === 'default') && defaultUser !== 'default') {
-                    username = defaultUser;
-                } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
-                    _currentSessionUser = sanitizeUsername(username);
-                }
-                const safeUser = sanitizeUsername(username);
+                const safeUser = await resolveRequestUser(body.user || query.user);
 
                 const existing = await bookmarksDb.findOne({ user: safeUser }) || { bookmarks: [] };
                 let bookmarksList = Array.isArray(existing.bookmarks) ? existing.bookmarks : [];
