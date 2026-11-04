@@ -622,7 +622,7 @@ async function handleSyncRoute(req, res) {
         }
 
         // ==========================================
-        // 0.96 開源線上歌曲即時搜尋端點 /api/music/search?q=... (真實歌曲、高清封面與正版串流音訊)
+        // 0.96 開源線上歌曲即時搜尋端點 /api/music/search?q=... (完整長度原曲 3-5 分鐘、高清封面與正版串流音訊)
         // ==========================================
         if ((pathname === '/api/music/search' || pathname === '/api/user/music/search') && req.method === 'GET') {
             const keyword = (query.q || query.term || query.keyword || '').trim();
@@ -631,53 +631,97 @@ async function handleSyncRoute(req, res) {
             }
 
             try {
-                // 透過官方 Music Search API 取得真實音源與專輯資訊 (免 API Key、免防盜鏈、高可用真實原聲)
-                const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(keyword)}&media=music&entity=song&limit=15`;
+                // 優先使用網易雲/Meting 開源音訊引擎取得 3~5 分鐘完整歌曲 MP3 原曲
+                const neteaseUrl = `https://music.163.com/api/search/get/web?csrf_token=&hlpretag=&hlposttag=&s=${encodeURIComponent(keyword)}&type=1&offset=0&total=true&limit=15`;
                 
-                const fetchRes = await new Promise((resolve, reject) => {
-                    const itunesReq = https.get(itunesUrl, {
-                        headers: {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                        },
-                        timeout: 8000
-                    }, (resStream) => {
-                        let data = '';
-                        resStream.on('data', chunk => data += chunk);
-                        resStream.on('end', () => {
-                            try {
-                                resolve(JSON.parse(data));
-                            } catch (e) {
-                                reject(e);
-                            }
+                let tracks = [];
+                try {
+                    const fetchRes = await new Promise((resolve, reject) => {
+                        const netReq = https.get(neteaseUrl, {
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                                'Referer': 'https://music.163.com'
+                            },
+                            timeout: 7000
+                        }, (nRes) => {
+                            let rawData = '';
+                            nRes.on('data', chunk => rawData += chunk);
+                            nRes.on('end', () => {
+                                try {
+                                    const json = JSON.parse(rawData);
+                                    const songs = (json.result && Array.isArray(json.result.songs)) ? json.result.songs : [];
+                                    const formatted = songs.map(s => {
+                                        const songId = s.id;
+                                        const picUrl = s.album && s.album.picUrl ? s.album.picUrl.replace(/^http:/, 'https:') : '';
+                                        const artistName = s.artists && s.artists.length > 0 ? s.artists.map(a => a.name).join(' / ') : '未知歌手';
+                                        const durationSec = s.duration ? Math.round(s.duration / 1000) : 240;
+                                        return {
+                                            id: 'net_' + songId,
+                                            title: s.name,
+                                            artist: artistName,
+                                            album: s.album ? s.album.name : '',
+                                            cover: picUrl || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80',
+                                            src: `https://api.injahow.cn/meting/?server=netease&type=url&id=${songId}`,
+                                            duration: durationSec,
+                                            isFull: true
+                                        };
+                                    });
+                                    resolve(formatted);
+                                } catch (e) {
+                                    resolve([]);
+                                }
+                            });
                         });
+                        netReq.on('error', () => resolve([]));
+                        netReq.on('timeout', () => { netReq.destroy(); resolve([]); });
                     });
-                    itunesReq.on('error', reject);
-                    itunesReq.on('timeout', () => {
-                        itunesReq.destroy();
-                        reject(new Error('搜尋請求超時'));
-                    });
-                });
 
-                const rawList = fetchRes && Array.isArray(fetchRes.results) ? fetchRes.results : [];
-                const formattedTracks = rawList.map(item => {
-                    const coverUrl = (item.artworkUrl100 || '').replace('100x100bb', '600x600bb');
-                    return {
-                        id: `online_${item.trackId || Date.now()}`,
-                        title: item.trackName || '未命名歌曲',
-                        artist: item.artistName || '未知歌手',
-                        album: item.collectionName || '精選單曲',
-                        cover: coverUrl || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80',
-                        src: item.previewUrl || '', // 官方真實正版音訊串流！
-                        duration: item.trackTimeMillis ? Math.round(item.trackTimeMillis / 1000) : 30,
-                        releaseDate: item.releaseDate ? item.releaseDate.substring(0, 10) : ''
-                    };
-                }).filter(t => !!t.src);
+                    if (fetchRes && fetchRes.length > 0) {
+                        tracks = fetchRes;
+                    }
+                } catch (netErr) {
+                    console.warn('[Netease Search Fallback to iTunes]:', netErr.message);
+                }
+
+                // 若網易雲無結果，則使用 iTunes API 作為容錯備援
+                if (tracks.length === 0) {
+                    const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(keyword)}&media=music&entity=song&limit=15`;
+                    const itunesRes = await new Promise((resolve) => {
+                        const iReq = https.get(itunesUrl, {
+                            headers: { 'User-Agent': 'Mozilla/5.0' },
+                            timeout: 6000
+                        }, (resI) => {
+                            let data = '';
+                            resI.on('data', c => data += c);
+                            resI.on('end', () => {
+                                try {
+                                    const json = JSON.parse(data);
+                                    const results = json.results || [];
+                                    const formatted = results.map(item => ({
+                                        id: 'itunes_' + item.trackId,
+                                        title: item.trackName,
+                                        artist: item.artistName,
+                                        album: item.collectionName || '',
+                                        cover: (item.artworkUrl100 || '').replace('100x100bb', '600x600bb'),
+                                        src: item.previewUrl,
+                                        duration: 30,
+                                        isFull: false
+                                    }));
+                                    resolve(formatted);
+                                } catch(e) { resolve([]); }
+                            });
+                        });
+                        iReq.on('error', () => resolve([]));
+                        iReq.on('timeout', () => { iReq.destroy(); resolve([]); });
+                    });
+                    tracks = itunesRes;
+                }
 
                 return sendJson(res, 200, {
                     success: true,
-                    query: keyword,
-                    count: formattedTracks.length,
-                    tracks: formattedTracks
+                    keyword,
+                    count: tracks.length,
+                    tracks
                 });
             } catch (err) {
                 console.error('[Online Music Search Error]:', err.message);

@@ -1,3 +1,136 @@
+
+// ==================== 播放模式 (循環 / 隨機 / 單曲循環) ====================
+let islandPlayMode = localStorage.getItem("islandPlayMode") || "repeat"; // "repeat" | "shuffle" | "repeat-1"
+
+function toggleIslandPlayMode() {
+  if (islandPlayMode === "repeat") {
+    islandPlayMode = "shuffle";
+    showToast("🔀 已切換為：隨機播放", "bi-shuffle text-info");
+  } else if (islandPlayMode === "shuffle") {
+    islandPlayMode = "repeat-1";
+    showToast("🔂 已切換為：單曲循環", "bi-repeat-1 text-warning");
+  } else {
+    islandPlayMode = "repeat";
+    showToast("🔁 已切換為：清單循環播放", "bi-repeat text-success");
+  }
+  localStorage.setItem("islandPlayMode", islandPlayMode);
+  updatePlayModeUI();
+}
+
+function updatePlayModeUI() {
+  const configs = {
+    "repeat": { icon: "bi-repeat", title: "清單循環 (點擊切換為隨機播放)", text: "清單循環" },
+    "shuffle": { icon: "bi-shuffle", title: "隨機播放 (點擊切換為單曲循環)", text: "隨機播放" },
+    "repeat-1": { icon: "bi-repeat-1", title: "單曲循環 (點擊切換為清單循環)", text: "單曲循環" }
+  };
+  const cfg = configs[islandPlayMode] || configs["repeat"];
+
+  const barModeBtn = document.getElementById("watchBarModeBtn");
+  const barModeIcon = document.getElementById("watchBarModeIcon");
+  if (barModeBtn && barModeIcon) {
+    barModeIcon.className = `bi ${cfg.icon} fs-6`;
+    barModeBtn.title = cfg.title;
+    if (islandPlayMode === "repeat-1") {
+      barModeBtn.className = "btn btn-dark text-warning shadow-sm watch-mode-btn";
+    } else if (islandPlayMode === "shuffle") {
+      barModeBtn.className = "btn btn-dark text-info shadow-sm watch-mode-btn";
+    } else {
+      barModeBtn.className = "btn btn-dark text-white-50 shadow-sm watch-mode-btn";
+    }
+  }
+
+  const drawerModeBtn = document.getElementById("islandDrawerModeBtn");
+  const drawerModeIcon = document.getElementById("islandDrawerModeIcon");
+  const drawerModeText = document.getElementById("islandDrawerModeText");
+  if (drawerModeBtn && drawerModeIcon && drawerModeText) {
+    drawerModeIcon.className = `bi ${cfg.icon} me-1`;
+    drawerModeText.textContent = cfg.text;
+    drawerModeBtn.title = cfg.title;
+  }
+}
+window.toggleIslandPlayMode = toggleIslandPlayMode;
+window.updatePlayModeUI = updatePlayModeUI;
+
+// ==================== 主頁與 ACG 專區無縫切換 (SPA / PJAX 動態局部抽換) ====================
+function initSeamlessPageTransitions() {
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest("a");
+    if (!link) return;
+    const href = link.getAttribute("href");
+    if (!href) return;
+
+    // 僅攔截 index.html 與 acg.html 之間的導航跳轉，其他外部網址與錨點保持原生行為
+    const isTargetIndex = href === "index.html" || href === "./index.html" || href === "/index.html";
+    const isTargetAcg = href === "acg.html" || href === "./acg.html" || href === "/acg.html";
+
+    if (isTargetIndex || isTargetAcg) {
+      e.preventDefault();
+      seamlessNavigateTo(href);
+    }
+  });
+
+  window.addEventListener("popstate", (e) => {
+    const pathName = window.location.pathname;
+    if (pathName.includes("acg.html") || pathName.includes("index.html")) {
+      seamlessNavigateTo(pathName, true);
+    }
+  });
+}
+
+async function seamlessNavigateTo(url, isPopState = false) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      window.location.href = url;
+      return;
+    }
+    const htmlText = await res.text();
+    const parser = new DOMParser();
+    const newDoc = parser.parseFromString(htmlText, "text/html");
+
+    // 保留頂部常駐的 dynamicIslandContainer 與全螢幕選歌模態框 watchMusicModal
+    const preservedIds = new Set(["dynamicIslandContainer", "watchMusicModal"]);
+
+    // 1. 替換頂部導航列 (Navbar)
+    const newNav = newDoc.querySelector("nav.navbar");
+    const curNav = document.querySelector("nav.navbar");
+    if (newNav && curNav) {
+      curNav.replaceWith(document.importNode(newNav, true));
+    }
+
+    // 2. 替換主要內容與相關彈窗 (保留常駐音樂組件)
+    const curChildren = Array.from(document.body.children).filter(c => !preservedIds.has(c.id) && c.tagName !== "SCRIPT");
+    curChildren.forEach(node => {
+      if (node.tagName !== "NAV") node.remove();
+    });
+
+    const newChildren = Array.from(newDoc.body.children).filter(c => !preservedIds.has(c.id) && c.tagName !== "SCRIPT" && c.tagName !== "NAV");
+    newChildren.forEach(node => {
+      document.body.appendChild(document.importNode(node, true));
+    });
+
+    document.title = newDoc.title;
+    if (!isPopState) {
+      history.pushState({ url }, newDoc.title, url);
+    }
+
+    // 重新初始化新頁面組件
+    if (url.includes("acg.html")) {
+      if (typeof window.initAcgPageCarousel === "function") window.initAcgPageCarousel(true);
+      if (typeof window.initAcgTabs === "function") window.initAcgTabs();
+    } else {
+      if (typeof window.renderBookmarks === "function") window.renderBookmarks();
+      if (typeof window.initSpotlightSearch === "function") window.initSpotlightSearch();
+    }
+
+    window.scrollTo({ top: 0, behavior: "instant" });
+    showToast(url.includes("acg.html") ? "🚀 已無縫切換至 ACG 專區 (音樂持續播放)" : "📚 已無縫切換至圖書館主頁 (音樂持續播放)", "bi-music-note-beamed text-info");
+  } catch (e) {
+    console.warn("[Seamless Nav Error]:", e);
+    window.location.href = url;
+  }
+}
+
 // 全面拔除 localStorage：清空既有本機磁碟殘留，確保所有資料僅由 NeDB 與 sessionStorage 驅動
 try {
   localStorage.clear();
@@ -2301,10 +2434,11 @@ function pauseIslandMusicForVideo() {
       stopWebAudioFallback();
     }
     islandMusicState.isPlaying = false;
-    if (typeof updateIslandUI === "function") {
-      updateIslandUI();
+    // 立即更新所有播放按鈕為播放箭頭 (▶ bi-play-fill)，並切換動態島為 paused 狀態
+    if (typeof window.updateIslandUI === "function") {
+      window.updateIslandUI();
     }
-    showToast("🎬 檢測到影片播放，背景音樂已自動暫停", "bi-pause-circle-fill text-warning");
+    showToast("🎬 檢測到影片播放，背景音樂已自動暫停 (點擊箭頭可恢復)", "bi-pause-circle-fill text-warning");
   }
 }
 
@@ -2432,6 +2566,23 @@ function initDynamicIslandMusic() {
   const closeSearchBtn = document.getElementById("watchCloseSearchBtn");
 
   if (!island || !bar) return;
+
+  // 公開至全域以支援影音互斥回調與狀態同步
+  window.updateIslandUI = updateIslandUI;
+  window.pauseIslandTrack = pauseIslandTrack;
+  window.toggleIslandPlay = toggleIslandPlay;
+
+  // 模式按鈕點擊綁定
+  const barModeBtn = document.getElementById("watchBarModeBtn");
+  if (barModeBtn) {
+    barModeBtn.addEventListener("click", toggleIslandPlayMode);
+  }
+  const drawerModeBtn = document.getElementById("islandDrawerModeBtn");
+  if (drawerModeBtn) {
+    drawerModeBtn.addEventListener("click", toggleIslandPlayMode);
+  }
+  updatePlayModeUI();
+
 
   // 音量拉桿與音效預設 50%
   if (volumeSlider) {
@@ -2727,16 +2878,20 @@ function initDynamicIslandMusic() {
     if (watchBarArtist) watchBarArtist.textContent = track.artist;
     if (watchBarCover) watchBarCover.src = track.cover;
 
+    // 圖標顯示：播放中顯示暫停圖標 (||)，暫停時顯示播放箭頭 (▶)
     const playIconClass = islandMusicState.isPlaying ? "bi-pause-fill" : "bi-play-fill";
     if (quickPlayIcon) quickPlayIcon.className = `bi ${playIconClass}`;
     if (mainPlayIcon) mainPlayIcon.className = `bi ${playIconClass} fs-5`;
     if (watchBarPlayIcon) watchBarPlayIcon.className = `bi ${playIconClass} fs-5`;
 
+    // 膠囊狀態：暫停時若有曲目資訊則保持 paused 膠囊顯示歌名與播放箭頭，音波停止
     if (!island.classList.contains("notifying")) {
       if (islandMusicState.isExpanded) {
         island.className = "dynamic-island expanded";
       } else if (islandMusicState.isPlaying) {
         island.className = "dynamic-island playing";
+      } else if (islandAudio && islandAudio.src && islandAudio.src.length > 5 && (userMusicTracks.length > 0 || islandAudio.currentTime > 0)) {
+        island.className = "dynamic-island paused";
       } else {
         island.className = "dynamic-island idle";
       }
@@ -3018,7 +3173,26 @@ function initDynamicIslandMusic() {
   });
 
   islandAudio.addEventListener("ended", () => {
-    loadAndPlayTrack(islandCurrentIndex + 1);
+    if (islandPlayMode === "repeat-1") {
+      // 單曲循環：回到開頭繼續播放
+      islandAudio.currentTime = 0;
+      islandAudio.play().catch(() => {});
+    } else if (islandPlayMode === "shuffle") {
+      // 隨機播放：自音樂庫中隨機挑選一首
+      if (userMusicTracks.length <= 1) {
+        islandAudio.currentTime = 0;
+        islandAudio.play().catch(() => {});
+      } else {
+        let randIdx = Math.floor(Math.random() * userMusicTracks.length);
+        if (randIdx === islandCurrentIndex) {
+          randIdx = (randIdx + 1) % userMusicTracks.length;
+        }
+        loadAndPlayTrack(randIdx);
+      }
+    } else {
+      // 清單循環：下一首，至結尾循環回第一首
+      loadAndPlayTrack(islandCurrentIndex + 1);
+    }
   });
 
   if (progressBar) {
@@ -15977,3 +16151,10 @@ document.addEventListener('DOMContentLoaded', () => {
         applySpotlightPref(sessionStorage.getItem('web_library_spotlight_pref') !== 'false');
     }
 });
+
+// 啟動主頁與 ACG 專區無縫換頁防中斷監聽
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initSeamlessPageTransitions);
+} else {
+  initSeamlessPageTransitions();
+}

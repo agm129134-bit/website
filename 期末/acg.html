@@ -559,6 +559,9 @@
               </div>
             </div>
             <div class="d-flex align-items-center gap-1 flex-shrink-0">
+              <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 fs-xs me-1 text-white-50" id="islandDrawerModeBtn" title="切換播放模式">
+                <i class="bi bi-repeat me-1" id="islandDrawerModeIcon"></i><span id="islandDrawerModeText">循環</span>
+              </button>
               <button type="button" class="btn btn-sm btn-outline-info rounded-pill py-0 px-2 fs-xs me-1" id="islandOpenWatchBtn" title="開啟全螢幕音樂庫">
                 <i class="bi bi-grid-3x3-gap-fill me-1"></i>選歌
               </button>
@@ -673,6 +676,7 @@
             </div>
           </div>
           <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-dark text-white-50 shadow-sm watch-mode-btn" id="watchBarModeBtn" title="清單循環 (點擊切換)"><i class="bi bi-repeat fs-6" id="watchBarModeIcon"></i></button>
             <button type="button" class="btn btn-dark text-white shadow-sm" id="watchBarPrevBtn" title="上一首"><i class="bi bi-skip-start-fill"></i></button>
             <button type="button" class="btn btn-info text-white shadow-sm" id="watchBarPlayBtn" title="播放/暫停"><i class="bi bi-play-fill fs-5" id="watchBarPlayIcon"></i></button>
             <button type="button" class="btn btn-dark text-white shadow-sm" id="watchBarNextBtn" title="下一首"><i class="bi bi-skip-end-fill"></i></button>
