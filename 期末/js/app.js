@@ -2462,55 +2462,6 @@ let islandMusicState = {
   isExpanded: false
 };
 
-// Web Audio API 兜底保護 (當網路斷線時提供輕量防報錯保障)
-let webAudioCtx = null;
-let webAudioInterval = null;
-let isWebAudioPlaying = false;
-
-function playWebAudioFallback(trackTitle) {
-  stopWebAudioFallback();
-  try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    if (!webAudioCtx) webAudioCtx = new AudioContext();
-    if (webAudioCtx.state === "suspended") webAudioCtx.resume();
-
-    const melodyFreqs = [261.63, 329.63, 392.00, 493.88, 523.25, 440.00, 349.23, 293.66];
-    let noteIdx = 0;
-    isWebAudioPlaying = true;
-
-    webAudioInterval = setInterval(() => {
-      if (!isWebAudioPlaying || !webAudioCtx) return;
-      const osc = webAudioCtx.createOscillator();
-      const gain = webAudioCtx.createGain();
-
-      osc.type = "sine";
-      const freq = melodyFreqs[noteIdx % melodyFreqs.length];
-      osc.frequency.setValueAtTime(freq, webAudioCtx.currentTime);
-
-      gain.gain.setValueAtTime(0.08 * (islandAudio.volume || 0.5), webAudioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, webAudioCtx.currentTime + 0.6);
-
-      osc.connect(gain);
-      gain.connect(webAudioCtx.destination);
-
-      osc.start();
-      osc.stop(webAudioCtx.currentTime + 0.65);
-      noteIdx++;
-    }, 400);
-  } catch (e) {
-    console.warn("[Web Audio Fallback Error]:", e);
-  }
-}
-
-function stopWebAudioFallback() {
-  if (webAudioInterval) {
-    clearInterval(webAudioInterval);
-    webAudioInterval = null;
-  }
-  isWebAudioPlaying = false;
-}
-
 function formatIslandTime(seconds) {
   if (isNaN(seconds) || seconds < 0) return "0:00";
   const m = Math.floor(seconds / 60);
@@ -2798,32 +2749,31 @@ function initDynamicIslandMusic() {
     islandCurrentIndex = index;
 
     const track = userMusicTracks[islandCurrentIndex];
-    stopWebAudioFallback();
-
     if (track.src && track.src.trim().length > 5) {
-      islandAudio.src = track.src;
+      if (islandAudio.src !== track.src) {
+        islandAudio.src = track.src;
+      }
       islandAudio.play().then(() => {
         islandMusicState.isPlaying = true;
         updateIslandUI();
         renderWatchHoneycomb();
       }).catch(err => {
-        console.warn("[Audio Play Error]: 外部音訊被阻擋", err);
-        islandMusicState.isPlaying = true;
-        playWebAudioFallback(track.title);
+        console.warn("[Audio Play Notice]:", err.message);
+        islandMusicState.isPlaying = false;
         updateIslandUI();
         renderWatchHoneycomb();
+        showIslandNotice("點擊播放即可開始聆聽");
       });
     } else {
-      islandMusicState.isPlaying = true;
-      playWebAudioFallback(track.title);
+      islandMusicState.isPlaying = false;
       updateIslandUI();
       renderWatchHoneycomb();
+      showIslandNotice("此歌曲尚無音訊連結");
     }
   }
 
   function pauseIslandTrack() {
     islandAudio.pause();
-    stopWebAudioFallback();
     islandMusicState.isPlaying = false;
     updateIslandUI();
     renderWatchHoneycomb();
@@ -3082,7 +3032,6 @@ function initDynamicIslandMusic() {
         // 點擊「試聽」：直接播放這首歌的真實原聲音訊
         const listenBtn = card.querySelector(".watch-listen-btn");
         listenBtn.addEventListener("click", () => {
-          stopWebAudioFallback();
           islandAudio.src = item.src;
           const previewDuration = item.duration && item.duration > 0 ? formatIslandTime(item.duration) : "";
           islandAudio.play().then(() => {
@@ -3101,6 +3050,9 @@ function initDynamicIslandMusic() {
             showIslandNotice(`正在試聽原曲：${item.title}`);
           }).catch(err => {
             console.warn("[Listen Audio Error]:", err);
+            islandMusicState.isPlaying = false;
+            updateIslandUI();
+            showIslandNotice("點擊播放即可開始聆聽");
           });
         });
 
@@ -3172,11 +3124,44 @@ function initDynamicIslandMusic() {
     }, 2800);
   }
 
-  // 10. 音訊時間軸更新
+  // 10. 音訊時間軸與真實狀態雙向同步 (Single Source of Truth)
+  islandAudio.addEventListener("play", () => {
+    islandMusicState.isPlaying = true;
+    updateIslandUI();
+    renderWatchHoneycomb();
+  });
+
+  islandAudio.addEventListener("pause", () => {
+    islandMusicState.isPlaying = false;
+    updateIslandUI();
+    renderWatchHoneycomb();
+  });
+
+  islandAudio.addEventListener("error", (e) => {
+    console.warn("[islandAudio Error]: 音訊串流或解碼失敗", e);
+    islandMusicState.isPlaying = false;
+    updateIslandUI();
+    renderWatchHoneycomb();
+  });
+
+  // 音訊載入後，以真實解碼時長作為權威依據，同步副標題與進度條，消除時間落差
+  islandAudio.addEventListener("loadedmetadata", () => {
+    if (islandAudio.duration && !isNaN(islandAudio.duration) && isFinite(islandAudio.duration)) {
+      const realSeconds = Math.round(islandAudio.duration);
+      if (userMusicTracks[islandCurrentIndex]) {
+        userMusicTracks[islandCurrentIndex].duration = realSeconds;
+      }
+      if (totTimeEl) totTimeEl.textContent = formatIslandTime(realSeconds);
+      updateIslandUI();
+    }
+  });
+
   islandAudio.addEventListener("timeupdate", () => {
     if (curTimeEl) curTimeEl.textContent = formatIslandTime(islandAudio.currentTime);
-    if (totTimeEl && islandAudio.duration) totTimeEl.textContent = formatIslandTime(islandAudio.duration);
-    if (progressFill && islandAudio.duration) {
+    if (totTimeEl && islandAudio.duration && isFinite(islandAudio.duration)) {
+      totTimeEl.textContent = formatIslandTime(islandAudio.duration);
+    }
+    if (progressFill && islandAudio.duration && isFinite(islandAudio.duration)) {
       const pct = (islandAudio.currentTime / islandAudio.duration) * 100;
       progressFill.style.width = `${pct}%`;
     }

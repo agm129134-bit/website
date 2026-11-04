@@ -649,8 +649,15 @@ async function handleSyncRoute(req, res) {
                             nRes.on('end', async () => {
                                 try {
                                     const json = JSON.parse(rawData);
-                                    const songs = (json.result && Array.isArray(json.result.songs)) ? json.result.songs : [];
-                                    if (songs.length === 0) return resolve([]);
+                                    const rawSongs = (json.result && Array.isArray(json.result.songs)) ? json.result.songs : [];
+                                    if (rawSongs.length === 0) return resolve([]);
+
+                                    // 智能排序：優先將開放完整串流音軌 (fee === 0 或 fee === 8) 排在前面，避免 VIP 限制導致被截斷為 30 秒試聽
+                                    const songs = [...rawSongs].sort((a, b) => {
+                                        const aFree = (a.fee === 0 || a.fee === 8) ? 0 : 1;
+                                        const bFree = (b.fee === 0 || b.fee === 8) ? 0 : 1;
+                                        return aFree - bFree;
+                                    });
 
                                     // 批次取得真實專輯高清封面 (透過 /api/song/detail 批次端點)
                                     const songIds = songs.map(s => s.id);
@@ -685,7 +692,8 @@ async function handleSyncRoute(req, res) {
                                         
                                         const finalCover = (rawCover && !rawCover.includes('5639395138885805')) ? rawCover : 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80';
                                         const artistName = s.artists && s.artists.length > 0 ? s.artists.map(a => a.name).join(' / ') : '未知歌手';
-                                        const durationSec = s.duration ? Math.round(s.duration / 1000) : 240;
+                                        const isVipRestricted = (s.fee === 1);
+                                        const actualDuration = isVipRestricted ? 30 : (s.duration ? Math.round(s.duration / 1000) : 0);
 
                                         return {
                                             id: 'net_' + songId,
@@ -694,8 +702,8 @@ async function handleSyncRoute(req, res) {
                                             album: s.album ? s.album.name : '',
                                             cover: finalCover,
                                             src: `https://api.injahow.cn/meting/?server=netease&type=url&id=${songId}`,
-                                            duration: durationSec,
-                                            isFull: true
+                                            duration: actualDuration,
+                                            isFull: !isVipRestricted
                                         };
                                     });
                                     resolve(formatted);

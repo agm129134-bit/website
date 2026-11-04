@@ -68,6 +68,14 @@ const server = http.createServer((req, res) => {
         safePath = '/login.html';
     }
 
+    // 瀏覽器圖示請求智慧對應 (解決 Docker 容器環境下 /favicon.ico 404 造成標籤頁破圖)
+    if (safePath === '/favicon.ico' || safePath === '\\favicon.ico') {
+        const icoExists = fs.existsSync(path.join(ROOT_DIR, 'favicon.ico'));
+        if (!icoExists && fs.existsSync(path.join(ROOT_DIR, 'favicon.svg'))) {
+            safePath = '/favicon.svg';
+        }
+    }
+
     const filePath = path.join(ROOT_DIR, safePath);
 
     fs.stat(filePath, (err, stats) => {
