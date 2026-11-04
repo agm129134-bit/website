@@ -409,19 +409,38 @@
         // 1. 徹底掃除本機歷史 localStorage 殘留，杜絕任何硬碟持久化依賴 (遵守全域無 localStorage 鐵律)
         // [30天免登入保護] 已移除 localStorage.clear()
 
-        // 2. 檢查當前瀏覽器分頁會話 (sessionStorage) 是否已登入，若已登入自動跳轉首頁
+        // 2. 雙重守衛：檢查 30 天記住登入 (localStorage) 與會話 (sessionStorage)，有效則立即直通首頁
         (function checkAlreadyLoggedIn() {
-            const current = sessionStorage.getItem('currentUser');
-            if (current) {
-                try {
+            try {
+                let current = sessionStorage.getItem('currentUser');
+                if (!current) {
+                    const remembered = JSON.parse(localStorage.getItem('rememberedUser') || 'null');
+                    if (remembered && remembered.user && (!remembered.expiresAt || Date.now() < remembered.expiresAt)) {
+                        sessionStorage.setItem('currentUser', JSON.stringify(remembered.user));
+                        current = JSON.stringify(remembered.user);
+                    } else if (remembered && remembered.expiresAt && Date.now() >= remembered.expiresAt) {
+                        localStorage.removeItem('rememberedUser');
+                    }
+                }
+                if (current) {
                     const userObj = JSON.parse(current);
                     if (userObj && userObj.username) {
                         window.location.replace('index.html');
+                        return;
                     }
-                } catch (e) {
-                    sessionStorage.removeItem('currentUser');
                 }
+            } catch (e) {
+                sessionStorage.removeItem('currentUser');
             }
+
+            // 若無有效免登憑證，自動回填使用者帳號以提升 UX
+            try {
+                const savedUser = localStorage.getItem('web_library_user');
+                const usernameInput = document.getElementById('usernameInput');
+                if (savedUser && usernameInput && !usernameInput.value) {
+                    usernameInput.value = savedUser;
+                }
+            } catch (e) {}
         })();
 
         // 3. 模式切換 (登入 / 註冊 / 忘記密碼)

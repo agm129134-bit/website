@@ -129,10 +129,7 @@ async function seamlessNavigateTo(url, isPopState = false) {
   }
 }
 
-// 全面拔除 localStorage：清空既有本機磁碟殘留，確保所有資料僅由 NeDB 與 sessionStorage 驅動
-try {
-  localStorage.clear();
-} catch (e) {}
+// [30天免登入保護] 嚴格保留 localStorage.rememberedUser 與使用者播放偏好，禁止執行任何 localStorage.clear()
 
 // 建立安全記憶體快取，確保立體書架與偏好設定不污染磁碟
 window._mangaBookshelfMemory = window._mangaBookshelfMemory || [];
@@ -338,6 +335,7 @@ window.logoutUser = function () {
     sessionStorage.removeItem("currentUser");
     localStorage.removeItem("rememberedUser");
     localStorage.removeItem("currentUser");
+    localStorage.removeItem("web_library_user");
 
     showToast(
       "已成功登出帳號，正在返回登入頁面...",
@@ -2631,16 +2629,21 @@ function initDynamicIslandMusic() {
     }
   });
 
-  // 取得目前登入使用者名稱
+  // 取得目前登入使用者名稱 (優先讀取全域狀態與有效 session 會話，杜絕跨帳號串位)
   function getCurrentUser() {
+    if (state && state.currentUser && state.currentUser !== "訪客") {
+      return state.currentUser;
+    }
     try {
-      const stored = localStorage.getItem("currentUser") || localStorage.getItem("web_library_user") || sessionStorage.getItem("currentUser");
-      if (stored) {
-        if (stored.startsWith("{")) {
-          const u = JSON.parse(stored);
-          return u.username || "jyun";
-        }
-        return stored;
+      const sessionStored = sessionStorage.getItem("currentUser");
+      if (sessionStored) {
+        const u = JSON.parse(sessionStored);
+        if (u && u.username) return u.username;
+      }
+      const remStored = localStorage.getItem("rememberedUser");
+      if (remStored) {
+        const rem = JSON.parse(remStored);
+        if (rem && rem.user && rem.user.username) return rem.user.username;
       }
     } catch (e) {}
     return "jyun";
@@ -2654,16 +2657,7 @@ function initDynamicIslandMusic() {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.tracks)) {
-          const legacySeedIds = new Set([
-            "track_madoka", "track_sao", "track_frieren", "track_precure",
-            "track_eva", "track_ghibli", "track_lofi_cyber", "track_tokyo_lofi"
-          ]);
-          // 徹底過濾歷史假歌種子，曲庫完全乾淨留白
-          const cleanedTracks = data.tracks.filter(t => !legacySeedIds.has(t.id) && !t.id?.startsWith("track_seed_"));
-          userMusicTracks = cleanedTracks;
-          if (cleanedTracks.length !== data.tracks.length) {
-            saveMusicToNeDB(cleanedTracks);
-          }
+          userMusicTracks = data.tracks;
         } else {
           userMusicTracks = [];
         }
@@ -2735,10 +2729,13 @@ function initDynamicIslandMusic() {
               <i class="bi ${isCurrent && islandMusicState.isPlaying ? "bi-pause-fill" : "bi-play-fill"} text-white fs-4"></i>
             </div>
           </div>
-          <!-- 懸停微膠囊 Tooltip -->
+          <!-- 懸停微膠囊 Tooltip (顯示曲名、歌手與精準時長，與搜尋結果完全對齊) -->
           <div class="watch-bubble-tooltip">
-            <div class="fw-bold text-truncate" style="max-width: 160px;">${track.title}</div>
-            <div class="text-white-50 text-truncate" style="font-size:0.65rem; max-width: 160px;">${track.artist}</div>
+            <div class="fw-bold text-truncate" style="max-width: 170px;">${track.title}</div>
+            <div class="text-white-50 text-truncate d-flex align-items-center gap-1 justify-content-center" style="font-size:0.68rem; max-width: 170px;">
+              ${track.duration && track.duration > 0 ? `<span class="text-info font-monospace fw-semibold"><i class="bi bi-clock me-1"></i>${formatIslandTime(track.duration)}</span><span>·</span>` : ''}
+              <span>${track.artist}</span>
+            </div>
           </div>
           <!-- 氣泡右上角刪除按鈕 -->
           <button type="button" class="watch-bubble-del" title="自音樂庫刪除" data-del-id="${track.id}">
@@ -2862,19 +2859,26 @@ function initDynamicIslandMusic() {
       cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80"
     };
 
+    const durationFormatted = track.duration && track.duration > 0 ? formatIslandTime(track.duration) : "";
+    const artistDisplay = durationFormatted ? `${track.artist} · ${durationFormatted}` : track.artist;
     if (titleEl) titleEl.textContent = track.title;
-    if (subEl) subEl.textContent = track.artist;
+    if (subEl) subEl.textContent = artistDisplay;
     if (coverMini) coverMini.src = track.cover;
 
     // 長按抽屜內部資訊
     if (drawerTitle) drawerTitle.textContent = track.title;
-    if (drawerArtist) drawerArtist.textContent = track.artist;
+    if (drawerArtist) drawerArtist.textContent = artistDisplay;
     if (drawerCover) drawerCover.src = track.cover;
 
     // 浮層底部資訊
     if (watchBarTitle) watchBarTitle.textContent = track.title;
-    if (watchBarArtist) watchBarArtist.textContent = track.artist;
+    if (watchBarArtist) watchBarArtist.textContent = artistDisplay;
     if (watchBarCover) watchBarCover.src = track.cover;
+
+    // 同步更新時間軸總長度 (確保與搜尋結果與收藏完全一致)
+    if (totTimeEl && (!islandAudio.duration || isNaN(islandAudio.duration)) && durationFormatted) {
+      totTimeEl.textContent = durationFormatted;
+    }
 
     // 圖標顯示：播放中顯示暫停圖標 (||)，暫停時顯示播放箭頭 (▶)
     const playIconClass = islandMusicState.isPlaying ? "bi-pause-fill" : "bi-play-fill";
@@ -3053,17 +3057,19 @@ function initDynamicIslandMusic() {
       list.forEach(item => {
         const card = document.createElement("div");
         card.className = "watch-search-card";
-        const durationText = typeof formatIslandTime === "function" ? formatIslandTime(item.duration || 240) : "04:00";
+        const durationText = item.duration && item.duration > 0 ? formatIslandTime(item.duration) : "--:--";
         card.innerHTML = `
           <img src="${item.cover}" class="watch-search-thumb" alt="${item.title}" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&q=80'" />
-          <div class="text-truncate flex-grow-1">
-            <div class="d-flex align-items-center gap-2">
-              <span class="fw-bold text-white small text-truncate" title="${item.title}">${item.title}</span>
-              <span class="badge bg-secondary-subtle text-info fs-xs px-2 py-0 rounded-pill"><i class="bi bi-clock me-1"></i>${durationText}</span>
+          <div class="flex-grow-1" style="min-width: 0;">
+            <div class="fw-bold text-white small text-truncate mb-1" title="${item.title}">${item.title}</div>
+            <div class="d-flex align-items-center gap-2 fs-xs">
+              <span class="badge bg-info-subtle text-info border border-info border-opacity-25 px-2 py-1 rounded-pill font-monospace" style="font-size: 0.72rem; white-space: nowrap; flex-shrink: 0;">
+                <i class="bi bi-clock me-1"></i>${durationText}
+              </span>
+              <span class="text-white-50 text-truncate" title="${item.artist} · ${item.album || '單曲'}">${item.artist} · ${item.album || '單曲'}</span>
             </div>
-            <div class="text-white-50 fs-xs text-truncate">${item.artist} · ${item.album || '單曲'}</div>
           </div>
-          <div class="d-flex align-items-center gap-1 flex-shrink-0">
+          <div class="d-flex align-items-center gap-1 flex-shrink-0 ms-1">
             <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-2 py-0 fs-xs watch-listen-btn" title="試聽此首原曲">
               <i class="bi bi-play-fill me-1"></i>試聽
             </button>
@@ -3078,17 +3084,19 @@ function initDynamicIslandMusic() {
         listenBtn.addEventListener("click", () => {
           stopWebAudioFallback();
           islandAudio.src = item.src;
+          const previewDuration = item.duration && item.duration > 0 ? formatIslandTime(item.duration) : "";
           islandAudio.play().then(() => {
             islandMusicState.isPlaying = true;
             if (watchBarTitle) watchBarTitle.textContent = item.title;
-            if (watchBarArtist) watchBarArtist.textContent = item.artist;
+            if (watchBarArtist) watchBarArtist.textContent = previewDuration ? `${item.artist} · ${previewDuration}` : item.artist;
             if (watchBarCover) watchBarCover.src = item.cover;
             if (titleEl) titleEl.textContent = item.title;
-            if (subEl) subEl.textContent = item.artist;
+            if (subEl) subEl.textContent = previewDuration ? `${item.artist} · ${previewDuration}` : item.artist;
             if (coverMini) coverMini.src = item.cover;
             if (drawerTitle) drawerTitle.textContent = item.title;
-            if (drawerArtist) drawerArtist.textContent = item.artist;
+            if (drawerArtist) drawerArtist.textContent = previewDuration ? `${item.artist} · ${previewDuration}` : item.artist;
             if (drawerCover) drawerCover.src = item.cover;
+            if (totTimeEl && previewDuration) totTimeEl.textContent = previewDuration;
             updateIslandUI();
             showIslandNotice(`正在試聽原曲：${item.title}`);
           }).catch(err => {
@@ -3105,7 +3113,7 @@ function initDynamicIslandMusic() {
             artist: item.artist,
             cover: item.cover,
             src: item.src,
-            duration: item.duration || 30
+            duration: item.duration || 0
           };
 
           const exists = userMusicTracks.some(t => t.id === newTrack.id || (t.title === newTrack.title && t.artist === newTrack.artist));
