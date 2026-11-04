@@ -9429,20 +9429,15 @@ window.openBangumiCalendar = async function () {
 
     if (grid) grid.innerHTML = "";
 
-    try {
-      const res = await fetch("https://api.bgm.tv/calendar");
+    // 共用 acg.js 的多通道 fallback (快取 / 代理 / 離線清單)，不會 throw
+    await window.fetchCalendarDataWithFallback();
+    if (loadingEl) loadingEl.classList.add("d-none");
 
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      window.bangumiCalendarData = await res.json();
-    } catch (e) {
-      console.error("載入 Bangumi Calendar 失敗:", e);
-
+    if (window._isUsingFallbackBangumi) {
       showToast(
-        "連線 Bangumi API 失敗，請確認網路！",
+        "連線 Bangumi API 失敗，目前顯示離線資料",
         "bi-exclamation-triangle-fill text-danger",
       );
-    } finally {
-      if (loadingEl) loadingEl.classList.add("d-none");
     }
   }
 
@@ -9493,7 +9488,9 @@ function renderCalendarDayAnime(dayId) {
   );
 
   if (!dayData || !dayData.items || dayData.items.length === 0) {
-    grid.innerHTML = `<div class="col-12 text-center text-muted py-4">本日暫無新番放送數據</div>`;
+    grid.innerHTML = window._isUsingFallbackBangumi
+      ? `<div class="col-12 text-center text-muted py-4">無法連線 Bangumi，<a href="javascript:void(0)" onclick="loadAcgPageCalendar(true)">點此重試</a></div>`
+      : `<div class="col-12 text-center text-muted py-4">本日暫無新番放送數據</div>`;
 
     return;
   }

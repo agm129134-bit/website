@@ -8,83 +8,27 @@
     let currentCarouselLimit = 0;
     let todayAiringAnimeList = [];
 
-    // 精選熱門新番離線備用資料庫 (當 Bangumi API 受限、超時或離線時 100% 救援呈現，絕不卡死在轉圈圈)
+    // 首次造訪且完全離線時的最後備案 (只用到 renderCarouselItems 讀的欄位；網址由 id 組出)
     const FALLBACK_BANGUMI_ITEMS = [
-        {
-            id: 466827,
-            name: "ダンダダン",
-            name_cn: "膽大黨 (超自然武裝當噠當)",
-            summary: "高中女生綾瀨桃因相信幽靈但否認外星人，與相信外星人但否認幽靈的高中男生高倉健相遇，兩人為證明各自所信，展開驚心動魄又爆笑的超自然戰鬥！",
-            rating: { score: 8.4 },
-            images: {
-                large: "https://lain.bgm.tv/pic/cover/l/d3/99/622288_nmbC3.jpg",
-                common: "https://lain.bgm.tv/pic/cover/l/d3/99/622288_nmbC3.jpg"
-            },
-            url: "https://bgm.tv/subject/466827"
-        },
-        {
-            id: 397211,
-            name: "葬送のフリーレン",
-            name_cn: "葬送的芙莉蓮",
-            summary: "身為精靈族的魔法使芙莉蓮，在勇者一行人打倒魔王之後，開始踏上探索生命意義與人間情感的漫長旅途。",
-            rating: { score: 8.9 },
-            images: {
-                large: "https://lain.bgm.tv/pic/cover/l/5a/36/397211_8lD6P.jpg",
-                common: "https://lain.bgm.tv/pic/cover/l/5a/36/397211_8lD6P.jpg"
-            },
-            url: "https://bgm.tv/subject/397211"
-        },
-        {
-            id: 438180,
-            name: "アオのハコ",
-            name_cn: "青之箱",
-            summary: "男子羽毛球部成員豬俁大喜，暗戀著女子籃球部的學姐鹿野千夏。因為家庭變故，兩人竟然開始了同住一個屋簷下的同居生活！",
-            rating: { score: 7.9 },
-            images: {
-                large: "https://lain.bgm.tv/pic/cover/l/40/14/297094_4TUt8.jpg",
-                common: "https://lain.bgm.tv/pic/cover/l/40/14/297094_4TUt8.jpg"
-            },
-            url: "https://bgm.tv/subject/438180"
-        },
-        {
-            id: 443423,
-            name: "【推しの子】第2期",
-            name_cn: "【我推的孩子】第二季",
-            summary: "深入演藝圈舞台劇《東京BLADE》的排練現場，阿奎亞與黑川茜、有馬加奈等人展開演技與內心創傷的交鋒。",
-            rating: { score: 8.2 },
-            images: {
-                large: "https://lain.bgm.tv/pic/cover/l/44/ed/634210_O7aNK.jpg",
-                common: "https://lain.bgm.tv/pic/cover/l/44/ed/634210_O7aNK.jpg"
-            },
-            url: "https://bgm.tv/subject/443423"
-        },
-        {
-            id: 364450,
-            name: "ぼっち・ざ・ろっく！",
-            name_cn: "孤獨搖滾！",
-            summary: "極度怕生又喜愛吉他的孤獨少女後藤一里，在某天被伊地知虹夏邀請加入「結束樂隊」，展開了從未體驗過的樂團青春生活。",
-            rating: { score: 8.8 },
-            images: {
-                large: "https://lain.bgm.tv/pic/cover/l/b6/e8/590553_Xz5PO.jpg",
-                common: "https://lain.bgm.tv/pic/cover/l/b6/e8/590553_Xz5PO.jpg"
-            },
-            url: "https://bgm.tv/subject/364450"
-        },
-        {
-            id: 393962,
-            name: "ダンジョン飯",
-            name_cn: "迷宮飯",
-            summary: "在迷宮深處被炎龍吞食妹妹的萊歐斯隊伍，為了盡快救回妹妹，展開了以魔物為食材自給自足的奇妙迷宮美食冒險！",
-            rating: { score: 8.3 },
-            images: {
-                large: "https://lain.bgm.tv/pic/cover/l/c7/ab/688838_jAPXY.jpg",
-                common: "https://lain.bgm.tv/pic/cover/l/c7/ab/688838_jAPXY.jpg"
-            },
-            url: "https://bgm.tv/subject/393962"
-        }
+        { id: 466827, name: "ダンダダン", name_cn: "膽大黨 (超自然武裝當噠當)", rating: { score: 8.4 },
+          images: { large: "https://lain.bgm.tv/pic/cover/l/d3/99/622288_nmbC3.jpg" },
+          summary: "高中女生綾瀨桃因相信幽靈但否認外星人，與相信外星人但否認幽靈的高中男生高倉健相遇，兩人為證明各自所信，展開驚心動魄又爆笑的超自然戰鬥！" },
+        { id: 397211, name: "葬送のフリーレン", name_cn: "葬送的芙莉蓮", rating: { score: 8.9 },
+          images: { large: "https://lain.bgm.tv/pic/cover/l/5a/36/397211_8lD6P.jpg" },
+          summary: "身為精靈族的魔法使芙莉蓮，在勇者一行人打倒魔王之後，開始踏上探索生命意義與人間情感的漫長旅途。" },
+        { id: 438180, name: "アオのハコ", name_cn: "青之箱", rating: { score: 7.9 },
+          images: { large: "https://lain.bgm.tv/pic/cover/l/40/14/297094_4TUt8.jpg" },
+          summary: "男子羽毛球部成員豬俁大喜，暗戀著女子籃球部的學姐鹿野千夏。因為家庭變故，兩人竟然開始了同住一個屋簷下的同居生活！" },
+        { id: 443423, name: "【推しの子】第2期", name_cn: "【我推的孩子】第二季", rating: { score: 8.2 },
+          images: { large: "https://lain.bgm.tv/pic/cover/l/44/ed/634210_O7aNK.jpg" },
+          summary: "深入演藝圈舞台劇《東京BLADE》的排練現場，阿奎亞與黑川茜、有馬加奈等人展開演技與內心創傷的交鋒。" },
+        { id: 364450, name: "ぼっち・ざ・ろっく！", name_cn: "孤獨搖滾！", rating: { score: 8.8 },
+          images: { large: "https://lain.bgm.tv/pic/cover/l/b6/e8/590553_Xz5PO.jpg" },
+          summary: "極度怕生又喜愛吉他的孤獨少女後藤一里，在某天被伊地知虹夏邀請加入「結束樂隊」，展開了從未體驗過的樂團青春生活。" },
+        { id: 393962, name: "ダンジョン飯", name_cn: "迷宮飯", rating: { score: 8.3 },
+          images: { large: "https://lain.bgm.tv/pic/cover/l/c7/ab/688838_jAPXY.jpg" },
+          summary: "在迷宮深處被炎龍吞食妹妹的萊歐斯隊伍，為了盡快救回妹妹，展開了以魔物為食材自給自足的奇妙迷宮美食冒險！" }
     ];
-
-    window.FALLBACK_BANGUMI_ITEMS = FALLBACK_BANGUMI_ITEMS;
 
     // 輪播數量切換按鈕控制
     window.setCarouselDisplayLimit = function (limit) {
@@ -101,79 +45,56 @@
         renderCarouselItems();
     };
 
-    // 健壯的多通道 Bangumi 時間表請求機制 (直連 -> 快取 -> 鏡像代理 -> 精選離線 Fallback)
+    // 多通道 Bangumi 時間表請求：24h 快取 -> 官方直連 -> CORS 代理 -> 過期快取 -> 精選離線清單
+    const BGM_CALENDAR_URL = "https://api.bgm.tv/calendar";
+    const CAL_CACHE_KEY = "web_library_bgm_calendar_cache";
+    const CAL_CACHE_TTL = 24 * 60 * 60 * 1000;
+
+    function readCalendarCache() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(CAL_CACHE_KEY));
+            return Array.isArray(parsed?.data) && parsed.data.length ? parsed : null;
+        } catch (e) { return null; }
+    }
+
+    // 3.5s 超時，回傳非空陣列或 null
+    async function fetchCalendarJson(url) {
+        try {
+            const res = await fetch(url, { signal: AbortSignal.timeout(3500) });
+            const data = res.ok ? await res.json() : null;
+            return Array.isArray(data) && data.length ? data : null;
+        } catch (e) {
+            console.warn("Bangumi 時間表通道失敗:", url, e);
+            return null;
+        }
+    }
+
+    function useCalendar(data, isFallback) {
+        window.bangumiCalendarData = data;
+        window._isUsingFallbackBangumi = isFallback;
+        return data;
+    }
+
     async function fetchCalendarDataWithFallback(force = false) {
-        if (!force && window.bangumiCalendarData && Array.isArray(window.bangumiCalendarData) && window.bangumiCalendarData.length > 0) {
-            return window.bangumiCalendarData;
+        if (!force && window.bangumiCalendarData?.length) return window.bangumiCalendarData;
+
+        const cache = readCalendarCache();
+        if (!force && cache && Date.now() - cache.ts < CAL_CACHE_TTL) return useCalendar(cache.data, false);
+
+        const live = await fetchCalendarJson(BGM_CALENDAR_URL)
+            || await fetchCalendarJson("https://api.allorigins.win/raw?url=" + encodeURIComponent(BGM_CALENDAR_URL));
+        if (live) {
+            try { localStorage.setItem(CAL_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: live })); } catch (e) { }
+            return useCalendar(live, false);
         }
 
-        // 通道 1: 官方直連 (帶 3.5s 超時保護，避免無限轉圈)
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3500);
-            const res = await fetch("https://api.bgm.tv/calendar", { signal: controller.signal });
-            clearTimeout(timeoutId);
-            if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data) && data.length > 0) {
-                    window.bangumiCalendarData = data;
-                    window._isUsingFallbackBangumi = false;
-                    try {
-                        sessionStorage.setItem('web_library_bgm_calendar_cache', JSON.stringify({ ts: Date.now(), data }));
-                    } catch (e) { }
-                    return data;
-                }
-            }
-        } catch (e) {
-            console.warn("Bangumi 官方直連受限或超時，嘗試通道 2...", e);
-        }
-
-        // 通道 2: 本地 24 小時內的有效快取
-        if (!force) {
-            try {
-                const cached = sessionStorage.getItem('web_library_bgm_calendar_cache');
-                if (cached) {
-                    const parsed = JSON.parse(cached);
-                    if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
-                        window.bangumiCalendarData = parsed.data;
-                        window._isUsingFallbackBangumi = false;
-                        return parsed.data;
-                    }
-                }
-            } catch (e) { }
-        }
-
-        // 通道 3: 公共 CORS Proxy 鏡像通道 (3.5s 超時)
-        try {
-            const proxyController = new AbortController();
-            const pTimeout = setTimeout(() => proxyController.abort(), 3500);
-            const res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api.bgm.tv/calendar"), { signal: proxyController.signal });
-            clearTimeout(pTimeout);
-            if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data) && data.length > 0) {
-                    window.bangumiCalendarData = data;
-                    window._isUsingFallbackBangumi = false;
-                    return data;
-                }
-            }
-        } catch (e) {
-            console.warn("Bangumi 代理鏡像通道亦失敗，啟用離線精選新番資料集...", e);
-        }
-
-        // 通道 4: 離線精選新番備用資料集 (100% 救回畫面)
-        window._isUsingFallbackBangumi = true;
-        const fallbackCalendar = [
-            { weekday: { en: 'Sun', cn: '星期日', ja: '日曜日', id: 7 }, items: FALLBACK_BANGUMI_ITEMS },
-            { weekday: { en: 'Mon', cn: '星期一', ja: '月曜日', id: 1 }, items: FALLBACK_BANGUMI_ITEMS },
-            { weekday: { en: 'Tue', cn: '星期二', ja: '火曜日', id: 2 }, items: FALLBACK_BANGUMI_ITEMS },
-            { weekday: { en: 'Wed', cn: '星期三', ja: '水曜日', id: 3 }, items: FALLBACK_BANGUMI_ITEMS },
-            { weekday: { en: 'Thu', cn: '星期四', ja: '木曜日', id: 4 }, items: FALLBACK_BANGUMI_ITEMS },
-            { weekday: { en: 'Fri', cn: '星期五', ja: '金曜日', id: 5 }, items: FALLBACK_BANGUMI_ITEMS },
-            { weekday: { en: 'Sat', cn: '星期六', ja: '土曜日', id: 6 }, items: FALLBACK_BANGUMI_ITEMS }
-        ];
-        window.bangumiCalendarData = fallbackCalendar;
-        return fallbackCalendar;
+        // 連不上時：上次成功的資料 (即使過期) 比寫死的清單準；都沒有才只在今天那欄放精選清單
+        if (cache) return useCalendar(cache.data, true);
+        const today = new Date().getDay() || 7;
+        return useCalendar([1, 2, 3, 4, 5, 6, 7].map(id => ({
+            weekday: { id },
+            items: id === today ? FALLBACK_BANGUMI_ITEMS : []
+        })), true);
     }
     window.fetchCalendarDataWithFallback = fetchCalendarDataWithFallback;
 
