@@ -5,15 +5,13 @@ let islandPlayMode = localStorage.getItem("islandPlayMode") || "repeat"; // "rep
 function toggleIslandPlayMode() {
   if (islandPlayMode === "repeat") {
     islandPlayMode = "shuffle";
-    showToast("🔀 已切換為：隨機播放", "bi-shuffle text-info");
   } else if (islandPlayMode === "shuffle") {
     islandPlayMode = "repeat-1";
-    showToast("🔂 已切換為：單曲循環", "bi-repeat-1 text-warning");
   } else {
     islandPlayMode = "repeat";
-    showToast("🔁 已切換為：清單循環播放", "bi-repeat text-success");
   }
   localStorage.setItem("islandPlayMode", islandPlayMode);
+  // 直接平滑就地更新圖標與文字，絕不彈出通知以防關閉抽屜與音樂介面
   updatePlayModeUI();
 }
 
@@ -2732,7 +2730,7 @@ function initDynamicIslandMusic() {
 
         bubble.innerHTML = `
           <div class="watch-bubble-circle">
-            <img src="${track.cover || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80'}" alt="${track.title}" loading="lazy" />
+            <img src="${track.cover || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80'}" alt="${track.title}" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80'" />
             <div class="watch-bubble-overlay">
               <i class="bi ${isCurrent && islandMusicState.isPlaying ? "bi-pause-fill" : "bi-play-fill"} text-white fs-4"></i>
             </div>
@@ -3055,10 +3053,14 @@ function initDynamicIslandMusic() {
       list.forEach(item => {
         const card = document.createElement("div");
         card.className = "watch-search-card";
+        const durationText = typeof formatIslandTime === "function" ? formatIslandTime(item.duration || 240) : "04:00";
         card.innerHTML = `
-          <img src="${item.cover}" class="watch-search-thumb" alt="${item.title}" loading="lazy" />
+          <img src="${item.cover}" class="watch-search-thumb" alt="${item.title}" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&q=80'" />
           <div class="text-truncate flex-grow-1">
-            <div class="fw-bold text-white small text-truncate" title="${item.title}">${item.title}</div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="fw-bold text-white small text-truncate" title="${item.title}">${item.title}</span>
+              <span class="badge bg-secondary-subtle text-info fs-xs px-2 py-0 rounded-pill"><i class="bi bi-clock me-1"></i>${durationText}</span>
+            </div>
             <div class="text-white-50 fs-xs text-truncate">${item.artist} · ${item.album || '單曲'}</div>
           </div>
           <div class="d-flex align-items-center gap-1 flex-shrink-0">

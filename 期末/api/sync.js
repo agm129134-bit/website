@@ -646,21 +646,53 @@ async function handleSyncRoute(req, res) {
                         }, (nRes) => {
                             let rawData = '';
                             nRes.on('data', chunk => rawData += chunk);
-                            nRes.on('end', () => {
+                            nRes.on('end', async () => {
                                 try {
                                     const json = JSON.parse(rawData);
                                     const songs = (json.result && Array.isArray(json.result.songs)) ? json.result.songs : [];
+                                    if (songs.length === 0) return resolve([]);
+
+                                    // 批次取得真實專輯高清封面 (透過 /api/song/detail 批次端點)
+                                    const songIds = songs.map(s => s.id);
+                                    let coverMap = {};
+                                    try {
+                                        const detailUrl = `https://music.163.com/api/song/detail/?ids=%5B${songIds.join(',')}%5D`;
+                                        const detailJson = await new Promise(resD => {
+                                            https.get(detailUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 4000 }, rD => {
+                                                let dData = '';
+                                                rD.on('data', c => dData += c);
+                                                rD.on('end', () => {
+                                                    try { resD(JSON.parse(dData)); } catch(e) { resD(null); }
+                                                });
+                                            }).on('error', () => resD(null));
+                                        });
+
+                                        if (detailJson && Array.isArray(detailJson.songs)) {
+                                            detailJson.songs.forEach(item => {
+                                                if (item.album && item.album.picUrl) {
+                                                    coverMap[item.id] = item.album.picUrl.replace(/^http:/, 'https:');
+                                                }
+                                            });
+                                        }
+                                    } catch(e) {}
+
                                     const formatted = songs.map(s => {
                                         const songId = s.id;
-                                        const picUrl = s.album && s.album.picUrl ? s.album.picUrl.replace(/^http:/, 'https:') : '';
+                                        // 優先使用真實專輯封面，次之歌手圖，最後兜底高品質音樂封面
+                                        const rawCover = coverMap[songId] || 
+                                            (s.album && s.album.picUrl ? s.album.picUrl.replace(/^http:/, 'https:') : '') ||
+                                            (s.artists && s.artists[0] && s.artists[0].img1v1Url ? s.artists[0].img1v1Url.replace(/^http:/, 'https:') : '');
+                                        
+                                        const finalCover = (rawCover && !rawCover.includes('5639395138885805')) ? rawCover : 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80';
                                         const artistName = s.artists && s.artists.length > 0 ? s.artists.map(a => a.name).join(' / ') : '未知歌手';
                                         const durationSec = s.duration ? Math.round(s.duration / 1000) : 240;
+
                                         return {
                                             id: 'net_' + songId,
                                             title: s.name,
                                             artist: artistName,
                                             album: s.album ? s.album.name : '',
-                                            cover: picUrl || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80',
+                                            cover: finalCover,
                                             src: `https://api.injahow.cn/meting/?server=netease&type=url&id=${songId}`,
                                             duration: durationSec,
                                             isFull: true

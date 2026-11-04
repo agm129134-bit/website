@@ -150,6 +150,29 @@
             box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
         }
     </style>
+<script>
+        // 置頂優先檢查 30 天記住登入憑證
+        (function headFastAutoLogin() {
+            try {
+                let current = sessionStorage.getItem('currentUser');
+                if (!current) {
+                    const remembered = JSON.parse(localStorage.getItem('rememberedUser') || 'null');
+                    if (remembered && remembered.user && (!remembered.expiresAt || Date.now() < remembered.expiresAt)) {
+                        sessionStorage.setItem('currentUser', JSON.stringify(remembered.user));
+                        current = JSON.stringify(remembered.user);
+                    } else if (remembered && remembered.expiresAt && Date.now() >= remembered.expiresAt) {
+                        localStorage.removeItem('rememberedUser');
+                    }
+                }
+                if (current) {
+                    const userObj = JSON.parse(current);
+                    if (userObj && userObj.username) {
+                        window.location.replace('index.html');
+                    }
+                }
+            } catch(e) {}
+        })();
+    </script>
 </head>
 <body>
 
@@ -384,9 +407,7 @@
 
     <script>
         // 1. 徹底掃除本機歷史 localStorage 殘留，杜絕任何硬碟持久化依賴 (遵守全域無 localStorage 鐵律)
-        try {
-            localStorage.clear();
-        } catch (e) {}
+        // [30天免登入保護] 已移除 localStorage.clear()
 
         // 2. 檢查當前瀏覽器分頁會話 (sessionStorage) 是否已登入，若已登入自動跳轉首頁
         (function checkAlreadyLoggedIn() {
@@ -567,8 +588,10 @@
                         const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 天效期
                         localStorage.setItem('rememberedUser', JSON.stringify({ user, expiresAt }));
                         localStorage.setItem('currentUser', JSON.stringify(user));
+                        localStorage.setItem('web_library_user', user.username || 'jyun');
                     } else {
                         localStorage.removeItem('rememberedUser');
+                        localStorage.removeItem('currentUser');
                     }
 
                     showToast(`歡迎回來，${user.name || user.username}！`, "bi-check-circle-fill text-success");
