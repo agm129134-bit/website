@@ -2408,7 +2408,16 @@ function initDynamicIslandMusic() {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.tracks)) {
-          userMusicTracks = data.tracks;
+          const legacySeedIds = new Set([
+            "track_madoka", "track_sao", "track_frieren", "track_precure",
+            "track_eva", "track_ghibli", "track_lofi_cyber", "track_tokyo_lofi"
+          ]);
+          // 徹底過濾歷史假歌種子，曲庫完全乾淨留白
+          const cleanedTracks = data.tracks.filter(t => !legacySeedIds.has(t.id) && !t.id?.startsWith("track_seed_"));
+          userMusicTracks = cleanedTracks;
+          if (cleanedTracks.length !== data.tracks.length) {
+            saveMusicToNeDB(cleanedTracks);
+          }
         } else {
           userMusicTracks = [];
         }
@@ -2772,8 +2781,15 @@ function initDynamicIslandMusic() {
     }
 
     try {
-      const res = await fetch(`/api/music/search?q=${encodeURIComponent(kw)}`);
-      if (!res.ok) throw new Error("線上搜尋請求失敗");
+      // 雙通道自動重試：優先走 /api/user/music/search，備援 /api/music/search
+      let res = await fetch(`/api/user/music/search?q=${encodeURIComponent(kw)}`);
+      if (!res.ok) {
+        res = await fetch(`/api/music/search?q=${encodeURIComponent(kw)}`);
+      }
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `伺服器回應異常 (${res.status})`);
+      }
       const json = await res.json();
       const list = (json.tracks && Array.isArray(json.tracks)) ? json.tracks : [];
 

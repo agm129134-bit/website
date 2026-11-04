@@ -516,7 +516,7 @@ async function handleSyncRoute(req, res) {
         // ==========================================
         // 0.95 個人 Apple Watch 音樂庫管理 /api/user/music (NeDB 存取)
         // ==========================================
-        if (pathname === '/api/user/music') {
+        if (pathname === '/api/user/music' || pathname === '/api/music') {
             const defaultUser = await getDefaultActiveUser();
             let username = query.user || query.username || defaultUser;
             if ((username === '期末展示學生' || username === 'default') && defaultUser !== 'default') {
@@ -624,7 +624,7 @@ async function handleSyncRoute(req, res) {
         // ==========================================
         // 0.96 開源線上歌曲即時搜尋端點 /api/music/search?q=... (真實歌曲、高清封面與正版串流音訊)
         // ==========================================
-        if (pathname === '/api/music/search' && req.method === 'GET') {
+        if ((pathname === '/api/music/search' || pathname === '/api/user/music/search') && req.method === 'GET') {
             const keyword = (query.q || query.term || query.keyword || '').trim();
             if (!keyword) {
                 return sendJson(res, 400, { success: false, error: '請輸入欲搜尋之歌曲或歌手關鍵字' });
