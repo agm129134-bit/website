@@ -18,6 +18,16 @@ function formatMmSs(sec) {
   return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
 }
 
+// 移除書籤上舊的觀看/閱讀狀態標籤 (同步 Bangumi 狀態前清理用)
+const WATCH_STATUS_TAGS = new Set([
+  "想看", "在看", "看過", "已看", "已看過", "已在看",
+  "想讀", "在讀", "讀過", "已讀", "已讀過", "已在讀",
+  "在看/在讀", "看過/讀過", "想看/想讀", "#在看/在讀", "#看過/讀過", "#想看/想讀",
+]);
+function stripWatchStatusTags(tags) {
+  return tags.filter((t) => !WATCH_STATUS_TAGS.has(t));
+}
+
 // 產生唯一 ID：<prefix>_<timestamp>_<隨機碼>
 function genId(prefix, randLen = 5, ts = Date.now()) {
   return `${prefix}_${ts}_${Math.random().toString(36).slice(2, 2 + randLen)}`;
@@ -2165,9 +2175,6 @@ function pauseIslandMusicForVideo() {
     if (typeof islandAudio !== "undefined" && islandAudio) {
       islandAudio.pause();
     }
-    if (typeof stopWebAudioFallback === "function") {
-      stopWebAudioFallback();
-    }
     islandMusicState.isPlaying = false;
     // 立即更新所有播放按鈕為播放箭頭 (▶ bi-play-fill)，並切換動態島為 paused 狀態
     if (typeof window.updateIslandUI === "function") {
@@ -2601,13 +2608,11 @@ function initDynamicIslandMusic() {
   }
 
   // 7. 長按（Long Press ~450ms）vs 單擊（Click）事件判定
-  let islandPointerStartTime = 0;
   let islandLongPressTimer = null;
   let isLongPressTriggered = false;
 
   bar.addEventListener("pointerdown", (e) => {
     if (e.target.closest("#islandQuickPlayBtn")) return;
-    islandPointerStartTime = Date.now();
     isLongPressTriggered = false;
 
     islandLongPressTimer = setTimeout(() => {
@@ -6301,6 +6306,21 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
+// 取得劇院播放器狀態：劇院 Modal 是否開啟、播放容器是否全螢幕
+function getTheaterViewState() {
+  const container = document.getElementById("kazumiScreenContainer");
+  const theaterModal = document.getElementById("animePlayerModal");
+  const isOpen = !!(
+    theaterModal &&
+    (theaterModal.classList.contains("show") || theaterModal.style.display === "block")
+  );
+  const isFs = !!(
+    container &&
+    (document.fullscreenElement === container || document.webkitFullscreenElement === container)
+  );
+  return { container, theaterModal, isOpen, isFs };
+}
+
 // 全螢幕沉浸式互動感應區初始化
 
 function initKazumiFullscreenInteractions() {
@@ -6317,18 +6337,7 @@ function initKazumiFullscreenInteractions() {
   };
 
   const handleHoverWheel = (e) => {
-    const container = document.getElementById("kazumiScreenContainer");
-    const theaterModal = document.getElementById("animePlayerModal");
-
-    const isOpen =
-      theaterModal &&
-      (theaterModal.classList.contains("show") ||
-        theaterModal.style.display === "block");
-
-    const isFs =
-      container &&
-      (document.fullscreenElement === container ||
-        document.webkitFullscreenElement === container);
+    const { isOpen, isFs } = getTheaterViewState();
 
     if (!isOpen && !isFs) return;
 
@@ -6418,18 +6427,7 @@ function initKazumiFullscreenInteractions() {
     let clickTimeout = null;
 
     screenOverlay.addEventListener("click", (e) => {
-      const container = document.getElementById("kazumiScreenContainer");
-      const theaterModal = document.getElementById("animePlayerModal");
-
-      const isOpen =
-        theaterModal &&
-        (theaterModal.classList.contains("show") ||
-          theaterModal.style.display === "block");
-
-      const isFs =
-        container &&
-        (document.fullscreenElement === container ||
-          document.webkitFullscreenElement === container);
+      const { isOpen, isFs } = getTheaterViewState();
 
       if (!isFs && !isOpen) return;
 
@@ -6483,18 +6481,7 @@ function initKazumiFullscreenInteractions() {
   window.addEventListener(
     "wheel",
     (e) => {
-      const container = document.getElementById("kazumiScreenContainer");
-      const theaterModal = document.getElementById("animePlayerModal");
-
-      const isOpen =
-        theaterModal &&
-        (theaterModal.classList.contains("show") ||
-          theaterModal.style.display === "block");
-
-      const isFs =
-        container &&
-        (document.fullscreenElement === container ||
-          document.webkitFullscreenElement === container);
+      const { container, isOpen, isFs } = getTheaterViewState();
 
       if (isFs) {
         if (
@@ -6857,18 +6844,23 @@ window.getMangaBookshelf = function () {
 
 let _bookshelfSyncDebounceTimer = null;
 
+// 解析書架同步帳號 (session 登入者 → web_library_user → 預設)；訪客回傳 null
+function resolveBookshelfUser(explicitUser) {
+  let user = explicitUser;
+  if (!user) {
+    try {
+      const uStr = sessionStorage.getItem("currentUser");
+      if (uStr) user = JSON.parse(uStr).username;
+    } catch (e) {}
+  }
+  user = (user || sessionStorage.getItem("web_library_user") || "jyun").toLowerCase().trim();
+  return !user || user === "訪客" || user === "guest" ? null : user;
+}
+
 // 跨裝置立體書架同步核心：將本地漫畫/小說書架推送到 NeDB 伺服器端
 window.syncBookshelfToServer = function(type, list) {
-  let user = null;
-  try {
-    const uStr = sessionStorage.getItem("currentUser");
-    if (uStr) {
-      const uObj = JSON.parse(uStr);
-      user = uObj.username;
-    }
-  } catch(e) {}
-  user = (user || sessionStorage.getItem("web_library_user") || "jyun").toLowerCase().trim();
-  if (!user || user === "訪客" || user === "guest") return;
+  const user = resolveBookshelfUser();
+  if (!user) return;
 
   clearTimeout(_bookshelfSyncDebounceTimer);
   _bookshelfSyncDebounceTimer = setTimeout(async () => {
@@ -6896,18 +6888,8 @@ window.syncBookshelfToServer = function(type, list) {
 
 // 跨裝置立體書架同步核心：從 NeDB 伺服器端拉取書架並合併更新至本地記憶體
 window.syncBookshelfFromServer = async function(username) {
-  let user = username;
-  if (!user) {
-    try {
-      const uStr = sessionStorage.getItem("currentUser");
-      if (uStr) {
-        const uObj = JSON.parse(uStr);
-        user = uObj.username;
-      }
-    } catch(e) {}
-  }
-  user = (user || sessionStorage.getItem("web_library_user") || "jyun").toLowerCase().trim();
-  if (!user || user === "訪客" || user === "guest") return;
+  const user = resolveBookshelfUser(username);
+  if (!user) return;
 
   try {
     const res = await fetch(`/api/user/bookshelf?user=${encodeURIComponent(user)}`);
@@ -7247,6 +7229,35 @@ window.updateBookshelfTrashVisibility = function() {
   }
 };
 
+// 綁定書本拖曳至垃圾桶的事件；回傳 { active } 供點擊事件判斷是否正在拖曳
+function bindBookshelfDrag(bookEl, type, title) {
+  const drag = { active: false };
+  const trash = () => document.getElementById("globalBookshelfTrashBin");
+  bookEl.addEventListener("dragstart", (e) => {
+    drag.active = true;
+    window._currentlyDraggedBookEl = bookEl;
+    bookEl.classList.add("dragging-book");
+    e.dataTransfer.setData("text/plain", JSON.stringify({ type, title }));
+    e.dataTransfer.effectAllowed = "move";
+    const t = trash();
+    if (t) {
+      t.style.display = "flex";
+      t.classList.add("trash-ready");
+    }
+  });
+  bookEl.addEventListener("dragend", () => {
+    bookEl.classList.remove("dragging-book");
+    const t = trash();
+    if (t) t.classList.remove("trash-ready", "trash-hover");
+    setTimeout(() => {
+      drag.active = false;
+      window._currentlyDraggedBookEl = null;
+      window.updateBookshelfTrashVisibility();
+    }, 100);
+  });
+  return drag;
+}
+
 window.renderMangaBookshelf = function () {
   const grid = document.getElementById("mangaBookshelfGrid");
   if (!grid) return;
@@ -7300,33 +7311,10 @@ window.renderMangaBookshelf = function () {
             <div class="bookshelf-book-sub">點擊開卷</div>
         `;
 
-    let isDraggingBook = false;
-    bookEl.addEventListener("dragstart", (e) => {
-      isDraggingBook = true;
-      window._currentlyDraggedBookEl = bookEl;
-      bookEl.classList.add("dragging-book");
-      e.dataTransfer.setData("text/plain", JSON.stringify({ type: "manga", title: book.title }));
-      e.dataTransfer.effectAllowed = "move";
-      const t = document.getElementById("globalBookshelfTrashBin");
-      if (t) {
-        t.style.display = "flex";
-        t.classList.add("trash-ready");
-      }
-    });
-
-    bookEl.addEventListener("dragend", () => {
-      bookEl.classList.remove("dragging-book");
-      const t = document.getElementById("globalBookshelfTrashBin");
-      if (t) t.classList.remove("trash-ready", "trash-hover");
-      setTimeout(() => {
-        isDraggingBook = false;
-        window._currentlyDraggedBookEl = null;
-        window.updateBookshelfTrashVisibility();
-      }, 100);
-    });
+    const drag = bindBookshelfDrag(bookEl, "manga", book.title);
 
     bookEl.onclick = () => {
-      if (isDraggingBook) return;
+      if (drag.active) return;
       if (typeof window.openMangaSearchModal === "function") {
         window.openMangaSearchModal(book.title);
       }
@@ -7435,33 +7423,10 @@ window.renderNovelBookshelf = function () {
             <div class="bookshelf-book-sub ${isLocal ? "text-primary fw-semibold" : ""}">${subText}</div>
         `;
 
-    let isDraggingBook = false;
-    bookEl.addEventListener("dragstart", (e) => {
-      isDraggingBook = true;
-      window._currentlyDraggedBookEl = bookEl;
-      bookEl.classList.add("dragging-book");
-      e.dataTransfer.setData("text/plain", JSON.stringify({ type: "novel", title: book.title }));
-      e.dataTransfer.effectAllowed = "move";
-      const t = document.getElementById("globalBookshelfTrashBin");
-      if (t) {
-        t.style.display = "flex";
-        t.classList.add("trash-ready");
-      }
-    });
-
-    bookEl.addEventListener("dragend", () => {
-      bookEl.classList.remove("dragging-book");
-      const t = document.getElementById("globalBookshelfTrashBin");
-      if (t) t.classList.remove("trash-ready", "trash-hover");
-      setTimeout(() => {
-        isDraggingBook = false;
-        window._currentlyDraggedBookEl = null;
-        window.updateBookshelfTrashVisibility();
-      }, 100);
-    });
+    const drag = bindBookshelfDrag(bookEl, "novel", book.title);
 
     bookEl.onclick = async () => {
-      if (isDraggingBook) return;
+      if (drag.active) return;
       if (isLocal) {
         // 本機電子書開卷邏輯：自 IndexedDB 讀取完整章節
         const bookId = book.id || "local_" + book.title.replace(/\s+/g, "_");
@@ -7631,7 +7596,6 @@ window.openTachimangaReader = function (title = "", pages = []) {
   }
 
   const titleEl = document.getElementById("mangaModalTitle");
-  const indicatorEl = document.getElementById("mangaPageIndicator");
   const chapterBadge = document.getElementById("mangaCurrentChapterBadge");
   const wrapper = document.getElementById("mangaPageWrapper");
 
@@ -8754,6 +8718,21 @@ window.backToNovelSearchResults = function () {
 
 // 核心：載入指定小說的特定章節正文（具備本地備援正文生成引擎）
 
+// 渲染小說章節段落並立即套用使用者已保存的自訂字色
+function renderNovelParagraphs(paragraphsEl, paragraphs) {
+  if (!paragraphsEl) return;
+  paragraphsEl.innerHTML = paragraphs
+    .map(
+      (p) => `
+            <p class="mb-4 text-justify" style="text-indent: 2em; line-height: 2.2;">${escapeHtml(p)}</p>
+        `,
+    )
+    .join("");
+  const savedColor =
+    novelState.customTextColor || sessionStorage.getItem("novel_text_color");
+  if (savedColor) window.setNovelCustomTextColor(savedColor);
+}
+
 window.loadNovelChapter = async function (
   novelId,
   chapterId,
@@ -8866,31 +8845,7 @@ window.loadNovelChapter = async function (
   if (headingEl)
     headingEl.textContent = loadedChapterTitle || `第 ${chapterIdx + 1} 章`;
 
-  if (paragraphsEl) {
-    paragraphsEl.innerHTML = loadedParagraphs
-      .map(
-        (p) => `
-            <p class="mb-4 text-justify" style="text-indent: 2em; line-height: 2.2;">${escapeHtml(p)}</p>
-        `,
-      )
-      .join("");
-
-    // 立即套用使用者已保存的自訂字色
-
-    const savedColor =
-      novelState.customTextColor ||
-      (function () {
-        try {
-          return sessionStorage.getItem("novel_text_color");
-        } catch (e) {
-          return null;
-        }
-      })();
-
-    if (savedColor && typeof window.setNovelCustomTextColor === "function") {
-      window.setNovelCustomTextColor(savedColor);
-    }
-  }
+  renderNovelParagraphs(paragraphsEl, loadedParagraphs);
 
   // 捲動至頂部
 
@@ -9481,29 +9436,7 @@ function loadLocalNovelChapter(idx) {
 
   if (headingEl) headingEl.textContent = ch.title;
 
-  if (paragraphsEl) {
-    paragraphsEl.innerHTML = (ch.paragraphs || [])
-      .map(
-        (p) => `
-            <p class="mb-4 text-justify" style="text-indent: 2em; line-height: 2.2;">${escapeHtml(p)}</p>
-        `,
-      )
-      .join("");
-
-    const savedColor =
-      novelState.customTextColor ||
-      (function () {
-        try {
-          return sessionStorage.getItem("novel_text_color");
-        } catch (e) {
-          return null;
-        }
-      })();
-
-    if (savedColor && typeof window.setNovelCustomTextColor === "function") {
-      window.setNovelCustomTextColor(savedColor);
-    }
-  }
+  renderNovelParagraphs(paragraphsEl, ch.paragraphs || []);
 
   const bodyWrapper = document.getElementById("novelBodyWrapper");
 
@@ -10111,26 +10044,7 @@ window.triggerBangumiUserSync = async function (mode = "import") {
 
         // 清理舊的狀態標籤並加入最新的精確標籤
 
-        existing.tags = existing.tags.filter(
-          (t) =>
-            ![
-              "想看",
-              "在看",
-              "看過",
-              "已看",
-              "已看過",
-              "已在看",
-              "想讀",
-              "在讀",
-              "讀過",
-              "已讀",
-              "已讀過",
-              "已在讀",
-              "在看/在讀",
-              "看過/讀過",
-              "想看/想讀",
-            ].includes(t),
-        );
+        existing.tags = stripWatchStatusTags(existing.tags);
 
         tags.forEach((t) => {
           if (!existing.tags.includes(t)) existing.tags.push(t);
@@ -11064,29 +10978,7 @@ window.updateCardWatchStatus = async function (bookmarkId, newType) {
 
   if (!Array.isArray(item.tags)) item.tags = [];
 
-  item.tags = item.tags.filter(
-    (t) =>
-      ![
-        "想看",
-        "在看",
-        "看過",
-        "已看",
-        "已看過",
-        "已在看",
-        "想讀",
-        "在讀",
-        "讀過",
-        "已讀",
-        "已讀過",
-        "已在讀",
-        "在看/在讀",
-        "看過/讀過",
-        "想看/想讀",
-        "#在看/在讀",
-        "#看過/讀過",
-        "#想看/想讀",
-      ].includes(t),
-  );
+  item.tags = stripWatchStatusTags(item.tags);
 
   item.tags.push(typeLabel);
   item.bangumiStatus = newType;
@@ -11482,29 +11374,7 @@ window.applyBangumiStatusChange = async function (
 
         if (!Array.isArray(bm.tags)) bm.tags = [];
 
-        bm.tags = bm.tags.filter(
-          (t) =>
-            ![
-              "想看",
-              "在看",
-              "看過",
-              "已看",
-              "已看過",
-              "已在看",
-              "想讀",
-              "在讀",
-              "讀過",
-              "已讀",
-              "已讀過",
-              "已在讀",
-              "在看/在讀",
-              "看過/讀過",
-              "想看/想讀",
-              "#在看/在讀",
-              "#看過/讀過",
-              "#想看/想讀",
-            ].includes(t),
-        );
+        bm.tags = stripWatchStatusTags(bm.tags);
 
         bm.tags.push(typeLabel);
         updatedAnyBookmark = true;
