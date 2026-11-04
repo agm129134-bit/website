@@ -191,7 +191,6 @@ function initApp() {
   loadFromStorage();
 
   // 只有在首頁（存在 bookmarkContainer 與 categoryNav）時才初始化首頁 UI 與事件監聽
-
   if (
     document.getElementById("bookmarkContainer") &&
     document.getElementById("categoryNav")
@@ -249,13 +248,11 @@ function initApp() {
   }
 
   // 啟動時自動背景向伺服器拉取最新跨電腦雲端同步書籤
-
   if (state.currentUser && state.currentUser !== "訪客") {
     syncFromServer(state.currentUser);
   }
 
   // 當使用者自其他分頁使用篡改猴 (Alt+B) 收藏後切回本網頁時，自動即時拉取最新書籤 (無須手動重整)
-
   window.addEventListener("focus", () => {
     if (_isLocalMutationActive) return; // 避免刪除彈窗復焦時誤觸發拉取競態
 
@@ -273,7 +270,6 @@ function loadFromStorage() {
       const parsed = JSON.parse(saved);
 
       // 若為先前的預設假資料，則主動清空，保持乾淨
-
       if (
         Array.isArray(parsed) &&
         parsed.some((b) => b.id === "bm_1" && b.title.includes("bootstrap"))
@@ -295,7 +291,6 @@ function loadFromStorage() {
   }
 
   // 優先讀取登入驗證身分 (currentUser)
-
   const authUserStr = sessionStorage.getItem("currentUser");
 
   if (authUserStr) {
@@ -336,7 +331,6 @@ function loadFromStorage() {
 }
 
 // 帳號登出函數
-
 window.logoutUser = function () {
   if (confirm("確定要登出個人圖書館帳號嗎？")) {
     sessionStorage.removeItem("currentUser");
@@ -356,7 +350,6 @@ window.logoutUser = function () {
 };
 
 // 刪除當前帳號函數 (雙重確認 + 伺服器端資料徹底刪除)
-
 window.confirmDeleteCurrentAccount = async function () {
   const user = state.currentUser;
 
@@ -377,7 +370,6 @@ window.confirmDeleteCurrentAccount = async function () {
     });
 
     // 2. 清除本機 registeredUsers 清單中的此帳號，並加入永久刪除黑名單
-
     try {
       let deletedUsers = [];
 
@@ -415,7 +407,6 @@ window.confirmDeleteCurrentAccount = async function () {
     } catch (e) {}
 
     // 3. 清理本機當前快取
-
     sessionStorage.removeItem("currentUser");
 
     sessionStorage.removeItem("currentUser");
@@ -445,7 +436,6 @@ window.confirmDeleteCurrentAccount = async function () {
 };
 
 // 跨電腦雲端自動同步計時器 (支援防抖 Debounce 與刪除操作立即同步)
-
 let _cloudSyncDebounceTimer = null;
 
 let _isLocalMutationActive = false; // 本地主動修改鎖 (避免 confirm 彈窗關閉導致 window.focus 誤拉取舊書籤復活)
@@ -487,7 +477,6 @@ async function syncToServer(immediate = false) {
 }
 
 // 從伺服器拉取跨裝置收藏 (支援平滑雙向合併，防止已被刪除的項目復活)
-
 async function syncFromServer(username, isFocusSync = false) {
   if (_isLocalMutationActive) return; // 正在進行本地刪除/修改，不覆蓋
 
@@ -574,7 +563,6 @@ function saveToStorage(immediate = false) {
   sessionStorage.setItem("web_library_token", state.apiToken);
 
   // 自動觸發跨電腦伺服器端同步備份
-
   syncToServer(immediate);
 }
 
@@ -619,7 +607,6 @@ window.getBgmPriority = function () {
 };
 
 // 驗證 Bangumi 個人授權令牌 (Token) 是否有效
-
 window.verifyBangumiToken = async function () {
   const tokenInput = document.getElementById("bgmTokenInput");
   const statusBox = document.getElementById("bgmTokenStatus");
@@ -677,7 +664,6 @@ window.verifyBangumiToken = async function () {
       }
 
       // 若使用者名稱輸入框為空或預設值，自動填入對應的 Bangumi 用戶名
-
       if (
         usernameInput &&
         (!usernameInput.value.trim() || usernameInput.value.trim() === "sai")
@@ -720,7 +706,6 @@ window.verifyBangumiToken = async function () {
 };
 
 // 雙向同步：向 Bangumi 官方回寫收藏狀態 (1:想看, 2:看過, 3:在看, 4:擱置, 5:拋棄)
-
 window.syncStatusToBangumi = async function (
   subjectId,
   statusType = 3,
@@ -784,7 +769,6 @@ window.syncStatusToBangumi = async function (
 };
 
 // 雙向同步：向 Bangumi 官方自動更新集數/話數進度
-
 window.syncEpisodeProgressToBangumi = async function (
   subjectId,
   episodeId = null,
@@ -852,7 +836,6 @@ function updateUI() {
 }
 
 // 動畫項目判定 (由 Qwen 27B 設計之多重條件比對)
-
 function isAnimeItem(item) {
   if (!item) return false;
 
@@ -866,7 +849,6 @@ function isAnimeItem(item) {
 }
 
 // 統計數量更新
-
 function updateStats() {
   const statWeb = document.getElementById("statWebCount");
 
@@ -910,7 +892,6 @@ function updateStats() {
 }
 
 // 標籤篩選晶片動態渲染
-
 function renderTagChips() {
   const container = document.getElementById("tagFiltersContainer");
 
@@ -924,7 +905,6 @@ function renderTagChips() {
   });
 
   // 保留 "全部標籤" 按鈕
-
   container.innerHTML = `
         <span class="small text-muted d-flex align-items-center gap-1">
             <i class="bi bi-tags-fill"></i> 標籤篩選：
@@ -952,7 +932,6 @@ function renderTagChips() {
   });
 
   // 重新綁定 "全部標籤" 點擊
-
   container.querySelector('[data-tag="all"]').addEventListener("click", () => {
     state.activeTag = "all";
 
@@ -963,12 +942,10 @@ function renderTagChips() {
 }
 
 // 篩選與排序核心運算
-
 function getFilteredAndSortedBookmarks() {
   let result = [...state.bookmarks];
 
   // 1. 分類過濾 (動漫與資源包含動漫與資源索引)
-
   if (state.activeCategory !== "all") {
     if (state.activeCategory === "anime") {
       result = result.filter(isAnimeItem);
@@ -984,7 +961,6 @@ function getFilteredAndSortedBookmarks() {
   }
 
   // 2. 標籤過濾
-
   if (state.activeTag !== "all") {
     result = result.filter(
       (b) => Array.isArray(b.tags) && b.tags.includes(state.activeTag),
@@ -992,12 +968,10 @@ function getFilteredAndSortedBookmarks() {
   }
 
   // 3. 搜尋字串比對 (標題、網址、描述或標籤)
-
   const rawSearch = (state.searchQuery || "").trim();
   const currentU = (state.currentUser || "").toLowerCase().trim();
 
   // 智慧防護：若搜尋詞與當前登入者帳號完全相同（因瀏覽器 Autofill 誤填），自動忽略過濾
-
   if (rawSearch !== "" && rawSearch.toLowerCase() !== currentU) {
     const q = rawSearch.toLowerCase();
 
@@ -1014,7 +988,6 @@ function getFilteredAndSortedBookmarks() {
   }
 
   // 4. 排序方式
-
   switch (state.sortMode) {
     case "pinned":
       result.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
@@ -1046,7 +1019,6 @@ function getFilteredAndSortedBookmarks() {
 }
 
 // 一鍵清除所有搜尋與篩選條件
-
 window.resetAllFilters = function () {
   state.searchQuery = "";
   state.activeCategory = "all";
@@ -1078,7 +1050,6 @@ window.resetAllFilters = function () {
 };
 
 // 收藏卡片生成渲染
-
 function renderBookmarks(skipAnimation = false) {
   const container = document.getElementById("bookmarkContainer");
   const emptyState = document.getElementById("emptyState");
@@ -1127,7 +1098,6 @@ function renderBookmarks(skipAnimation = false) {
     col.className = colClass;
 
     // 分類徽章與圖示設定
-
     let catBadgeClass = "badge-cat-web";
     let catLabel = "一般網頁";
     let catIcon = "bi-globe2";
@@ -1151,7 +1121,6 @@ function renderBookmarks(skipAnimation = false) {
     }
 
     // 解析網域名稱與 Favicon
-
     let hostname = "";
 
     try {
@@ -1163,13 +1132,11 @@ function renderBookmarks(skipAnimation = false) {
     const faviconUrl = `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`;
 
     // 標籤 HTML
-
     const tagsHtml = (item.tags || [])
       .map((t) => `<span class="tag-badge">#${escapeHtml(t)}</span>`)
       .join("");
 
     // 預設封面圖備援
-
     const fallbackCover =
       "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=700&q=80";
 
@@ -1177,7 +1144,6 @@ function renderBookmarks(skipAnimation = false) {
       item.cover && item.cover.trim() !== "" ? item.cover : fallbackCover;
 
     // 批量選取狀態
-
     const isSelected = state.selectedBookmarkIds.has(item.id);
 
     const batchSelectedClass =
@@ -1324,7 +1290,6 @@ function renderBookmarks(skipAnimation = false) {
   });
 
   // GSAP 3 物理交錯彈入動畫 (Stagger In & Smooth Damping)
-
   if (!skipAnimation && typeof gsap !== "undefined") {
     const isList = state.viewMode === "list";
 
@@ -1420,7 +1385,6 @@ function setupEventListeners() {
   });
 
   // 2. 搜尋框輸入 (增強 Autofill 隔離與防護)
-
   const searchInput = document.getElementById("searchInput");
 
   const clearSearchBtn = document.getElementById("clearSearchBtn");
@@ -1432,7 +1396,6 @@ function setupEventListeners() {
       const currentU = (state.currentUser || "").toLowerCase().trim();
 
       // 若剛觸發 input 時值恰為帳號名 (瀏覽器 Autofill 誤填)，清空並忽略
-
       if (val && currentU && val.toLowerCase().trim() === currentU) {
         searchInput.value = "";
 
@@ -1472,7 +1435,6 @@ function setupEventListeners() {
   }
 
   // 按 '/' 快捷鍵聚焦搜尋框
-
   window.addEventListener("keydown", (e) => {
     if (
       e.key === "/" &&
@@ -1486,7 +1448,6 @@ function setupEventListeners() {
   });
 
   // 3. 排序切換
-
   document.getElementById("sortSelect").addEventListener("change", (e) => {
     state.sortMode = e.target.value;
 
@@ -1494,7 +1455,6 @@ function setupEventListeners() {
   });
 
   // 4. 視圖切換 (卡片 / 清單，支援 localStorage 持久化儲存與重整自動還原)
-
   const gridBtn = document.getElementById("viewGridBtn");
 
   const listBtn = document.getElementById("viewListBtn");
@@ -1516,7 +1476,6 @@ function setupEventListeners() {
     }
 
     // 帶有 GSAP 容器無縫轉場效果的視圖切換器 (徹底杜絕卡頓與跑版破格)
-
     let isSwitchingView = false;
 
     const switchViewWithAnimation = (targetMode) => {
@@ -1527,7 +1486,6 @@ function setupEventListeners() {
       const container = document.getElementById("bookmarkContainer");
 
       // 1. 立即更新按鈕狀態 (給予使用者即時點擊反饋)
-
       if (targetMode === "list") {
         listBtn.classList.add("active");
 
@@ -1562,11 +1520,9 @@ function setupEventListeners() {
             }
 
             // 4. 重繪新版面
-
             renderBookmarks(true);
 
             // 5. 容器流暢滑入進場 (0.2s 絲滑銜接)
-
             gsap.fromTo(
               container,
               { opacity: 0, y: targetMode === "list" ? 8 : -8 },
@@ -1606,7 +1562,6 @@ function setupEventListeners() {
   }
 
   // 5. 新增 / 編輯表單送出
-
   const bookmarkForm = document.getElementById("bookmarkForm");
 
   bookmarkForm.addEventListener("submit", (e) => {
@@ -1616,7 +1571,6 @@ function setupEventListeners() {
   });
 
   // 智慧辨識按鈕
-
   document.getElementById("autoDetectBtn").addEventListener("click", () => {
     const urlInput = document.getElementById("bmUrl").value.trim();
 
@@ -1633,7 +1587,6 @@ function setupEventListeners() {
   });
 
   // 重置 Modal
-
   document.getElementById("openAddModalBtn").addEventListener("click", () => {
     document.getElementById("bookmarkForm").reset();
 
@@ -1644,7 +1597,6 @@ function setupEventListeners() {
   });
 
   // 6. 複製 Token 按鈕
-
   const copyBtn = document.getElementById("copyTokenBtn");
   if (copyBtn) {
     copyBtn.addEventListener("click", () => {
@@ -1658,7 +1610,6 @@ function setupEventListeners() {
   }
 
   // 下載 / 檢視 Userscript 腳本
-
   document
     .getElementById("downloadUserscriptBtn")
     .addEventListener("click", () => {
@@ -1666,13 +1617,11 @@ function setupEventListeners() {
     });
 
   // 7. 模擬篡改猴採集
-
   document.getElementById("testScriptSimBtn").addEventListener("click", () => {
     simulateTampermonkeyCollect();
   });
 
   // 8. 匯出 JSON
-
   document.getElementById("exportDataBtn").addEventListener("click", (e) => {
     e.preventDefault();
 
@@ -1680,7 +1629,6 @@ function setupEventListeners() {
   });
 
   // 9. 重置清空帳號書籤資料
-
   const resetBtn = document.getElementById("resetDemoBtn");
 
   if (resetBtn) {
@@ -1704,11 +1652,9 @@ function setupEventListeners() {
         state.selectedBookmarkIds.clear();
 
         // 1. 本地儲存立即清空
-
         sessionStorage.setItem("web_library_bookmarks", JSON.stringify([]));
 
         // 2. 伺服器端同步清空
-
         try {
           await fetch("/api/user/clear", {
             method: "POST",
@@ -1727,7 +1673,6 @@ function setupEventListeners() {
         );
 
         // 鎖定 3 秒，徹底防範 confirm 關閉引起的 focus 事件誤拉取舊書籤競態
-
         setTimeout(() => {
           _isLocalMutationActive = false;
         }, 3000);
@@ -1736,7 +1681,6 @@ function setupEventListeners() {
   }
 
   // 10. 會員登入 / 註冊切換模擬 (完整支援多帳號隔離與切換專屬書庫)
-
   document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const username = document.getElementById("loginUsername").value.trim();
@@ -1755,7 +1699,6 @@ function setupEventListeners() {
       );
 
       // 立即從伺服器拉取該帳號的專屬書庫
-
       await syncFromServer(username, false);
 
       updateUI();
@@ -1787,7 +1730,6 @@ function setupEventListeners() {
         if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
 
         // 新註冊帳號：初始化獨立個人書庫並即時同步至伺服器
-
         state.bookmarks = [];
 
         saveToStorage(true);
@@ -1806,7 +1748,6 @@ function setupEventListeners() {
 // 6. 收藏 CRUD 核心函式
 // ==========================================
 // 跳轉連結並累計計數
-
 window.jumpToBookmark = function (id) {
   const item = state.bookmarks.find((b) => b.id === id);
 
@@ -1821,7 +1762,6 @@ window.jumpToBookmark = function (id) {
 };
 
 // 置頂切換
-
 window.togglePinBookmark = function (id) {
   const item = state.bookmarks.find((b) => b.id === id);
 
@@ -1839,7 +1779,6 @@ window.togglePinBookmark = function (id) {
 };
 
 // 編輯開啟 Modal
-
 window.editBookmark = function (id) {
   const item = state.bookmarks.find((b) => b.id === id);
 
@@ -1861,7 +1800,6 @@ window.editBookmark = function (id) {
 };
 
 // 刪除
-
 window.deleteBookmark = function (id) {
   const item = state.bookmarks.find((b) => b.id === id);
 
@@ -1879,7 +1817,6 @@ window.deleteBookmark = function (id) {
     showToast("收藏已成功刪除", "bi-trash3 text-danger");
 
     // 設定 1.5 秒冷卻，避免 confirm 彈窗關閉觸發 window.focus 時誤將已被刪除的書籤重新合併
-
     setTimeout(() => {
       _isLocalMutationActive = false;
     }, 1500);
@@ -1887,7 +1824,6 @@ window.deleteBookmark = function (id) {
 };
 
 // 從表單儲存 (新增或更新)
-
 function saveBookmarkFromForm() {
   const id = document.getElementById("editBookmarkId").value;
   const url = document.getElementById("bmUrl").value.trim();
@@ -1939,7 +1875,6 @@ function saveBookmarkFromForm() {
   updateUI();
 
   // 關閉 Modal
-
   const modalEl = document.getElementById("bookmarkModal");
   const modalInstance = bootstrap.Modal.getInstance(modalEl);
 
@@ -1947,7 +1882,6 @@ function saveBookmarkFromForm() {
 }
 
 // 智慧解析網址 (自動推斷分類與預設標籤)
-
 function autoDetectUrl(url) {
   try {
     const parsed = new URL(url);
@@ -2033,7 +1967,6 @@ function autoDetectUrl(url) {
 }
 
 // 模擬篡改猴一鍵採集
-
 function simulateTampermonkeyCollect() {
   const mockSites = [
     {
@@ -2071,7 +2004,6 @@ function simulateTampermonkeyCollect() {
   updateUI();
 
   // 關閉 Modal
-
   const tmModal = bootstrap.Modal.getInstance(
     document.getElementById("tampermonkeyModal"),
   );
@@ -2085,7 +2017,6 @@ function simulateTampermonkeyCollect() {
 }
 
 // 匯出 JSON
-
 function exportDataAsJSON() {
   const dataStr =
     "data:text/json;charset=utf-8," +
@@ -2947,7 +2878,6 @@ if (document.readyState === "loading") {
 // 7. ACG 專用模組邏輯 (Kazumi / Tachimanga / Legado)
 // ==========================================
 // --- 0. Kazumi 播放來源規則引擎 (仿 Kazumi 原生播放來源抽屜) ---
-
 const KAZUMI_SOURCES = [
   { id: "AGE", name: "AGE動漫", desc: "全網熱門番劇（第三方解析器直出）" },
   {
@@ -2970,7 +2900,6 @@ let kazumiState = {
 };
 
 // 安全開啟動畫播放來源 (透過 bookmark ID 查詢物件，徹底解決 title 內含撇號/引號破壞 HTML onclick 的問題)
-
 window.playAnimeBookmark = function (id) {
   const item = state.bookmarks.find((b) => b.id === id);
 
@@ -2984,7 +2913,6 @@ window.playAnimeBookmark = function (id) {
 };
 
 // 安全開啟影片播放 (透過 ID)
-
 window.playVideoBookmark = function (id) {
   const item = state.bookmarks.find((b) => b.id === id);
 
@@ -2994,7 +2922,6 @@ window.playVideoBookmark = function (id) {
 };
 
 // 安全開啟漫畫閱讀 (透過 ID)
-
 window.readMangaBookmark = function (id) {
   const item = state.bookmarks.find((b) => b.id === id);
 
@@ -3004,7 +2931,6 @@ window.readMangaBookmark = function (id) {
 };
 
 // 從 DOM 元素安全讀取屬性開啟 Kazumi 來源
-
 window.openKazumiFromElement = function (el) {
   const title = el.getAttribute("data-title") || "";
   const cover = el.getAttribute("data-cover") || "";
@@ -3013,7 +2939,6 @@ window.openKazumiFromElement = function (el) {
 };
 
 // 從 DOM 元素安全讀取屬性收藏 Bangumi
-
 window.collectBangumiFromElement = function (el) {
   const title = el.getAttribute("data-title") || "";
   const url = el.getAttribute("data-url") || "";
@@ -3023,7 +2948,6 @@ window.collectBangumiFromElement = function (el) {
 };
 
 // 從 DOM 元素安全啟動觀看
-
 window.watchKazumiFromElement = function (el) {
   const title = el.getAttribute("data-title") || "";
   const detailUrl = el.getAttribute("data-url") || "";
@@ -3033,7 +2957,6 @@ window.watchKazumiFromElement = function (el) {
 };
 
 // 從來源 Modal 重新檢索番劇
-
 window.searchKazumiFromModal = function (q) {
   if (!q || !q.trim()) return;
 
@@ -3041,7 +2964,6 @@ window.searchKazumiFromModal = function (q) {
 };
 
 // 智能獲取備用封面（優先反查書籤庫真實封面，無符合則使用中性 SVG 海報，絕不使用無關手辦圖）
-
 window.getFallbackAnimeCover = function (title = "", platform = "") {
   if (
     title &&
@@ -3095,7 +3017,6 @@ window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
   if (kwInput) kwInput.value = title;
 
   // 若尚未取得真實封面，非同步向 Bangumi API 搜尋補全官方高清海報
-
   if (title && (!animeCover || animeCover.includes("photo-1578632767115"))) {
     fetch(`/api/bangumi/search?q=${encodeURIComponent(title)}&type=2`)
       .then((r) => r.json())
@@ -3190,7 +3111,6 @@ window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
     renderSourceList();
 
     // 同步並發向後端請求各來源
-
     KAZUMI_SOURCES.forEach((s) => fetchRuleSearch(s.id, title));
   } else {
     if (titleEl) titleEl.textContent = "動漫播放來源檢索";
@@ -3291,7 +3211,6 @@ function renderSourceList() {
       "border border-secondary rounded-3 bg-black bg-opacity-40 p-3 mb-2";
 
     // 來源頂部摘要列
-
     const header = document.createElement("div");
 
     header.className =
@@ -3321,7 +3240,6 @@ function renderSourceList() {
     card.appendChild(header);
 
     // 展開搜尋結果列表
-
     if (state.expanded && state.status === "done") {
       const resultsBox = document.createElement("div");
 
@@ -3390,7 +3308,6 @@ function renderSourceList() {
         };
 
         // 自動為第一個搜尋結果載入選集，體驗極佳！
-
         if (rIdx === 0 && (!state.episodes || !state.episodes[rIdx])) {
           setTimeout(() => {
             loadEpisodesForSource(
@@ -3483,7 +3400,6 @@ function renderEpisodeButtons(sourceId, animeItem, episodes, container) {
   }
 
   // 前端防護：依集數名稱去重，避免多線路重複顯示
-
   const seenTitles = new Set();
   const uniqueEpisodes = [];
 
@@ -3594,7 +3510,6 @@ async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
       );
 
       // 自動雙向回寫 Bangumi 觀看進度 (若綁定 Token 且為 Bangumi 作品)
-
       try {
         const token = window.getBangumiToken ? window.getBangumiToken() : null;
 
@@ -3727,7 +3642,6 @@ function openTheaterWithUrl(
   }
 
   // 處理受 SAMEORIGIN 阻擋之線路（如 lmm85 封鎖）
-
   if (isBlocked) {
     if (screenCont) screenCont.classList.add("has-blocked-fallback");
 
@@ -3854,7 +3768,6 @@ function openTheaterWithUrl(
   }
 
   // 注入動漫劇院右側選集抽屜 (進行集數防重保護)
-
   if (listContainer && allEpisodes.length > 0) {
     listContainer.innerHTML = "";
     const seen = new Set();
@@ -3892,7 +3805,6 @@ function openTheaterWithUrl(
   }
 
   // 啟動彈幕流
-
   const epMatch = (epTitle || "").match(/\d+/);
   const epNo = epMatch ? parseInt(epMatch[0], 10) : 1;
 
@@ -3911,7 +3823,6 @@ function openTheaterWithUrl(
 }
 
 // 劇院內一鍵搜尋番劇（支援待命畫面與 Header 搜尋，具備 Bootstrap 5 模態框異步防衝突機制）
-
 window.searchAnimeFromTheater = function (keyword) {
   let term = keyword;
 
@@ -3946,7 +3857,6 @@ window.searchAnimeFromTheater = function (keyword) {
       bootstrap.Modal.getOrCreateInstance(theaterModalEl);
 
     // 等待劇院關閉過渡動畫完全結束，避免 Bootstrap 多重 Modal 衝突與 Backdrop 閃退問題
-
     const onHidden = function () {
       theaterModalEl.removeEventListener("hidden.bs.modal", onHidden);
 
@@ -3964,7 +3874,6 @@ window.searchAnimeFromTheater = function (keyword) {
 };
 
 // 重置動漫劇院為純淨黑底空白待命狀態
-
 window.resetKazumiTheater = function () {
   if (window.kazumiHlsInstance) {
     window.kazumiHlsInstance.destroy();
@@ -4045,7 +3954,6 @@ window.resetKazumiTheater = function () {
 };
 
 // --- A. Kazumi 動漫劇院播放器 ---
-
 let danmakuInterval = null;
 
 let danmakuEnabled = false; // 彈幕預設關閉
@@ -4067,7 +3975,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
     }
 
     // 純空白待命狀態開啟
-
     resetKazumiTheater();
 
     const modal = bootstrap.Modal.getOrCreateInstance(
@@ -4103,7 +4010,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
   }
 
   // 辨識是否為 Bilibili 影片 (支援 BV號、av號、番劇 ss/ep 或一般網址)
-
   const biliMatch =
     src.match(/bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/i) ||
     src.match(/(BV[a-zA-Z0-9]{10})/i) ||
@@ -4111,7 +4017,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
     (src.includes("bilibili.com") && !src.includes("live.bilibili"));
 
   // 辨識是否為 YouTube 影片
-
   const ytMatch = src.match(
     /(?:v=|\/embed\/|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
   );
@@ -4123,7 +4028,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
     const playUrlApi = `/api/kazumi/bilibili-playurl?bvid=${encodeURIComponent(bvid)}&url=${encodeURIComponent(src)}`;
 
     // 即刻儲存觀看歷史 (使用台灣用語「影片」)
-
     if (typeof window.saveWatchHistory === "function") {
       window.saveWatchHistory(
         title,
@@ -4155,7 +4059,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
           video.currentTime = 0;
 
           // 即刻同步音量狀態
-
           if (typeof window.applyKazumiVolume === "function") {
             window.applyKazumiVolume(false);
           }
@@ -4223,7 +4126,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
       });
 
     // 呼叫後端 Kazumi 模組解析真實標題、分P選集、官方高清封面與 CID (若為 BV 影片)
-
     if (bvid) {
       fetch(`/api/kazumi/resolve?bvid=${bvid}`)
         .then((r) => r.json())
@@ -4362,7 +4264,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
   }, 100);
 
   // 清空彈幕覆蓋層（無預設彈幕）
-
   clearInterval(danmakuInterval);
   const overlay = document.getElementById("danmakuOverlay");
 
@@ -4370,7 +4271,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
 };
 
 // 動態渲染分P選集按鈕
-
 function renderKazumiEpisodes(bvid, episodes) {
   const container = document.querySelector(".episode-list-container");
 
@@ -4418,7 +4318,6 @@ function renderKazumiEpisodes(bvid, episodes) {
       }
 
       // 優先請求原生 MP4 直連串流，支援原生播放器控制
-
       try {
         const streamRes = await fetch(
           `/api/kazumi/bilibili-playurl?bvid=${bvid}&cid=${ep.cid || 0}`,
@@ -4469,7 +4368,6 @@ function renderKazumiEpisodes(bvid, episodes) {
       } catch (e) {}
 
       // 降級回退至官方內嵌播放器
-
       const iframe = document.getElementById("kazumiIframePlayer");
       const iframeWrapper = document.getElementById("kazumiIframeWrapper");
       const video = document.getElementById("kazumiVideoPlayer");
@@ -4560,7 +4458,6 @@ window.closeAnimePlayer = function () {
 };
 
 // 防內嵌優雅降級：快速切換至其他免跳轉來源
-
 window.quickSwitchKazumiSource = function (targetSource) {
   const title =
     kazumiState.title ||
@@ -4590,7 +4487,6 @@ window.quickSwitchKazumiSource = function (targetSource) {
   }
 
   // 關閉播放器並重新打開來源選單 (切換至 AGE動漫 等免跳轉源)
-
   window.closeAnimePlayer();
   const theaterModalEl = document.getElementById("animePlayerModal");
 
@@ -4614,7 +4510,6 @@ window.quickSwitchKazumiSource = function (targetSource) {
 };
 
 // 關閉當前動畫，退回待命搜尋狀態 (不關閉劇院 Modal)
-
 window.closeCurrentAnime = function () {
   resetKazumiTheater();
 
@@ -4685,7 +4580,6 @@ function applyDanmakuConfigToCSS() {
   );
 
   // 計算速度 (若開啟跟隨倍速，依據 video.playbackRate 計算飛行時間)
-
   const video = document.getElementById("kazumiVideoPlayer");
 
   const rate =
@@ -4698,7 +4592,6 @@ function applyDanmakuConfigToCSS() {
 }
 
 // 清除螢幕上現存的所有彈幕
-
 function clearDanmakuScreen() {
   const overlay = document.getElementById("danmakuOverlay");
 
@@ -4706,7 +4599,6 @@ function clearDanmakuScreen() {
 }
 
 // 徹底清空所有彈幕狀態（佇列、畫面、側邊欄列表、徽章、時間軸計時器）
-
 window.clearAllDanmakuState = function () {
   if (danmakuInterval) {
     clearInterval(danmakuInterval);
@@ -4721,7 +4613,6 @@ window.clearAllDanmakuState = function () {
   isDanmakuPaused = true;
 
   // 清空側邊欄彈幕清單與計數徽章
-
   const container = document.getElementById("danmakuListItemsContainer");
 
   if (container) {
@@ -4744,25 +4635,21 @@ window.clearAllDanmakuState = function () {
   if (srcLabel) srcLabel.textContent = "來源：待命中";
 
   // 重設時間軸顯示
-
   updateDanmakuTimeDisplay(0, 1440);
 
   updatePlayPauseButtonUI(true);
 
   // 切回選集列表分頁
-
   if (typeof window.switchTheaterSidebarTab === "function") {
     window.switchTheaterSidebarTab("episodes");
   }
 };
 
 // 彈幕發送與飄字動畫 (支援顯示區域與屏蔽詞過濾)
-
 function createBulletDanmaku(text, color = "#ffffff", mode = 1) {
   if (!danmakuEnabled || !text) return;
 
   // 關鍵字過濾
-
   if (danmakuConfig.blockWords) {
     const blocked = danmakuConfig.blockWords.split(/[,，\s]+/).filter(Boolean);
 
@@ -4770,7 +4657,6 @@ function createBulletDanmaku(text, color = "#ffffff", mode = 1) {
   }
 
   // 彈幕類型過濾 (mode: 1 滾動, 4 底部, 5 頂部)
-
   if (mode === 1 && !danmakuConfig.scrollDanmaku) return;
 
   if (mode === 5 && !danmakuConfig.topDanmaku) return;
@@ -4785,7 +4671,6 @@ function createBulletDanmaku(text, color = "#ffffff", mode = 1) {
   bullet.style.color = color;
 
   // 依據「顯示區域」限制垂直分佈
-
   const maxArea = Math.min(Math.max(danmakuConfig.displayArea, 20), 100) / 100;
   const topPct = (Math.random() * (maxArea * 0.75) + 0.05) * 100;
   bullet.style.top = topPct.toFixed(1) + "%";
@@ -4801,13 +4686,11 @@ function createBulletDanmaku(text, color = "#ffffff", mode = 1) {
   overlay.appendChild(bullet);
 
   // 當 CSS 動畫自然播放結束後安全移除 DOM 節點 (暫停凍結時不會觸發 animationend，避免暫停時文字提早消失)
-
   bullet.addEventListener("animationend", () => bullet.remove(), {
     once: true,
   });
 
   // 保險 Fallback：若瀏覽器未觸發事件，在超長時限後清理
-
   const maxFallbackMs = (danmakuConfig.duration + 15) * 1000;
 
   setTimeout(() => {
@@ -4821,7 +4704,6 @@ let virtualDanmakuTime = 0;
 let isDanmakuPaused = false;
 
 // 串接 Kazumi 後端彈幕流 (支援 彈彈play 全網聚合與 B站官方即時彈幕)
-
 async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
   if (danmakuInterval) {
     clearInterval(danmakuInterval);
@@ -4904,7 +4786,6 @@ async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
   }
 
   // 嚴格依照時間 (秒) 升冪排序，並初始化發送狀態
-
   danmakuQueue.sort(
     (a, b) => (parseFloat(a.time) || 0) - (parseFloat(b.time) || 0),
   );
@@ -4919,7 +4800,6 @@ async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
   isDanmakuPaused = false;
 
   // 即時將載入之全量彈幕渲染至側邊欄清單與計數徽章
-
   renderDanmakuList(danmakuQueue);
 
   updateDanmakuTimeDisplay(0);
@@ -4930,7 +4810,6 @@ async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
 }
 
 // 基於影片 currentTime 或 iframe 虛擬時間軸與時間校準 offset 嚴格對齊彈幕
-
 function syncDanmakuWithVideoTime() {
   if (
     !danmakuEnabled ||
@@ -4958,7 +4837,6 @@ function syncDanmakuWithVideoTime() {
     if (isDanmakuPaused) return;
 
     // iframe 播放模式下，使用虛擬播放時間軸推進 (每 200ms = 0.2s)
-
     virtualDanmakuTime += 0.2;
     currentBaseTime = virtualDanmakuTime;
   } else {
@@ -4968,13 +4846,11 @@ function syncDanmakuWithVideoTime() {
   const effectiveTime = currentBaseTime + (danmakuConfig.timeOffset || 0);
 
   // 每秒更新一次時間軸 UI 顯示 (避免每 200ms 造成過多 DOM repaint)
-
   if (Math.floor(effectiveTime) !== Math.floor(lastSyncVideoTime)) {
     updateDanmakuTimeDisplay(effectiveTime);
   }
 
   // 找出落在 [effectiveTime - 1.2, effectiveTime + 0.3] 之間且尚未發送的彈幕
-
   for (let i = 0; i < currentDanmakuQueue.length; i++) {
     const item = currentDanmakuQueue[i];
 
@@ -4999,18 +4875,15 @@ function startDanmakuLoop() {
   if (!currentDanmakuQueue || currentDanmakuQueue.length === 0) return;
 
   // 確保彈幕圖層為可見
-
   const overlay = document.getElementById("danmakuOverlay");
 
   if (overlay) overlay.style.display = "block";
 
   // 每 200ms 高頻精準對齊時間軸
-
   danmakuInterval = setInterval(syncDanmakuWithVideoTime, 200);
 }
 
 // 廣播跨域與通用播放器指令給 iframe 內嵌播放器 (相容 Bilibili, YouTube Iframe API, DPlayer, ArtPlayer 等)
-
 function sendIframePlaybackCommand(cmd, time = 0) {
   const iframe = document.getElementById("kazumiIframePlayer");
 
@@ -5036,7 +4909,6 @@ function sendIframePlaybackCommand(cmd, time = 0) {
       );
 
       // DPlayer / ArtPlayer / Bilibili / HTML5 PostMessage
-
       iframe.contentWindow.postMessage({ type: "pause" }, "*");
 
       iframe.contentWindow.postMessage({ event: "pause" }, "*");
@@ -5066,7 +4938,6 @@ function sendIframePlaybackCommand(cmd, time = 0) {
       );
 
       // DPlayer / ArtPlayer / Bilibili
-
       iframe.contentWindow.postMessage({ type: "seek", time: targetSec }, "*");
 
       iframe.contentWindow.postMessage(
@@ -5083,7 +4954,6 @@ function sendIframePlaybackCommand(cmd, time = 0) {
 }
 
 // 核心主控播放與暫停協調器：徹底實現「按下暫停/空白鍵時，影片與彈幕 100% 同時凍結/恢復」
-
 window.toggleMasterPlayPause = function () {
   const video = document.getElementById("kazumiVideoPlayer");
   const iframe = document.getElementById("kazumiIframePlayer");
@@ -5121,7 +4991,6 @@ window.toggleMasterPlayPause = function () {
 window.toggleDanmakuPlayPause = window.toggleMasterPlayPause;
 
 // 影片暫停時立即凍結動畫與停止發射 (徹底解決影片暫停彈幕仍一直播出的問題)
-
 window.pauseDanmaku = function () {
   isDanmakuPaused = true;
 
@@ -5136,7 +5005,6 @@ window.pauseDanmaku = function () {
     overlay.classList.add("danmaku-paused");
 
     // 強制將畫面上所有正在飛行的彈幕 animationPlayState 設為 paused
-
     const bullets = overlay.querySelectorAll(".danmaku-bullet");
 
     bullets.forEach((b) => {
@@ -5148,7 +5016,6 @@ window.pauseDanmaku = function () {
 };
 
 // 影片播放時立即解凍並恢復時間軸同步
-
 window.resumeDanmaku = function () {
   isDanmakuPaused = false;
   const overlay = document.getElementById("danmakuOverlay");
@@ -5204,7 +5071,6 @@ function updatePlayPauseButtonUI(paused) {
 }
 
 // 計算目前彈幕佇列的最大時間（影片總長度估計，預設至少 24 分鐘 = 1440 秒）
-
 function getDanmakuMaxDuration() {
   let maxSec = 1440;
 
@@ -5243,7 +5109,6 @@ function updateDanmakuTimeDisplay(currentSec, totalSec = null) {
 }
 
 // 核心跳轉協調器：徹底實現跳轉時間點「影片（HTML5 / iframe）與彈幕 100% 同步」
-
 window.seekMasterTimeline = function (targetSec) {
   const sec = Math.max(0, parseFloat(targetSec) || 0);
 
@@ -5285,7 +5150,6 @@ window.seekDanmaku = function (targetSec = null) {
 };
 
 // 點擊側邊欄彈幕時間戳記直接跳轉 (影片與彈幕同步)
-
 window.jumpToDanmakuTime = function (sec) {
   window.seekMasterTimeline(sec);
 
@@ -5300,7 +5164,6 @@ window.jumpToDanmakuTime = function (sec) {
 };
 
 // 相對快進/快退秒數 (+10s, -10s) (影片與彈幕同步)
-
 window.jumpDanmakuRelative = function (deltaSec) {
   const target = Math.max(0, virtualDanmakuTime + deltaSec);
   window.seekMasterTimeline(target);
@@ -5312,7 +5175,6 @@ window.jumpDanmakuRelative = function (deltaSec) {
 };
 
 // 滑桿拖動時即時反饋
-
 window.onDanmakuTimelineSliderInput = function (val) {
   const sec = parseFloat(val) || 0;
   const timeDisplay = document.getElementById("theaterDanmakuTimeDisplay");
@@ -5323,7 +5185,6 @@ window.onDanmakuTimelineSliderInput = function (val) {
 };
 
 // 滑桿放開時正式跳轉同步 (影片與彈幕同步)
-
 window.onDanmakuTimelineSliderChange = function (val) {
   const sec = parseFloat(val) || 0;
   window.seekMasterTimeline(sec);
@@ -5355,7 +5216,6 @@ let kazumiIsMuted = sessionStorage.getItem("kazumi_theater_muted") === "true";
 let kazumiVolumeHudTimer = null;
 
 // 廣播音量給 iframe (相容 YouTube Iframe API, Bilibili, DPlayer, ArtPlayer, Tampermonkey Bridge)
-
 function sendIframeVolumeCommand(vol, isMuted) {
   const iframe = document.getElementById("kazumiIframePlayer");
 
@@ -5375,7 +5235,6 @@ function sendIframeVolumeCommand(vol, isMuted) {
     );
 
     // YouTube Iframe API
-
     iframe.contentWindow.postMessage(
       JSON.stringify({
         event: "command",
@@ -5395,7 +5254,6 @@ function sendIframeVolumeCommand(vol, isMuted) {
     );
 
     // Bilibili / DPlayer / ArtPlayer / xgplayer / HTML5
-
     const ratio = effectiveVol / 100;
 
     iframe.contentWindow.postMessage({ type: "volume", volume: ratio }, "*");
@@ -5462,7 +5320,6 @@ window.applyKazumiVolume = function (showHud = false) {
   const effectiveVol = kazumiIsMuted ? 0 : kazumiCurrentVolume;
 
   // 1. 套用至 HTML5 video
-
   if (video) {
     video.volume = Math.max(0, Math.min(1, kazumiCurrentVolume / 100));
     video.muted = kazumiIsMuted;
@@ -5472,11 +5329,9 @@ window.applyKazumiVolume = function (showHud = false) {
   }
 
   // 2. 廣播給 iframe
-
   sendIframeVolumeCommand(kazumiCurrentVolume, kazumiIsMuted);
 
   // 3. 更新 UI 元件狀態
-
   if (slider) slider.value = effectiveVol;
 
   if (label) label.textContent = `${effectiveVol}%`;
@@ -5492,7 +5347,6 @@ window.applyKazumiVolume = function (showHud = false) {
   }
 
   // 4. 持久化至 localStorage
-
   sessionStorage.setItem("kazumi_theater_volume", kazumiCurrentVolume);
 
   sessionStorage.setItem(
@@ -5736,7 +5590,6 @@ function updateDanmakuSettingsModalUI() {
   setChecked("dmkTypeBottom", danmakuConfig.bottomDanmaku);
 
   // 播放
-
   setVal("dmkDuration", danmakuConfig.duration);
 
   setText("val-dmkDuration", `${danmakuConfig.duration} 秒`);
@@ -5764,7 +5617,6 @@ function updateDanmakuSettingsModalUI() {
     appSecretInput.value = sessionStorage.getItem("dandanplay_app_secret") || "";
 
   // 彈幕來源單選狀態同步
-
   const currentPref =
     danmakuConfig.sourcePreference ||
     sessionStorage.getItem("danmaku_source_preference") ||
@@ -5799,7 +5651,6 @@ window.onDanmakuSourcePreferenceChanged = function (src) {
   showToast(`📡 已切換彈幕模式：${label}`, "bi-broadcast text-success");
 
   // 若有當前播放中的動畫與集數，自動以新來源重新載入彈幕
-
   if (
     window.currentAnimeTitle &&
     typeof window.initDanmakuForCurrentEpisode === "function"
@@ -5935,7 +5786,6 @@ window.saveDandanplayFromModal = function () {
 };
 
 // 彈幕按鈕事件綁定
-
 document.addEventListener("DOMContentLoaded", () => {
   const danmakuBtn = document.getElementById("sendDanmakuBtn");
   const danmakuInput = document.getElementById("danmakuInput");
@@ -5965,7 +5815,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 全螢幕狀態變化監聽
-
   document.addEventListener("fullscreenchange", handleFullscreenChange);
   document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
   document.addEventListener("mozfullscreenchange", handleFullscreenChange);
@@ -5979,7 +5828,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 監聽播放器播放/暫停/跳轉事件，實現彈幕與畫面嚴格同步
-
   const kazumiVideo = document.getElementById("kazumiVideoPlayer");
 
   if (kazumiVideo) {
@@ -6053,7 +5901,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 支援 iframe 播放器透過 postMessage 進行暫停/播放/時間軸雙向通知 (相容 Tampermonkey Bridge 與通用協議)
-
   window.addEventListener("message", (event) => {
     try {
       const data = event.data;
@@ -6061,7 +5908,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!data) return;
 
       // 1. 優先處理來自 Tampermonkey Bridge 的高精度雙向回報
-
       if (data.source === "kazumi_player_bridge") {
         if (data.type === "wheel") {
           if (
@@ -6117,7 +5963,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // 2. 通用 postMessage 協議 (Bilibili, YouTube, DPlayer, ArtPlayer)
-
       if (
         data === "pause" ||
         data?.event === "pause" ||
@@ -6147,7 +5992,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // 待命狀態精準判定：劇院處於待命模式且無正在播放的影片或串流
-
   window.isKazumiStandby = function () {
     const theaterModal = document.getElementById("animePlayerModal");
 
@@ -6173,7 +6017,6 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // 支援劇院快速鍵 (空白鍵暫停/繼續影片與彈幕、左右鍵快退/快進 5 秒，待命狀態僅保留按 F 全螢幕)
-
   document.addEventListener("keydown", (e) => {
     const tag =
       e.target && e.target.tagName ? e.target.tagName.toLowerCase() : "";
@@ -6185,7 +6028,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!isOpen) return;
 
     // 待命狀態守衛：待命模式下全面禁止空白鍵暫停/播放、左右鍵跳轉、上下鍵調音量與 M 鍵靜音，【僅保留按 F 鍵全螢幕】
-
     if (
       typeof window.isKazumiStandby === "function" &&
       window.isKazumiStandby()
@@ -6247,7 +6089,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // 綁定動漫劇院畫面滑鼠滾輪調音量 (滾輪上下各 5%，待命模式不響應)
-
   const screenContainer = document.getElementById("kazumiScreenContainer");
 
   if (screenContainer) {
@@ -6290,11 +6131,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 全螢幕上下感應區與中央事件代理層事件綁定
-
   initKazumiFullscreenInteractions();
 
   // 初始化劇院音量狀態
-
   if (typeof window.applyKazumiVolume === "function") {
     window.applyKazumiVolume(false);
   }
@@ -6316,7 +6155,6 @@ function getTheaterViewState() {
 }
 
 // 全螢幕沉浸式互動感應區初始化
-
 function initKazumiFullscreenInteractions() {
   const topHover = document.getElementById("kazumiFsTopHoverZone");
   const bottomHover = document.getElementById("kazumiFsBottomHoverZone");
@@ -6354,7 +6192,6 @@ function initKazumiFullscreenInteractions() {
   };
 
   // 頂部與底部懸浮感應區：支援滑鼠滑入/移動喚醒
-
   [topHover, bottomHover].forEach((el) => {
     if (!el) return;
 
@@ -6382,7 +6219,6 @@ function initKazumiFullscreenInteractions() {
   }
 
   // 中央代理層：僅監聽真實滑鼠移動與滾輪，嚴禁監聽 mouseenter (避免 pointer-events auto 瞬間觸發虛假合成事件導致反覆抖動死循環)
-
   if (screenOverlay) {
     screenOverlay.addEventListener("mousemove", wakeUpAndResetTimer);
 
@@ -6432,7 +6268,6 @@ function initKazumiFullscreenInteractions() {
         return;
 
       // 若點擊位置在畫面頂部 60px 或底部 85px (控制軸與時間列區域)，忽略中央代理層點擊，留給真實控制列
-
       const rect = screenOverlay.getBoundingClientRect();
       const y = e.clientY - rect.top;
 
@@ -6471,7 +6306,6 @@ function initKazumiFullscreenInteractions() {
   }
 
   // 全域滾輪備援監聽：若處於全螢幕或劇院開啟狀態且滑鼠在播放器上方，攔截滾輪即時調整音量 (待命狀態不響應)
-
   window.addEventListener(
     "wheel",
     (e) => {
@@ -6695,7 +6529,6 @@ window.onFullscreenMouseMove = function (e) {
   if (!container) return;
 
   // 嚴格座標位移判定：過濾 pointer-events 切換引起的虛假合成事件 (位移 < 3px 忽略，杜絕控制項反覆出現消失之抖動)
-
   if (e && typeof e.clientX === "number" && typeof e.clientY === "number") {
     const dx = Math.abs(e.clientX - lastFsMouseX);
     const dy = Math.abs(e.clientY - lastFsMouseY);
@@ -6721,7 +6554,6 @@ function startFsIdleTimer() {
   if (fsHideTimer) clearTimeout(fsHideTimer);
 
   // 待命狀態下絕不隱藏控制項與搜尋介面
-
   if (container.classList.contains("is-standby")) {
     container.classList.remove("fs-controls-hidden");
 
@@ -6740,7 +6572,6 @@ function startFsIdleTimer() {
 }
 
 // 快速選集抽屜切換
-
 window.toggleFullscreenEpisodesDrawer = function (force) {
   const drawer = document.getElementById("kazumiFsEpisodeDrawer");
 
@@ -6763,7 +6594,6 @@ window.toggleFullscreenEpisodesDrawer = function (force) {
 };
 
 // 同步選集清單至全螢幕快速抽屜
-
 window.syncFullscreenEpisodeDrawer = function () {
   const targetList = document.getElementById("kazumiFsEpisodeList");
 
@@ -6799,7 +6629,6 @@ window.syncFullscreenEpisodeDrawer = function () {
 };
 
 // 全螢幕即時彈幕發送
-
 window.sendFsDanmaku = function () {
   const input = document.getElementById("kazumiFsDanmakuInput");
 
@@ -7336,7 +7165,6 @@ window.removeBookFromMangaShelf = function (title) {
 };
 
 // 渲染小說立體書架 (智能區分本機上傳與線上搜尋開卷)
-
 window.renderNovelBookshelf = function () {
   const grid = document.getElementById("novelBookshelfGrid");
   if (!grid) return;
@@ -7483,7 +7311,6 @@ window.removeBookFromNovelShelf = function (title) {
 };
 
 // 監聽 Modal 開啟自動觸發書架渲染與 GSAP 彈性擺入
-
 document.addEventListener("DOMContentLoaded", () => {
   const mangaModal = document.getElementById("mangaReaderModal");
 
@@ -7507,7 +7334,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 初次載入渲染待命書架
-
   setTimeout(() => {
     if (typeof window.renderMangaBookshelf === "function")
       window.renderMangaBookshelf();
@@ -7562,7 +7388,6 @@ window.toggleNovelBookshelfItem = function (title, cover, btnEl) {
 };
 
 // 開啟 Tachimanga 閱覽器
-
 window.openTachimangaReader = function (title = "", pages = []) {
   if (title && title !== "漫畫閱覽器" && title.trim() !== "") {
     // 如果帶有漫畫名稱，直接喚起搜尋與選集抽屜
@@ -7612,7 +7437,6 @@ window.openTachimangaReader = function (title = "", pages = []) {
 };
 
 // 渲染純淨待命搜尋畫面 (3D 擬真立體書架)
-
 function renderMangaStandby() {
   const indicatorEl = document.getElementById("mangaPageIndicator");
   const wrapper = document.getElementById("mangaPageWrapper");
@@ -7660,7 +7484,6 @@ function renderMangaStandby() {
 }
 
 // 待命畫面觸發搜尋
-
 window.searchMangaFromStandby = function () {
   const input = document.getElementById("mangaStandbySearchInput");
   const q = input ? input.value.trim() : "";
@@ -7675,7 +7498,6 @@ window.searchMangaFromStandby = function () {
 };
 
 // 頂部導航列觸發搜尋
-
 window.searchMangaFromHeader = function (val) {
   const q = (val || "").trim();
 
@@ -7689,7 +7511,6 @@ window.searchMangaFromHeader = function (val) {
 };
 
 // 開啟漫畫來源與選集抽屜
-
 window.openMangaSearchModal = function (defaultKeyword = "") {
   const input = document.getElementById("mangaDrawerKeywordInput");
 
@@ -7706,7 +7527,6 @@ window.openMangaSearchModal = function (defaultKeyword = "") {
 };
 
 // 在抽屜中進行漫畫搜尋
-
 window.searchMangaFromDrawer = async function (keyword) {
   const q = (
     keyword ||
@@ -7753,7 +7573,6 @@ window.searchMangaFromDrawer = async function (keyword) {
 };
 
 // 渲染漫畫搜尋結果清單
-
 function renderMangaSearchResults(results, q) {
   const container = document.getElementById("mangaSearchResultsContainer");
 
@@ -7849,7 +7668,6 @@ function renderMangaSearchResults(results, q) {
 }
 
 // 選擇一部漫畫並載入章節列表 (支援別名與繁簡智慧自癒)
-
 window.selectManga = async function (
   mangaId,
   title,
@@ -7926,7 +7744,6 @@ window.selectManga = async function (
 };
 
 // 回到漫畫搜尋結果列表
-
 window.backToMangaSearchResults = function () {
   const summaryBox = document.getElementById("mangaSelectedSummaryBox");
 
@@ -7936,7 +7753,6 @@ window.backToMangaSearchResults = function () {
 };
 
 // 渲染章節選集按鈕網格
-
 function renderMangaChaptersGrid(mangaId, chapters) {
   const container = document.getElementById("mangaSearchResultsContainer");
 
@@ -7978,7 +7794,6 @@ function renderMangaChaptersGrid(mangaId, chapters) {
 }
 
 // 載入指定章節並在條漫閱讀器中垂直瀑布流展開
-
 window.loadMangaChapter = async function (
   mangaId,
   chapterId,
@@ -7988,7 +7803,6 @@ window.loadMangaChapter = async function (
   mangaState.currentChapterIdx = chapterIndex;
 
   // 關閉來源抽屜
-
   const sourceModalEl = document.getElementById("mangaSourceModal");
 
   if (sourceModalEl) {
@@ -7998,7 +7812,6 @@ window.loadMangaChapter = async function (
   }
 
   // 開啟閱讀器 Modal
-
   const readerModal = bootstrap.Modal.getOrCreateInstance(
     document.getElementById("mangaReaderModal"),
   );
@@ -8006,7 +7819,6 @@ window.loadMangaChapter = async function (
   readerModal.show();
 
   // 更新頂部資訊
-
   const titleEl = document.getElementById("mangaModalTitle");
   const chapterBadge = document.getElementById("mangaCurrentChapterBadge");
   const indicatorEl = document.getElementById("mangaPageIndicator");
@@ -8021,7 +7833,6 @@ window.loadMangaChapter = async function (
   if (indicatorEl) indicatorEl.textContent = "載入中...";
 
   // 紀錄漫畫閱讀歷史
-
   if (mangaState.currentManga) {
     window.saveMangaReadHistory(
       mangaId,
@@ -8073,7 +7884,6 @@ window.loadMangaChapter = async function (
 };
 
 // 渲染條漫垂直瀑布流長圖
-
 function renderMangaWaterfall(pages) {
   const wrapper = document.getElementById("mangaPageWrapper");
   const indicatorEl = document.getElementById("mangaPageIndicator");
@@ -8136,7 +7946,6 @@ function renderMangaWaterfall(pages) {
 }
 
 // 上一話
-
 window.prevMangaChapter = function () {
   if (!mangaState.currentManga || mangaState.currentChapterIdx <= 0) {
     showToast("已經是第一話了！", "bi-info-circle text-primary");
@@ -8158,7 +7967,6 @@ window.prevMangaChapter = function () {
 };
 
 // 下一話
-
 window.nextMangaChapter = function () {
   if (
     !mangaState.currentManga ||
@@ -8183,7 +7991,6 @@ window.nextMangaChapter = function () {
 };
 
 // 切換章節選單抽屜
-
 window.openMangaChapterPicker = function () {
   if (!mangaState.currentManga) {
     openMangaSearchModal();
@@ -8203,7 +8010,6 @@ window.openMangaChapterPicker = function () {
 };
 
 // 更新上一話/下一話按鈕狀態
-
 function updateMangaNavButtons() {
   const prevBtn = document.getElementById("mangaPrevChapterBtn");
   const nextBtn = document.getElementById("mangaNextChapterBtn");
@@ -8234,7 +8040,6 @@ window.resetZoomManga = function () {
 };
 
 // 關閉當前漫畫，退回待命搜尋狀態 (不關閉閱覽器 Modal)
-
 window.closeCurrentManga = function () {
   mangaState.currentManga = null;
   mangaState.chapters = [];
@@ -8293,7 +8098,6 @@ let novelState = {
 };
 
 // 待命畫面觸發搜尋
-
 window.searchNovelFromStandby = function () {
   const input = document.getElementById("novelStandbySearchInput");
   const q = input ? input.value.trim() : "";
@@ -8311,7 +8115,6 @@ window.searchNovelFromStandby = function () {
 };
 
 // 頂部導航列觸發搜尋
-
 window.searchNovelFromHeader = function (val) {
   const q = (val || "").trim();
 
@@ -8325,7 +8128,6 @@ window.searchNovelFromHeader = function (val) {
 };
 
 // 開啟小說搜尋與選集抽屜 Modal
-
 window.openNovelSearchModal = function (defaultKeyword = "") {
   const input = document.getElementById("novelDrawerKeywordInput");
 
@@ -8396,14 +8198,12 @@ window.setNovelSource = function (src) {
   );
 
   // 重新檢索當前輸入框關鍵字或重整推薦
-
   const input = document.getElementById("novelDrawerKeywordInput");
   const kw = input ? input.value.trim() : "";
 
   searchNovelFromDrawer(kw);
 };
 // 在抽屜中進行小說檢索（支援 Wenku8 與 Bilinovel 多書源）
-
 window.searchNovelFromDrawer = async function (keyword) {
   const q = (
     keyword !== undefined && keyword !== null
@@ -8465,7 +8265,6 @@ window.searchNovelFromDrawer = async function (keyword) {
 };
 
 // 渲染小說搜尋結果清單 (包含書源標籤)
-
 function renderNovelSearchResults(novels) {
   const container = document.getElementById("novelSearchResultsContainer");
 
@@ -8548,7 +8347,6 @@ function renderNovelSearchResults(novels) {
 }
 
 // 選擇某部小說並載入章節目錄（支援多分卷標題展示）
-
 window.selectNovel = async function (
   novelId,
   title,
@@ -8569,7 +8367,6 @@ window.selectNovel = async function (
   };
 
   // 顯示上方摘要卡
-
   const summaryBox = document.getElementById("novelSelectedSummaryBox");
 
   if (summaryBox) {
@@ -8635,7 +8432,6 @@ window.selectNovel = async function (
 };
 
 // 渲染抽屜內的章節按鈕清單（高對比度徽章修正）
-
 function renderNovelChapterList(chapters, novelId, title) {
   const container = document.getElementById("novelSearchResultsContainer");
 
@@ -8677,7 +8473,6 @@ function renderNovelChapterList(chapters, novelId, title) {
 }
 
 // 抽屜中返回搜尋結果列表
-
 window.backToNovelSearchResults = function () {
   const summaryBox = document.getElementById("novelSelectedSummaryBox");
 
@@ -8721,7 +8516,6 @@ window.loadNovelChapter = async function (
   );
 
   // 關閉抽屜 Modal (如果有開啟)
-
   const drawerEl = document.getElementById("novelSourceModal");
 
   if (drawerEl) {
@@ -8731,7 +8525,6 @@ window.loadNovelChapter = async function (
   }
 
   // 確保小說閱讀器 Modal 處於開啟狀態
-
   const readerEl = document.getElementById("novelReaderModal");
 
   if (readerEl) {
@@ -8824,7 +8617,6 @@ window.loadNovelChapter = async function (
   renderNovelParagraphs(paragraphsEl, loadedParagraphs);
 
   // 捲動至頂部
-
   const bodyWrapper = document.getElementById("novelBodyWrapper");
 
   if (bodyWrapper) bodyWrapper.scrollTop = 0;
@@ -8833,7 +8625,6 @@ window.loadNovelChapter = async function (
 };
 
 // 切換上一章 / 下一章
-
 window.switchNovelChapter = function (delta) {
   if (
     !novelState.currentNovel ||
@@ -8878,7 +8669,6 @@ window.switchNovelChapter = function (delta) {
 };
 
 // 開啟選集目錄抽屜
-
 window.openNovelChapterPicker = function () {
   if (!novelState.currentNovel) {
     openNovelSearchModal();
@@ -8930,7 +8720,6 @@ window.openNovelChapterPicker = function () {
 };
 
 // 渲染本機電子書抽屜章節目錄
-
 function renderLocalNovelChapterList() {
   const container = document.getElementById("novelSearchResultsContainer");
 
@@ -8972,7 +8761,6 @@ window.selectLocalNovelChapter = function (idx) {
 };
 
 // 關閉當前小說，回到待命搜尋狀態 (支援 silent 靜默模式)
-
 window.closeCurrentNovel = function (silent = false) {
   novelState.currentNovel = null;
   novelState.chapters = [];
@@ -9045,7 +8833,6 @@ window.handleNovelFileUpload = async function (file) {
 };
 
 // TXT 電子書智慧正則切分
-
 function parseAndLoadTxtBook(file, bookTitle) {
   const reader = new FileReader();
 
@@ -9059,7 +8846,6 @@ function parseAndLoadTxtBook(file, bookTitle) {
     }
 
     // 章節正則匹配：支援 第X章、第X回、第X卷、第X節、Chapter X 等
-
     const chapterRegex =
       /(?:^|\r?\n)[\t \u3000]*(第[\s0-9一二三四五六七八九十百千]+[章回節卷集話篇][^\r\n]*|Chapter\s*\d+[^\r\n]*)/gi;
     const matches = [];
@@ -9154,7 +8940,6 @@ function splitTextIntoParagraphs(text) {
 }
 
 // EPUB 電子書解析
-
 async function parseAndLoadEpubBook(file, bookTitle) {
   if (typeof JSZip === "undefined") {
     showToast(
@@ -9367,7 +9152,6 @@ function loadLocalBookIntoReader(bookTitle, chapters, existingId = null) {
   novelState.chapters = chapters;
 
   // 自動異步持久化至 IndexedDB
-
   saveLocalNovelToDB({
     id: bookId,
     title: bookTitle,
@@ -9388,7 +9172,6 @@ function loadLocalBookIntoReader(bookTitle, chapters, existingId = null) {
 }
 
 // 載入本機特定章節
-
 function loadLocalNovelChapter(idx) {
   if (!novelState.chapters || idx < 0 || idx >= novelState.chapters.length)
     return;
@@ -9422,13 +9205,11 @@ function loadLocalNovelChapter(idx) {
 }
 
 // 關閉閱讀器 Modal
-
 window.closeNovelReader = function () {
   // 預留可做進度暫存
 };
 
 // 更新上一章/下一章按鈕狀態
-
 function updateNovelNavButtons() {
   const headerPrev = document.getElementById("novelHeaderPrevBtn");
   const headerNext = document.getElementById("novelHeaderNextBtn");
@@ -9451,7 +9232,6 @@ function updateNovelNavButtons() {
 }
 
 // 主題切換 (sepia, white, dark)
-
 window.setNovelTheme = function (theme) {
   novelState.theme = theme;
   try {
@@ -9466,7 +9246,6 @@ window.setNovelTheme = function (theme) {
   }
 
   // 更新按鈕 active 樣式
-
   ["sepia", "white", "dark"].forEach((t) => {
     const btn = document.getElementById(
       `novelTheme${t.charAt(0).toUpperCase() + t.slice(1)}Btn`,
@@ -9482,7 +9261,6 @@ window.setNovelTheme = function (theme) {
   });
 
   // 若使用者未自訂顏色，將調色盤同調至該主題的預設文字顏色
-
   if (!novelState.customTextColor) {
     const defaultColor =
       theme === "sepia" ? "#2d241e" : theme === "white" ? "#1e293b" : "#e4e4e7";
@@ -9493,7 +9271,6 @@ window.setNovelTheme = function (theme) {
 };
 
 // 使用者自訂正文字體顏色即時套用與持久化
-
 window.setNovelCustomTextColor = function (color) {
   if (!color) return;
   novelState.customTextColor = color;
@@ -9529,7 +9306,6 @@ window.setNovelCustomTextColor = function (color) {
 };
 
 // 重置自訂字色為主題預設
-
 window.resetNovelCustomTextColor = function () {
   novelState.customTextColor = null;
 
@@ -9573,7 +9349,6 @@ window.resetNovelCustomTextColor = function () {
 };
 
 // 字級大小調整
-
 window.adjustNovelFontSize = function (delta) {
   novelState.fontSize = Math.min(28, Math.max(14, novelState.fontSize + delta));
   const articleBox = document.getElementById("novelArticleContent");
@@ -9584,7 +9359,6 @@ window.adjustNovelFontSize = function (delta) {
 };
 
 // 外部由卡片或搜尋跳轉開啟小說 (相容 openLegadoReader)
-
 window.openLegadoReader = function (arg = null) {
   if (typeof arg === "string" && arg.trim()) {
     openNovelSearchModal(arg.trim());
@@ -9593,7 +9367,6 @@ window.openLegadoReader = function (arg = null) {
   }
 
   // 如果當前已有小說正文，則直接打開閱讀器
-
   if (novelState.currentNovel && novelState.currentChapterIdx >= 0) {
     const modal = bootstrap.Modal.getOrCreateInstance(
       document.getElementById("novelReaderModal"),
@@ -9605,7 +9378,6 @@ window.openLegadoReader = function (arg = null) {
   }
 
   // 否則開啟純淨待命閱讀器 (靜默進入待命，不彈出干擾通知)
-
   closeCurrentNovel(true);
 
   const modal = bootstrap.Modal.getOrCreateInstance(
@@ -9620,7 +9392,6 @@ window.openLegadoWithTitle = function (title) {
 };
 
 // --- D. Bangumi 官方每日新番時刻表模組 ---
-
 window.bangumiCalendarData = window.bangumiCalendarData || null;
 let currentCalendarDay = 1;
 
@@ -9633,12 +9404,10 @@ window.openBangumiCalendar = async function () {
   modal.show();
 
   // 今天是星期幾 (0 = 週日 -> 7)
-
   const today = new Date().getDay() || 7;
   currentCalendarDay = today;
 
   // 若尚未載入過數據，則發送 API
-
   if (!window.bangumiCalendarData) {
     const loadingEl = document.getElementById("bgmCalLoading");
 
@@ -9665,7 +9434,6 @@ window.openBangumiCalendar = async function () {
   }
 
   // 啟動當天標籤與渲染
-
   const targetTab = document.querySelector(
     `#bangumiWeekdayTabs [data-day="${today}"]`,
   );
@@ -9707,7 +9475,6 @@ function renderCalendarDayAnime(dayId) {
   }
 
   // Bangumi API 陣列中的 weekday.id 為 1~7
-
   const dayData = calData.find(
     (d) => d.weekday && d.weekday.id === Number(dayId),
   );
@@ -9730,7 +9497,6 @@ function renderCalendarDayAnime(dayId) {
       "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=700&q=80";
 
     // 修正 Mixed Content
-
     cover = cover.replace(/^http:\/\//i, "https://");
 
     const score =
@@ -9767,7 +9533,6 @@ function renderCalendarDayAnime(dayId) {
 }
 
 // 將 Bangumi 新番直接存入個人圖書館
-
 window.collectBangumiAnime = function (title, url, cover) {
   const newBookmark = {
     id: "bm_" + Date.now(),
@@ -9810,7 +9575,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
   const subjectType = subjectTypeSelect ? subjectTypeSelect.value : "2";
 
   // 儲存 Bangumi Personal Access Token (若有填寫)
-
   const tokenInput = document.getElementById("bgmTokenInput");
 
   if (tokenInput && tokenInput.value.trim()) {
@@ -9821,7 +9585,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
   const priority = window.getBgmPriority ? window.getBgmPriority() : "bangumi";
 
   // 雙向同步必須持有有效 Token
-
   if (mode === "two-way" && !token) {
     if (alertBox) {
       alertBox.className = "alert alert-warning py-2 small";
@@ -9852,7 +9615,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
   const currentTypeName = typeNames[syncType] || "在看/在讀";
 
   // 進入載入狀態與 UI 提示
-
   const isTwoWay = mode === "two-way";
 
   if (syncBtn) {
@@ -9964,7 +9726,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
       else tags.push("動畫");
 
       // 檢查圖書館中是否已存在
-
       const existingIdx = state.bookmarks.findIndex(
         (b) =>
           b.url === bgmUrl ||
@@ -9978,7 +9739,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
         const existing = state.bookmarks[existingIdx];
 
         // 雙向全量同步且以「網頁優先」：比對本地是否有更進一步的集數觀看記錄
-
         if (isTwoWay && priority === "local" && token) {
           let localEp = 0;
           const epMatch = (existing.desc || "").match(/\[(\d+)\//);
@@ -10018,7 +9778,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
         if (!Array.isArray(existing.tags)) existing.tags = [];
 
         // 清理舊的狀態標籤並加入最新的精確標籤
-
         existing.tags = stripWatchStatusTags(existing.tags);
 
         tags.forEach((t) => {
@@ -10081,7 +9840,6 @@ window.triggerBangumiUserSync = async function (mode = "import") {
     showToast(toastMsg, "bi-check-circle-fill text-success");
 
     // 1.8 秒後自動關閉 Modal
-
     setTimeout(() => {
       const modalEl = document.getElementById("bangumiSyncModal");
 
@@ -10376,7 +10134,6 @@ window.batchDeleteBookmarks = function () {
   );
 
   // 設定 1.5 秒冷卻，避免 confirm 彈窗關閉觸發 window.focus 時誤將已被刪除的書籤重新合併
-
   setTimeout(() => {
     _isLocalMutationActive = false;
   }, 1500);
@@ -10467,12 +10224,10 @@ window.searchKazumiAnime = async function (keyword = null) {
 };
 
 // 點擊「在線觀看全集」
-
 window.watchKazumiAnime = async function (title, detailUrl, source = "AGE") {
   showToast(`正在解析《${title}》選集清單...`, "bi-hourglass-split text-info");
 
   // 1. 打開 Modal
-
   document.getElementById("animePlayerTitle").textContent =
     `【Kazumi 在線】${title}`;
   const video = document.getElementById("kazumiVideoPlayer");
@@ -10501,7 +10256,6 @@ window.watchKazumiAnime = async function (title, detailUrl, source = "AGE") {
   }, 100);
 
   // 2. 請求後端解析劇集
-
   try {
     const epRes = await fetch(
       `/api/kazumi/rule-episodes?detailUrl=${encodeURIComponent(detailUrl)}&source=${source}`,
@@ -10516,7 +10270,6 @@ window.watchKazumiAnime = async function (title, detailUrl, source = "AGE") {
       renderKazumiRuleEpisodes(title, epData.episodes, source);
 
       // 自動開播第 1 集
-
       playKazumiRuleEpisode(
         epData.episodes[0].playUrl,
         epData.episodes[0].title,
@@ -10584,7 +10337,6 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
       window.currentKazumiPlayingUrl = data.playerUrl;
 
       // 檢查是否為直接串流 (.mp4, .m3u8, 或後端標記 isDirectStream)
-
       const isDirect =
         data.isDirectStream || /\.(mp4|m3u8)(\?.*)?$/i.test(data.playerUrl);
       const video = document.getElementById("kazumiVideoPlayer");
@@ -10716,7 +10468,6 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
       }, 100);
 
       // 啟動彈幕流
-
       const epMatch = (epTitle || "").match(/\d+/);
       const epNo = epMatch ? parseInt(epMatch[0], 10) : 1;
 
@@ -10733,7 +10484,6 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
 }
 
 // 另開新分頁播放 (完美解決第三方播放器 X-Frame-Options SAMEORIGIN / Cloudflare 防護阻擋內嵌問題)
-
 window.openCurrentInNewTab = function () {
   const iframe = document.getElementById("kazumiIframePlayer");
   const video = document.getElementById("kazumiVideoPlayer");
@@ -10758,7 +10508,6 @@ window.openCurrentInNewTab = function () {
 };
 
 // 若在 ACG 頁面，綁定 Enter 鍵快速搜尋 (保持初始乾淨空白待命)
-
 document.addEventListener("DOMContentLoaded", () => {
   const searchInput = document.getElementById("kazumiSearchInput");
 
@@ -10770,7 +10519,6 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // 自動預填 Bangumi 個人令牌與帳號以及衝突優先權
-
 document.addEventListener("DOMContentLoaded", () => {
   const bgmModal = document.getElementById("bangumiSyncModal");
 
@@ -10807,7 +10555,6 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // 初始化小說閱讀器自訂字體顏色與書源狀態
-
 document.addEventListener("DOMContentLoaded", () => {
   try {
     loadDanmakuSettings();
@@ -10864,7 +10611,6 @@ window.getBookmarkWatchStatusLabel = function (item) {
   const isManga = isMangaItem(item);
 
   // 1. 優先檢查 bangumiStatus 數值 (3: 已在看/已在讀, 2: 已看過/已讀過, 1: 想看/想讀)
-
   if (item.bangumiStatus !== undefined && item.bangumiStatus !== null) {
     const s = parseInt(item.bangumiStatus, 10);
 
@@ -10876,7 +10622,6 @@ window.getBookmarkWatchStatusLabel = function (item) {
   }
 
   // 2. 檢查 tags 標籤陣列 (支援模糊匹配、複合標籤如「在看/在讀」、「#在看/在讀」、「#已看」等)
-
   if (Array.isArray(item.tags)) {
     if (
       item.tags.some(
@@ -10911,7 +10656,6 @@ window.getBookmarkWatchStatusLabel = function (item) {
   }
 
   // 3. 檢查快取
-
   if (item.title) {
     const cleanTitle = cleanBangumiQueryTitle(item.title);
 
@@ -10967,7 +10711,6 @@ window.updateCardWatchStatus = async function (bookmarkId, newType) {
   );
 
   // 同步回寫 Bangumi
-
   const token = window.getBangumiToken ? window.getBangumiToken() : "";
 
   if (token) {
@@ -11008,7 +10751,6 @@ window.updateCardWatchStatus = async function (bookmarkId, newType) {
 };
 
 // 搜尋結果加入圖書館
-
 window.addAnimeSearchResultToLibrary = function (title, cover, url) {
   if (!title) return;
 
@@ -11054,7 +10796,6 @@ window.addAnimeSearchResultToLibrary = function (title, cover, url) {
 };
 
 // Bangumi 狀態辨識與快速修改快取
-
 window.bangumiSubjectStatusCache = window.bangumiSubjectStatusCache || {};
 
 function cleanBangumiQueryTitle(rawTitle) {
@@ -11062,14 +10803,12 @@ function cleanBangumiQueryTitle(rawTitle) {
   let t = String(rawTitle).trim();
 
   // 移除常見的包裝括號與前綴後綴標記
-
   t = t.replace(
     /【.*?】|\[.*?\]|（.*?）|\(.*?\)|〔.*?〕|〈.*?〉|《.*?》|「.*?」|『.*?』/g,
     " ",
   );
 
   // 移除季數、話數、分P、畫質標記
-
   t = t.replace(
     /(第[0-9一二三四五六七八九十百]+[季期部話集]|Season\s*\d+|S\d+|Part\s*\d+|P\d+|TV(動畫|版)?|劇場版|特別篇|OVA|OAD|全\d+[集話]|\d+話全|\d+集全|1080[pP]|720[pP]|4[kK]|BDRip|BD)/gi,
     " ",
@@ -11095,7 +10834,6 @@ window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
   const token = window.getBangumiToken ? window.getBangumiToken() : "";
 
   // 檢查本地現有書籤庫是否已綁定 subjectId 或具備狀態標籤
-
   let knownSubjectId = null;
   let localColType = 0;
 
@@ -11153,7 +10891,6 @@ window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
     let subjectTitle = queryKey;
 
     // 若尚未知曉 subjectId，則向後端 Bangumi Search 檢索
-
     if (!subjectId) {
       const searchRes = await fetch(
         `/api/bangumi/search?q=${encodeURIComponent(queryKey)}&type=${typeId}${token ? `&token=${encodeURIComponent(token)}` : ""}`,
@@ -11215,7 +10952,6 @@ window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
       }
 
       // 若 Bangumi 未查詢到或未收藏但本地書籤已有標記，優先回退本地標記
-
       if (colType === 0 && localColType > 0) {
         colType = localColType;
       }
@@ -11323,7 +11059,6 @@ window.applyBangumiStatusChange = async function (
     window.bangumiSubjectStatusCache[title] = info;
 
     // 同步更新本地書籤庫中匹配作品的狀態標記與卡片
-
     const typeLabel = isManga
       ? statusType === 1
         ? "想讀"
@@ -11411,7 +11146,6 @@ window.getWatchHistoryList = function () {
     }
 
     // 舊資料自動清洗：如果封面含有明日香照片 (photo-1578632767115)，自動由書籤庫或中性海報替換；並將舊資料中之「視頻」替換為台灣用語「影片」
-
     let hasFixed = false;
 
     list.forEach((item) => {
@@ -11446,7 +11180,6 @@ window.getWatchHistoryList = function () {
     });
 
     // 自動清洗待命狀態髒資料與無播放來源項目
-
     const prevCount = list.length;
 
     list = list.filter(
@@ -11474,7 +11207,6 @@ window.getWatchHistoryList = function () {
 };
 
 // 切換動漫劇院「最近觀看紀錄」懸浮視窗 (Floating Panel)
-
 window.toggleTheaterFloatingHistory = function (forceState) {
   const panel = document.getElementById("theaterFloatingHistoryPanel");
 
@@ -11493,7 +11225,6 @@ window.toggleTheaterFloatingHistory = function (forceState) {
 };
 
 // 點擊懸浮面板外部自動收合
-
 document.addEventListener("click", (e) => {
   const panel = document.getElementById("theaterFloatingHistoryPanel");
   const btn = document.getElementById("theaterHistoryFloatingToggleBtn");
@@ -11529,7 +11260,6 @@ window.saveWatchHistory = function (
     const cleanTitle = title.trim();
 
     // 智能識別平台來源
-
     let detectedPlatform = platform;
 
     if (!detectedPlatform) {
@@ -11543,7 +11273,6 @@ window.saveWatchHistory = function (
     }
 
     // 封面智能補全（杜絕無關手辦圖，精準抓取官方封面/YouTube縮圖/中性SVG）
-
     let finalCover = cover;
 
     if (!finalCover || finalCover.includes("photo-1578632767115")) {
@@ -11580,7 +11309,6 @@ window.saveWatchHistory = function (
     }
 
     // 移除同標題或同播放地址之舊紀錄 (去重)
-
     history = history.filter(
       (h) => h.title !== cleanTitle && h.playUrl !== playUrl,
     );
@@ -11605,7 +11333,6 @@ window.saveWatchHistory = function (
     sessionStorage.setItem("web_library_watch_history", JSON.stringify(history));
 
     // 觸發雙向 UI 渲染
-
     window.renderAnimeHistoryStandby();
     window.renderWatchHistoryGrid();
   } catch (e) {
@@ -11614,7 +11341,6 @@ window.saveWatchHistory = function (
 };
 
 // 向下相容動畫劇院專用歷史調用
-
 window.saveAnimePlayHistory = function (
   animeTitle,
   cover,
@@ -11662,7 +11388,6 @@ window.saveCurrentAnimeProgressNow = function () {
   const playUrl = window.currentKazumiPlayingUrl || "";
 
   // 嚴格守衛：待命狀態或無播放來源時絕不記錄
-
   if (
     !playUrl ||
     playUrl.trim() === "" ||
@@ -11691,7 +11416,6 @@ window.saveCurrentAnimeProgressNow = function () {
 };
 
 // 劇院待命畫面中渲染最近觀看摘要 (支援懸浮視窗與抽屜，寬度舒展展示所有紀錄並支援平滑向下滾動)
-
 window.renderAnimeHistoryStandby = function () {
   const box = document.getElementById("animeRecentHistoryBox");
 
@@ -11701,7 +11425,6 @@ window.renderAnimeHistoryStandby = function () {
     const history = window.getWatchHistoryList();
 
     // 即時同步懸浮按鈕計數徽章
-
     const fBadge = document.getElementById("theaterFloatingHistoryBadge");
 
     if (fBadge) fBadge.textContent = history.length;
@@ -11784,7 +11507,6 @@ window.renderAnimeHistoryStandby = function () {
 };
 
 // 渲染獨立觀看歷史網格 (支援動漫專區 acg.html 與首頁模態框，緊湊精緻排版)
-
 window.renderWatchHistoryGrid = function () {
   const containers = [
     document.getElementById("watchHistoryGrid"),
@@ -11796,7 +11518,6 @@ window.renderWatchHistoryGrid = function () {
   const history = window.getWatchHistoryList();
 
   // 更新計數徽章
-
   const badges = [
     document.getElementById("watchHistoryBadge"),
     document.getElementById("modalWatchHistoryBadge"),
@@ -11885,7 +11606,6 @@ window.renderWatchHistoryGrid = function () {
 };
 
 // 接續恢復觀看
-
 window.resumeWatchHistory = function (id) {
   const history = window.getWatchHistoryList();
 
@@ -11894,7 +11614,6 @@ window.resumeWatchHistory = function (id) {
   if (!item) return;
 
   // 關閉歷史模態框 (若處於開啟狀態)
-
   const modalEl = document.getElementById("watchHistoryModal");
 
   if (modalEl) {
@@ -12015,7 +11734,6 @@ window.openWatchHistoryModal = function (e) {
 };
 
 // 確保歷史模態框關閉時若劇院仍開啟，維持 body.modal-open 防止畫面滑動或焦點錯亂
-
 const whModalEl = document.getElementById("watchHistoryModal");
 
 if (whModalEl) {
@@ -12034,7 +11752,6 @@ if (whModalEl) {
 }
 
 // 漫畫歷史紀錄系統
-
 window.saveMangaReadHistory = function (
   mangaId,
   title,
@@ -12187,7 +11904,6 @@ window.clearMangaHistory = function () {
 };
 
 // 相容性全域函式守護 (預防歷史模組與 ACG 擴充調用 ReferenceError)
-
 window.saveBookmarksLocally = function () {
   saveToStorage(true);
 };
@@ -12197,7 +11913,6 @@ window.renderCategoryTabs = function () {
 };
 
 // 匯入書籤 JSON 支援
-
 window.handleImportBookmarks = function (event) {
   const file = event.target.files && event.target.files[0];
 
@@ -12266,11 +11981,9 @@ window.handleImportBookmarks = function (event) {
       });
 
       // 1. 本地儲存與伺服器同步
-
       saveToStorage(true);
 
       // 2. 刷新整體 UI、統計數字與分類籤
-
       updateUI();
 
       showToast(
@@ -12293,7 +12006,6 @@ window.handleImportBookmarks = function (event) {
 };
 
 // 頁面初始化自動渲染歷史紀錄
-
 document.addEventListener("DOMContentLoaded", () => {
   setTimeout(() => {
     if (typeof window.renderAnimeHistoryStandby === "function")
@@ -12308,7 +12020,6 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // 啟動應用
-
 document.addEventListener("DOMContentLoaded", initApp);
 
 // ==========================================
@@ -12504,7 +12215,6 @@ window.renderGameHubGrid = function (keyword = "") {
   });
 
   // 最後添加「新增自定義遊戲 / Wiki 卡片插槽」
-
   const addCol = document.createElement("div");
 
   addCol.className = "col";
@@ -12558,7 +12268,6 @@ window.openGameToolViewer = function (title, url) {
   }
 
   // 關閉清單 Modal 並展示工具視窗
-
   const hubModalEl = document.getElementById("gameHubModal");
 
   if (hubModalEl) {
@@ -12795,7 +12504,6 @@ window.toggleCurrentMangaToBookshelf = function () {
 };
 
 // 當前小說一鍵收進書房 (全域通用：支援線上與本機電子書)
-
 window.toggleCurrentNovelToBookshelf = async function () {
   if (!novelState.currentNovel || !novelState.currentNovel.title) {
     showToast("目前尚未開啟任何小說！", "bi-exclamation-circle text-info");
@@ -12824,7 +12532,6 @@ window.toggleCurrentNovelToBookshelf = async function () {
       : "online_" + cur.title);
 
   // 若為本機上傳，確保完整章節寫入 IndexedDB
-
   if (isLocal && novelState.chapters && novelState.chapters.length > 0) {
     await saveLocalNovelToDB({
       id: bookId,
@@ -13097,7 +12804,6 @@ window.openDockerLogsModal = function () {
 };
 
 // 頁面載入後自動偵測一次 Docker 狀態
-
 setTimeout(() => {
   if (typeof window.checkDockerStatus === "function") {
     window.checkDockerStatus();
