@@ -1,3 +1,28 @@
+// ==================== 共用工具函式 (Shared Helpers) ====================
+// HTML 特殊字元跳脫 (XSS 防護)
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// "MM:SS" 時間格式 (彈幕時間軸、觀看紀錄進度)；非數值/負值一律回傳 "00:00"
+function formatMmSs(sec) {
+  const s = Math.floor(Number(sec));
+  if (!(s > 0)) return "00:00";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
+}
+
+// 產生唯一 ID：<prefix>_<timestamp>_<隨機碼>
+function genId(prefix, randLen = 5, ts = Date.now()) {
+  return `${prefix}_${ts}_${Math.random().toString(36).slice(2, 2 + randLen)}`;
+}
+
 // ==================== 播放模式 (循環 / 隨機 / 單曲循環) ====================
 let islandPlayMode = localStorage.getItem("islandPlayMode") || "repeat"; // "repeat" | "shuffle" | "repeat-1"
 
@@ -2178,14 +2203,6 @@ function formatIslandTime(seconds) {
   return `${m}:${s < 10 ? "0" : ""}${s}`;
 }
 
-// 共用 "MM:SS" 時間格式 (彈幕時間軸、觀看紀錄進度)；非數值/負值一律回傳 "00:00"
-function formatMmSs(sec) {
-  const s = Math.floor(Number(sec));
-  if (!(s > 0)) return "00:00";
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
-}
-
 function initDynamicIslandMusic() {
   const island = document.getElementById("dynamicIsland");
   const bar = document.getElementById("islandBar");
@@ -2776,7 +2793,7 @@ function initDynamicIslandMusic() {
         const favBtn = card.querySelector(".watch-fav-btn");
         favBtn.addEventListener("click", async () => {
           const newTrack = {
-            id: item.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            id: item.id || genId("track"),
             title: item.title,
             artist: item.artist,
             cover: item.cover,
@@ -6834,11 +6851,9 @@ let mangaState = {
 // 全域立體書架管理輔助函式 (相容 acg.html 與 index.html)
 // ==========================================
 
-if (!window.getMangaBookshelf) {
-  window.getMangaBookshelf = function () {
-    return Array.isArray(window._mangaBookshelfMemory) ? window._mangaBookshelfMemory : [];
-  };
-}
+window.getMangaBookshelf = function () {
+  return Array.isArray(window._mangaBookshelfMemory) ? window._mangaBookshelfMemory : [];
+};
 
 let _bookshelfSyncDebounceTimer = null;
 
@@ -6917,124 +6932,77 @@ window.syncBookshelfFromServer = async function(username) {
   }
 };
 
-if (!window.saveMangaBookshelf) {
-  window.saveMangaBookshelf = function (list) {
-    window._mangaBookshelfMemory = list || [];
-    if (typeof window.renderMangaBookshelf === "function") {
-      window.renderMangaBookshelf();
-    }
-    if (typeof window.syncBookshelfToServer === "function") {
-      window.syncBookshelfToServer('manga', list);
-    }
-  };
-}
+window.saveMangaBookshelf = function (list) {
+  window._mangaBookshelfMemory = list || [];
+  if (typeof window.renderMangaBookshelf === "function") {
+    window.renderMangaBookshelf();
+  }
+  if (typeof window.syncBookshelfToServer === "function") {
+    window.syncBookshelfToServer('manga', list);
+  }
+};
 
-if (!window.getNovelBookshelf) {
-  window.getNovelBookshelf = function () {
-    return Array.isArray(window._novelBookshelfMemory) ? window._novelBookshelfMemory : [];
-  };
-}
+window.getNovelBookshelf = function () {
+  return Array.isArray(window._novelBookshelfMemory) ? window._novelBookshelfMemory : [];
+};
 
-if (!window.saveNovelBookshelf) {
-  window.saveNovelBookshelf = function (list) {
-    window._novelBookshelfMemory = list || [];
-    if (typeof window.renderNovelBookshelf === "function") {
-      window.renderNovelBookshelf();
-    }
-    if (typeof window.syncBookshelfToServer === "function") {
-      window.syncBookshelfToServer('novel', list);
-    }
-  };
-}
+window.saveNovelBookshelf = function (list) {
+  window._novelBookshelfMemory = list || [];
+  if (typeof window.renderNovelBookshelf === "function") {
+    window.renderNovelBookshelf();
+  }
+  if (typeof window.syncBookshelfToServer === "function") {
+    window.syncBookshelfToServer('novel', list);
+  }
+};
 
-if (!window.toggleMangaBookshelfItem) {
-  window.toggleMangaBookshelfItem = function (title, cover, btnEl) {
-    if (!title) return;
-    let shelf = window.getMangaBookshelf();
+window.toggleMangaBookshelfItem = function (title, cover, btnEl) {
+  if (!title) return;
+  let shelf = window.getMangaBookshelf();
 
-    const exists = shelf.some((b) => b.title === title);
+  const exists = shelf.some((b) => b.title === title);
 
-    if (exists) {
-      shelf = shelf.filter((b) => b.title !== title);
-      window.saveMangaBookshelf(shelf);
+  if (exists) {
+    shelf = shelf.filter((b) => b.title !== title);
+    window.saveMangaBookshelf(shelf);
 
-      if (btnEl) {
-        btnEl.className = "btn btn-xs btn-outline-primary rounded-pill px-2";
-        btnEl.innerHTML = `<i class="bi bi-bookmark-plus"></i> + 放進書架`;
-        btnEl.title = "將此漫畫放進條漫立體書架";
-      }
-
-      if (typeof showToast === "function") {
-        showToast(`已將《${title}》移出條漫書架`, "bi-trash text-warning");
-      }
-    } else {
-      shelf.unshift({
-        title: title.trim(),
-        cover:
-          cover ||
-          "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80",
-        tag: "條漫",
-      });
-      window.saveMangaBookshelf(shelf);
-
-      if (btnEl) {
-        btnEl.className = "btn btn-xs btn-primary rounded-pill px-2";
-        btnEl.innerHTML = `<i class="bi bi-bookmark-check-fill"></i> 已在書架`;
-        btnEl.title = "已在條漫書架中，點擊可移出";
-      }
-
-      if (typeof showToast === "function") {
-        showToast(
-          `🎉 成功將《${title}》收藏進條漫立體書架！`,
-          "bi-star-fill text-warning",
-        );
-      }
+    if (btnEl) {
+      btnEl.className = "btn btn-xs btn-outline-primary rounded-pill px-2";
+      btnEl.innerHTML = `<i class="bi bi-bookmark-plus"></i> + 放進書架`;
+      btnEl.title = "將此漫畫放進條漫立體書架";
     }
 
-    if (typeof window.renderMangaBookshelf === "function") {
-      window.renderMangaBookshelf();
+    if (typeof showToast === "function") {
+      showToast(`已將《${title}》移出條漫書架`, "bi-trash text-warning");
     }
-  };
-}
+  } else {
+    shelf.unshift({
+      title: title.trim(),
+      cover:
+        cover ||
+        "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80",
+      tag: "條漫",
+    });
+    window.saveMangaBookshelf(shelf);
 
-if (!window.getNovelBookshelf) {
-  window.getNovelBookshelf = function () {
-    try {
-      const data = sessionStorage.getItem("web_library_novel_bookshelf");
-
-      if (data !== null) {
-        let parsed = JSON.parse(data);
-
-        if (Array.isArray(parsed)) {
-          const dummyTitles = [
-            "關於我轉生變成史萊姆這檔事",
-            "無職轉生",
-            "刀劍神域",
-            "Re:從零開始的異世界生活",
-          ];
-
-          return parsed.filter((b) => !dummyTitles.includes(b.title));
-        }
-      }
-    } catch (e) {}
-
-    return [];
-  };
-}
-
-if (!window.saveNovelBookshelf) {
-  window.saveNovelBookshelf = function (list) {
-    sessionStorage.setItem("web_library_novel_bookshelf", JSON.stringify(list));
-
-    if (typeof window.renderNovelBookshelf === "function") {
-      window.renderNovelBookshelf();
+    if (btnEl) {
+      btnEl.className = "btn btn-xs btn-primary rounded-pill px-2";
+      btnEl.innerHTML = `<i class="bi bi-bookmark-check-fill"></i> 已在書架`;
+      btnEl.title = "已在條漫書架中，點擊可移出";
     }
 
-    if (typeof window.syncBookshelfToServer === "function") {
-      window.syncBookshelfToServer('novel', list);
+    if (typeof showToast === "function") {
+      showToast(
+        `🎉 成功將《${title}》收藏進條漫立體書架！`,
+        "bi-star-fill text-warning",
+      );
     }
-  };
-}
+  }
+
+  if (typeof window.renderMangaBookshelf === "function") {
+    window.renderMangaBookshelf();
+  }
+};
 
 // ============================================================
 // 3D 擬真立體書架全域核心引擎 (支援琴鍵式相鄰波浪聯動 & 3D 抽書起伏)
@@ -7604,55 +7572,53 @@ document.addEventListener("DOMContentLoaded", () => {
   }, 200);
 });
 
-if (!window.toggleNovelBookshelfItem) {
-  window.toggleNovelBookshelfItem = function (title, cover, btnEl) {
-    if (!title) return;
-    let shelf = window.getNovelBookshelf();
+window.toggleNovelBookshelfItem = function (title, cover, btnEl) {
+  if (!title) return;
+  let shelf = window.getNovelBookshelf();
 
-    const exists = shelf.some((b) => b.title === title);
+  const exists = shelf.some((b) => b.title === title);
 
-    if (exists) {
-      shelf = shelf.filter((b) => b.title !== title);
-      window.saveNovelBookshelf(shelf);
+  if (exists) {
+    shelf = shelf.filter((b) => b.title !== title);
+    window.saveNovelBookshelf(shelf);
 
-      if (btnEl) {
-        btnEl.className = "btn btn-xs btn-outline-success rounded-pill px-2";
-        btnEl.innerHTML = `<i class="bi bi-bookmark-plus"></i> + 放進書房`;
-        btnEl.title = "將此小說放進立體書房";
-      }
-
-      if (typeof showToast === "function") {
-        showToast(`已將《${title}》移出小說書房`, "bi-trash text-warning");
-      }
-    } else {
-      shelf.unshift({
-        title: title.trim(),
-        cover:
-          cover ||
-          "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80",
-        tag: "小說",
-      });
-      window.saveNovelBookshelf(shelf);
-
-      if (btnEl) {
-        btnEl.className = "btn btn-xs btn-success rounded-pill px-2";
-        btnEl.innerHTML = `<i class="bi bi-bookmark-check-fill"></i> 已在書房`;
-        btnEl.title = "已在小說書房中，點擊可移出";
-      }
-
-      if (typeof showToast === "function") {
-        showToast(
-          `🎉 成功將《${title}》收藏進小說立體書房！`,
-          "bi-star-fill text-warning",
-        );
-      }
+    if (btnEl) {
+      btnEl.className = "btn btn-xs btn-outline-success rounded-pill px-2";
+      btnEl.innerHTML = `<i class="bi bi-bookmark-plus"></i> + 放進書房`;
+      btnEl.title = "將此小說放進立體書房";
     }
 
-    if (typeof window.renderNovelBookshelf === "function") {
-      window.renderNovelBookshelf();
+    if (typeof showToast === "function") {
+      showToast(`已將《${title}》移出小說書房`, "bi-trash text-warning");
     }
-  };
-}
+  } else {
+    shelf.unshift({
+      title: title.trim(),
+      cover:
+        cover ||
+        "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80",
+      tag: "小說",
+    });
+    window.saveNovelBookshelf(shelf);
+
+    if (btnEl) {
+      btnEl.className = "btn btn-xs btn-success rounded-pill px-2";
+      btnEl.innerHTML = `<i class="bi bi-bookmark-check-fill"></i> 已在書房`;
+      btnEl.title = "已在小說書房中，點擊可移出";
+    }
+
+    if (typeof showToast === "function") {
+      showToast(
+        `🎉 成功將《${title}》收藏進小說立體書房！`,
+        "bi-star-fill text-warning",
+      );
+    }
+  }
+
+  if (typeof window.renderNovelBookshelf === "function") {
+    window.renderNovelBookshelf();
+  }
+};
 
 // 開啟 Tachimanga 閱覽器
 
@@ -10528,19 +10494,6 @@ window.batchDeleteBookmarks = function () {
   }, 1500);
 };
 
-// HTML 特殊字元跳脫 (XSS 防護)
-
-function escapeHtml(str) {
-  if (!str) return "";
-
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
 // ==========================================
 // 8. KazumiRules 前端即時搜尋與播放
 // ==========================================
@@ -11194,7 +11147,7 @@ window.addAnimeSearchResultToLibrary = function (title, cover, url) {
   if (!title) return;
 
   const newBookmark = {
-    id: "bm_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
+    id: genId("bm"),
     title: title.trim(),
     url:
       url || `https://bgm.tv/subject_search/${encodeURIComponent(title)}?cat=2`,
@@ -11600,11 +11553,7 @@ window.getWatchHistoryList = function () {
 
       if (oldAnime.length > 0) {
         list = oldAnime.map((a) => ({
-          id:
-            "wh_" +
-            (a.updatedAt || Date.now()) +
-            "_" +
-            Math.random().toString(36).substring(2, 6),
+          id: genId("wh", 4, a.updatedAt || Date.now()),
           title: a.animeTitle,
           epTitle: a.epTitle || "第 1 話",
           playUrl: a.playUrl || "",
@@ -11793,7 +11742,7 @@ window.saveWatchHistory = function (
     );
 
     const newRecord = {
-      id: "wh_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
+      id: genId("wh", 4),
       title: cleanTitle,
       cover: finalCover,
       epTitle:
@@ -12446,9 +12395,7 @@ window.handleImportBookmarks = function (event) {
         );
 
         const normalizedItem = {
-          id:
-            item.id ||
-            "bm_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
+          id: item.id || genId("bm"),
           title: item.title || item.name || "未命名書籤",
           url: item.url,
           cover: item.cover || "",
@@ -12978,6 +12925,29 @@ window.resetDefaultGames = function () {
     "bi-arrow-counterclockwise text-success",
   );
   window.renderGameHubGrid();
+};
+
+// 當前漫畫一鍵收進書架
+window.toggleCurrentMangaToBookshelf = function () {
+  const cur = mangaState.currentManga;
+  if (!cur || !cur.title) {
+    showToast("目前尚未開啟任何漫畫！", "bi-exclamation-circle text-info");
+    return;
+  }
+  const shelf = window.getMangaBookshelf();
+  if (shelf.some((b) => b.title === cur.title)) {
+    showToast(`《${cur.title}》已在您的書架中！`, "bi-bookmark-check text-success");
+    return;
+  }
+  shelf.unshift({
+    title: cur.title,
+    cover:
+      cur.cover ||
+      "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80",
+    tag: "已收藏",
+  });
+  window.saveMangaBookshelf(shelf);
+  showToast(`🎉 成功將《${cur.title}》收藏進條漫立體書架！`, "bi-star-fill text-warning");
 };
 
 // 當前小說一鍵收進書房 (全域通用：支援線上與本機電子書)
