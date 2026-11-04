@@ -9,6 +9,7 @@
     <meta name="referrer" content="strict-origin-when-cross-origin" />
 
     <title>網頁收藏圖書館 | Web Library</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 
     <!-- 身分認證守衛：未登入者強制導向登入頁 (第一頁，採用 sessionStorage 會話保護) -->
     <script>
@@ -56,6 +57,69 @@
   </head>
 
   <body class="bg-light">
+    <!-- ==================== iPhone 靈動島 (Dynamic Island) 核心元件 ==================== -->
+    <div id="dynamicIslandContainer" class="dynamic-island-container">
+      <div id="dynamicIsland" class="dynamic-island idle" role="region" aria-label="動態島多功能控制中心">
+        <!-- 1. 簡約膠囊狀態列 (Compact Capsule Bar) -->
+        <div class="island-bar" id="islandBar" title="點擊展開 Apple Watch 蜂巢音樂庫">
+          <div class="island-left" id="islandLeft">
+            <div class="island-music-disc" id="islandMusicDisc">
+              <img id="islandCoverMini" src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=100&q=80" alt="Cover" />
+            </div>
+            <i class="bi bi-music-note-beamed island-idle-icon" id="islandIdleIcon"></i>
+          </div>
+
+          <div class="island-center" id="islandCenter">
+            <span class="island-title" id="islandTitle">動態島音樂庫</span>
+            <span class="island-sub" id="islandSub">點擊展開 Apple Watch 封面流</span>
+          </div>
+
+          <div class="island-right" id="islandRight">
+            <div class="island-wave-bars" id="islandWaveBars">
+              <span></span><span></span><span></span><span></span>
+            </div>
+            <button type="button" class="island-quick-btn" id="islandQuickPlayBtn" title="播放 / 暫停">
+              <i class="bi bi-play-fill" id="islandQuickPlayIcon"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Apple Watch 蜂巢/瀑布流封面流抽屜 (Expanded Honeycomb/Waterfall Drawer) -->
+        <div class="island-drawer" id="islandDrawer">
+          <div class="island-drawer-header">
+            <span class="small fw-bold text-white-50"><i class="bi bi-apple text-info me-1"></i> 精選 ACG &amp; Lo-Fi 封面流</span>
+            <div class="d-flex align-items-center gap-2">
+              <button type="button" class="btn btn-sm btn-link text-white-50 p-0 text-decoration-none" id="islandPrevBtn" title="上一首"><i class="bi bi-skip-start-fill fs-6"></i></button>
+              <button type="button" class="btn btn-sm btn-info text-white rounded-circle p-1 d-flex align-items-center justify-content-center" id="islandPlayToggleBtn" title="播放/暫停" style="width:28px;height:28px;"><i class="bi bi-play-fill" id="islandMainPlayIcon"></i></button>
+              <button type="button" class="btn btn-sm btn-link text-white-50 p-0 text-decoration-none" id="islandNextBtn" title="下一首"><i class="bi bi-skip-end-fill fs-6"></i></button>
+              <button type="button" class="btn btn-sm btn-link text-white-50 p-0 ms-1 text-decoration-none" id="islandCloseDrawerBtn" title="收起動態島"><i class="bi bi-chevron-up"></i></button>
+            </div>
+          </div>
+
+          <!-- Apple Watch 圓形蜂巢氣泡網格 -->
+          <div class="island-honeycomb-flow" id="islandHoneycombFlow">
+            <!-- 由 JS 動態注入封面氣泡卡片 -->
+          </div>
+
+          <!-- 底部時間軸與進度 -->
+          <div class="island-drawer-footer">
+            <div class="d-flex align-items-center gap-2 text-white-50 small w-100">
+              <span id="islandCurrentTime" style="font-size: 0.72rem;">0:00</span>
+              <div class="progress flex-grow-1 bg-secondary bg-opacity-25" style="height: 4px; cursor: pointer;" id="islandProgressBar" title="拖動或點擊調整進度">
+                <div class="progress-bar bg-info" id="islandProgressFill" style="width: 0%;"></div>
+              </div>
+              <span id="islandTotalTime" style="font-size: 0.72rem;">0:00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 靈動島通知彈窗 (Notification Banner Inside Dynamic Island) -->
+        <div class="island-notification" id="islandNotification">
+          <span class="island-notif-icon" id="islandNotifIcon"><i class="bi bi-check-circle-fill text-success"></i></span>
+          <span class="island-notif-text" id="islandNotifText">操作成功</span>
+        </div>
+      </div>
+    </div>
     <!-- 頂部導航列 (Navbar - 簡約白色背景 + 1px 底邊框) -->
 
     <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top py-2">

@@ -4022,3 +4022,425 @@ body.dark-theme .carousel-control-next-icon {
 .toast-container.bottom-0.end-0 {
   display: none !important;
 }
+
+
+/* ==========================================================================
+   iPhone 靈動島 (Dynamic Island) & Apple Watch 瀑布流音樂庫核心樣式
+   ========================================================================== */
+
+.dynamic-island-container {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1080;
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+.dynamic-island {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  color: #ffffff;
+  overflow: hidden;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              border-radius 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.3s ease,
+              opacity 0.3s ease,
+              box-shadow 0.3s ease,
+              border-color 0.3s ease;
+  user-select: none;
+}
+
+/* 1. 靜態閒置 (Idle) - 半透明微膠囊 */
+.dynamic-island.idle {
+  width: 220px;
+  height: 38px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  opacity: 0.85;
+}
+
+.dynamic-island.idle:hover {
+  opacity: 1;
+  background: rgba(15, 23, 42, 0.75);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transform: scale(1.02);
+}
+
+/* 2. 播放中 (Playing) - 完整高亮顯示 + 頻譜跳動 */
+.dynamic-island.playing {
+  width: 300px;
+  height: 42px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 16px rgba(56, 189, 248, 0.2);
+  opacity: 1;
+}
+
+/* 3. 展開抽屜 (Expanded) - Apple Watch 蜂巢瀑布流音樂庫 */
+.dynamic-island.expanded {
+  width: 440px;
+  height: 430px;
+  border-radius: 34px;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65), 0 0 35px rgba(99, 102, 241, 0.25);
+  opacity: 1;
+  cursor: default;
+}
+
+/* 4. 通知彈窗 (Notifying) - 靈動島形變提示 */
+.dynamic-island.notifying {
+  width: 330px;
+  height: 44px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(52, 211, 153, 0.25);
+  opacity: 1;
+}
+
+/* 內部膠囊條 (Bar) */
+.island-bar {
+  width: 100%;
+  height: 100%;
+  max-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  box-sizing: border-box;
+}
+
+.dynamic-island.expanded .island-bar {
+  display: none;
+}
+
+.dynamic-island.notifying .island-bar {
+  display: none;
+}
+
+/* 左側：圖示與迷你黑膠封面 */
+.island-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.island-music-disc {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: none;
+}
+
+.island-music-disc img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: islandDiscSpin 8s linear infinite;
+  animation-play-state: paused;
+}
+
+.dynamic-island.playing .island-music-disc {
+  display: block;
+}
+
+.dynamic-island.playing .island-music-disc img {
+  animation-play-state: running;
+}
+
+.dynamic-island.playing .island-idle-icon {
+  display: none;
+}
+
+.island-idle-icon {
+  font-size: 0.95rem;
+  color: #38bdf8;
+  opacity: 0.85;
+}
+
+/* 中間：文字資訊 */
+.island-center {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin: 0 10px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.island-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f8fafc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.island-sub {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: -2px;
+}
+
+/* 右側：頻譜波條與按鈕 */
+.island-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.island-wave-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2.5px;
+  height: 14px;
+}
+
+.island-wave-bars span {
+  width: 3px;
+  height: 4px;
+  background: #38bdf8;
+  border-radius: 2px;
+  transition: height 0.2s ease;
+}
+
+.dynamic-island.playing .island-wave-bars span:nth-child(1) { animation: islandWave 1.1s ease-in-out infinite; }
+.dynamic-island.playing .island-wave-bars span:nth-child(2) { animation: islandWave 0.9s ease-in-out infinite 0.2s; }
+.dynamic-island.playing .island-wave-bars span:nth-child(3) { animation: islandWave 1.3s ease-in-out infinite 0.4s; }
+.dynamic-island.playing .island-wave-bars span:nth-child(4) { animation: islandWave 0.8s ease-in-out infinite 0.1s; }
+
+.island-quick-btn {
+  background: none;
+  border: none;
+  color: #ffffff;
+  padding: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.island-quick-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.1);
+}
+
+/* ==================== 抽屜展開頁面 (Expanded Drawer) ==================== */
+.island-drawer {
+  display: none;
+  width: 100%;
+  height: 100%;
+  padding: 16px 20px;
+  box-sizing: border-box;
+  flex-direction: column;
+}
+
+.dynamic-island.expanded .island-drawer {
+  display: flex;
+}
+
+.island-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 14px;
+}
+
+/* Apple Watch 蜂巢 / 瀑布流封面流容器 */
+.island-honeycomb-flow {
+  flex-grow: 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  overflow-y: auto;
+  padding: 6px 4px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.island-honeycomb-flow::-webkit-scrollbar {
+  width: 4px;
+}
+.island-honeycomb-flow::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+/* Apple Watch 圓形蜂巢氣泡曲目卡片 */
+.island-watch-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.island-watch-item:hover {
+  transform: scale(1.16) translateY(-4px);
+  z-index: 10;
+}
+
+.island-watch-cover {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.island-watch-item.active .island-watch-cover {
+  border-color: #38bdf8;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+  animation: islandPulseGlow 2s infinite;
+}
+
+.island-watch-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.island-watch-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.island-watch-item:hover .island-watch-overlay {
+  opacity: 1;
+}
+
+.island-watch-item.active .island-watch-overlay {
+  opacity: 1;
+  background: rgba(14, 165, 233, 0.4);
+}
+
+.island-watch-tooltip {
+  position: absolute;
+  bottom: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  color: #ffffff;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 20;
+}
+
+.island-watch-item:hover .island-watch-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(2px);
+}
+
+/* 抽屜底部控制與進度條 */
+.island-drawer-footer {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ==================== 靈動島彈窗通知 (Notification) ==================== */
+.island-notification {
+  display: none;
+  width: 100%;
+  height: 100%;
+  padding: 0 16px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+.dynamic-island.notifying .island-notification {
+  display: flex;
+}
+
+.island-notif-icon {
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+}
+
+.island-notif-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 動畫定義 */
+@keyframes islandDiscSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes islandWave {
+  0%, 100% { height: 4px; }
+  50% { height: 14px; }
+}
+
+@keyframes islandPulseGlow {
+  0%, 100% { box-shadow: 0 0 14px rgba(56, 189, 248, 0.4); }
+  50% { box-shadow: 0 0 25px rgba(56, 189, 248, 0.85); }
+}
+
+@media (max-width: 576px) {
+  .dynamic-island.expanded {
+    width: 94vw;
+    height: 400px;
+  }
+  .island-honeycomb-flow {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

@@ -2234,126 +2234,325 @@ function exportDataAsJSON() {
   showToast("書籤備份 JSON 已開始下載！", "bi-download text-success");
 }
 
-// ==================== 手機風格頂部膠囊通知 (Dynamic Island Mobile Toast) ====================
-let _topToastTimer = null;
-let _topToastEl = null;
+// ==================== iPhone 靈動島 (Dynamic Island) 通知與音樂控制中心 ====================
+let _islandNotifTimer = null;
 
+// 全域訊息通知：直接從頂部動態島以彈性形變動畫展開
 function showToast(message, iconClass = "bi-check-circle-fill text-success") {
-  let container = document.getElementById("mobileTopToastContainer");
-  if (!container) {
-    container = document.createElement("div");
-    container.id = "mobileTopToastContainer";
-    container.className = "mobile-top-toast-container";
-    document.body.appendChild(container);
-  }
+  const island = document.getElementById("dynamicIsland");
+  const notifIcon = document.getElementById("islandNotifIcon");
+  const notifText = document.getElementById("islandNotifText");
 
-  if (!_topToastEl) {
-    _topToastEl = document.createElement("div");
-    _topToastEl.className = "mobile-top-toast";
-    _topToastEl.innerHTML = `
-      <div class="toast-swipe-handle" title="上滑可關閉通知"></div>
-      <div class="toast-inner-content">
-        <span class="toast-icon" id="topToastIcon"></span>
-        <span class="toast-text" id="topToastText"></span>
-        <button type="button" class="toast-close-btn" id="topToastClose" title="關閉通知">
-          <i class="bi bi-x-lg"></i>
-        </button>
-      </div>
-    `;
-    container.appendChild(_topToastEl);
+  if (island && notifIcon && notifText) {
+    if (_islandNotifTimer) clearTimeout(_islandNotifTimer);
 
-    // 支援觸控與滑鼠上滑滑掉 (Swipe Up to Dismiss)
-    let startY = 0;
-    let isTouching = false;
+    notifIcon.innerHTML = `<i class="bi ${iconClass}"></i>`;
+    notifText.innerHTML = message;
 
-    const onPointerDown = (e) => {
-      isTouching = true;
-      startY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-      _topToastEl.classList.add("toast-swiping");
-      if (_topToastTimer) clearTimeout(_topToastTimer);
-    };
+    // 觸發靈動島形變提示
+    island.className = "dynamic-island notifying";
 
-    const onPointerMove = (e) => {
-      if (!isTouching) return;
-      const y = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-      const deltaY = y - startY;
-      // 僅處理向上滑動
-      if (deltaY < 0) {
-        _topToastEl.style.transform = `translateY(${deltaY}px) scale(${Math.max(0.85, 1 + deltaY / 300)})`;
-        _topToastEl.style.opacity = `${Math.max(0, 1 + deltaY / 75)}`;
-      }
-    };
-
-    const onPointerUp = (e) => {
-      if (!isTouching) return;
-      isTouching = false;
-      _topToastEl.classList.remove("toast-swiping");
-      const y = e.clientY || (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : startY);
-      const deltaY = y - startY;
-
-      if (deltaY < -18) {
-        // 上滑超過 18px，觸發滑掉離開
-        dismissTopToast();
+    _islandNotifTimer = setTimeout(() => {
+      // 展示完畢後，平滑回彈至原本狀態
+      if (islandMusicState.isExpanded) {
+        island.className = "dynamic-island expanded";
+      } else if (islandMusicState.isPlaying) {
+        island.className = "dynamic-island playing";
       } else {
-        // 未達閾值，平滑彈回原位
-        _topToastEl.style.transform = "";
-        _topToastEl.style.opacity = "";
-        startAutoDismiss();
+        island.className = "dynamic-island idle";
       }
-    };
-
-    _topToastEl.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("pointermove", onPointerMove);
-    document.addEventListener("pointerup", onPointerUp);
-    document.addEventListener("pointercancel", onPointerUp);
-
-    const closeBtn = _topToastEl.querySelector("#topToastClose");
-    if (closeBtn) {
-      closeBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        dismissTopToast();
-      });
-    }
+    }, 2800);
+    return;
   }
 
-  const iconEl = _topToastEl.querySelector("#topToastIcon");
-  const textEl = _topToastEl.querySelector("#topToastText");
-  if (iconEl) iconEl.innerHTML = `<i class="bi ${iconClass}"></i>`;
-  if (textEl) textEl.innerHTML = message;
-
-  if (_topToastTimer) clearTimeout(_topToastTimer);
-  _topToastEl.classList.remove("toast-dismissing");
-  _topToastEl.style.transform = "";
-  _topToastEl.style.opacity = "";
-
-  void _topToastEl.offsetWidth;
-  _topToastEl.classList.add("toast-show");
-
-  startAutoDismiss();
+  console.log(`[Toast Fallback] ${message}`);
 }
 
 window.showToast = showToast;
 
-function dismissTopToast() {
-  if (_topToastTimer) clearTimeout(_topToastTimer);
-  if (_topToastEl) {
-    _topToastEl.classList.remove("toast-show");
-    _topToastEl.classList.add("toast-dismissing");
-    setTimeout(() => {
-      if (_topToastEl) {
-        _topToastEl.classList.remove("toast-dismissing");
-        _topToastEl.style.transform = "";
-        _topToastEl.style.opacity = "";
-      }
-    }, 280);
+// ==================== Apple Watch 瀑布流/蜂巢音樂播放器核心 ====================
+const DYNAMIC_ISLAND_TRACKS = [
+  {
+    id: "track_madoka",
+    title: "コネクト (Connect)",
+    artist: "ClariS · 魔法少女小圓 OP",
+    cover: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=300&q=80",
+    src: "https://cdn.freesound.org/previews/708/708170_11861866-lq.mp3"
+  },
+  {
+    id: "track_sao",
+    title: "Crossing Field",
+    artist: "LiSA · 刀劍神域 SAO OP",
+    cover: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300&q=80",
+    src: "https://cdn.freesound.org/previews/689/689886_11861866-lq.mp3"
+  },
+  {
+    id: "track_frieren",
+    title: "Anytime Anywhere",
+    artist: "milet · 葬送的芙莉蓮 ED",
+    cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80",
+    src: "https://cdn.freesound.org/previews/612/612610_11861866-lq.mp3"
+  },
+  {
+    id: "track_precure",
+    title: "Precure Smile",
+    artist: "光之美少女 · 陽光活力調",
+    cover: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=300&q=80",
+    src: "https://cdn.freesound.org/previews/682/682855_11861866-lq.mp3"
+  },
+  {
+    id: "track_lofi_cyber",
+    title: "Night City Chill",
+    artist: "Cyberpunk · 賽博龐克夜曲",
+    cover: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=300&q=80",
+    src: "https://cdn.freesound.org/previews/530/530704_11861866-lq.mp3"
+  },
+  {
+    id: "track_ghibli",
+    title: "風の通り道 (風之甬道)",
+    artist: "久石讓 · 龍貓 Lo-Fi",
+    cover: "https://images.unsplash.com/photo-1448375240586-882707db888b?w=300&q=80",
+    src: "https://cdn.freesound.org/previews/665/665183_11861866-lq.mp3"
+  },
+  {
+    id: "track_eva",
+    title: "残酷な天使のテーゼ",
+    artist: "高橋洋子 · EVA 經典主題",
+    cover: "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=300&q=80",
+    src: "https://cdn.freesound.org/previews/562/562479_11861866-lq.mp3"
+  },
+  {
+    id: "track_tokyo_lofi",
+    title: "Tokyo Midnight Library",
+    artist: "Web Library · 專注伴讀",
+    cover: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300&q=80",
+    src: "https://cdn.freesound.org/previews/659/659293_11861866-lq.mp3"
   }
+];
+
+let islandAudio = new Audio();
+islandAudio.preload = "auto";
+let islandCurrentIndex = 0;
+let islandMusicState = {
+  isPlaying: false,
+  isExpanded: false
+};
+
+function formatIslandTime(seconds) {
+  if (isNaN(seconds) || seconds < 0) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s < 10 ? "0" : ""}${s}`;
 }
 
-function startAutoDismiss() {
-  if (_topToastTimer) clearTimeout(_topToastTimer);
-  _topToastTimer = setTimeout(() => {
-    dismissTopToast();
-  }, 3500);
+function initDynamicIslandMusic() {
+  const island = document.getElementById("dynamicIsland");
+  const bar = document.getElementById("islandBar");
+  const honeycombFlow = document.getElementById("islandHoneycombFlow");
+  const quickPlayBtn = document.getElementById("islandQuickPlayBtn");
+  const quickPlayIcon = document.getElementById("islandQuickPlayIcon");
+  const mainPlayIcon = document.getElementById("islandMainPlayIcon");
+  const playToggleBtn = document.getElementById("islandPlayToggleBtn");
+  const prevBtn = document.getElementById("islandPrevBtn");
+  const nextBtn = document.getElementById("islandNextBtn");
+  const closeDrawerBtn = document.getElementById("islandCloseDrawerBtn");
+  const titleEl = document.getElementById("islandTitle");
+  const subEl = document.getElementById("islandSub");
+  const coverMini = document.getElementById("islandCoverMini");
+  const curTimeEl = document.getElementById("islandCurrentTime");
+  const totTimeEl = document.getElementById("islandTotalTime");
+  const progressFill = document.getElementById("islandProgressFill");
+  const progressBar = document.getElementById("islandProgressBar");
+
+  if (!island || !bar) return;
+
+  // 1. 渲染 Apple Watch 蜂巢封面流
+  function renderWatchFlow() {
+    if (!honeycombFlow) return;
+    honeycombFlow.innerHTML = "";
+    DYNAMIC_ISLAND_TRACKS.forEach((track, idx) => {
+      const item = document.createElement("div");
+      item.className = `island-watch-item ${idx === islandCurrentIndex ? "active" : ""}`;
+      item.setAttribute("data-index", idx);
+      item.innerHTML = `
+        <div class="island-watch-cover">
+          <img src="${track.cover}" alt="${track.title}" loading="lazy" />
+          <div class="island-watch-overlay">
+            <i class="bi ${idx === islandCurrentIndex && islandMusicState.isPlaying ? "bi-pause-fill" : "bi-play-fill"} text-white fs-5"></i>
+          </div>
+        </div>
+        <div class="island-watch-tooltip">
+          <div class="fw-bold">${track.title}</div>
+          <div class="text-white-50" style="font-size:0.65rem;">${track.artist}</div>
+        </div>
+      `;
+
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (islandCurrentIndex === idx && islandMusicState.isPlaying) {
+          pauseIslandTrack();
+        } else {
+          loadAndPlayTrack(idx);
+        }
+      });
+
+      honeycombFlow.appendChild(item);
+    });
+  }
+
+  // 2. 載入並開播曲目
+  function loadAndPlayTrack(index) {
+    if (index < 0) index = DYNAMIC_ISLAND_TRACKS.length - 1;
+    if (index >= DYNAMIC_ISLAND_TRACKS.length) index = 0;
+    islandCurrentIndex = index;
+    const track = DYNAMIC_ISLAND_TRACKS[islandCurrentIndex];
+
+    islandAudio.src = track.src;
+    islandAudio.play().then(() => {
+      islandMusicState.isPlaying = true;
+      updateIslandUI();
+    }).catch(err => {
+      console.warn("[Dynamic Island Audio Play]:", err);
+      islandMusicState.isPlaying = true;
+      updateIslandUI();
+    });
+
+    renderWatchFlow();
+  }
+
+  function pauseIslandTrack() {
+    islandAudio.pause();
+    islandMusicState.isPlaying = false;
+    updateIslandUI();
+    renderWatchFlow();
+  }
+
+  function toggleIslandPlay() {
+    if (islandMusicState.isPlaying) {
+      pauseIslandTrack();
+    } else {
+      if (!islandAudio.src || islandAudio.src === "" || islandAudio.src === window.location.href) {
+        loadAndPlayTrack(islandCurrentIndex);
+      } else {
+        islandAudio.play().then(() => {
+          islandMusicState.isPlaying = true;
+          updateIslandUI();
+          renderWatchFlow();
+        }).catch(() => {
+          loadAndPlayTrack(islandCurrentIndex);
+        });
+      }
+    }
+  }
+
+  function updateIslandUI() {
+    const track = DYNAMIC_ISLAND_TRACKS[islandCurrentIndex];
+    if (titleEl) titleEl.textContent = track.title;
+    if (subEl) subEl.textContent = track.artist;
+    if (coverMini) coverMini.src = track.cover;
+
+    const playIconClass = islandMusicState.isPlaying ? "bi-pause-fill" : "bi-play-fill";
+    if (quickPlayIcon) quickPlayIcon.className = `bi ${playIconClass}`;
+    if (mainPlayIcon) mainPlayIcon.className = `bi ${playIconClass}`;
+
+    // 更新島容器外觀狀態 (若未在通知狀態中)
+    if (!island.classList.contains("notifying")) {
+      if (islandMusicState.isExpanded) {
+        island.className = "dynamic-island expanded";
+      } else if (islandMusicState.isPlaying) {
+        island.className = "dynamic-island playing";
+      } else {
+        island.className = "dynamic-island idle";
+      }
+    }
+  }
+
+  // 3. 事件綁定
+  bar.addEventListener("click", (e) => {
+    if (e.target.closest("#islandQuickPlayBtn")) return;
+    islandMusicState.isExpanded = true;
+    updateIslandUI();
+    renderWatchFlow();
+  });
+
+  if (quickPlayBtn) {
+    quickPlayBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleIslandPlay();
+    });
+  }
+
+  if (playToggleBtn) {
+    playToggleBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleIslandPlay();
+    });
+  }
+
+  if (prevBtn) {
+    prevBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      loadAndPlayTrack(islandCurrentIndex - 1);
+    });
+  }
+
+  if (nextBtn) {
+    nextBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      loadAndPlayTrack(islandCurrentIndex + 1);
+    });
+  }
+
+  if (closeDrawerBtn) {
+    closeDrawerBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      islandMusicState.isExpanded = false;
+      updateIslandUI();
+    });
+  }
+
+  // 點擊島外部收起抽屜
+  document.addEventListener("click", (e) => {
+    if (islandMusicState.isExpanded && !e.target.closest("#dynamicIslandContainer")) {
+      islandMusicState.isExpanded = false;
+      updateIslandUI();
+    }
+  });
+
+  // 音訊事件監聽
+  islandAudio.addEventListener("timeupdate", () => {
+    if (curTimeEl) curTimeEl.textContent = formatIslandTime(islandAudio.currentTime);
+    if (totTimeEl && islandAudio.duration) totTimeEl.textContent = formatIslandTime(islandAudio.duration);
+    if (progressFill && islandAudio.duration) {
+      const pct = (islandAudio.currentTime / islandAudio.duration) * 100;
+      progressFill.style.width = `${pct}%`;
+    }
+  });
+
+  islandAudio.addEventListener("ended", () => {
+    loadAndPlayTrack(islandCurrentIndex + 1);
+  });
+
+  if (progressBar) {
+    progressBar.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!islandAudio.duration) return;
+      const rect = progressBar.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const pct = Math.max(0, Math.min(1, clickX / rect.width));
+      islandAudio.currentTime = pct * islandAudio.duration;
+    });
+  }
+
+  // 首次渲染
+  updateIslandUI();
+  renderWatchFlow();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initDynamicIslandMusic);
+} else {
+  initDynamicIslandMusic();
 }
 
 // ==========================================
@@ -3006,7 +3205,7 @@ function renderEpisodeButtons(sourceId, animeItem, episodes, container) {
   const uniqueEpisodes = [];
 
   episodes.forEach((ep) => {
-    const key = (ep.title || "").trim();
+    const key = (ep.title || ep.name || ep.playUrl || "").trim();
 
     if (!seenTitles.has(key)) {
       seenTitles.add(key);
@@ -3380,7 +3579,7 @@ function openTheaterWithUrl(
     const uniqueEps = [];
 
     allEpisodes.forEach((ep) => {
-      const key = (ep.title || "").trim();
+      const key = (ep.title || ep.name || ep.playUrl || "").trim();
 
       if (!seen.has(key)) {
         seen.add(key);

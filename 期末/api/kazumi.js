@@ -549,9 +549,13 @@ async function crawlGiriEpisodes(detailUrl) {
                 const epTitle = parts[0] ? parts[0].trim() : `第${episodes.length + 1}話`;
                 const epUrl = parts[1] ? parts[1].trim() : parts[0];
                 if (epUrl) {
+                    const fullTitle = `[${sourceLabel}] ${epTitle}`;
                     episodes.push({
-                        name: `[${sourceLabel}] ${epTitle}`,
-                        playUrl: epUrl
+                        title: fullTitle,
+                        name: fullTitle,
+                        playUrl: epUrl,
+                        line: sourceLabel,
+                        epIndex: episodes.length + 1
                     });
                 }
             }
