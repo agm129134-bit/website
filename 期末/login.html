@@ -198,8 +198,6 @@
             </button>
         </div>
 
-        
-
         <!-- 錯誤或警告提示框 -->
         <div id="loginAlertBox" class="alert alert-danger py-2 px-3 small d-none rounded-2 mb-3">
             <i class="bi bi-exclamation-circle-fill me-1"></i> <span id="loginAlertText">請填寫完整的帳號與密碼</span>
@@ -354,7 +352,6 @@
         </form>
     </div>
 
-
     <!-- ==================== 哈哈你用了相同的密碼 大字報彩蛋 Modal ==================== -->
     <div class="modal fade" id="samePasswordEasterEggModal" tabindex="-1" aria-labelledby="samePasswordModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
@@ -455,7 +452,7 @@
             const loginForm = document.getElementById('loginForm');
             const regForm = document.getElementById('registerForm');
             const forgotForm = document.getElementById('forgotForm');
-            
+
             if (isForgot) {
                 if (tabLogin) tabLogin.classList.remove('active');
                 if (tabReg) tabReg.classList.remove('active');
@@ -835,17 +832,6 @@
                     window.location.href = 'index.html';
                 }, 500);
             });
-        }
-
-        // 輔助防 XSS
-        function escapeHtml(str) {
-            if (!str) return '';
-            return String(str)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
         }
     </script>
 </body>

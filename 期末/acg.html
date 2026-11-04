@@ -629,7 +629,7 @@
                 搜尋
               </button>
             </div>
-            
+
           </div>
 
           <button type="button" class="btn-close btn-close-white" id="watchMusicModalCloseBtn" aria-label="關閉選歌頁"></button>
@@ -895,7 +895,7 @@
                 </div>
                 <div class="modal-body">
                     <p class="text-muted small">輸入你在 Bangumi (番組計畫) 的使用者名稱或數字 ID，系統將透過官方 API 自動將你「在看（正在追）」的動畫一次性同步導入你的圖書館！</p>
-                    
+
                     <div class="mb-3">
                         <label for="bgmUsernameInput" class="form-label fw-semibold">Bangumi 使用者名稱 / ID <span class="text-danger">*</span></label>
                         <div class="input-group">
@@ -1136,7 +1136,7 @@
                                 <div class="film-icon-wrapper mb-3"><i class="bi bi-film d-inline-block text-danger" style="font-size: 3.2rem; filter: drop-shadow(0 0 16px rgba(239, 68, 68, 0.45));"></i></div>
                                 <h5 class="fw-bold text-white mb-1">動漫劇院（待命狀態）</h5>
                                 <p class="small mb-3" style="color: #cbd5e1;">輸入片名即可全網檢索播放來源並開播</p>
-                                
+
                                 <div class="input-group input-group-sm shadow-sm">
                                     <span class="input-group-text bg-dark text-white-50 border-secondary"><i class="bi bi-search"></i></span>
                                     <input type="text" id="theaterStandbySearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋動漫片名..." onkeydown="if(event.key==='Enter') searchAnimeFromTheater()">
@@ -1218,7 +1218,7 @@
                                 </div>
                                 <div id="animeRecentHistoryBox" class="d-flex flex-column gap-2 overflow-auto pe-1" style="max-height: 420px;"></div>
                             </div>
-                            
+
                             <!-- 1. 滾動選集列表 (佔滿垂直空間，多筆時自適應滾動) -->
                             <div id="kazumiEpisodesPanel" class="d-flex flex-column flex-grow-1 overflow-hidden" style="min-height: 0;">
                                 <div class="episode-list-container d-flex flex-column gap-2 mb-3 flex-grow-1 overflow-auto" style="min-height: 0; max-height: 440px;">
@@ -1527,7 +1527,7 @@
                                 </div>
                                 <div class="bookshelf-plank"></div>
                             </div>
-                            
+
                             <!-- 漫畫閱讀歷史紀錄區 -->
                             <div id="mangaRecentHistoryBox" class="mt-2 text-start w-100" style="display: none;"></div>
                         </div>
@@ -1598,7 +1598,7 @@
                         <button class="btn btn-sm btn-outline-secondary rounded-pill px-2 flex-shrink-0" id="novelHeaderPrevBtn" onclick="switchNovelChapter(-1)" title="上一章"><i class="bi bi-chevron-left"></i> <span class="d-none d-md-inline">上一章</span></button>
                         <button class="btn btn-sm btn-outline-secondary rounded-pill px-2 flex-shrink-0" id="novelHeaderNextBtn" onclick="switchNovelChapter(1)" title="下一章"><span class="d-none d-md-inline">下一章</span> <i class="bi bi-chevron-right"></i></button>
                         <button class="btn btn-sm btn-outline-success rounded-pill px-2 flex-shrink-0" onclick="openNovelChapterPicker()" title="選擇章節目錄"><i class="bi bi-list-ul"></i> <span class="d-none d-sm-inline">目錄</span></button>
-                        
+
                         <!-- 桌面版主題與外觀設定 (寬螢幕直接呈現) -->
                         <div class="d-none d-xl-flex align-items-center gap-2">
                             <!-- 主題切換 -->
@@ -1917,7 +1917,6 @@
         </div>
     </div>
 
-
     <!-- GSAP 3 高效能專業動畫庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
     <!-- Bootstrap 5 Bundle JS -->
@@ -2113,7 +2112,7 @@
                 const dayData = (data && Array.isArray(data)) ? data.find(d => d.weekday && d.weekday.id === today) : null;
                 const weekdayNames = {1:'星期一',2:'星期二',3:'星期三',4:'星期四',5:'星期五',6:'星期六',7:'星期日'};
                 todayAiringAnimeList = dayData && dayData.items ? dayData.items : FALLBACK_BANGUMI_ITEMS;
-                
+
                 const totalCount = todayAiringAnimeList.length;
                 if (dateTextEl) {
                     if (window._isUsingFallbackBangumi) {
@@ -2205,8 +2204,8 @@
                     carouselEl.addEventListener('slid.bs.carousel', () => {
                         const activeContent = carouselEl.querySelector('.carousel-item.active .acg-carousel-content');
                         if (activeContent && typeof gsap !== 'undefined') {
-                            gsap.fromTo(activeContent, 
-                                { opacity: 0, x: 25 }, 
+                            gsap.fromTo(activeContent,
+                                { opacity: 0, x: 25 },
                                 { opacity: 1, x: 0, duration: 0.45, ease: "power2.out" }
                             );
                         }
@@ -2335,8 +2334,8 @@
                 modal.addEventListener('show.bs.modal', () => {
                     const dialog = modal.querySelector('.modal-dialog');
                     if (dialog) {
-                        gsap.fromTo(dialog, 
-                            { scale: 0.88, opacity: 0, y: -25 }, 
+                        gsap.fromTo(dialog,
+                            { scale: 0.88, opacity: 0, y: -25 },
                             { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.4)" }
                         );
                     }
@@ -2417,20 +2416,20 @@
                     const bg = nextSlide.querySelector('.acg-carousel-bg');
 
                     if (poster) {
-                        gsap.fromTo(poster, 
-                            { opacity: 0, scale: 0.85, rotationY: -12, y: 15 }, 
+                        gsap.fromTo(poster,
+                            { opacity: 0, scale: 0.85, rotationY: -12, y: 15 },
                             { opacity: 1, scale: 1, rotationY: 0, y: 0, duration: 0.65, ease: "back.out(1.3)" }
                         );
                     }
                     if (textElements && textElements.length > 0) {
-                        gsap.fromTo(textElements, 
-                            { opacity: 0, x: 25 }, 
+                        gsap.fromTo(textElements,
+                            { opacity: 0, x: 25 },
                             { opacity: 1, x: 0, duration: 0.5, stagger: 0.06, ease: "power2.out" }
                         );
                     }
                     if (bg) {
-                        gsap.fromTo(bg, 
-                            { scale: 1.15, opacity: 0.4 }, 
+                        gsap.fromTo(bg,
+                            { scale: 1.15, opacity: 0.4 },
                             { scale: 1.05, opacity: 0.65, duration: 1.2, ease: "power1.out" }
                         );
                     }
