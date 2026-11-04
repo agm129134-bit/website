@@ -1,4 +1,3 @@
-
 // ==================== 播放模式 (循環 / 隨機 / 單曲循環) ====================
 let islandPlayMode = localStorage.getItem("islandPlayMode") || "repeat"; // "repeat" | "shuffle" | "repeat-1"
 
@@ -150,23 +149,14 @@ const DEFAULT_BOOKMARKS = [];
 
 const state = {
   bookmarks: [],
-
   activeCategory: "all",
-
   activeTag: "all",
-
   searchQuery: "",
-
   sortMode: "newest",
-
   viewMode: sessionStorage.getItem("web_library_view_mode") || "grid", // 'grid' | 'list' (持久化視圖偏好)
-
   currentUser: sessionStorage.getItem("web_library_user") || "jyun",
-
   apiToken: "usr_tok_REMOVED",
-
   isBatchMode: false,
-
   selectedBookmarkIds: new Set(),
 };
 
@@ -186,7 +176,6 @@ function initApp() {
     document.getElementById("categoryNav")
   ) {
     // 防止瀏覽器 Autofill 將帳號誤填入搜尋輸入框
-
     const sInput = document.getElementById("searchInput");
 
     if (sInput) {
@@ -296,7 +285,6 @@ function loadFromStorage() {
 
       if (authUser) {
         // 關鍵修復：state.currentUser 永遠使用純淨的 username (如 'jyun', 'admin', 'student') 作為伺服器同步識別碼！
-
         let rawU = (authUser.username || authUser.name || "").trim();
         let cleanU = rawU.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, "").trim();
 
@@ -365,7 +353,6 @@ window.confirmDeleteCurrentAccount = async function () {
 
   try {
     // 1. 向伺服器發送刪除請求
-
     await fetch(`/api/user/delete?user=${encodeURIComponent(user)}`, {
       method: "POST",
     });
@@ -455,12 +442,9 @@ async function syncToServer(immediate = false) {
     try {
       const res = await fetch("/api/user/bookmarks", {
         method: "POST",
-
         headers: { "Content-Type": "application/json" },
-
         body: JSON.stringify({
           user: user,
-
           bookmarks: state.bookmarks,
         }),
       });
@@ -505,7 +489,6 @@ async function syncFromServer(username, isFocusSync = false) {
     if (data && data.success && Array.isArray(data.bookmarks)) {
       if (!isFocusSync) {
         // 登入或整頁刷新：以伺服器端實際儲存為準
-
         state.bookmarks = data.bookmarks;
 
         sessionStorage.setItem(
@@ -516,7 +499,6 @@ async function syncFromServer(username, isFocusSync = false) {
         updateUI();
       } else {
         // 切換分頁無感同步（Alt+B 外部擴充新增）：僅合併伺服器端真正新加入的書籤
-
         let added = 0;
 
         const existingUrls = new Set(
@@ -662,9 +644,7 @@ window.verifyBangumiToken = async function () {
   try {
     const res = await fetch("/api/bangumi/me", {
       method: "POST",
-
       headers: { "Content-Type": "application/json" },
-
       body: JSON.stringify({ token }),
     });
     const result = await res.json();
@@ -747,9 +727,7 @@ window.syncStatusToBangumi = async function (
   try {
     const res = await fetch("/api/bangumi/collection", {
       method: "POST",
-
       headers: { "Content-Type": "application/json" },
-
       body: JSON.stringify({
         token,
         subjectId,
@@ -813,9 +791,7 @@ window.syncEpisodeProgressToBangumi = async function (
 
     const res = await fetch("/api/bangumi/episodes", {
       method: "POST",
-
       headers: { "Content-Type": "application/json" },
-
       body: JSON.stringify(payload),
     });
     const data = await res.json();
@@ -941,25 +917,10 @@ function renderTagChips() {
   // 保留 "全部標籤" 按鈕
 
   container.innerHTML = `
-
-
-
         <span class="small text-muted d-flex align-items-center gap-1">
-
-
-
             <i class="bi bi-tags-fill"></i> 標籤篩選：
-
-
-
         </span>
-
-
-
         <button class="btn btn-xs rounded-pill tag-chip ${state.activeTag === "all" ? "active" : ""}" data-tag="all">全部標籤</button>
-
-
-
     `;
 
   allTags.forEach((tag) => {
@@ -1215,21 +1176,9 @@ function renderBookmarks(skipAnimation = false) {
 
     const checkboxHtml = state.isBatchMode
       ? `
-
-
-
             <div class="bookmark-batch-checkbox position-absolute top-0 start-0 m-2" onclick="event.stopPropagation()">
-
-
-
                 <input class="form-check-input shadow" type="checkbox" id="check_${item.id}" ${isSelected ? "checked" : ""} onchange="toggleSelectBookmark('${item.id}', this.checked)">
-
-
-
             </div>
-
-
-
         `
       : "";
 
@@ -1239,121 +1188,53 @@ function renderBookmarks(skipAnimation = false) {
     const cardCursorStyle = state.isBatchMode ? 'style="cursor: pointer;"' : "";
 
     col.innerHTML = `
-
-
-
             <div class="card bookmark-card spotlight-card border-glow shadow-sm h-100 position-relative ${batchSelectedClass}" ${cardClickAttr} ${cardCursorStyle}>
-
-
-
                 ${checkboxHtml}
-
-
-
                 <!-- 封面圖區域 (點擊放大查看大圖) -->
-
-
-
                 <div class="card-cover-wrapper" onclick="event.stopPropagation(); openImagePreview('${escapeHtml(coverSrc)}', '${escapeHtml(item.title)}')">
-
-
-
                     <img src="${escapeHtml(coverSrc)}" class="card-cover-img" alt="${escapeHtml(item.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='${fallbackCover}'">
-
-
-
                     <div class="cover-zoom-badge" title="點擊放大預覽圖片"><i class="bi bi-arrows-fullscreen"></i></div>
-
-
-
-                    
-
-
-
                     ${item.pinned ? `<div class="pin-badge"><i class="bi bi-pin-angle-fill"></i> 置頂</div>` : ""}
-
                     <div class="category-floating-badge ${catBadgeClass}">
-
                         <i class="bi ${catIcon} me-1"></i>${catLabel}
-
                     </div>
-
                 </div>
-
                 <!-- 卡片主要內容 -->
-
                 <div class="card-content-body">
-
                     <!-- 網站來源 Meta -->
-
                     <div class="card-site-meta">
-
                         <img src="${faviconUrl}" class="site-favicon" alt="icon" onerror="this.style.display='none'">
-
                         <span>${escapeHtml(hostname)}</span>
-
                         <span class="ms-auto click-counter-badge" title="累計跳轉次數">
-
                             <i class="bi bi-cursor-fill text-primary"></i> ${item.clicks || 0} 次點擊
-
                         </span>
-
                     </div>
-
                     <!-- 標題 -->
-
                     <h6 class="card-title-text" title="${escapeHtml(item.title)}">
-
                         ${escapeHtml(item.title)}
-
                     </h6>
-
                     <!-- 描述備註 -->
-
                     <p class="card-desc-text">
-
                         ${escapeHtml(item.desc || "暫無備註資訊。")}
-
                     </p>
-
                     <!-- 標籤列表 -->
-
                     <div class="card-tags">
-
                         ${tagsHtml}
-
                     </div>
-
                     <!-- 底部操作列 -->
-
                     <div class="card-actions-footer" onclick="event.stopPropagation()">
-
                         <div class="d-flex align-items-center gap-1 flex-wrap">
-
                             <button class="btn btn-dark btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="jumpToBookmark('${item.id}')">
-
                                 <i class="bi bi-box-arrow-up-right"></i> 前往
-
                             </button>
-
                             ${
                               isAnimeItem(item)
                                 ? `
-
-
-
                             <button class="btn btn-outline-danger btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="playAnimeBookmark('${item.id}')" title="透過 Kazumi 全網檢索並開播">
-
-
-
                                 <i class="bi bi-play-circle-fill"></i> Kazumi 播放
-
-
-
                             </button>`
                                 : ""
                             }
-
                             ${
                               (item.category === "video" ||
                                 (item.url &&
@@ -1362,63 +1243,33 @@ function renderBookmarks(skipAnimation = false) {
                                     item.url.includes("youtu.be")))) &&
                               !isAnimeItem(item)
                                 ? `
-
-
-
                             <button class="btn btn-outline-danger btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="playVideoBookmark('${item.id}')">
-
-
-
                                 <i class="bi bi-play-circle-fill"></i> 播放
-
-
-
                             </button>`
                                 : ""
                             }
-
                             ${
                               Array.isArray(item.tags) &&
                               item.tags.some(
                                 (t) => t.includes("漫畫") || t.includes("条漫"),
                               )
                                 ? `
-
-
-
                             <button class="btn btn-outline-primary btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="readMangaBookmark('${item.id}')">
-
-
-
                                 <i class="bi bi-journal-richtext"></i> 漫畫
-
-
-
                             </button>`
                                 : ""
                             }
-
                             ${
                               Array.isArray(item.tags) &&
                               item.tags.some(
                                 (t) => t.includes("小說") || t.includes("文庫"),
                               )
                                 ? `
-
-
-
                             <button class="btn btn-outline-success btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="openLegadoWithTitle('${escapeHtml(item.title)}')">
-
-
-
                                 <i class="bi bi-book-half"></i> 小說
-
-
-
                             </button>`
                                 : ""
                             }
-
                             ${
                               isAnimeItem(item) ||
                               (Array.isArray(item.tags) &&
@@ -1430,83 +1281,34 @@ function renderBookmarks(skipAnimation = false) {
                                     t.includes("番劇"),
                                 ))
                                 ? `
-
-
-
                             <div class="dropdown d-inline-block">
-
-
-
                                 <button class="btn btn-outline-info btn-sm action-jump-btn dropdown-toggle d-flex align-items-center gap-1 bookmark-watch-status-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="變更是否看/讀過並同步至 Bangumi">
-
-
-
                                     <i class="bi bi-bookmark-check"></i> <span id="bmWatchStatusText_${item.id}">${getBookmarkWatchStatusLabel(item)}</span>
-
-
-
                                 </button>
-
-
-
                                 <ul class="dropdown-menu dropdown-menu-dark shadow-sm" style="font-size: 0.8rem; z-index: 1050;">
-
-
-
                                     <li><h6 class="dropdown-header small" style="color: #38bdf8 !important;">Bangumi 狀態同步</h6></li>
-
-
-
                                     <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 3); return false;"><i class="bi bi-play-circle text-success me-1"></i> ${isMangaItem(item) ? "已在讀" : "已在看"}</a></li>
-
-
-
                                     <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 1); return false;"><i class="bi bi-heart text-danger me-1"></i> ${isMangaItem(item) ? "想讀" : "想看"}</a></li>
-
-
-
                                     <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 2); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> ${isMangaItem(item) ? "已讀過" : "已看過"}</a></li>
-
-
-
                                 </ul>
-
-
-
                             </div>`
                                 : ""
                             }
-
                         </div>
-
                         <div class="btn-group btn-group-sm">
-
                             <button class="btn btn-outline-secondary" onclick="togglePinBookmark('${item.id}')" title="${item.pinned ? "取消置頂" : "設為置頂"}">
-
                                 <i class="bi bi-pin-angle${item.pinned ? "-fill text-warning" : ""}"></i>
-
                             </button>
-
                             <button class="btn btn-outline-secondary" onclick="editBookmark('${item.id}')" title="編輯此收藏">
-
                                 <i class="bi bi-pencil-square"></i>
-
                             </button>
-
                             <button class="btn btn-outline-danger" onclick="deleteBookmark('${item.id}')" title="刪除此收藏">
-
                                 <i class="bi bi-trash3"></i>
-
                             </button>
-
                         </div>
-
                     </div>
-
                 </div>
-
             </div>
-
         `;
 
     container.appendChild(col);
@@ -1520,42 +1322,27 @@ function renderBookmarks(skipAnimation = false) {
     if (isList) {
       gsap.fromTo(
         "#bookmarkContainer .bookmark-card",
-
         { x: -30, opacity: 0 },
-
         {
           x: 0,
-
           opacity: 1,
-
           duration: 0.32,
-
           stagger: 0.025,
-
           ease: "power2.out",
-
           clearProps: "transform,opacity",
         },
       );
     } else {
       gsap.fromTo(
         "#bookmarkContainer .bookmark-card",
-
         { y: 22, opacity: 0, scale: 0.96 },
-
         {
           y: 0,
-
           opacity: 1,
-
           scale: 1,
-
           duration: 0.38,
-
           stagger: 0.03,
-
           ease: "back.out(1.3)",
-
           clearProps: "transform,opacity",
         },
       );
@@ -1595,9 +1382,7 @@ window.openImagePreview = function (imgSrc, title = "圖片預覽") {
   if (typeof gsap !== "undefined") {
     gsap.fromTo(
       "#imagePreviewImg",
-
       { scale: 0.88, opacity: 0 },
-
       { scale: 1, opacity: 1, duration: 0.28, ease: "back.out(1.4)" },
     );
   }
@@ -1611,7 +1396,6 @@ window.openImagePreview = function (imgSrc, title = "圖片預覽") {
 
 function setupEventListeners() {
   // 1. 分類導航點擊
-
   const categoryNav = document.getElementById("categoryNav");
 
   categoryNav.querySelectorAll(".nav-link").forEach((link) => {
@@ -1712,7 +1496,6 @@ function setupEventListeners() {
 
   if (gridBtn && listBtn) {
     // 依照持久化狀態初始化按鈕外觀與 body class
-
     if (state.viewMode === "list") {
       listBtn.classList.add("active");
 
@@ -1756,19 +1539,13 @@ function setupEventListeners() {
         container.children.length > 0
       ) {
         // 2. 容器快速平滑淡出 (0.12s 毫無卡頓)
-
         gsap.to(container, {
           opacity: 0,
-
           y: targetMode === "list" ? -8 : 8,
-
           duration: 0.12,
-
           ease: "power2.in",
-
           onComplete: () => {
             // 3. 在完全隱形狀態下切換模式，絕不破版！
-
             state.viewMode = targetMode;
 
             sessionStorage.setItem("web_library_view_mode", targetMode);
@@ -1787,20 +1564,13 @@ function setupEventListeners() {
 
             gsap.fromTo(
               container,
-
               { opacity: 0, y: targetMode === "list" ? 8 : -8 },
-
               {
                 opacity: 1,
-
                 y: 0,
-
                 duration: 0.22,
-
                 ease: "power2.out",
-
                 clearProps: "all",
-
                 onComplete: () => {
                   isSwitchingView = false;
                 },
@@ -1937,9 +1707,7 @@ function setupEventListeners() {
         try {
           await fetch("/api/user/clear", {
             method: "POST",
-
             headers: { "Content-Type": "application/json" },
-
             body: JSON.stringify({ user: user }),
           });
         } catch (err) {
@@ -2131,7 +1899,6 @@ function saveBookmarkFromForm() {
 
   if (id) {
     // 更新現有項目
-
     const item = state.bookmarks.find((b) => b.id === id);
 
     if (item) {
@@ -2148,26 +1915,16 @@ function saveBookmarkFromForm() {
     showToast("收藏資料已更新！", "bi-check-circle-fill text-success");
   } else {
     // 新增項目
-
     const newBookmark = {
       id: "bm_" + Date.now(),
-
       title,
-
       url,
-
       category,
-
       tags,
-
       cover,
-
       desc,
-
       pinned,
-
       clicks: 0,
-
       createdAt: new Date().toISOString(),
     };
     state.bookmarks.unshift(newBookmark);
@@ -2279,31 +2036,20 @@ function simulateTampermonkeyCollect() {
   const mockSites = [
     {
       title: "【Bilibili】2026 最新推薦動漫排行榜 TOP 10 精彩盤點",
-
       url: "https://www.bilibili.com/video/BV1xx411c7m9",
-
       category: "video",
-
       tags: ["B站", "新番動漫", "排行榜"],
-
       cover:
         "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=700&q=80",
-
       desc: "由篡改猴油猴腳本一鍵抓取之網頁收藏。",
     },
-
     {
       title: "expressjs / express: 快速、無拘束、極簡的 Node.js 網頁架構",
-
       url: "https://github.com/expressjs/express",
-
       category: "web",
-
       tags: ["GitHub", "Node.js", "Express", "後端框架"],
-
       cover:
         "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=700&q=80",
-
       desc: "由篡改猴一鍵採集至 Web Library 圖書館。",
     },
   ];
@@ -2311,13 +2057,9 @@ function simulateTampermonkeyCollect() {
 
   const newItem = {
     id: "bm_" + Date.now(),
-
     ...randomPick,
-
     pinned: false,
-
     clicks: 1,
-
     createdAt: new Date().toISOString(),
   };
   state.bookmarks.unshift(newItem);
@@ -2396,7 +2138,6 @@ function showToast(message, iconClass = "bi-check-circle-fill text-success") {
 
   console.log(`[Toast Fallback] ${message}`);
 }
-
 
 // 靈動島通知手勢滑動 / 點擊快速清除 (恢復音樂膠囊或待命狀態)
 window.dismissIslandNotification = function () {
@@ -2529,7 +2270,6 @@ function initDynamicIslandMusic() {
     drawerModeBtn.addEventListener("click", toggleIslandPlayMode);
   }
   updatePlayModeUI();
-
 
   // 音量拉桿與音效預設 50%
   if (volumeSlider) {
@@ -3221,13 +2961,11 @@ if (document.readyState === "loading") {
 
 const KAZUMI_SOURCES = [
   { id: "AGE", name: "AGE動漫", desc: "全網熱門番劇（第三方解析器直出）" },
-
   {
     id: "Giri",
     name: "Girigirilove (ani.girigiri)",
     desc: "官方高速番劇庫 · 支援繁簡 m3u8 線上即時串流",
   },
-
   {
     id: "7sefun",
     name: "7sefun動漫 (外鏈)",
@@ -3237,11 +2975,8 @@ const KAZUMI_SOURCES = [
 
 let kazumiState = {
   title: "",
-
   cover: "",
-
   sources: new Map(), // id -> { status: 'loading'|'done'|'empty'|'error', results: [], expanded: false, episodes: {} }
-
   currentEpisode: null,
 };
 
@@ -3375,7 +3110,6 @@ window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
   if (title && (!animeCover || animeCover.includes("photo-1578632767115"))) {
     fetch(`/api/bangumi/search?q=${encodeURIComponent(title)}&type=2`)
       .then((r) => r.json())
-
       .then((res) => {
         if (
           res.success &&
@@ -3448,7 +3182,6 @@ window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
           }
         }
       })
-
       .catch(() => {});
   }
 
@@ -3578,37 +3311,14 @@ function renderSourceList() {
     const badgeHtml = getStatusBadge(state.status, state.results.length);
 
     header.innerHTML = `
-
-
-
             <div class="d-flex align-items-center gap-2">
-
-
-
                 <span class="fw-bold text-light">${escapeHtml(source.name)}</span>
-
-
-
                 <small class="ms-1" style="color: #cbd5e1; font-weight: 500;">${escapeHtml(source.desc)}</small>
-
-
-
             </div>
-
-
-
             <div class="d-flex align-items-center gap-2">
-
-
-
                 ${badgeHtml}
-
-
-
                 ${state.status === "done" ? `<i class="bi bi-chevron-${state.expanded ? "up" : "down"} text-white-50"></i>` : ""}
-
             </div>
-
         `;
 
     if (state.status === "done") {
@@ -3642,101 +3352,29 @@ function renderSourceList() {
           "d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2";
 
         itemHeader.innerHTML = `
-
-
-
                     <div class="d-flex align-items-center gap-2 text-truncate" style="max-width: 52%;">
-
-
-
                         <span class="badge bg-danger-subtle text-danger px-1">#${rIdx + 1}</span>
-
-
-
                         <span class="fw-semibold text-white small text-truncate" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</span>
-
-
-
                     </div>
-
-
-
                     <div class="d-flex align-items-center gap-1 flex-wrap">
-
-
-
                         <button class="btn btn-xs btn-outline-success text-truncate" onclick="addAnimeSearchResultToLibrary('${escapeHtml(item.title)}', '${escapeHtml(kazumiState.cover || "")}', '${escapeHtml(item.detailUrl || "")}')" title="收藏作品至個人圖書館">
-
-
-
                             <i class="bi bi-bookmark-plus"></i> +收藏
-
-
-
                         </button>
-
-
-
                         <div class="dropdown d-inline-block">
-
-
-
                             <button class="btn btn-xs btn-outline-info dropdown-toggle d-flex align-items-center gap-1 bookmark-watch-status-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="檢視或更改 Bangumi 狀態">
-
-
-
                                 <i class="bi bi-bookmark-heart"></i> <span id="${statusTagId}">辨識中...</span>
-
-
-
                             </button>
-
-
-
                             <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow-sm" style="font-size: 0.8rem; z-index: 1060;">
-
-
-
                                 <li><h6 class="dropdown-header small" style="color: #38bdf8 !important;">Bangumi 狀態變更</h6></li>
-
-
-
                                 <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 3, false, '${statusTagId}'); return false;"><i class="bi bi-play-circle text-success me-1"></i> 已在看</a></li>
-
-
-
                                 <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 1, false, '${statusTagId}'); return false;"><i class="bi bi-heart text-danger me-1"></i> 想看</a></li>
-
-
-
                                 <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 2, false, '${statusTagId}'); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> 已看過</a></li>
-
-
-
                             </ul>
-
-
-
                         </div>
-
-
-
                         <button class="btn btn-xs btn-outline-danger" id="epBtn_${source.id}_${rIdx}">
-
-
-
                             <i class="bi bi-list-ul"></i> 取得選集
-
-
-
                         </button>
-
-
-
                     </div>
-
-
-
                 `;
 
         setTimeout(() => {
@@ -4426,7 +4064,6 @@ let danmakuEnabled = false; // 彈幕預設關閉
 
 window.openKazumiPlayer = function (title = "", src = "") {
   // 若無提供直接串流/外嵌網址，一律跳出播放來源檢索抽屜
-
   if (
     !src ||
     src === "" ||
@@ -4493,7 +4130,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
 
   if (biliMatch) {
     // Bilibili 播放處理：優先請求官方原生 MP4 串流，消除 iframe 裁切黑邊，支援原生音量與進度控制！
-
     const bvid =
       biliMatch[1] && biliMatch[1].startsWith("BV") ? biliMatch[1] : "";
     const playUrlApi = `/api/kazumi/bilibili-playurl?bvid=${encodeURIComponent(bvid)}&url=${encodeURIComponent(src)}`;
@@ -4514,7 +4150,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
 
     fetch(playUrlApi)
       .then((r) => r.json())
-
       .then((res) => {
         if (res.success && res.isDirectStream && res.streamUrl) {
           if (iframeWrapper) iframeWrapper.style.display = "none";
@@ -4580,7 +4215,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
           );
         }
       })
-
       .catch(() => {
         video.pause();
         video.style.display = "none";
@@ -4605,7 +4239,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
     if (bvid) {
       fetch(`/api/kazumi/resolve?bvid=${bvid}`)
         .then((r) => r.json())
-
         .then((res) => {
           if (res.success && res.data) {
             const realTitle = res.data.title || title;
@@ -4665,12 +4298,10 @@ window.openKazumiPlayer = function (title = "", src = "") {
             }
           }
         })
-
         .catch(() => {});
     }
   } else if (ytMatch) {
     // YouTube 官方無 Cookie 安全內嵌播放器 (純淨化：隱藏原控制項、關閉鍵盤衝突)
-
     const ytId = ytMatch[1];
     const ytCover = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
 
@@ -4709,7 +4340,6 @@ window.openKazumiPlayer = function (title = "", src = "") {
     }, 200);
   } else {
     // 原生 HTML5 影片 / 代理串流
-
     if (typeof window.saveWatchHistory === "function") {
       window.saveWatchHistory(title, "", "原生串流", src, 0, 0, "anime");
     }
@@ -5038,27 +4668,16 @@ const DANMAKU_SETTINGS_KEY = "kazumi_danmaku_settings";
 
 let danmakuConfig = {
   sourcePreference: "bilibili", // "bilibili" (免金鑰官方直連) 或 "dandanplay" (需金鑰全網聚合)
-
   fontSize: 24, // 14 ~ 38 px
-
   opacity: 100, // 20 ~ 100 %
-
   displayArea: 100, // 25, 50, 75, 100 %
-
   lineHeight: 1.6, // 1.0 ~ 2.4
-
   duration: 8, // 4 ~ 15 秒
-
   syncSpeed: true, // 跟隨影片倍速
-
   timeOffset: 0.0, // 彈幕時間校準 (-10.0 ~ +10.0s)
-
   blockWords: "", // 屏蔽關鍵字 (逗號分隔)
-
   scrollDanmaku: true,
-
   topDanmaku: true,
-
   bottomDanmaku: true,
 };
 
@@ -5143,25 +4762,10 @@ window.clearAllDanmakuState = function () {
 
   if (container) {
     container.innerHTML = `
-
-
-
             <div class="text-center py-5 text-white-50 small">
-
-
-
                 <i class="bi bi-chat-dots fs-3 d-block mb-2 text-warning opacity-75"></i>
-
-
-
                 <div>動漫劇院待命中，未載入彈幕</div>
-
-
-
             </div>
-
-
-
         `;
   }
 
@@ -5452,13 +5056,10 @@ function sendIframePlaybackCommand(cmd, time = 0) {
 
   try {
     // 0. Tampermonkey Bridge 專屬高優先度直達控制
-
     iframe.contentWindow.postMessage(
       {
         target: "kazumi_iframe_video",
-
         action: cmd,
-
         time: targetSec,
       },
       "*",
@@ -5466,7 +5067,6 @@ function sendIframePlaybackCommand(cmd, time = 0) {
 
     if (cmd === "pause") {
       // YouTube
-
       iframe.contentWindow.postMessage(
         '{"event":"command","func":"pauseVideo","args":""}',
         "*",
@@ -5481,7 +5081,6 @@ function sendIframePlaybackCommand(cmd, time = 0) {
       iframe.contentWindow.postMessage({ action: "pause" }, "*");
     } else if (cmd === "play") {
       // YouTube
-
       iframe.contentWindow.postMessage(
         '{"event":"command","func":"playVideo","args":""}',
         "*",
@@ -5494,7 +5093,6 @@ function sendIframePlaybackCommand(cmd, time = 0) {
       iframe.contentWindow.postMessage({ action: "play" }, "*");
     } else if (cmd === "seek") {
       // YouTube
-
       iframe.contentWindow.postMessage(
         JSON.stringify({
           event: "command",
@@ -5712,7 +5310,6 @@ window.seekMasterTimeline = function (targetSec) {
   if (currentDanmakuQueue && currentDanmakuQueue.length > 0) {
     currentDanmakuQueue.forEach((item) => {
       // 跳轉時間點之前的彈幕標記為已發(_fired = true)，該時間點之後的彈幕標記為未發(_fired = false)
-
       item._fired = item.numericTime < sec;
     });
   }
@@ -5830,15 +5427,11 @@ function sendIframeVolumeCommand(vol, isMuted) {
 
   try {
     // Tampermonkey Bridge
-
     iframe.contentWindow.postMessage(
       {
         target: "kazumi_iframe_video",
-
         action: "volume",
-
         volume: effectiveVol / 100,
-
         muted: isMuted,
       },
       "*",
@@ -5849,9 +5442,7 @@ function sendIframeVolumeCommand(vol, isMuted) {
     iframe.contentWindow.postMessage(
       JSON.stringify({
         event: "command",
-
         func: isMuted ? "mute" : "unMute",
-
         args: "",
       }),
       "*",
@@ -5860,9 +5451,7 @@ function sendIframeVolumeCommand(vol, isMuted) {
     iframe.contentWindow.postMessage(
       JSON.stringify({
         event: "command",
-
         func: "setVolume",
-
         args: [effectiveVol],
       }),
       "*",
@@ -6124,25 +5713,10 @@ function renderDanmakuList(list, keyword = "") {
 
   if (!list || list.length === 0) {
     container.innerHTML = `
-
-
-
             <div class="text-center py-5 text-white-50 small">
-
-
-
                 <i class="bi bi-chat-dots fs-3 d-block mb-2 text-warning opacity-75"></i>
-
-
-
                 <div>${keyword ? "未找到符合關鍵字的彈幕" : "當前集數尚未載入彈幕或來源為空"}</div>
-
-
-
             </div>
-
-
-
         `;
 
     return;
@@ -6154,49 +5728,16 @@ function renderDanmakuList(list, keyword = "") {
       const color = item.color || "#ffffff";
 
       return `
-
-
-
             <div class="p-2 rounded bg-black bg-opacity-40 border border-secondary border-opacity-50 d-flex align-items-center justify-content-between gap-2 hover-bg-light transition-all">
-
-
-
                 <div class="d-flex align-items-center gap-2 overflow-hidden flex-grow-1">
-
-
-
                     <span class="badge bg-dark border border-secondary text-info font-monospace flex-shrink-0" style="font-size: 0.75rem; cursor: pointer;" onclick="window.jumpToDanmakuTime(${item.numericTime || 0})" title="點擊直接將彈幕時間軸同步至此時間點">${timeStr}</span>
-
-
-
                     <span class="rounded-circle flex-shrink-0" style="width: 10px; height: 10px; background-color: ${color}; box-shadow: 0 0 4px ${color};"></span>
-
-
-
                     <span class="small text-white text-truncate" title="${escapeHtml(item.content)}">${escapeHtml(item.content)}</span>
-
-
-
                 </div>
-
-
-
                 <button type="button" class="btn btn-outline-success btn-xs rounded-pill flex-shrink-0 px-2" onclick="window.fireTestDanmaku('${escapeHtml(item.content)}', '${color}')" title="立即在畫面上飄送此條彈幕">
-
-
-
                     <i class="bi bi-play-fill"></i> 試發
-
-
-
                 </button>
-
-
-
             </div>
-
-
-
         `;
     })
     .join("");
@@ -6232,7 +5773,6 @@ window.openDanmakuSettingsModal = function () {
 
 function updateDanmakuSettingsModalUI() {
   // 外觀
-
   const setVal = (id, val) => {
     const el = document.getElementById(id);
 
@@ -6356,15 +5896,10 @@ window.onDanmakuSettingInput = function (key, val) {
 
   const textMap = {
     fontSize: num,
-
     opacity: `${num}%`,
-
     displayArea: `${num}%`,
-
     lineHeight: num,
-
     duration: `${num} 秒`,
-
     timeOffset:
       num === 0 ? "0.0s (無偏移)" : `${num > 0 ? "+" : ""}${num.toFixed(1)}s`,
   };
@@ -6438,25 +5973,15 @@ window.resetDanmakuOffset = function () {
 window.resetDanmakuSettingsDefault = function () {
   danmakuConfig = {
     fontSize: 24,
-
     opacity: 100,
-
     displayArea: 100,
-
     lineHeight: 1.6,
-
     duration: 8,
-
     syncSpeed: true,
-
     timeOffset: 0.0,
-
     blockWords: "",
-
     scrollDanmaku: true,
-
     topDanmaku: true,
-
     bottomDanmaku: true,
   };
 
@@ -6662,7 +6187,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
           if (data.type === "seek" || data.type === "seeked") {
             // 彈幕隊列同步跳轉重對齊
-
             if (currentDanmakuQueue && currentDanmakuQueue.length > 0) {
               currentDanmakuQueue.forEach((item) => {
                 item._fired = item.numericTime < time;
@@ -6972,7 +6496,6 @@ function initKazumiFullscreenInteractions() {
 
   if (screenOverlay) {
     // 中央點擊切換播放/暫停，雙擊切換全螢幕
-
     let clickTimeout = null;
 
     screenOverlay.addEventListener("click", (e) => {
@@ -7319,7 +6842,6 @@ function startFsIdleTimer() {
 
     if (!drawerOpen && !container.classList.contains("is-standby")) {
       // 全螢幕或非全螢幕播放中，閒置 3 秒自動隱藏底部/頂部控制列，避免擋住影片！
-
       container.classList.add("fs-controls-hidden");
     }
   }, 3000);
@@ -7410,13 +6932,9 @@ let currentMangaZoom = 1.0;
 
 let mangaState = {
   currentManga: null, // { id, title, cover, author }
-
   chapters: [], // [ { id, title, index } ]
-
   currentChapterIdx: -1, // 目前閱讀章節索引
-
   pages: [], // 目前章節所有頁面 URL
-
   searchResults: [], // 最近搜尋結果
 };
 
@@ -7562,11 +7080,9 @@ if (!window.toggleMangaBookshelfItem) {
     } else {
       shelf.unshift({
         title: title.trim(),
-
         cover:
           cover ||
           "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80",
-
         tag: "條漫",
       });
       window.saveMangaBookshelf(shelf);
@@ -7948,8 +7464,8 @@ window.renderMangaBookshelf = function () {
       bookEl.classList.remove("dragging-book");
       const t = document.getElementById("globalBookshelfTrashBin");
       if (t) t.classList.remove("trash-ready", "trash-hover");
-      setTimeout(() => { 
-        isDraggingBook = false; 
+      setTimeout(() => {
+        isDraggingBook = false;
         window._currentlyDraggedBookEl = null;
         window.updateBookshelfTrashVisibility();
       }, 100);
@@ -8083,8 +7599,8 @@ window.renderNovelBookshelf = function () {
       bookEl.classList.remove("dragging-book");
       const t = document.getElementById("globalBookshelfTrashBin");
       if (t) t.classList.remove("trash-ready", "trash-hover");
-      setTimeout(() => { 
-        isDraggingBook = false; 
+      setTimeout(() => {
+        isDraggingBook = false;
         window._currentlyDraggedBookEl = null;
         window.updateBookshelfTrashVisibility();
       }, 100);
@@ -8225,11 +7741,9 @@ if (!window.toggleNovelBookshelfItem) {
     } else {
       shelf.unshift({
         title: title.trim(),
-
         cover:
           cover ||
           "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80",
-
         tag: "小說",
       });
       window.saveNovelBookshelf(shelf);
@@ -8259,7 +7773,6 @@ if (!window.toggleNovelBookshelfItem) {
 window.openTachimangaReader = function (title = "", pages = []) {
   if (title && title !== "漫畫閱覽器" && title.trim() !== "") {
     // 如果帶有漫畫名稱，直接喚起搜尋與選集抽屜
-
     openMangaSearchModal(title.trim());
 
     return;
@@ -8316,117 +7829,32 @@ function renderMangaStandby() {
 
   if (wrapper) {
     wrapper.innerHTML = `
-
-
-
             <div class="bookshelf-container py-4 text-start w-100" id="tachimangaPlaceholder">
-
-
-
                 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2 px-2">
-
-
-
                     <div class="d-flex align-items-center gap-2">
-
-
-
                         <i class="bi bi-collection-fill fs-4 text-primary"></i>
-
-
-
                         <div>
-
-
-
                             <h5 class="fw-bold text-white mb-0">條漫立體藏書閣</h5>
-
-
-
                             <span class="text-white-50 small">點選書本立即開卷 · 搜尋漫畫即可收入書架</span>
-
-
-
                         </div>
-
-
-
                     </div>
-
-
-
                     <div class="d-flex gap-2">
-
-
-
                         <div class="input-group input-group-sm" style="width: 260px;">
-
-
-
                             <input type="text" id="mangaStandbySearchInput" class="form-control bg-dark text-white border-secondary" placeholder="搜尋漫畫加入書架..." onkeydown="if(event.key==='Enter') searchMangaFromStandby()">
-
-
-
                             <button class="btn btn-primary" type="button" onclick="searchMangaFromStandby()"><i class="bi bi-search"></i> 搜尋</button>
-
-
-
                         </div>
-
-
-
                     </div>
-
-
-
                 </div>
-
-
-
                 <!-- 書架層架 -->
-
-
-
                 <div class="bookshelf-shelf">
-
-
-
                     <div class="bookshelf-books-row" id="mangaBookshelfGrid">
-
-
-
                         <!-- 由 JS 動態注入 3D 漫畫書本 -->
-
-
-
                     </div>
-
-
-
                     <div class="bookshelf-plank"></div>
-
-
-
                 </div>
-
-
-
-                
-
-
-
                 <!-- 漫畫閱讀歷史紀錄區 -->
-
-
-
                 <div id="mangaRecentHistoryBox" class="mt-2 text-start w-100" style="display: none;"></div>
-
-
-
             </div>
-
-
-
         `;
 
     if (typeof window.renderMangaBookshelf === "function") {
@@ -8508,25 +7936,10 @@ window.searchMangaFromDrawer = async function (keyword) {
 
   if (container) {
     container.innerHTML = `
-
-
-
             <div class="text-center py-5 text-secondary">
-
-
-
                 <div class="spinner-border text-primary spinner-border-sm mb-2" role="status"></div>
-
-
-
                 <div>正在全網漫畫庫檢索《${escapeHtml(q)}》...</div>
-
-
-
             </div>
-
-
-
         `;
   }
 
@@ -8556,25 +7969,10 @@ function renderMangaSearchResults(results, q) {
 
   if (!results || results.length === 0) {
     container.innerHTML = `
-
-
-
             <div class="text-secondary text-center py-4">
-
-
-
                 <i class="bi bi-inbox fs-3 d-block mb-2"></i>
-
-
-
                 未找到與「${escapeHtml(q)}」相符的漫畫，請更換關鍵字嘗試。
-
-
-
             </div>
-
-
-
         `;
 
     return;
@@ -8615,141 +8013,39 @@ function renderMangaSearchResults(results, q) {
       : "將此漫畫放進條漫立體書架";
 
     card.innerHTML = `
-
-
-
             <img src="${escapeHtml(coverUrl)}" class="rounded shadow-sm" alt="${escapeHtml(m.title)}" style="width: 54px; height: 72px; object-fit: cover;" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80'">
-
-
-
             <div class="overflow-hidden flex-grow-1">
-
-
-
                 <div class="d-flex align-items-center gap-2 mb-1">
-
-
-
                     <h6 class="fw-bold text-white mb-0 text-truncate" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</h6>
-
-
-
                     ${sourceBadgeHtml}
-
-
-
                 </div>
-
-
-
                 <div class="small text-truncate mb-1" style="color: #cbd5e1;">
-
-
-
                     <span class="text-primary me-2"><i class="bi bi-person"></i> ${escapeHtml(m.author || "未知作者")}</span>
-
-
-
                     <span class="text-muted" style="font-size: 0.75rem;">來源：${escapeHtml(sourceName)}</span>
-
-
-
                 </div>
-
-
-
                 <div class="small text-truncate" style="font-size: 0.8rem; color: #94a3b8;">${escapeHtml(m.brief || "全網精選條漫資源")}</div>
-
-
-
             </div>
-
-
-
             <div class="d-flex flex-column align-items-end gap-1 flex-shrink-0">
-
-
-
                 <div class="d-flex align-items-center gap-1">
-
-
-
                     <button class="btn btn-xs ${shelfBtnClass} rounded-pill px-2" onclick="toggleMangaBookshelfItem('${escapeHtml(m.title)}', '${escapeHtml(coverUrl)}', this)" title="${shelfBtnTitle}">
-
-
-
                         ${shelfBtnText}
-
-
-
                     </button>
-
-
-
                     <div class="dropdown d-inline-block">
-
-
-
                         <button class="btn btn-xs btn-outline-info dropdown-toggle rounded-pill px-2 bookmark-watch-status-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="檢視或更改 Bangumi 閱讀狀態">
-
-
-
                             <i class="bi bi-book"></i> <span id="${statusTagId}">辨識中...</span>
-
-
-
                         </button>
-
-
-
                         <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow-sm" style="font-size: 0.8rem; z-index: 1060;">
-
-
-
                             <li><h6 class="dropdown-header small" style="color: #38bdf8 !important;">Bangumi 閱讀狀態</h6></li>
-
-
-
                             <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 3, true, '${statusTagId}'); return false;"><i class="bi bi-play-circle text-success me-1"></i> 已在讀</a></li>
-
-
-
                             <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 1, true, '${statusTagId}'); return false;"><i class="bi bi-heart text-danger me-1"></i> 想讀</a></li>
-
-
-
                             <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 2, true, '${statusTagId}'); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> 已讀過</a></li>
-
-
-
                         </ul>
-
-
-
                     </div>
-
-
-
                 </div>
-
-
-
                 <button class="btn btn-sm btn-outline-primary text-nowrap rounded-pill px-3 w-100" onclick="selectManga('${escapeHtml(m.id)}', '${escapeHtml(m.title)}', '${escapeHtml(coverUrl)}', '${escapeHtml(m.author || "")}', '${escapeHtml(m.alias || "")}', '${escapeHtml(sourceName)}')">
-
-
-
                     <i class="bi bi-list-ol"></i> 選集
-
-
-
                 </button>
-
-
-
             </div>
-
-
-
         `;
 
     container.appendChild(card);
@@ -8804,25 +8100,10 @@ window.selectManga = async function (
 
   if (container) {
     container.innerHTML = `
-
-
-
             <div class="text-center py-5 text-secondary">
-
-
-
                 <div class="spinner-border text-primary spinner-border-sm mb-2" role="status"></div>
-
-
-
                 <div>正在載入《${escapeHtml(title)}》的章節清單...</div>
-
-
-
             </div>
-
-
-
         `;
   }
 
@@ -8871,41 +8152,14 @@ function renderMangaChaptersGrid(mangaId, chapters) {
 
   if (!chapters || chapters.length === 0) {
     container.innerHTML = `
-
-
-
             <div class="text-secondary text-center py-5">
-
-
-
                 <i class="bi bi-shield-lock text-warning fs-3 mb-2 d-block"></i>
-
-
-
                 <div class="fw-bold mb-1 text-light">暫無可用線上章節</div>
-
-
-
                 <div class="small text-muted mb-3">此作品可能受源站官方 APP 權限保護或線上暫無庫存，建議返回更換關鍵字或點擊其他備援條目。</div>
-
-
-
                 <button class="btn btn-sm btn-outline-info rounded-pill px-3" onclick="backToMangaSearchResults()">
-
-
-
                     <i class="bi bi-arrow-left"></i> 返回搜尋結果
-
-
-
                 </button>
-
-
-
             </div>
-
-
-
         `;
 
     return;
@@ -8988,29 +8242,11 @@ window.loadMangaChapter = async function (
 
   if (wrapper) {
     wrapper.innerHTML = `
-
-
-
             <div class="text-center py-5 my-5 text-secondary">
-
-
-
                 <div class="spinner-border text-primary mb-3" style="width: 2.5rem; height: 2.5rem;" role="status"></div>
-
-
-
                 <h5 class="fw-bold text-white mb-1">正在載入【${escapeHtml(chapterTitle)}】條漫長圖...</h5>
-
-
-
                 <p class="small text-secondary">穿透防盜鏈並建立垂直無縫畫布</p>
-
-
-
             </div>
-
-
-
         `;
   }
 
@@ -9031,41 +8267,14 @@ window.loadMangaChapter = async function (
 
     if (wrapper) {
       wrapper.innerHTML = `
-
-
-
                 <div class="text-center py-5 my-5 text-danger">
-
-
-
                     <i class="bi bi-exclamation-triangle fs-1 d-block mb-3"></i>
-
-
-
                     <h5 class="fw-bold mb-1">條漫載入失敗</h5>
-
-
-
                     <p class="small text-secondary mb-3">${escapeHtml(err.message)}</p>
-
-
-
                     <button class="btn btn-outline-light btn-sm rounded-pill px-3" onclick="loadMangaChapter('${escapeHtml(mangaId)}', '${escapeHtml(chapterId)}', '${escapeHtml(chapterTitle)}', ${chapterIndex})">
-
-
-
                         <i class="bi bi-arrow-repeat"></i> 重試
-
-
-
                     </button>
-
-
-
                 </div>
-
-
-
             `;
     }
   }
@@ -9267,15 +8476,10 @@ window.closeCurrentManga = function () {
 
 let novelState = {
   currentNovel: null, // { id, title, author, cover, intro, category }
-
   chapters: [], // [ { id, title, index } ]
-
   currentChapterIdx: -1, // 目前閱讀章節索引
-
   currentParagraphs: [], // 目前章節段落
-
   searchResults: [], // 最近搜尋結果
-
   theme: (function () {
     try {
       return (
@@ -9288,9 +8492,7 @@ let novelState = {
       return "sepia";
     }
   })(), // 'sepia' | 'white' | 'dark'
-
   fontSize: 18, // 14 ~ 28 px
-
   customTextColor: (function () {
     try {
       return sessionStorage.getItem("novel_text_color") || null;
@@ -9448,21 +8650,10 @@ window.searchNovelFromDrawer = async function (keyword) {
 
   if (container) {
     container.innerHTML = `
-
-
-
             <div class="text-center py-5 text-secondary">
-
-
-
                 <div class="spinner-border text-success spinner-border-sm mb-2" role="status"></div>
-
-
-
                 <div>正在【${sourceName}】檢索${q ? `《${escapeHtml(q)}》` : "精選輕小說"}...</div>
-
             </div>
-
         `;
   }
 
@@ -9502,25 +8693,10 @@ function renderNovelSearchResults(novels) {
 
   if (!novels || novels.length === 0) {
     container.innerHTML = `
-
-
-
             <div class="text-center py-5 text-secondary">
-
-
-
                 <i class="bi bi-journal-x fs-2 d-block mb-2 text-warning opacity-75"></i>
-
-
-
                 <div>未找到相關輕小說作品，請嘗試其他關鍵字</div>
-
-
-
             </div>
-
-
-
         `;
 
     return;
@@ -9548,161 +8724,44 @@ function renderNovelSearchResults(novels) {
         : "將此小說放進立體書房";
 
       return `
-
-
-
         <div class="card bg-black bg-opacity-50 border-secondary mb-3 hover-shadow transition-all">
-
-
-
             <div class="row g-0 align-items-center">
-
-
-
                 <div class="col-3 col-sm-2 text-center p-2">
-
-
-
                     <img src="${escapeHtml(n.cover || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=200")}" 
-
-
-
                          alt="${escapeHtml(n.title)}" 
-
-
-
                          class="img-fluid rounded-2 shadow-sm" 
-
-
-
                          style="max-height: 105px; object-fit: cover;"
-
-
-
                          onerror="this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=200'">
-
-
-
                 </div>
-
-
-
                 <div class="col-9 col-sm-10">
-
-
-
                     <div class="card-body py-2 pe-3 ps-1">
-
-
-
                         <div class="d-flex align-items-center justify-content-between mb-1">
-
-
-
                             <h6 class="card-title fw-bold text-white mb-0 text-truncate">
-
-
-
                                 ${sourceBadge}
-
-
-
                                 ${escapeHtml(n.title)}
-
-
-
                             </h6>
-
-
-
                             <span class="badge bg-success-subtle text-success small">${escapeHtml(n.status || "完結")}</span>
-
-
-
                         </div>
-
-
-
                         <div class="small mb-1" style="color: #cbd5e1;">
-
-
-
                             <span><i class="bi bi-person text-success"></i> ${escapeHtml(n.author || "佚名")}</span>
-
-
-
                             <span class="mx-2">·</span>
-
-
-
                             <span><i class="bi bi-tag text-success"></i> ${escapeHtml(n.category || "輕小說")}</span>
-
-
-
                             <span class="mx-2">·</span>
-
-
-
                             <span><i class="bi bi-list-ol text-success"></i> 共 ${n.chapterCount || "多"} 章</span>
-
-
-
                         </div>
-
-
-
                         <p class="card-text small text-truncate mb-2" style="max-width: 480px; color: #94a3b8;">${escapeHtml(n.intro || "")}</p>
-
-
-
                         <div class="d-flex align-items-center gap-2 flex-wrap">
-
-
-
                             <button class="btn btn-sm btn-success rounded-pill px-3" onclick="selectNovel('${escapeHtml(n.id)}', '${escapeHtml(n.title)}', '${escapeHtml(n.cover || "")}', '${escapeHtml(n.author || "")}', '${escapeHtml(n.intro || "")}')">
-
-
-
                                 <i class="bi bi-book-half me-1"></i> 開始閱讀 / 選集
-
-
-
                             </button>
-
-
-
                             <button class="btn btn-sm ${shelfBtnClass} rounded-pill px-3" onclick="toggleNovelBookshelfItem('${escapeHtml(n.title)}', '${escapeHtml(n.cover || "")}', this)" title="${shelfBtnTitle}">
-
-
-
                                 ${shelfBtnText}
-
-
-
                             </button>
-
-
-
                         </div>
-
-
-
                     </div>
-
-
-
                 </div>
-
-
-
             </div>
-
-
-
         </div>
-
-
-
         `;
     })
     .join("");
@@ -9758,25 +8817,10 @@ window.selectNovel = async function (
 
   if (container) {
     container.innerHTML = `
-
-
-
             <div class="text-center py-5 text-secondary">
-
-
-
                 <div class="spinner-border text-success spinner-border-sm mb-2" role="status"></div>
-
-
-
                 <div>正在載入《${escapeHtml(title)}》分卷與章節目錄...</div>
-
-
-
             </div>
-
-
-
         `;
   }
 
@@ -9819,86 +8863,36 @@ function renderNovelChapterList(chapters, novelId, title) {
 
   if (!chapters || chapters.length === 0) {
     container.innerHTML = `
-
-
-
             <div class="text-center py-5 text-secondary">
-
-
-
                 <i class="bi bi-journal-x fs-2 d-block mb-2 text-warning opacity-75"></i>
-
-
-
                 <div class="text-white fw-bold">很抱歉，此書源暫無《${escapeHtml(title)}》的章節資料</div>
-
-
-
                 <div class="small text-white-50 mt-1">請嘗試切換上方其他書源或檢索其他小說作品。</div>
-
-
-
             </div>
-
-
-
         `;
 
     return;
   }
 
   container.innerHTML = `
-
-
-
         <div class="d-flex align-items-center justify-content-between mb-2">
-
-
-
             <span class="small text-secondary"><i class="bi bi-list-check"></i> 點選章節立即進入閱讀：</span>
-
-
-
             <span class="badge bg-secondary border border-secondary text-white">${chapters.length} 個章節</span>
-
-
-
         </div>
-
-
-
         <div class="row g-2">
-
-
-
             ${chapters
               .map(
                 (ch, idx) => `
-
                 <div class="col-12 col-sm-6">
-
                     <button class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate py-2 px-3 d-flex align-items-center justify-content-between chapter-select-btn ${novelState.currentChapterIdx === idx ? "border-success text-success bg-success bg-opacity-10 active" : ""}"
-
                             onclick="loadNovelChapter('${escapeHtml(novelId)}', '${escapeHtml(ch.id)}', ${idx}, '${escapeHtml(title)}')">
-
                         <span class="text-truncate">${escapeHtml(ch.title)}</span>
-
                         <i class="bi bi-chevron-right small opacity-50 ms-2"></i>
-
                     </button>
-
                 </div>
-
             `,
               )
               .join("")}
-
-
-
         </div>
-
-
-
     `;
 }
 
@@ -9975,25 +8969,10 @@ window.loadNovelChapter = async function (
 
   if (paragraphsEl) {
     paragraphsEl.innerHTML = `
-
-
-
             <div class="text-center py-5 text-secondary">
-
-
-
                 <div class="spinner-border text-success spinner-border-sm mb-2" role="status"></div>
-
-
-
                 <div>正在載入章節正文...</div>
-
-
-
             </div>
-
-
-
         `;
   }
 
@@ -10026,9 +9005,7 @@ window.loadNovelChapter = async function (
   if (!loadedParagraphs || loadedParagraphs.length === 0) {
     loadedParagraphs = [
       `【提示】當前書源暫無《${novelTitle || "本作品"}》第 ${chapterIdx + 1} 章之正文內容。`,
-
       `可能原因：該小說尚未收錄於目前所選的書源資料庫中，或來源端暫時維護中。`,
-
       `建議您可以嘗試切換頂部之小說書源（如 輕小說文庫 / 嗶哩輕小說）再次檢索。`,
     ];
     loadedChapterTitle = `章節正文暫缺`;
@@ -10053,13 +9030,7 @@ window.loadNovelChapter = async function (
     paragraphsEl.innerHTML = loadedParagraphs
       .map(
         (p) => `
-
-
-
             <p class="mb-4 text-justify" style="text-indent: 2em; line-height: 2.2;">${escapeHtml(p)}</p>
-
-
-
         `,
       )
       .join("");
@@ -10199,43 +9170,22 @@ function renderLocalNovelChapterList() {
   if (countEl) countEl.textContent = `共 ${chapters.length} 章`;
 
   container.innerHTML = `
-
-
-
         <div class="row g-2">
-
-
-
             ${chapters
               .map(
                 (ch, idx) => `
-
                 <div class="col-12 col-md-6 col-lg-4">
-
                     <button class="btn btn-sm ${novelState.currentChapterIdx === idx ? "btn-success fw-bold text-white shadow-sm" : "btn-outline-light text-white-50"} w-100 text-truncate text-start px-3 py-2 border rounded-3"
-
                             onclick="selectLocalNovelChapter(${idx})"
-
                             title="${escapeHtml(ch.title)}">
-
                         <i class="bi ${novelState.currentChapterIdx === idx ? "bi-bookmark-check-fill text-white" : "bi-file-text"} me-2"></i>
-
                         <span>${escapeHtml(ch.title)}</span>
-
                     </button>
-
                 </div>
-
             `,
               )
               .join("")}
-
-
-
         </div>
-
-
-
     `;
 }
 
@@ -10349,7 +9299,6 @@ function parseAndLoadTxtBook(file, bookTitle) {
     while ((m = chapterRegex.exec(content)) !== null) {
       matches.push({
         title: m[1].trim(),
-
         index: m.index,
       });
     }
@@ -10358,18 +9307,14 @@ function parseAndLoadTxtBook(file, bookTitle) {
 
     if (matches.length > 0) {
       // 前言或序章
-
       if (matches[0].index > 0) {
         const introText = content.slice(0, matches[0].index).trim();
 
         if (introText) {
           chapters.push({
             id: "ch_0",
-
             title: "前言 / 序章",
-
             index: 0,
-
             paragraphs: splitTextIntoParagraphs(introText),
           });
         }
@@ -10390,17 +9335,13 @@ function parseAndLoadTxtBook(file, bookTitle) {
 
         chapters.push({
           id: "ch_" + chapters.length,
-
           title: matches[i].title,
-
           index: chapters.length,
-
           paragraphs: splitTextIntoParagraphs(chBody || rawChText),
         });
       }
     } else {
       // 無明顯章節標記，按每 4000 字智慧切分
-
       const chunkSize = 4000;
       let start = 0;
       let chNum = 1;
@@ -10420,11 +9361,8 @@ function parseAndLoadTxtBook(file, bookTitle) {
 
         chapters.push({
           id: "ch_" + chapters.length,
-
           title: `第 ${chNum} 部分`,
-
           index: chapters.length,
-
           paragraphs: splitTextIntoParagraphs(chunkText),
         });
         start = end;
@@ -10442,9 +9380,7 @@ function parseAndLoadTxtBook(file, bookTitle) {
 function splitTextIntoParagraphs(text) {
   return text
     .split(/\r?\n+/)
-
     .map((p) => p.trim())
-
     .filter((p) => p.length > 0);
 }
 
@@ -10528,11 +9464,8 @@ async function parseAndLoadEpubBook(file, bookTitle) {
       if (paragraphs.length > 0) {
         chapters.push({
           id: "ch_" + chapters.length,
-
           title: title,
-
           index: chapters.length,
-
           paragraphs: paragraphs,
         });
       }
@@ -10600,7 +9533,6 @@ async function saveLocalNovelToDB(novelData) {
 
     if (!db) {
       // 優雅降級：若 IndexedDB 不可用則嘗試使用記憶體或 localStorage
-
       try {
         sessionStorage.setItem(
           "novel_cache_" + novelData.id,
@@ -10659,16 +9591,11 @@ function loadLocalBookIntoReader(bookTitle, chapters, existingId = null) {
 
   novelState.currentNovel = {
     id: bookId,
-
     title: bookTitle,
-
     author: "本機上傳",
-
     cover:
       "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80",
-
     intro: `本機上傳電子書《${bookTitle}》，共收錄 ${chapters.length} 個章節。`,
-
     isLocal: true,
   };
   novelState.chapters = chapters;
@@ -10677,13 +9604,9 @@ function loadLocalBookIntoReader(bookTitle, chapters, existingId = null) {
 
   saveLocalNovelToDB({
     id: bookId,
-
     title: bookTitle,
-
     chapters: chapters,
-
     isLocal: true,
-
     updatedAt: new Date().toISOString(),
   });
   const countEl = document.getElementById("novelSelectedChapterCount");
@@ -10727,13 +9650,7 @@ function loadLocalNovelChapter(idx) {
     paragraphsEl.innerHTML = (ch.paragraphs || [])
       .map(
         (p) => `
-
-
-
             <p class="mb-4 text-justify" style="text-indent: 2em; line-height: 2.2;">${escapeHtml(p)}</p>
-
-
-
         `,
       )
       .join("");
@@ -11082,77 +9999,23 @@ function renderCalendarDayAnime(dayId) {
       : `https://bgm.tv/subject/${anime.id}`;
 
     col.innerHTML = `
-
-
-
             <div class="card bgm-anime-card shadow-sm">
-
-
-
                 <div class="bgm-anime-cover-box" style="cursor: pointer;" data-title="${escapeHtml(title)}" data-cover="${escapeHtml(cover)}" onclick="openKazumiFromElement(this)">
-
-
-
                     <img src="${escapeHtml(cover)}" class="bgm-anime-cover-img" alt="${escapeHtml(title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=700&q=80'">
-
-
-
                     <div class="bgm-rating-badge">${score}</div>
-
-
-
                 </div>
-
-
-
                 <div class="p-2 d-flex flex-column flex-grow-1">
-
-
-
                     <h6 class="small fw-bold text-truncate mb-2" title="${escapeHtml(title)}" style="cursor: pointer;" data-title="${escapeHtml(title)}" data-cover="${escapeHtml(cover)}" onclick="openKazumiFromElement(this)">${escapeHtml(title)}</h6>
-
-
-
                     <div class="mt-auto d-flex flex-column gap-1">
-
-
-
                         <button class="btn btn-outline-primary btn-xs w-100" data-title="${escapeHtml(title)}" data-url="${escapeHtml(bgmUrl)}" data-cover="${escapeHtml(cover)}" onclick="collectBangumiFromElement(this)">
-
-
-
                             <i class="bi bi-bookmark-plus"></i> 一鍵收藏
-
-
-
                         </button>
-
-
-
                         <button class="btn btn-outline-danger btn-xs w-100" data-title="${escapeHtml(title)}" data-cover="${escapeHtml(cover)}" onclick="openKazumiFromElement(this)">
-
-
-
                             <i class="bi bi-broadcast"></i> 播放來源與觀看
-
-
-
                         </button>
-
-
-
                     </div>
-
-
-
                 </div>
-
-
-
             </div>
-
-
-
         `;
 
     grid.appendChild(col);
@@ -11164,23 +10027,14 @@ function renderCalendarDayAnime(dayId) {
 window.collectBangumiAnime = function (title, url, cover) {
   const newBookmark = {
     id: "bm_" + Date.now(),
-
     title: title,
-
     url: url,
-
     category: "anime",
-
     tags: ["本季新番", "Bangumi同步", "動畫"],
-
     cover: cover,
-
     desc: "由 Bangumi 官方每日新番時刻表一鍵同步收錄至個人圖書館，支援 Kazumi 全網多源高速播放。",
-
     pinned: false,
-
     clicks: 0,
-
     createdAt: new Date().toISOString(),
   };
   state.bookmarks.unshift(newBookmark);
@@ -11394,9 +10248,7 @@ window.triggerBangumiUserSync = async function (mode = "import") {
             try {
               await fetch("/api/bangumi/episodes", {
                 method: "POST",
-
                 headers: { "Content-Type": "application/json" },
-
                 body: JSON.stringify({
                   token,
                   subjectId,
@@ -11465,27 +10317,16 @@ window.triggerBangumiUserSync = async function (mode = "import") {
             Date.now() +
             "_" +
             Math.floor(Math.random() * 1000),
-
           title: title,
-
           url: bgmUrl,
-
           category: category,
-
           tags: tags,
-
           cover: cover,
-
           desc: desc,
-
           bangumiStatus: statusNum,
-
           bangumiSubjectId: subjectId,
-
           pinned: false,
-
           clicks: 0,
-
           createdAt: new Date().toISOString(),
         };
         state.bookmarks.unshift(newBookmark);
@@ -11829,13 +10670,9 @@ function escapeHtml(str) {
 
   return String(str)
     .replace(/&/g, "&amp;")
-
     .replace(/</g, "&lt;")
-
     .replace(/>/g, "&gt;")
-
     .replace(/"/g, "&quot;")
-
     .replace(/'/g, "&#039;");
 }
 
@@ -11888,65 +10725,20 @@ window.searchKazumiAnime = async function (keyword = null) {
           "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80";
 
         col.innerHTML = `
-
-
-
                     <div class="card bgm-anime-card shadow-sm h-100">
-
-
-
                         <div class="bgm-anime-cover-box">
-
-
-
                             <img src="${escapeHtml(cover)}" class="bgm-anime-cover-img" alt="${escapeHtml(item.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'">
-
-
-
                             <div class="bgm-rating-badge bg-danger text-white border-0">${data.source} 源</div>
-
-
-
                         </div>
-
-
-
                         <div class="p-2 d-flex flex-column flex-grow-1">
-
-
-
                             <h6 class="small fw-bold text-truncate mb-2" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</h6>
-
-
-
                             <div class="mt-auto">
-
-
-
                                 <button class="btn btn-danger btn-xs w-100 d-flex align-items-center justify-content-center gap-1" data-title="${escapeHtml(item.title)}" data-url="${escapeHtml(item.detailUrl)}" data-source="${escapeHtml(data.source)}" onclick="watchKazumiFromElement(this)">
-
-
-
                                     <i class="bi bi-play-circle-fill"></i> 在線觀看全集
-
-
-
                                 </button>
-
-
-
                             </div>
-
-
-
                         </div>
-
-
-
                     </div>
-
-
-
                 `;
 
         grid.appendChild(col);
@@ -11958,25 +10750,10 @@ window.searchKazumiAnime = async function (keyword = null) {
       );
     } else {
       grid.innerHTML = `
-
-
-
                 <div class="col-12 text-center py-4 text-muted">
-
-
-
                     <i class="bi bi-search fs-3 d-block mb-2"></i>
-
-
-
                     <span>未搜到「${escapeHtml(q)}」相關番劇，可嘗試切換備用規則源。</span>
-
-
-
                 </div>
-
-
-
             `;
     }
   } catch (e) {
@@ -12119,7 +10896,6 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
 
       if (isDirect) {
         // 原生播放器模式：支援原生音量調控、全螢幕面板無縫互動
-
         if (iframeWrapper) iframeWrapper.style.display = "none";
 
         if (iframe) {
@@ -12185,7 +10961,6 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
         );
       } else {
         // iframe 模式
-
         if (window.kazumiHlsInstance) {
           window.kazumiHlsInstance.destroy();
           window.kazumiHlsInstance = null;
@@ -12565,9 +11340,7 @@ window.updateCardWatchStatus = async function (bookmarkId, newType) {
   try {
     await fetch("/api/bookmarks/sync", {
       method: "POST",
-
       headers: { "Content-Type": "application/json" },
-
       body: JSON.stringify({ user: currentUser, bookmarks: state.bookmarks }),
     });
   } catch (e) {}
@@ -12585,26 +11358,17 @@ window.addAnimeSearchResultToLibrary = async function (title, cover, url) {
 
   const newBookmark = {
     id: "bm_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
-
     title: title.trim(),
-
     url:
       url || `https://bgm.tv/subject_search/${encodeURIComponent(title)}?cat=2`,
-
     cover:
       cover ||
       "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=700&q=80",
-
     category: "anime",
-
     tags: ["動畫", "動漫劇院", "Kazumi播放"],
-
     desc: `從動漫來源庫收藏之作品《${title.trim()}》`,
-
     pinned: false,
-
     clicks: 0,
-
     createdAt: new Date().toISOString(),
   };
 
@@ -12630,9 +11394,7 @@ window.addAnimeSearchResultToLibrary = async function (title, cover, url) {
   try {
     await fetch("/api/bookmarks/add", {
       method: "POST",
-
       headers: { "Content-Type": "application/json" },
-
       body: JSON.stringify({ user: currentUser, bookmark: newBookmark }),
     });
   } catch (e) {}
@@ -12653,25 +11415,16 @@ window.addMangaSearchResultToLibrary = async function (title, cover, mangaId) {
 
   const newBookmark = {
     id: "bm_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
-
     title: title.trim(),
-
     url: `https://www.webmota.com/comic/${encodeURIComponent(mangaId)}`,
-
     cover:
       cover ||
       "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80",
-
     category: "resource",
-
     tags: ["漫畫", "條漫", "Tachimanga"],
-
     desc: `從漫畫庫收藏之作品《${title.trim()}》`,
-
     pinned: false,
-
     clicks: 0,
-
     createdAt: new Date().toISOString(),
   };
 
@@ -12697,9 +11450,7 @@ window.addMangaSearchResultToLibrary = async function (title, cover, mangaId) {
   try {
     await fetch("/api/bookmarks/add", {
       method: "POST",
-
       headers: { "Content-Type": "application/json" },
-
       body: JSON.stringify({ user: currentUser, bookmark: newBookmark }),
     });
   } catch (e) {}
@@ -13070,7 +11821,6 @@ window.getWatchHistoryList = function () {
 
     if (list.length === 0) {
       // 自動遷移舊版 web_library_anime_history 紀錄
-
       const oldAnime = JSON.parse(
         sessionStorage.getItem("web_library_anime_history") || "[]",
       );
@@ -13082,21 +11832,13 @@ window.getWatchHistoryList = function () {
             (a.updatedAt || Date.now()) +
             "_" +
             Math.random().toString(36).substring(2, 6),
-
           title: a.animeTitle,
-
           epTitle: a.epTitle || "第 1 話",
-
           playUrl: a.playUrl || "",
-
           cover: a.cover || "",
-
           platform: "anime",
-
           currentTime: a.currentTime || 0,
-
           duration: a.duration || 0,
-
           updatedAt: a.updatedAt || Date.now(),
         }));
       }
@@ -13206,7 +11948,6 @@ window.saveWatchHistory = function (
   platform = "",
 ) {
   // 嚴格守衛：待命狀態、純空白片名或無播放網址時絕不寫入歷史紀錄
-
   if (
     !title ||
     title.trim() === "" ||
@@ -13280,22 +12021,14 @@ window.saveWatchHistory = function (
 
     const newRecord = {
       id: "wh_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
-
       title: cleanTitle,
-
       cover: finalCover,
-
       epTitle:
         epTitle || (detectedPlatform === "anime" ? "第 1 話" : "完整影片"),
-
       playUrl: playUrl || "",
-
       platform: detectedPlatform,
-
       currentTime: Math.floor(currentTime || 0),
-
       duration: Math.floor(duration || 0),
-
       updatedAt: Date.now(),
     };
 
@@ -13409,29 +12142,11 @@ window.renderAnimeHistoryStandby = function () {
 
     if (history.length === 0) {
       box.innerHTML = `
-
-
-
                 <div class="card bg-black bg-opacity-70 border border-secondary border-opacity-50 p-4 text-center rounded-3">
-
-
-
                     <i class="bi bi-clock-history fs-3 text-danger opacity-75 mb-2"></i>
-
-
-
                     <div class="text-white-50 small mb-1">暫無最近觀看紀錄</div>
-
-
-
                     <div class="text-secondary" style="font-size: 0.72rem;">播放過的動漫、B站或 YouTube 影片將自動記錄於此</div>
-
-
-
                 </div>
-
-
-
             `;
 
       return;
@@ -13445,13 +12160,7 @@ window.renderAnimeHistoryStandby = function () {
     };
 
     box.innerHTML = `
-
-
-
             <div class="d-flex flex-column gap-2 overflow-auto pe-1" style="max-height: 420px; min-height: 80px;">
-
-
-
                 ${history
                   .map((item) => {
                     const pct =
@@ -13481,111 +12190,34 @@ window.renderAnimeHistoryStandby = function () {
                       : "";
 
                     return `
-
-
-
                         <div class="d-flex align-items-center gap-2 p-2 rounded bg-black bg-opacity-60 border border-secondary border-opacity-40 hover-bg-light transition-all position-relative shadow-sm">
-
-
-
                             <img src="${escapeHtml(item.cover || defaultImg)}" 
-
-
-
                                  style="width: 48px; height: 48px; object-fit: cover; border-radius: 6px; flex-shrink: 0;" 
-
-
-
                                  onerror="this.src='${escapeHtml(defaultImg)}'"
-
-
-
                                  alt="${escapeHtml(item.title)}">
-
-
-
                             <div class="flex-grow-1 overflow-hidden" style="min-width: 0;">
-
-
-
                                 <div class="d-flex align-items-center gap-1 mb-1">
-
-
-
                                     ${platformBadge}
-
-
-
                                     <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
-
-
-
                                 </div>
-
-
-
                                 <div class="d-flex align-items-center justify-content-between text-secondary small" style="font-size: 0.75rem;">
-
-
-
                                     <span class="history-ep-title-badge text-truncate me-2" style="max-width: 140px;" title="${escapeHtml(item.epTitle || "正片")}">${escapeHtml(item.epTitle || "正片")}</span>
-
-
-
                                     <span class="font-monospace text-warning text-nowrap">${pct > 0 ? pct + "%" : timeStr}</span>
-
-
-
                                 </div>
-
-
-
                             </div>
-
-
-
                             <div class="d-flex align-items-center gap-1 flex-shrink-0 ms-1">
-
-
-
                                 <button class="btn btn-sm btn-danger px-2 text-nowrap rounded-pill py-0 d-flex align-items-center gap-1" style="font-size: 0.72rem; height: 26px;" onclick="resumeWatchHistory('${item.id}'); toggleTheaterFloatingHistory(false);" title="繼續播放此進度">
-
-
-
                                     <i class="bi bi-play-fill"></i> 續播
-
-
-
                                 </button>
-
-
-
                                 <button type="button" class="btn btn-xs btn-outline-secondary border-0 p-1 text-white-50 hover-text-danger" onclick="deleteWatchHistoryItem('${item.id}', event)" title="刪除此紀錄">
-
-
-
                                     <i class="bi bi-x-lg"></i>
-
-
-
                                 </button>
-
-
-
                             </div>
-
-
-
                         </div>
-
-
-
                     `;
                   })
                   .join("")}
-
             </div>
-
         `;
   } catch (e) {
     console.error("渲染動畫歷史失敗:", e);
@@ -13597,7 +12229,6 @@ window.renderAnimeHistoryStandby = function () {
 window.renderWatchHistoryGrid = function () {
   const containers = [
     document.getElementById("watchHistoryGrid"),
-
     document.getElementById("modalWatchHistoryGrid"),
   ].filter(Boolean);
 
@@ -13609,9 +12240,7 @@ window.renderWatchHistoryGrid = function () {
 
   const badges = [
     document.getElementById("watchHistoryBadge"),
-
     document.getElementById("modalWatchHistoryBadge"),
-
     document.getElementById("navWatchHistoryBadge"),
   ].filter(Boolean);
 
@@ -13629,29 +12258,11 @@ window.renderWatchHistoryGrid = function () {
   containers.forEach((container) => {
     if (history.length === 0) {
       container.innerHTML = `
-
-
-
                 <div class="col-12 py-5 text-center text-muted">
-
-
-
                     <i class="bi bi-clock-history fs-1 d-block mb-3 text-secondary opacity-50"></i>
-
-
-
                     <h6 class="fw-bold">目前尚無任何播放紀錄</h6>
-
-
-
                     <p class="small text-muted mb-0">當你在圖書館觀看動漫劇院、Bilibili 或 YouTube 影片時，系統會自動為你記錄集數與進度，隨時一鍵接續開播！</p>
-
-
-
                 </div>
-
-
-
             `;
 
       return;
@@ -13686,125 +12297,35 @@ window.renderWatchHistoryGrid = function () {
           : "";
 
         return `
-
-
-
                 <div class="col-6 col-md-4 col-lg-3 col-xl-2">
-
-
-
                     <div class="card watch-history-card watch-history-card-compact h-100 shadow-sm border-0 position-relative">
-
-
-
                         <div class="watch-history-cover-wrap">
-
-
-
                             ${platformBadge}
-
-
-
                             <button type="button" class="watch-history-del-btn" onclick="deleteWatchHistoryItem('${item.id}', event)" title="刪除此紀錄">
-
-
-
                                 <i class="bi bi-x-lg"></i>
-
-
-
                             </button>
-
-
-
                             <img src="${escapeHtml(item.cover || defaultGridImg)}" 
-
-
-
                                  class="watch-history-cover" 
-
-
-
                                  alt="${escapeHtml(item.title)}" 
-
-
-
                                  loading="lazy" 
-
-
-
                                  onerror="this.src='${escapeHtml(defaultGridImg)}'">
-
-
-
                             <div class="watch-history-progress-bar">
-
-
-
                                 <div class="watch-history-progress-fill" style="width: ${pct}%;"></div>
-
-
-
                             </div>
-
-
-
                         </div>
-
-
-
                         <div class="card-body p-2 d-flex flex-column">
-
-
-
                             <h6 class="fw-bold mb-1 text-truncate" title="${escapeHtml(item.title)}" style="font-size: 0.82rem;">${escapeHtml(item.title)}</h6>
-
-
-
                             <div class="history-ep-title-badge text-truncate mb-1">${escapeHtml(item.epTitle || "")}</div>
-
-
-
                             <div class="d-flex align-items-center justify-content-between text-muted small mt-auto mb-2" style="font-size: 0.72rem;">
-
-
-
                                 <span><i class="bi bi-clock me-1"></i>${timeStr}</span>
-
-
-
                                 <span class="fw-bold text-secondary">${pct > 0 ? pct + "%" : "未看完"}</span>
-
-
-
                             </div>
-
-
-
                             <button class="btn btn-danger btn-sm rounded-pill w-100 fw-semibold d-flex align-items-center justify-content-center gap-1 shadow-sm" onclick="resumeWatchHistory('${item.id}')">
-
-
-
                                 <i class="bi bi-play-fill fs-6"></i> 繼續播放
-
-
-
                             </button>
-
-
-
                         </div>
-
-
-
                     </div>
-
-
-
                 </div>
-
-
-
             `;
       })
       .join("");
@@ -13994,15 +12515,10 @@ window.saveMangaReadHistory = function (
 
     history.unshift({
       mangaId,
-
       title: title.trim(),
-
       cover: cover || "",
-
       chapterTitle: chapterTitle || "第 1 話",
-
       chapterIndex: chapterIndex || 0,
-
       updatedAt: Date.now(),
     });
 
@@ -14035,81 +12551,35 @@ window.renderMangaHistoryStandby = function () {
     box.style.display = "block";
 
     box.innerHTML = `
-
-
-
             <div class="card bg-black bg-opacity-75 border border-primary border-opacity-50 p-2 shadow-sm rounded-3">
-
-
-
                 <div class="d-flex align-items-center justify-content-between mb-2 pb-1 border-bottom border-secondary border-opacity-25">
-
-
-
                     <small class="text-primary fw-bold"><i class="bi bi-clock-history me-1"></i>漫畫閱讀歷史紀錄 (${history.length})</small>
-
-
-
                     <button type="button" class="btn btn-link btn-xs text-secondary p-0 text-decoration-none" onclick="clearMangaHistory()" title="清除全部紀錄">清除全部</button>
-
-
-
                 </div>
-
-
-
                 <div class="d-flex flex-column gap-2" style="max-height: 220px; overflow-y: auto; scrollbar-width: thin;">
-
-
-
                     ${history
                       .map(
                         (item, idx) => `
-
                         <div class="d-flex align-items-center gap-2 p-1 rounded-2 bg-dark bg-opacity-50 border border-secondary border-opacity-25" style="transition: background 0.15s;">
-
                             <img src="${escapeHtml(item.cover || "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='400' viewBox='0 0 300 400'%3E%3Crect fill='%231e293b' width='300' height='400'/%3E%3Cpath fill='%230284c7' d='M150 180c-20-10-50-10-70 0v60c20-10 50-10 70 0m0-60c20-10 50-10 70 0v60c-20-10-50-10-70 0' stroke='%230284c7' stroke-width='6' fill='none'/%3E%3Ctext x='50%25' y='75%25' fill='%2394a3b8' font-family='sans-serif' font-size='14' text-anchor='middle'%3E漫畫書籍%3C/text%3E%3C/svg%3E")}" style="width: 38px; height: 50px; object-fit: cover; border-radius: 4px; flex-shrink: 0;" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'400\' viewBox=\'0 0 300 400\'%3E%3Crect fill=\'%231e293b\' width=\'300\' height=\'400\'/%3E%3Cpath fill=\'%230284c7\' d=\'M150 180c-20-10-50-10-70 0v60c20-10 50-10 70 0m0-60c20-10 50-10 70 0v60c-20-10-50-10-70 0\' stroke=\'%230284c7\' stroke-width=\'6\' fill=\'none\'/%3E%3Ctext x=\'50%25\' y=\'75%25\' fill=\'%2394a3b8\' font-family=\'sans-serif\' font-size=\'14\' text-anchor=\'middle\'%3E漫畫書籍%3C/text%3E%3C/svg%3E'">
-
                             <div class="flex-grow-1 overflow-hidden">
-
                                 <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
-
                                 <div class="text-primary small text-truncate" style="font-size: 0.75rem;">${escapeHtml(item.chapterTitle || "第 1 話")}</div>
-
                             </div>
-
                             <div class="d-flex align-items-center gap-1 flex-shrink-0">
-
                                 <button class="btn btn-xs btn-primary px-2 text-nowrap rounded-pill" onclick="resumeMangaHistory(${idx})">
-
                                     <i class="bi bi-book-half"></i> 閱讀
-
                                 </button>
-
                                 <button class="btn btn-xs btn-link text-white-50 p-1" onclick="removeMangaHistoryItem(${idx})" title="刪除此紀錄">
-
                                     <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
-
                                 </button>
-
                             </div>
-
                         </div>
-
                     `,
                       )
                       .join("")}
-
-
-
                 </div>
-
-
-
             </div>
-
-
-
         `;
   } catch (e) {
     console.error("渲染漫畫歷史失敗:", e);
@@ -14234,23 +12704,14 @@ window.handleImportBookmarks = function (event) {
           id:
             item.id ||
             "bm_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
-
           title: item.title || item.name || "未命名書籤",
-
           url: item.url,
-
           cover: item.cover || "",
-
           category: item.category || "other",
-
           tags: Array.isArray(item.tags) ? item.tags : [],
-
           desc: item.desc || item.description || "",
-
           pinned: !!item.pinned,
-
           clicks: item.clicks || 0,
-
           createdAt: item.createdAt || new Date().toISOString(),
         };
 
@@ -14323,151 +12784,85 @@ document.addEventListener("DOMContentLoaded", initApp);
 const DEFAULT_ACG_GAMES = [
   {
     id: "game_fgo_chaldea",
-
     title: "Fate/Grand Order - Chaldea 迦勒底",
-
     url: "https://chaldea.center/",
-
     badge: "FGO 官方/開源神器",
-
     badgeClass: "bg-danger text-white",
-
     tags: ["FGO", "迦勒底", "素材規劃", "從者養成", "活動周回"],
-
     desc: "跨平台開源 FGO 規劃工具，支援從者養成計算、素材需求掉落統計、活動周回規劃與抽卡模擬，支援在當前視窗即開即用！",
-
     isCustom: false,
   },
-
   {
     id: "game_fgo_mooncell",
-
     title: "Mooncell Wiki - FGO 繁簡中文百科",
-
     url: "https://fgo.wiki/",
-
     badge: "權威百科",
-
     badgeClass: "bg-primary text-white",
-
     tags: ["FGO", "中文百科", "指令卡數據", "關卡掉落"],
-
     desc: "中文圈最詳盡的 Fate/Grand Order 中文資料庫，完整收錄從者數值、指令卡參數、寶具傷害、敵方配置與最新活動攻略。",
-
     isCustom: false,
   },
-
   {
     id: "game_mfme_wiki",
-
     title: "魔法紀錄：魔法少女小圓外傳 - GameKee 攻略百科",
-
     url: "https://www.gamekee.com/mfme/",
-
     badge: "Wiki 百科",
-
     badgeClass: "bg-danger-subtle text-danger border border-danger-subtle",
-
     tags: ["魔法紀錄", "小圓外傳", "GameKee", "角色圖鑑", "活動攻略"],
-
     desc: "魔法少女小圓外傳最齊全的中文圖鑑與攻略站，收錄魔法少女養成數據、記憶結晶評價與活動關卡打法。",
-
     isCustom: false,
   },
-
   {
     id: "game_madoka_exedra",
-
     title: "魔法少女小圓 Magia Exedra - Game8 攻略Wiki",
-
     url: "https://game8.jp/madoka-exedra",
-
     badge: "新作攻略Wiki",
-
     badgeClass: "bg-danger text-white",
-
     tags: ["魔法少女小圓", "Magia Exedra", "Game8", "首抽推薦", "最新攻略"],
-
     desc: "Game8 官方認證《魔法少女小圓 Magia Exedra》綜合攻略Wiki，提供首抽節奏榜、最強角色養成、活動關卡攻略與最新情報速報。",
-
     isCustom: false,
   },
-
   {
     id: "game_adx_charts",
-
     title: "AstroDX 譜面資源庫 (ADX Charts) - maimai 譜面下載與社群資源",
-
     url: "https://adxdls.saop.cc/",
-
     badge: "maimai 譜面庫",
-
     badgeClass: "bg-primary text-white",
-
     tags: ["AstroDX", "maimai", "音遊", "街機模擬器", "譜面下載", "ADX Charts"],
-
     desc: "專為 maimai 模擬器 AstroDX 打造的社群譜面資源庫，收錄數千首社群與官方精選譜面、版本與曲風瀏覽、線上試聽試玩與一鍵匯入導入指南。",
-
     isCustom: false,
   },
-
   {
     id: "game_bilibili_fx_toy",
-
     title: "FX 簡單！(外匯模擬交易) - Bilibili Toy",
-
     url: "https://www.bilibili.com/toy/fx-simple/index.html",
-
     badge: "B站小遊戲",
-
     badgeClass: "bg-info-subtle text-info border border-info-subtle",
-
     tags: ["Bilibili", "外匯模擬", "趣味挑戰", "互動網頁"],
-
     desc: "Bilibili Toy 推出之趣味外匯模擬交易小遊戲，輕鬆體驗低買高賣的刺激心跳！",
-
     isCustom: false,
-
     openInNewTab: true,
   },
-
   {
     id: "game_powerful_wind_cabbages",
-
     title: "強風大背頭",
-
     url: "https://asyncfish.itch.io/powerful-wind-slicked-back-cabbages",
-
     badge: "節奏獨立小遊戲",
-
     badgeClass: "bg-success-subtle text-success border border-success-subtle",
-
     tags: ["強風大背頭", "節奏", "獨立小遊戲", "Itch.io"],
-
     desc: "節奏獨立小遊戲。由迷因神曲《強風大背頭》改編的魔性節奏獨立小遊戲，畫風超可愛治癒！",
-
     isCustom: false,
-
     openInNewTab: true,
   },
-
   {
     id: "game_dabuchi_unityroom",
-
     title: "狂吃雙吉堡 (ダブチを食べまくるゲーム)",
-
     url: "https://unityroom.com/games/dabuchitabemakurugame",
-
     badge: "Unity 遊戲",
-
     badgeClass: "bg-warning-subtle text-warning border border-warning-subtle",
-
     tags: ["Unityroom", "雙吉堡", "吃漢堡", "休閒挑戰"],
-
     desc: "日本 Unityroom 熱門小遊戲「ダブチを食べまくるゲーム」（狂吃麥當勞雙層牛肉吉事堡），操控角色爽快狂吃漢堡挑戰最高得分！",
-
     isCustom: false,
-
     openInNewTab: true,
   },
 ];
@@ -14533,115 +12928,42 @@ window.renderGameHubGrid = function (keyword = "") {
     col.className = "col";
 
     col.innerHTML = `
-
-
-
             <div class="card h-100 spotlight-card border-glow game-card-glass shadow-sm rounded-4 overflow-hidden text-white">
-
-
-
                 <div class="card-body p-3 d-flex flex-column">
-
-
-
                     <div class="d-flex align-items-center justify-content-between mb-2">
-
-
-
                         <span class="badge ${game.badgeClass || "bg-warning text-dark fw-bold"}">${escapeHtml(game.badge || "熱門工具")}</span>
-
-
-
                         <span class="small text-white-50"><i class="bi bi-controller fs-6 text-warning"></i></span>
-
-
-
                     </div>
-
-
-
                     <h6 class="fw-bold mb-1 text-white">${escapeHtml(game.title)}</h6>
-
-
-
                     <div class="mb-2 d-flex flex-wrap gap-1">
-
-
-
                         ${(game.tags || []).map((t) => `<span class="badge bg-secondary-subtle text-light border border-secondary border-opacity-50 small" style="font-size: 0.68rem;">${escapeHtml(t)}</span>`).join("")}
-
                     </div>
-
                     <p class="small text-white-50 mb-3 flex-grow-1" style="font-size: 0.8rem; line-height: 1.45; color: #cbd5e1 !important;">
-
                         ${escapeHtml(game.desc)}
-
                     </p>
-
                     <div class="game-card-actions d-flex align-items-center gap-1.5 mt-auto pt-2 border-top border-secondary border-opacity-25">
-
                         ${
                           isExternal
                             ? `
-
-
-
                         <button class="btn btn-sm btn-primary flex-grow-1 rounded-pill fw-semibold shadow-sm" onclick="window.open('${escapeHtml(game.url)}', '_blank')">
-
-
-
                             <i class="bi bi-box-arrow-up-right"></i> 開啟暢玩
-
-
-
                         </button>
-
-
-
                         `
                             : `
-
-
-
                         <button class="btn btn-sm btn-primary flex-grow-1 rounded-pill fw-semibold shadow-sm text-nowrap" style="font-size: 0.8rem; padding: 0.32rem 0.5rem;" onclick="openGameToolViewer('${escapeHtml(game.title)}', '${escapeHtml(game.url)}')">
-
-
-
                             <i class="bi bi-window-fullscreen me-1"></i> 在線開啟
-
-
-
                         </button>
-
-
-
                         <button class="btn btn-sm btn-outline-info rounded-pill text-nowrap" style="font-size: 0.8rem; padding: 0.32rem 0.55rem;" onclick="window.open('${escapeHtml(game.url)}', '_blank')" title="另開新分頁跳轉原網頁">
-
-
-
                             <i class="bi bi-box-arrow-up-right"></i> 跳轉
-
-
-
                         </button>
-
-
-
                         `
                         }
-
                         <button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="deleteGameHubCard('${game.id}', ${!!game.isCustom})" title="${game.isCustom ? "刪除自定義卡片" : "移除此預設卡片"}">
-
                             <i class="bi bi-trash"></i>
-
                         </button>
-
                     </div>
-
                 </div>
-
             </div>
-
         `;
 
     container.appendChild(col);
@@ -14654,17 +12976,11 @@ window.renderGameHubGrid = function (keyword = "") {
   addCol.className = "col";
 
   addCol.innerHTML = `
-
         <div class="card h-100 border border-secondary border-opacity-50 shadow-sm rounded-3 d-flex flex-column align-items-center justify-content-center p-4 text-center cursor-pointer" style="background: rgba(30, 41, 59, 0.45); border-style: dashed !important; min-height: 180px; cursor: pointer; transition: background 0.2s;" onclick="openAddCustomGameModal()" title="點擊新增您喜愛的遊戲攻略或資料庫">
-
             <i class="bi bi-plus-circle-dotted fs-1 text-warning mb-2 opacity-75"></i>
-
             <h6 class="fw-bold text-white mb-1">新增自定義遊戲 / Wiki</h6>
-
             <p class="small text-white-50 mb-0" style="font-size: 0.78rem; color: #94a3b8 !important;">可自訂加入任何遊戲 Wiki 百科、素材工具或地圖</p>
-
         </div>
-
     `;
 
   container.appendChild(addCol);
@@ -14828,19 +13144,12 @@ window.saveCustomGame = function () {
 
   const newGame = {
     id: "custom_game_" + Date.now(),
-
     title,
-
     url,
-
     badge: "自定義",
-
     badgeClass: "bg-secondary text-white",
-
     tags,
-
     desc: desc || "使用者自定義加入之遊戲工具或 Wiki 資料庫。",
-
     isCustom: true,
   };
 
@@ -14970,30 +13279,21 @@ window.toggleCurrentNovelToBookshelf = async function () {
   if (isLocal && novelState.chapters && novelState.chapters.length > 0) {
     await saveLocalNovelToDB({
       id: bookId,
-
       title: cur.title,
-
       chapters: novelState.chapters,
-
       isLocal: true,
-
       updatedAt: new Date().toISOString(),
     });
   }
 
   shelf.unshift({
     id: bookId,
-
     title: cur.title,
-
     cover:
       cur.cover ||
       "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80",
-
     tag: isLocal ? "本機上傳" : "線上輕小說",
-
     isLocal: isLocal,
-
     source: isLocal ? "local" : cur.source || "online",
   });
 
@@ -15136,13 +13436,9 @@ window.executeDockerAction = async function (action) {
   const actionNames = {
     up: "一鍵部署並啟動 (Up)",
     update: "更新容器 (Update & Rebuild)",
-
     start: "啟動容器 (Start)",
-
     stop: "關閉容器 (Stop)",
-
     restart: "重啟容器 (Restart)",
-
     down: "移除容器 (Down)",
   };
   const title = actionNames[action] || action;
@@ -15157,9 +13453,7 @@ window.executeDockerAction = async function (action) {
   try {
     const res = await fetch("/api/docker/action", {
       method: "POST",
-
       headers: { "Content-Type": "application/json" },
-
       body: JSON.stringify({ action: action === "update" ? "up" : action }),
     });
 
@@ -15169,9 +13463,7 @@ window.executeDockerAction = async function (action) {
     if (data.inContainer) {
       lastDockerOutput = {
         cmd: data.command || `docker compose -p web-library ${action}`,
-
         output: data.output,
-
         status: "容器沙盒提示 (In Docker)",
       };
 
@@ -15187,9 +13479,7 @@ window.executeDockerAction = async function (action) {
 
     lastDockerOutput = {
       cmd: data.command || `docker compose ${action}`,
-
       output: data.output || (data.success ? "指令執行成功！" : data.message),
-
       status: data.success ? "成功 (Success)" : "警告/錯誤 (Error)",
     };
 
@@ -15214,9 +13504,7 @@ window.executeDockerAction = async function (action) {
   } catch (e) {
     lastDockerOutput = {
       cmd: `docker compose -p web-library ${action === "up" || action === "update" ? "up -d --build" : action}`,
-
       output: `無法連線至本地後端 API (/api/docker/action)。\n原因：${e.message}\n\n【提示】若您正在離線瀏覽或伺服器尚未啟動，您可直接在終端機中執行：\n  docker compose -p web-library ${action === "up" || action === "update" ? "up -d --build" : action}`,
-
       status: "離線提示",
     };
 

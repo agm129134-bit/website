@@ -357,7 +357,7 @@ async function handleSyncRoute(req, res) {
                 user: username,
                 samePassword: isSamePassword,
                 isSamePassword: isSamePassword,
-                message: isSamePassword 
+                message: isSamePassword
                     ? '哈哈！你輸入了跟先前一模一樣的密碼！系統已為您完成密碼確認重設。'
                     : '密碼已成功以加鹽雜湊演算法加密並重設！請使用新密碼登入。'
             });
@@ -478,7 +478,6 @@ async function handleSyncRoute(req, res) {
                     updatedAt: record.updatedAt || null
                 });
             }
-
             // POST: 將客戶端立體書架 (條漫與沉浸小說) 寫入 NeDB
             else if (req.method === 'POST') {
                 const body = await parseRequestBody(req);
@@ -561,7 +560,7 @@ async function handleSyncRoute(req, res) {
                         addedAt: new Date().toISOString()
                     };
 
-                    const existingIndex = tracks.findIndex(item => 
+                    const existingIndex = tracks.findIndex(item =>
                         (newTrack.bgmId && item.bgmId === newTrack.bgmId) ||
                         (newTrack.id && item.id === newTrack.id) ||
                         (item.title === newTrack.title && item.artist === newTrack.artist)
@@ -633,7 +632,7 @@ async function handleSyncRoute(req, res) {
             try {
                 // 優先使用網易雲/Meting 開源音訊引擎取得 3~5 分鐘完整歌曲 MP3 原曲
                 const neteaseUrl = `https://music.163.com/api/search/get/web?csrf_token=&hlpretag=&hlposttag=&s=${encodeURIComponent(keyword)}&type=1&offset=0&total=true&limit=15`;
-                
+
                 let tracks = [];
                 try {
                     const fetchRes = await new Promise((resolve, reject) => {
@@ -686,10 +685,10 @@ async function handleSyncRoute(req, res) {
                                     const formatted = songs.map(s => {
                                         const songId = s.id;
                                         // 優先使用真實專輯封面，次之歌手圖，最後兜底高品質音樂封面
-                                        const rawCover = coverMap[songId] || 
+                                        const rawCover = coverMap[songId] ||
                                             (s.album && s.album.picUrl ? s.album.picUrl.replace(/^http:/, 'https:') : '') ||
                                             (s.artists && s.artists[0] && s.artists[0].img1v1Url ? s.artists[0].img1v1Url.replace(/^http:/, 'https:') : '');
-                                        
+
                                         const finalCover = (rawCover && !rawCover.includes('5639395138885805')) ? rawCover : 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80';
                                         const artistName = s.artists && s.artists.length > 0 ? s.artists.map(a => a.name).join(' / ') : '未知歌手';
                                         const isVipRestricted = (s.fee === 1);
@@ -808,7 +807,6 @@ async function handleSyncRoute(req, res) {
                     updatedAt: record.updatedAt || null
                 });
             }
-
             // POST: 將客戶端收藏寫入 NeDB
             else if (req.method === 'POST') {
                 const body = await parseRequestBody(req);
@@ -882,11 +880,9 @@ async function handleSyncRoute(req, res) {
                 });
             }
         }
-
         // ==========================================
         // 2. Bangumi 雙向同步代理端點
         // ==========================================
-
         // A. 驗證使用者 Access Token /api/bangumi/me
         else if (pathname === '/api/bangumi/me' && req.method === 'POST') {
             const body = await parseRequestBody(req);
@@ -900,7 +896,6 @@ async function handleSyncRoute(req, res) {
                 return sendJson(res, result.statusCode, { success: false, error: 'Token 驗證失敗', details: result.data });
             }
         }
-
         // B. 變更收藏狀態 /api/bangumi/collection (想看/看過/在看/擱置/拋棄)
         else if (pathname === '/api/bangumi/collection' && req.method === 'POST') {
             const body = await parseRequestBody(req);
@@ -929,7 +924,6 @@ async function handleSyncRoute(req, res) {
                 data: result.data
             });
         }
-
         // B-2. 查詢指定作品的收藏狀態 /api/bangumi/collection?subjectId=... (GET)
         else if (pathname === '/api/bangumi/collection' && req.method === 'GET') {
             const token = (query.token || (req.headers['authorization'] || '').replace('Bearer ', '')).trim();
@@ -960,7 +954,6 @@ async function handleSyncRoute(req, res) {
                 data: result.data || { type: 0 }
             });
         }
-
         // B-3. 關鍵字搜尋作品取得 Bangumi Subject /api/bangumi/search?q=...&type=... (GET)
         else if (pathname === '/api/bangumi/search' && req.method === 'GET') {
             const token = (query.token || (req.headers['authorization'] || '').replace('Bearer ', '')).trim();
@@ -984,7 +977,6 @@ async function handleSyncRoute(req, res) {
                 data: { data: list }
             });
         }
-
         // C. 更新追番 / 閱讀集數進度 /api/bangumi/episodes
         else if (pathname === '/api/bangumi/episodes' && req.method === 'POST') {
             const body = await parseRequestBody(req);
@@ -1013,7 +1005,6 @@ async function handleSyncRoute(req, res) {
                 data: result.data
             });
         }
-
         else {
             return sendJson(res, 404, { success: false, error: '找不到該同步 API 端點' });
         }
