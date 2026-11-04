@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>ACG 影音漫讀專區 | Web Library</title>
-    <!-- 身分認證守衛：未登入者強制導向登入頁 -->
+    <!-- 身分認證守衛：未登入者強制導向登入頁 (sessionStorage 會話保護，掃除硬碟 localStorage 殘留) -->
     <script>
         (function authGuard() {
-            const user = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+            try { localStorage.clear(); } catch(e) {}
+            const user = sessionStorage.getItem('currentUser');
             if (!user) {
                 window.location.replace('login.html');
             }
@@ -1882,7 +1883,7 @@
                         window.bangumiCalendarData = data;
                         window._isUsingFallbackBangumi = false;
                         try {
-                            localStorage.setItem('web_library_bgm_calendar_cache', JSON.stringify({ ts: Date.now(), data }));
+                            sessionStorage.setItem('web_library_bgm_calendar_cache', JSON.stringify({ ts: Date.now(), data }));
                         } catch (e) {}
                         return data;
                     }
@@ -1894,7 +1895,7 @@
             // 通道 2: 本地 24 小時內的有效快取
             if (!force) {
                 try {
-                    const cached = localStorage.getItem('web_library_bgm_calendar_cache');
+                    const cached = sessionStorage.getItem('web_library_bgm_calendar_cache');
                     if (cached) {
                         const parsed = JSON.parse(cached);
                         if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
@@ -2223,50 +2224,26 @@
             bookEl.style.transform = '';
         }
 
+        window._mangaBookshelfMemory = window._mangaBookshelfMemory || [];
         function getMangaBookshelf() {
-            try {
-                const data = localStorage.getItem('web_library_manga_bookshelf');
-                if (data !== null) {
-                    let parsed = JSON.parse(data);
-                    if (Array.isArray(parsed)) {
-                        // 清除舊版預設假資料
-                        const dummyTitles = ["航海王", "葬送的芙莉蓮", "咒術迴戰", "鏈鋸人", "鬼滅之刃"];
-                        parsed = parsed.filter(b => !dummyTitles.includes(b.title));
-                        return parsed;
-                    }
-                }
-            } catch (e) {}
-            localStorage.setItem('web_library_manga_bookshelf', JSON.stringify([]));
-            return [];
+            return Array.isArray(window._mangaBookshelfMemory) ? window._mangaBookshelfMemory : [];
         }
 
         function saveMangaBookshelf(list) {
-            localStorage.setItem('web_library_manga_bookshelf', JSON.stringify(list));
+            window._mangaBookshelfMemory = list || [];
             renderMangaBookshelf();
             if (typeof window.syncBookshelfToServer === 'function') {
                 window.syncBookshelfToServer('manga', list);
             }
         }
 
+        window._novelBookshelfMemory = window._novelBookshelfMemory || [];
         function getNovelBookshelf() {
-            try {
-                const data = localStorage.getItem('web_library_novel_bookshelf');
-                if (data !== null) {
-                    let parsed = JSON.parse(data);
-                    if (Array.isArray(parsed)) {
-                        // 清除舊版預設假資料
-                        const dummyTitles = ["關於我轉生變成史萊姆這檔事", "無職轉生", "刀劍神域", "Re:從零開始的異世界生活"];
-                        parsed = parsed.filter(b => !dummyTitles.includes(b.title));
-                        return parsed;
-                    }
-                }
-            } catch (e) {}
-            localStorage.setItem('web_library_novel_bookshelf', JSON.stringify([]));
-            return [];
+            return Array.isArray(window._novelBookshelfMemory) ? window._novelBookshelfMemory : [];
         }
 
         function saveNovelBookshelf(list) {
-            localStorage.setItem('web_library_novel_bookshelf', JSON.stringify(list));
+            window._novelBookshelfMemory = list || [];
             renderNovelBookshelf();
             if (typeof window.syncBookshelfToServer === 'function') {
                 window.syncBookshelfToServer('novel', list);

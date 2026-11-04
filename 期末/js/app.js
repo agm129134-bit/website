@@ -1,43 +1,13 @@
-// 自動清洗本地既有的 (專案開發者) 尾綴
-
+// 全面拔除 localStorage：清空既有本機磁碟殘留，確保所有資料僅由 NeDB 與 sessionStorage 驅動
 try {
-  ["currentUser", "web_library_auth_user"].forEach((k) => {
-    const val = localStorage.getItem(k) || sessionStorage.getItem(k);
-
-    if (val && val.includes("專案開發者")) {
-      const cleaned = val.replace(/\s*[\(（]專案開發者[\)）]/g, "");
-
-      if (localStorage.getItem(k)) localStorage.setItem(k, cleaned);
-
-      if (sessionStorage.getItem(k)) sessionStorage.setItem(k, cleaned);
-    }
-  });
-  const regUsers = localStorage.getItem("registeredUsers");
-
-  if (regUsers && regUsers.includes("專案開發者")) {
-    localStorage.setItem(
-      "registeredUsers",
-      regUsers.replace(/\s*[\(（]專案開發者[\)）]/g, ""),
-    );
-  }
+  localStorage.clear();
 } catch (e) {}
 
-/**
-
-
-
- * 網頁收藏圖書館 (Web Library) 前端核心邏輯
-
-
-
- * 具備 LocalStorage 持久化儲存、分類過濾、即時搜尋、卡片渲染、標籤動態統計與模擬篡改猴採集
-
-
-
- */
+// 建立安全記憶體快取，確保立體書架與偏好設定不污染磁碟
+window._mangaBookshelfMemory = window._mangaBookshelfMemory || [];
+window._novelBookshelfMemory = window._novelBookshelfMemory || [];
 
 // ==========================================
-
 // 1. 預設初始範例資料 (清空，交由使用者自行新增或由 Qwen 設計)
 
 // ==========================================
@@ -61,9 +31,9 @@ const state = {
 
   sortMode: "newest",
 
-  viewMode: localStorage.getItem("web_library_view_mode") || "grid", // 'grid' | 'list' (持久化視圖偏好)
+  viewMode: sessionStorage.getItem("web_library_view_mode") || "grid", // 'grid' | 'list' (持久化視圖偏好)
 
-  currentUser: localStorage.getItem("web_library_user") || "jyun",
+  currentUser: sessionStorage.getItem("web_library_user") || "jyun",
 
   apiToken: "usr_tok_REMOVED",
 
@@ -112,8 +82,8 @@ function initApp() {
 
     // 載入使用者自訂的預設排序與預設啟動分類分頁
     const curU = (state.currentUser || 'jyun').toLowerCase().trim();
-    const savedDefaultSort = localStorage.getItem('web_library_default_sort_' + curU) || 'newest';
-    const savedDefaultCat = localStorage.getItem('web_library_default_category_' + curU) || 'all';
+    const savedDefaultSort = sessionStorage.getItem('web_library_default_sort_' + curU) || 'newest';
+    const savedDefaultCat = sessionStorage.getItem('web_library_default_category_' + curU) || 'all';
 
     state.sortMode = savedDefaultSort;
     state.activeCategory = savedDefaultCat;
@@ -158,7 +128,7 @@ function initApp() {
 }
 
 function loadFromStorage() {
-  const saved = localStorage.getItem("web_library_bookmarks");
+  const saved = sessionStorage.getItem("web_library_bookmarks");
 
   if (saved) {
     try {
@@ -189,7 +159,7 @@ function loadFromStorage() {
   // 優先讀取登入驗證身分 (currentUser)
 
   const authUserStr =
-    localStorage.getItem("currentUser") ||
+    sessionStorage.getItem("currentUser") ||
     sessionStorage.getItem("currentUser");
 
   if (authUserStr) {
@@ -219,13 +189,13 @@ function loadFromStorage() {
       }
     } catch (e) {}
   } else {
-    const savedUser = localStorage.getItem("web_library_user");
+    const savedUser = sessionStorage.getItem("web_library_user");
 
     if (savedUser) state.currentUser = savedUser.toLowerCase().trim();
     state.displayUserName = state.currentUser;
   }
 
-  const savedToken = localStorage.getItem("web_library_token");
+  const savedToken = sessionStorage.getItem("web_library_token");
 
   if (savedToken) state.apiToken = savedToken;
 }
@@ -234,7 +204,7 @@ function loadFromStorage() {
 
 window.logoutUser = function () {
   if (confirm("確定要登出個人圖書館帳號嗎？")) {
-    localStorage.removeItem("currentUser");
+    sessionStorage.removeItem("currentUser");
 
     sessionStorage.removeItem("currentUser");
 
@@ -277,7 +247,7 @@ window.confirmDeleteCurrentAccount = async function () {
       let deletedUsers = [];
 
       try {
-        const rawDeleted = localStorage.getItem("deletedUsers");
+        const rawDeleted = sessionStorage.getItem("deletedUsers");
 
         if (rawDeleted) deletedUsers = JSON.parse(rawDeleted);
 
@@ -289,10 +259,10 @@ window.confirmDeleteCurrentAccount = async function () {
       if (!deletedUsers.some((d) => d.toLowerCase() === user.toLowerCase())) {
         deletedUsers.push(user);
 
-        localStorage.setItem("deletedUsers", JSON.stringify(deletedUsers));
+        sessionStorage.setItem("deletedUsers", JSON.stringify(deletedUsers));
       }
 
-      const rawUsers = localStorage.getItem("registeredUsers");
+      const rawUsers = sessionStorage.getItem("registeredUsers");
 
       if (rawUsers) {
         let users = JSON.parse(rawUsers);
@@ -304,22 +274,22 @@ window.confirmDeleteCurrentAccount = async function () {
               (u.name || "").toLowerCase() !== user.toLowerCase(),
           );
 
-          localStorage.setItem("registeredUsers", JSON.stringify(users));
+          sessionStorage.setItem("registeredUsers", JSON.stringify(users));
         }
       }
     } catch (e) {}
 
     // 3. 清理本機當前快取
 
-    localStorage.removeItem("currentUser");
+    sessionStorage.removeItem("currentUser");
 
     sessionStorage.removeItem("currentUser");
 
-    localStorage.removeItem("web_library_user");
+    sessionStorage.removeItem("web_library_user");
 
-    localStorage.removeItem("web_library_bookmarks");
+    sessionStorage.removeItem("web_library_bookmarks");
 
-    localStorage.removeItem("web_library_token");
+    sessionStorage.removeItem("web_library_token");
 
     showToast(
       `帳號【${user}】已永久刪除，正在返回登入頁面...`,
@@ -332,7 +302,7 @@ window.confirmDeleteCurrentAccount = async function () {
   } catch (err) {
     console.error("刪除帳號失敗:", err);
 
-    localStorage.removeItem("currentUser");
+    sessionStorage.removeItem("currentUser");
 
     sessionStorage.removeItem("currentUser");
     window.location.replace("login.html");
@@ -409,7 +379,7 @@ async function syncFromServer(username, isFocusSync = false) {
 
         state.bookmarks = data.bookmarks;
 
-        localStorage.setItem(
+        sessionStorage.setItem(
           "web_library_bookmarks",
           JSON.stringify(state.bookmarks),
         );
@@ -441,7 +411,7 @@ async function syncFromServer(username, isFocusSync = false) {
         });
 
         if (added > 0) {
-          localStorage.setItem(
+          sessionStorage.setItem(
             "web_library_bookmarks",
             JSON.stringify(state.bookmarks),
           );
@@ -464,14 +434,14 @@ async function syncFromServer(username, isFocusSync = false) {
 }
 
 function saveToStorage(immediate = false) {
-  localStorage.setItem(
+  sessionStorage.setItem(
     "web_library_bookmarks",
     JSON.stringify(state.bookmarks),
   );
 
-  localStorage.setItem("web_library_user", state.currentUser);
+  sessionStorage.setItem("web_library_user", state.currentUser);
 
-  localStorage.setItem("web_library_token", state.apiToken);
+  sessionStorage.setItem("web_library_token", state.apiToken);
 
   // 自動觸發跨電腦伺服器端同步備份
 
@@ -501,23 +471,23 @@ window.toggleTokenVisibility = function (inputId, btnEl) {
 };
 
 window.getBangumiToken = function () {
-  return localStorage.getItem("bangumi_access_token") || "";
+  return sessionStorage.getItem("bangumi_access_token") || "";
 };
 
 window.setBangumiToken = function (token) {
   if (token && token.trim()) {
-    localStorage.setItem("bangumi_access_token", token.trim());
+    sessionStorage.setItem("bangumi_access_token", token.trim());
   } else {
-    localStorage.removeItem("bangumi_access_token");
+    sessionStorage.removeItem("bangumi_access_token");
   }
 };
 
 window.saveBgmPriority = function (val) {
-  localStorage.setItem("bangumi_conflict_priority", val || "bangumi");
+  sessionStorage.setItem("bangumi_conflict_priority", val || "bangumi");
 };
 
 window.getBgmPriority = function () {
-  return localStorage.getItem("bangumi_conflict_priority") || "bangumi";
+  return sessionStorage.getItem("bangumi_conflict_priority") || "bangumi";
 };
 
 // 驗證 Bangumi 個人授權令牌 (Token) 是否有效
@@ -1672,7 +1642,7 @@ function setupEventListeners() {
 
             state.viewMode = targetMode;
 
-            localStorage.setItem("web_library_view_mode", targetMode);
+            sessionStorage.setItem("web_library_view_mode", targetMode);
 
             if (targetMode === "list") {
               document.body.classList.add("list-view-mode");
@@ -1712,7 +1682,7 @@ function setupEventListeners() {
       } else {
         state.viewMode = targetMode;
 
-        localStorage.setItem("web_library_view_mode", targetMode);
+        sessionStorage.setItem("web_library_view_mode", targetMode);
 
         if (targetMode === "list") {
           document.body.classList.add("list-view-mode");
@@ -1828,7 +1798,7 @@ function setupEventListeners() {
 
         // 1. 本地儲存立即清空
 
-        localStorage.setItem("web_library_bookmarks", JSON.stringify([]));
+        sessionStorage.setItem("web_library_bookmarks", JSON.stringify([]));
 
         // 2. 伺服器端同步清空
 
@@ -1869,7 +1839,7 @@ function setupEventListeners() {
     if (username) {
       state.currentUser = username;
 
-      localStorage.setItem("web_library_user", username);
+      sessionStorage.setItem("web_library_user", username);
       const modalEl = document.getElementById("authModal");
 
       if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
@@ -1904,9 +1874,9 @@ function setupEventListeners() {
         state.apiToken =
           "usr_tok_" + Math.random().toString(36).substring(2, 12);
 
-        localStorage.setItem("web_library_user", username);
+        sessionStorage.setItem("web_library_user", username);
 
-        localStorage.setItem("web_library_token", state.apiToken);
+        sessionStorage.setItem("web_library_token", state.apiToken);
         const modalEl = document.getElementById("authModal");
 
         if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
@@ -2606,7 +2576,7 @@ window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
             });
 
             if (updated) {
-              localStorage.setItem(
+              sessionStorage.setItem(
                 "web_library_watch_history",
                 JSON.stringify(hist),
               );
@@ -3810,7 +3780,7 @@ window.openKazumiPlayer = function (title = "", src = "") {
             });
 
             if (updated) {
-              localStorage.setItem(
+              sessionStorage.setItem(
                 "web_library_watch_history",
                 JSON.stringify(hist),
               );
@@ -4236,7 +4206,7 @@ let danmakuConfig = {
 
 function loadDanmakuSettings() {
   try {
-    const saved = localStorage.getItem(DANMAKU_SETTINGS_KEY);
+    const saved = sessionStorage.getItem(DANMAKU_SETTINGS_KEY);
 
     if (saved) {
       danmakuConfig = Object.assign(danmakuConfig, JSON.parse(saved));
@@ -4246,7 +4216,7 @@ function loadDanmakuSettings() {
 
 function saveDanmakuSettings() {
   try {
-    localStorage.setItem(DANMAKU_SETTINGS_KEY, JSON.stringify(danmakuConfig));
+    sessionStorage.setItem(DANMAKU_SETTINGS_KEY, JSON.stringify(danmakuConfig));
   } catch (e) {}
 
   applyDanmakuConfigToCSS();
@@ -4443,8 +4413,8 @@ async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
 
   applyDanmakuConfigToCSS();
   window.currentPlayingAnime = { title: animeTitle, cid: cid, ep: episodeNo };
-  const appId = localStorage.getItem("dandanplay_app_id") || "";
-  const appSecret = localStorage.getItem("dandanplay_app_secret") || "";
+  const appId = sessionStorage.getItem("dandanplay_app_id") || "";
+  const appSecret = sessionStorage.getItem("dandanplay_app_secret") || "";
 
   if (!animeTitle && !cid) return;
   let danmakuQueue = [];
@@ -4454,7 +4424,7 @@ async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
 
     const sourcePref =
       danmakuConfig.sourcePreference ||
-      localStorage.getItem("danmaku_source_preference") ||
+      sessionStorage.getItem("danmaku_source_preference") ||
       "bilibili";
 
     queryParams.push(`source=${encodeURIComponent(sourcePref)}`);
@@ -4981,7 +4951,7 @@ window.onDanmakuTimelineSliderChange = function (val) {
 // ==========================================
 
 let kazumiCurrentVolume = parseInt(
-  localStorage.getItem("kazumi_theater_volume") || "100",
+  sessionStorage.getItem("kazumi_theater_volume") || "100",
   10,
 );
 
@@ -4989,7 +4959,7 @@ if (isNaN(kazumiCurrentVolume) || kazumiCurrentVolume < 0)
   kazumiCurrentVolume = 100;
 
 if (kazumiCurrentVolume > 100) kazumiCurrentVolume = 100;
-let kazumiIsMuted = localStorage.getItem("kazumi_theater_muted") === "true";
+let kazumiIsMuted = sessionStorage.getItem("kazumi_theater_muted") === "true";
 let kazumiVolumeHudTimer = null;
 
 // 廣播音量給 iframe (相容 YouTube Iframe API, Bilibili, DPlayer, ArtPlayer, Tampermonkey Bridge)
@@ -5139,9 +5109,9 @@ window.applyKazumiVolume = function (showHud = false) {
 
   // 4. 持久化至 localStorage
 
-  localStorage.setItem("kazumi_theater_volume", kazumiCurrentVolume);
+  sessionStorage.setItem("kazumi_theater_volume", kazumiCurrentVolume);
 
-  localStorage.setItem(
+  sessionStorage.setItem(
     "kazumi_theater_muted",
     kazumiIsMuted ? "true" : "false",
   );
@@ -5284,7 +5254,7 @@ function renderDanmakuList(list, keyword = "") {
 
   const pref =
     danmakuConfig.sourcePreference ||
-    localStorage.getItem("danmaku_source_preference") ||
+    sessionStorage.getItem("danmaku_source_preference") ||
     "bilibili";
 
   if (sourceLabel) {
@@ -5467,17 +5437,17 @@ function updateDanmakuSettingsModalUI() {
   const appIdInput = document.getElementById("dmkDandanAppId");
 
   if (appIdInput)
-    appIdInput.value = localStorage.getItem("dandanplay_app_id") || "";
+    appIdInput.value = sessionStorage.getItem("dandanplay_app_id") || "";
   const appSecretInput = document.getElementById("dmkDandanAppSecret");
 
   if (appSecretInput)
-    appSecretInput.value = localStorage.getItem("dandanplay_app_secret") || "";
+    appSecretInput.value = sessionStorage.getItem("dandanplay_app_secret") || "";
 
   // 彈幕來源單選狀態同步
 
   const currentPref =
     danmakuConfig.sourcePreference ||
-    localStorage.getItem("danmaku_source_preference") ||
+    sessionStorage.getItem("danmaku_source_preference") ||
     "bilibili";
   const biliRadio = document.getElementById("dmkSourceBili");
   const dandanRadio = document.getElementById("dmkSourceDandan");
@@ -5494,7 +5464,7 @@ function updateDanmakuSettingsModalUI() {
 window.onDanmakuSourcePreferenceChanged = function (src) {
   danmakuConfig.sourcePreference = src || "bilibili";
 
-  localStorage.setItem(
+  sessionStorage.setItem(
     "danmaku_source_preference",
     danmakuConfig.sourcePreference,
   );
@@ -5648,9 +5618,9 @@ window.saveDandanplayFromModal = function () {
   const appSecretInput = document.getElementById("dmkDandanAppSecret");
 
   if (appIdInput && appSecretInput) {
-    localStorage.setItem("dandanplay_app_id", appIdInput.value.trim());
+    sessionStorage.setItem("dandanplay_app_id", appIdInput.value.trim());
 
-    localStorage.setItem("dandanplay_app_secret", appSecretInput.value.trim());
+    sessionStorage.setItem("dandanplay_app_secret", appSecretInput.value.trim());
 
     showToast(
       "🎉 彈彈play 官方 API 金鑰已成功儲存！",
@@ -6600,35 +6570,23 @@ let mangaState = {
 
 if (!window.getMangaBookshelf) {
   window.getMangaBookshelf = function () {
-    try {
-      const data = localStorage.getItem("web_library_manga_bookshelf");
-
-      if (data !== null) {
-        let parsed = JSON.parse(data);
-
-        if (Array.isArray(parsed)) {
-          const dummyTitles = [
-            "航海王",
-            "葬送的芙莉蓮",
-            "咒術迴戰",
-            "鏈鋸人",
-            "鬼滅之刃",
-          ];
-
-          return parsed.filter((b) => !dummyTitles.includes(b.title));
-        }
-      }
-    } catch (e) {}
-
-    return [];
+    return Array.isArray(window._mangaBookshelfMemory) ? window._mangaBookshelfMemory : [];
   };
 }
 
 let _bookshelfSyncDebounceTimer = null;
 
-// 跨裝置立體書架同步核心：將本地漫畫/小說書架推送到伺服器端
+// 跨裝置立體書架同步核心：將本地漫畫/小說書架推送到 NeDB 伺服器端
 window.syncBookshelfToServer = function(type, list) {
-  const user = (localStorage.getItem("web_library_user") || "jyun").toLowerCase().trim();
+  let user = null;
+  try {
+    const uStr = sessionStorage.getItem("currentUser");
+    if (uStr) {
+      const uObj = JSON.parse(uStr);
+      user = uObj.username;
+    }
+  } catch(e) {}
+  user = (user || sessionStorage.getItem("web_library_user") || "jyun").toLowerCase().trim();
   if (!user || user === "訪客" || user === "guest") return;
 
   clearTimeout(_bookshelfSyncDebounceTimer);
@@ -6648,16 +6606,26 @@ window.syncBookshelfToServer = function(type, list) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      console.log(`[Bookshelf Sync] ${type} 立體書架已跨裝置持久化至伺服器`);
+      console.log(`[Bookshelf Sync] ${type} 立體書架已跨裝置持久化至 NeDB 資料庫`);
     } catch (e) {
       console.warn('[Bookshelf Sync] 同步至伺服器提示 (離線模式):', e.message);
     }
   }, 350);
 };
 
-// 跨裝置立體書架同步核心：從伺服器端拉取書架並合併更新至本地
+// 跨裝置立體書架同步核心：從 NeDB 伺服器端拉取書架並合併更新至本地記憶體
 window.syncBookshelfFromServer = async function(username) {
-  const user = (username || localStorage.getItem("web_library_user") || "jyun").toLowerCase().trim();
+  let user = username;
+  if (!user) {
+    try {
+      const uStr = sessionStorage.getItem("currentUser");
+      if (uStr) {
+        const uObj = JSON.parse(uStr);
+        user = uObj.username;
+      }
+    } catch(e) {}
+  }
+  user = (user || sessionStorage.getItem("web_library_user") || "jyun").toLowerCase().trim();
   if (!user || user === "訪客" || user === "guest") return;
 
   try {
@@ -6665,28 +6633,16 @@ window.syncBookshelfFromServer = async function(username) {
     if (!res.ok) return;
     const data = await res.json();
     if (data && data.success) {
-      // 漫畫立體書架雙向對齊
       if (Array.isArray(data.manga)) {
-        const localManga = window.getMangaBookshelf ? window.getMangaBookshelf() : [];
-        if (data.isNew && localManga.length > 0) {
-          window.syncBookshelfToServer('manga', localManga);
-        } else if (!data.isNew) {
-          localStorage.setItem("web_library_manga_bookshelf", JSON.stringify(data.manga));
-          if (typeof window.renderMangaBookshelf === "function") {
-            window.renderMangaBookshelf();
-          }
+        window._mangaBookshelfMemory = data.manga;
+        if (typeof window.renderMangaBookshelf === "function") {
+          window.renderMangaBookshelf();
         }
       }
-      // 沉浸小說立體書架雙向對齊
       if (Array.isArray(data.novel)) {
-        const localNovel = window.getNovelBookshelf ? window.getNovelBookshelf() : [];
-        if (data.isNew && localNovel.length > 0) {
-          window.syncBookshelfToServer('novel', localNovel);
-        } else if (!data.isNew) {
-          localStorage.setItem("web_library_novel_bookshelf", JSON.stringify(data.novel));
-          if (typeof window.renderNovelBookshelf === "function") {
-            window.renderNovelBookshelf();
-          }
+        window._novelBookshelfMemory = data.novel;
+        if (typeof window.renderNovelBookshelf === "function") {
+          window.renderNovelBookshelf();
         }
       }
     }
@@ -6697,14 +6653,30 @@ window.syncBookshelfFromServer = async function(username) {
 
 if (!window.saveMangaBookshelf) {
   window.saveMangaBookshelf = function (list) {
-    localStorage.setItem("web_library_manga_bookshelf", JSON.stringify(list));
-
+    window._mangaBookshelfMemory = list || [];
     if (typeof window.renderMangaBookshelf === "function") {
       window.renderMangaBookshelf();
     }
-
     if (typeof window.syncBookshelfToServer === "function") {
       window.syncBookshelfToServer('manga', list);
+    }
+  };
+}
+
+if (!window.getNovelBookshelf) {
+  window.getNovelBookshelf = function () {
+    return Array.isArray(window._novelBookshelfMemory) ? window._novelBookshelfMemory : [];
+  };
+}
+
+if (!window.saveNovelBookshelf) {
+  window.saveNovelBookshelf = function (list) {
+    window._novelBookshelfMemory = list || [];
+    if (typeof window.renderNovelBookshelf === "function") {
+      window.renderNovelBookshelf();
+    }
+    if (typeof window.syncBookshelfToServer === "function") {
+      window.syncBookshelfToServer('novel', list);
     }
   };
 }
@@ -6764,7 +6736,7 @@ if (!window.toggleMangaBookshelfItem) {
 if (!window.getNovelBookshelf) {
   window.getNovelBookshelf = function () {
     try {
-      const data = localStorage.getItem("web_library_novel_bookshelf");
+      const data = sessionStorage.getItem("web_library_novel_bookshelf");
 
       if (data !== null) {
         let parsed = JSON.parse(data);
@@ -6788,7 +6760,7 @@ if (!window.getNovelBookshelf) {
 
 if (!window.saveNovelBookshelf) {
   window.saveNovelBookshelf = function (list) {
-    localStorage.setItem("web_library_novel_bookshelf", JSON.stringify(list));
+    sessionStorage.setItem("web_library_novel_bookshelf", JSON.stringify(list));
 
     if (typeof window.renderNovelBookshelf === "function") {
       window.renderNovelBookshelf();
@@ -8449,7 +8421,7 @@ let novelState = {
   theme: (function () {
     try {
       return (
-        localStorage.getItem("novel_theme") ||
+        sessionStorage.getItem("novel_theme") ||
         (document.documentElement.getAttribute("data-bs-theme") === "dark"
           ? "dark"
           : "sepia")
@@ -8463,7 +8435,7 @@ let novelState = {
 
   customTextColor: (function () {
     try {
-      return localStorage.getItem("novel_text_color") || null;
+      return sessionStorage.getItem("novel_text_color") || null;
     } catch (e) {
       return null;
     }
@@ -8534,7 +8506,7 @@ window.openNovelSearchModal = function (defaultKeyword = "") {
 // ============================================================
 
 let currentNovelSource =
-  localStorage.getItem("novel_preferred_source") || "wenku8";
+  sessionStorage.getItem("novel_preferred_source") || "wenku8";
 
 function updateNovelSourcePills() {
   const pillWenku = document.getElementById("sourcePill-wenku8");
@@ -8567,7 +8539,7 @@ function updateNovelSourcePills() {
 window.setNovelSource = function (src) {
   currentNovelSource = src || "wenku8";
 
-  localStorage.setItem("novel_preferred_source", currentNovelSource);
+  sessionStorage.setItem("novel_preferred_source", currentNovelSource);
 
   updateNovelSourcePills();
 
@@ -9240,7 +9212,7 @@ window.loadNovelChapter = async function (
       novelState.customTextColor ||
       (function () {
         try {
-          return localStorage.getItem("novel_text_color");
+          return sessionStorage.getItem("novel_text_color");
         } catch (e) {
           return null;
         }
@@ -9772,7 +9744,7 @@ async function saveLocalNovelToDB(novelData) {
       // 優雅降級：若 IndexedDB 不可用則嘗試使用記憶體或 localStorage
 
       try {
-        localStorage.setItem(
+        sessionStorage.setItem(
           "novel_cache_" + novelData.id,
           JSON.stringify(novelData),
         );
@@ -9802,7 +9774,7 @@ async function getLocalNovelFromDB(id) {
 
     if (!db) {
       try {
-        const raw = localStorage.getItem("novel_cache_" + id);
+        const raw = sessionStorage.getItem("novel_cache_" + id);
         return raw ? JSON.parse(raw) : null;
       } catch (e) {
         return null;
@@ -9912,7 +9884,7 @@ function loadLocalNovelChapter(idx) {
       novelState.customTextColor ||
       (function () {
         try {
-          return localStorage.getItem("novel_text_color");
+          return sessionStorage.getItem("novel_text_color");
         } catch (e) {
           return null;
         }
@@ -9964,7 +9936,7 @@ function updateNovelNavButtons() {
 window.setNovelTheme = function (theme) {
   novelState.theme = theme;
   try {
-    localStorage.setItem("novel_theme", theme);
+    sessionStorage.setItem("novel_theme", theme);
   } catch (e) {}
 
   const container = document.getElementById("novelContentContainer");
@@ -10008,7 +9980,7 @@ window.setNovelCustomTextColor = function (color) {
   novelState.customTextColor = color;
 
   try {
-    localStorage.setItem("novel_text_color", color);
+    sessionStorage.setItem("novel_text_color", color);
   } catch (e) {}
 
   const container = document.getElementById("novelContentContainer");
@@ -10043,7 +10015,7 @@ window.resetNovelCustomTextColor = function () {
   novelState.customTextColor = null;
 
   try {
-    localStorage.removeItem("novel_text_color");
+    sessionStorage.removeItem("novel_text_color");
   } catch (e) {}
 
   const container = document.getElementById("novelContentContainer");
@@ -11518,7 +11490,7 @@ document.addEventListener("DOMContentLoaded", () => {
   } catch (e) {}
 
   try {
-    const savedColor = localStorage.getItem("novel_text_color");
+    const savedColor = sessionStorage.getItem("novel_text_color");
 
     if (savedColor) {
       novelState.customTextColor = savedColor;
@@ -11728,7 +11700,7 @@ window.updateCardWatchStatus = async function (bookmarkId, newType) {
   // 同步後端檔案庫
 
   const currentUser =
-    localStorage.getItem("currentUser") ||
+    sessionStorage.getItem("currentUser") ||
     sessionStorage.getItem("currentUser") ||
     "default";
 
@@ -11749,7 +11721,7 @@ window.addAnimeSearchResultToLibrary = async function (title, cover, url) {
   if (!title) return;
 
   const currentUser =
-    localStorage.getItem("currentUser") ||
+    sessionStorage.getItem("currentUser") ||
     sessionStorage.getItem("currentUser") ||
     "default";
 
@@ -11817,7 +11789,7 @@ window.addMangaSearchResultToLibrary = async function (title, cover, mangaId) {
   if (!title) return;
 
   const currentUser =
-    localStorage.getItem("currentUser") ||
+    sessionStorage.getItem("currentUser") ||
     sessionStorage.getItem("currentUser") ||
     "default";
 
@@ -12235,14 +12207,14 @@ window.applyBangumiStatusChange = async function (
 window.getWatchHistoryList = function () {
   try {
     let list = JSON.parse(
-      localStorage.getItem("web_library_watch_history") || "[]",
+      sessionStorage.getItem("web_library_watch_history") || "[]",
     );
 
     if (list.length === 0) {
       // 自動遷移舊版 web_library_anime_history 紀錄
 
       const oldAnime = JSON.parse(
-        localStorage.getItem("web_library_anime_history") || "[]",
+        sessionStorage.getItem("web_library_anime_history") || "[]",
       );
 
       if (oldAnime.length > 0) {
@@ -12326,7 +12298,7 @@ window.getWatchHistoryList = function () {
     }
 
     if (hasFixed) {
-      localStorage.setItem("web_library_watch_history", JSON.stringify(list));
+      sessionStorage.setItem("web_library_watch_history", JSON.stringify(list));
     }
 
     return list;
@@ -12473,7 +12445,7 @@ window.saveWatchHistory = function (
 
     if (history.length > 30) history = history.slice(0, 30);
 
-    localStorage.setItem("web_library_watch_history", JSON.stringify(history));
+    sessionStorage.setItem("web_library_watch_history", JSON.stringify(history));
 
     // 觸發雙向 UI 渲染
 
@@ -13059,7 +13031,7 @@ window.deleteWatchHistoryItem = function (id, e) {
 
   history = history.filter((h) => h.id !== id);
 
-  localStorage.setItem("web_library_watch_history", JSON.stringify(history));
+  sessionStorage.setItem("web_library_watch_history", JSON.stringify(history));
   window.renderWatchHistoryGrid();
   window.renderAnimeHistoryStandby();
 
@@ -13070,9 +13042,9 @@ window.clearAllWatchHistory = function () {
   if (!confirm("確定要清空所有動漫、Bilibili 與 YouTube 的播放歷史紀錄嗎？"))
     return;
 
-  localStorage.removeItem("web_library_watch_history");
+  sessionStorage.removeItem("web_library_watch_history");
 
-  localStorage.removeItem("web_library_anime_history");
+  sessionStorage.removeItem("web_library_anime_history");
   window.renderWatchHistoryGrid();
   window.renderAnimeHistoryStandby();
 
@@ -13157,7 +13129,7 @@ window.saveMangaReadHistory = function (
 
   try {
     let history = JSON.parse(
-      localStorage.getItem("web_library_manga_history") || "[]",
+      sessionStorage.getItem("web_library_manga_history") || "[]",
     );
 
     history = history.filter((h) => h.mangaId !== mangaId && h.title !== title);
@@ -13178,7 +13150,7 @@ window.saveMangaReadHistory = function (
 
     if (history.length > 20) history = history.slice(0, 20);
 
-    localStorage.setItem("web_library_manga_history", JSON.stringify(history));
+    sessionStorage.setItem("web_library_manga_history", JSON.stringify(history));
     window.renderMangaHistoryStandby();
   } catch (e) {
     console.error("儲存漫畫閱讀歷史失敗:", e);
@@ -13192,7 +13164,7 @@ window.renderMangaHistoryStandby = function () {
 
   try {
     const history = JSON.parse(
-      localStorage.getItem("web_library_manga_history") || "[]",
+      sessionStorage.getItem("web_library_manga_history") || "[]",
     );
 
     if (history.length === 0) {
@@ -13289,13 +13261,13 @@ window.renderMangaHistoryStandby = function () {
 window.removeMangaHistoryItem = function (idx) {
   try {
     let history = JSON.parse(
-      localStorage.getItem("web_library_manga_history") || "[]",
+      sessionStorage.getItem("web_library_manga_history") || "[]",
     );
 
     if (idx >= 0 && idx < history.length) {
       history.splice(idx, 1);
 
-      localStorage.setItem(
+      sessionStorage.setItem(
         "web_library_manga_history",
         JSON.stringify(history),
       );
@@ -13309,7 +13281,7 @@ window.removeMangaHistoryItem = function (idx) {
 window.resumeMangaHistory = function (idx = 0) {
   try {
     const history = JSON.parse(
-      localStorage.getItem("web_library_manga_history") || "[]",
+      sessionStorage.getItem("web_library_manga_history") || "[]",
     );
     const item = history[idx];
 
@@ -13342,7 +13314,7 @@ window.resumeMangaHistory = function (idx = 0) {
 };
 
 window.clearMangaHistory = function () {
-  localStorage.removeItem("web_library_manga_history");
+  sessionStorage.removeItem("web_library_manga_history");
   window.renderMangaHistoryStandby();
 
   showToast("已清除漫畫閱讀歷史！", "bi-trash text-secondary");
@@ -13609,7 +13581,7 @@ const DEFAULT_ACG_GAMES = [
 function getGameHubItems() {
   try {
     const hiddenDefaults = JSON.parse(
-      localStorage.getItem("web_library_hidden_default_games") || "[]",
+      sessionStorage.getItem("web_library_hidden_default_games") || "[]",
     );
 
     const visibleDefaults = DEFAULT_ACG_GAMES.filter(
@@ -13617,7 +13589,7 @@ function getGameHubItems() {
     );
 
     const stored = JSON.parse(
-      localStorage.getItem("web_library_custom_games") || "[]",
+      sessionStorage.getItem("web_library_custom_games") || "[]",
     );
     return [...visibleDefaults, ...stored];
   } catch (e) {
@@ -13980,12 +13952,12 @@ window.saveCustomGame = function () {
 
   try {
     const stored = JSON.parse(
-      localStorage.getItem("web_library_custom_games") || "[]",
+      sessionStorage.getItem("web_library_custom_games") || "[]",
     );
 
     stored.push(newGame);
 
-    localStorage.setItem("web_library_custom_games", JSON.stringify(stored));
+    sessionStorage.setItem("web_library_custom_games", JSON.stringify(stored));
 
     showToast(
       `🎉 已成功加入《${title}》至遊戲專區！`,
@@ -14018,23 +13990,23 @@ window.deleteGameHubCard = function (id, isCustom) {
   try {
     if (isCustom) {
       let stored = JSON.parse(
-        localStorage.getItem("web_library_custom_games") || "[]",
+        sessionStorage.getItem("web_library_custom_games") || "[]",
       );
 
       stored = stored.filter((g) => g.id !== id);
 
-      localStorage.setItem("web_library_custom_games", JSON.stringify(stored));
+      sessionStorage.setItem("web_library_custom_games", JSON.stringify(stored));
 
       showToast("已刪除該自定義遊戲卡片", "bi-trash3 text-info");
     } else {
       let hidden = JSON.parse(
-        localStorage.getItem("web_library_hidden_default_games") || "[]",
+        sessionStorage.getItem("web_library_hidden_default_games") || "[]",
       );
 
       if (!hidden.includes(id)) {
         hidden.push(id);
 
-        localStorage.setItem(
+        sessionStorage.setItem(
           "web_library_hidden_default_games",
           JSON.stringify(hidden),
         );
@@ -14057,7 +14029,7 @@ window.deleteCustomGame = function (id) {
 };
 
 window.resetDefaultGames = function () {
-  localStorage.removeItem("web_library_hidden_default_games");
+  sessionStorage.removeItem("web_library_hidden_default_games");
 
   showToast(
     "🎉 已成功恢復所有預設遊戲卡片！",
@@ -14439,9 +14411,9 @@ const AVATAR_PRESETS = [
 function updateNavUserAvatar(avatar) {
     const wrapper = document.getElementById('navUserAvatarWrapper');
     if (!wrapper) return;
-    const effectiveUser = (localStorage.getItem('web_library_user') || 'jyun').toLowerCase().trim();
+    const effectiveUser = (sessionStorage.getItem('web_library_user') || 'jyun').toLowerCase().trim();
     if (!avatar) {
-        avatar = localStorage.getItem('web_library_custom_avatar_' + effectiveUser) || 'default';
+        avatar = sessionStorage.getItem('web_library_custom_avatar_' + effectiveUser) || 'default';
     }
     if (avatar && (avatar.startsWith('data:image/') || avatar.startsWith('http'))) {
         wrapper.innerHTML = `<img src="${avatar}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; display: block;" alt="avatar">`;
@@ -14460,9 +14432,9 @@ function updateNavUserAvatar(avatar) {
                 window._avatarSyncLock = false;
                 if (data && data.success && data.profile && data.profile.avatar) {
                     const serverAvatar = data.profile.avatar;
-                    const cachedAvatar = localStorage.getItem('web_library_custom_avatar_' + effectiveUser);
+                    const cachedAvatar = sessionStorage.getItem('web_library_custom_avatar_' + effectiveUser);
                     if (serverAvatar && serverAvatar !== 'default' && serverAvatar !== cachedAvatar) {
-                        localStorage.setItem('web_library_custom_avatar_' + effectiveUser, serverAvatar);
+                        sessionStorage.setItem('web_library_custom_avatar_' + effectiveUser, serverAvatar);
                         if (serverAvatar.startsWith('data:image/') || serverAvatar.startsWith('http')) {
                             wrapper.innerHTML = `<img src="${serverAvatar}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; display: block;" alt="avatar">`;
                         } else {
@@ -14511,12 +14483,12 @@ function populateProfileForm(profileData, savedCustomAvatar) {
     if (confirmPwdInput) confirmPwdInput.value = '';
     if (displayUser) displayUser.textContent = profileData.name || profileData.username;
     if (userRole) userRole.textContent = profileData.role || '個人帳號';
-    const isSpotlightOn = localStorage.getItem('web_library_spotlight_pref') !== 'false';
+    const isSpotlightOn = sessionStorage.getItem('web_library_spotlight_pref') !== 'false';
     if (glowPrefSwitch) glowPrefSwitch.checked = isSpotlightOn;
 
-    const curPrefUser = (profileData.username || localStorage.getItem('web_library_user') || 'jyun').toLowerCase().trim();
-    const savedSortPref = localStorage.getItem('web_library_default_sort_' + curPrefUser) || profileData.defaultSort || 'newest';
-    const savedCatPref = localStorage.getItem('web_library_default_category_' + curPrefUser) || profileData.defaultCategory || 'all';
+    const curPrefUser = (profileData.username || sessionStorage.getItem('web_library_user') || 'jyun').toLowerCase().trim();
+    const savedSortPref = sessionStorage.getItem('web_library_default_sort_' + curPrefUser) || profileData.defaultSort || 'newest';
+    const savedCatPref = sessionStorage.getItem('web_library_default_category_' + curPrefUser) || profileData.defaultCategory || 'all';
 
     const prefSortEl = document.getElementById('profileDefaultSortSelect');
     if (prefSortEl) {
@@ -14576,8 +14548,8 @@ window.openEditProfileModal = function() {
         return;
     }
 
-    const username = localStorage.getItem('web_library_user') || 'admin';
-    const savedCustomAvatar = localStorage.getItem('web_library_custom_avatar_' + username);
+    const username = sessionStorage.getItem('web_library_user') || 'admin';
+    const savedCustomAvatar = sessionStorage.getItem('web_library_custom_avatar_' + username);
 
     let profileData = {
         username: username,
@@ -14590,7 +14562,7 @@ window.openEditProfileModal = function() {
     };
 
     try {
-        const list = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+        const list = JSON.parse(sessionStorage.getItem('registeredUsers') || '[]');
         const local = list.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
         if (local) {
             profileData.name = local.name || local.username;
@@ -14624,14 +14596,14 @@ window.saveUserProfile = async function(e) {
     if (e && e.preventDefault) e.preventDefault();
     const saveBtn = document.getElementById('saveProfileBtn');
     const statusEl = document.getElementById('profileSaveStatus');
-    const username = document.getElementById('profileUsernameInput')?.value || localStorage.getItem('web_library_user');
+    const username = document.getElementById('profileUsernameInput')?.value || sessionStorage.getItem('web_library_user');
     const name = document.getElementById('profileNameInput')?.value.trim();
     const bio = document.getElementById('profileBioInput')?.value.trim();
 
     // 嚴格讀取選取的頭像，絕不可遺失自訂圖片
     let avatar = document.getElementById('profileSelectedAvatar')?.value;
     if (!avatar) {
-        avatar = localStorage.getItem('web_library_custom_avatar_' + username) || 'default';
+        avatar = sessionStorage.getItem('web_library_custom_avatar_' + username) || 'default';
     }
 
     const oldPassword = document.getElementById('profileOldPasswordInput')?.value;
@@ -14642,9 +14614,9 @@ window.saveUserProfile = async function(e) {
     const glowPref = document.getElementById('profileCardGlowPref')?.checked;
 
     // 同步儲存個人首頁書籤偏好
-    const curSaveUser = (username || localStorage.getItem('web_library_user') || 'jyun').toLowerCase().trim();
-    localStorage.setItem('web_library_default_sort_' + curSaveUser, defaultSort);
-    localStorage.setItem('web_library_default_category_' + curSaveUser, defaultCategory);
+    const curSaveUser = (username || sessionStorage.getItem('web_library_user') || 'jyun').toLowerCase().trim();
+    sessionStorage.setItem('web_library_default_sort_' + curSaveUser, defaultSort);
+    sessionStorage.setItem('web_library_default_category_' + curSaveUser, defaultCategory);
 
     // 即時套用至當前首頁狀態與 UI
     state.sortMode = defaultSort;
@@ -14671,7 +14643,7 @@ window.saveUserProfile = async function(e) {
         renderBookmarks();
     }
     // 比對是否設定了相同的密碼 (含目前密碼、已有密碼或預設密碼)
-    const curRegList = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+    const curRegList = JSON.parse(sessionStorage.getItem('registeredUsers') || '[]');
     const curTargetUser = curRegList.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
     const existingPwdVal = curTargetUser?.password || '';
     const isSamePassword = !!newPassword && (
@@ -14697,7 +14669,7 @@ window.saveUserProfile = async function(e) {
     }
 
     // 儲存 Spotlight 偏好開關
-    localStorage.setItem('web_library_spotlight_pref', glowPref ? 'true' : 'false');
+    sessionStorage.setItem('web_library_spotlight_pref', glowPref ? 'true' : 'false');
     applySpotlightPref(glowPref);
 
     if (saveBtn) saveBtn.disabled = true;
@@ -14734,7 +14706,7 @@ window.saveUserProfile = async function(e) {
         }
 
         // 本地註冊清單同步持久化
-        const list = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+        const list = JSON.parse(sessionStorage.getItem('registeredUsers') || '[]');
         const target = list.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
         if (target) {
             target.name = name;
@@ -14745,13 +14717,13 @@ window.saveUserProfile = async function(e) {
             }
             target.defaultSort = defaultSort;
             target.defaultCategory = defaultCategory;
-            localStorage.setItem('registeredUsers', JSON.stringify(list));
+            sessionStorage.setItem('registeredUsers', JSON.stringify(list));
             savedSuccess = true;
         }
 
         // 若為自訂上傳圖片，雙保險寫入獨立持久化
         if (avatar && (avatar.startsWith('data:image') || avatar.startsWith('http'))) {
-            localStorage.setItem('web_library_custom_avatar_' + username, avatar);
+            sessionStorage.setItem('web_library_custom_avatar_' + username, avatar);
         }
 
         if (savedSuccess) {
@@ -14823,8 +14795,8 @@ window.handleCustomAvatarUpload = function(event) {
             const base64Url = canvas.toDataURL('image/jpeg', 0.85);
 
             // 寫入當前選中值與本地持久化
-            const username = localStorage.getItem('web_library_user') || 'admin';
-            localStorage.setItem('web_library_custom_avatar_' + username, base64Url);
+            const username = sessionStorage.getItem('web_library_user') || 'admin';
+            sessionStorage.setItem('web_library_custom_avatar_' + username, base64Url);
 
             document.querySelectorAll('.avatar-choice-item').forEach(el => el.classList.remove('selected'));
             document.getElementById('profileSelectedAvatar').value = base64Url;
@@ -15155,11 +15127,11 @@ function toggleThemeMode() {
     const currentTheme = htmlEl.getAttribute('data-bs-theme') || (bodyEl.classList.contains('dark-theme') ? 'dark' : 'light');
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
     window.applyThemeMode(newTheme);
-    localStorage.setItem('web_library_theme', newTheme);
+    sessionStorage.setItem('web_library_theme', newTheme);
 };
 
 function initThemeMode() {
-    const savedTheme = localStorage.getItem('web_library_theme') || 'light';
+    const savedTheme = sessionStorage.getItem('web_library_theme') || 'light';
     window.applyThemeMode(savedTheme);
 };
 window.updateNavUserAvatar = updateNavUserAvatar;
@@ -15277,6 +15249,6 @@ document.addEventListener('DOMContentLoaded', () => {
         window.syncBookshelfFromServer();
     }
     if (typeof applySpotlightPref === 'function') {
-        applySpotlightPref(localStorage.getItem('web_library_spotlight_pref') !== 'false');
+        applySpotlightPref(sessionStorage.getItem('web_library_spotlight_pref') !== 'false');
     }
 });

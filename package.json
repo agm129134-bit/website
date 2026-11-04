@@ -14,5 +14,8 @@
     "bangumi"
   ],
   "author": "Jyun",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "nedb-promises": "^6.2.4"
+  }
 }

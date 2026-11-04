@@ -414,9 +414,14 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // 1. 若已經登入，自動跳轉進入首頁
+        // 1. 徹底掃除本機歷史 localStorage 殘留，杜絕任何硬碟持久化依賴 (遵守全域無 localStorage 鐵律)
+        try {
+            localStorage.clear();
+        } catch (e) {}
+
+        // 2. 檢查當前瀏覽器分頁會話 (sessionStorage) 是否已登入，若已登入自動跳轉首頁
         (function checkAlreadyLoggedIn() {
-            const current = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+            const current = sessionStorage.getItem('currentUser');
             if (current) {
                 try {
                     const userObj = JSON.parse(current);
@@ -424,141 +429,13 @@
                         window.location.replace('index.html');
                     }
                 } catch (e) {
-                    localStorage.removeItem('currentUser');
                     sessionStorage.removeItem('currentUser');
                 }
             }
         })();
 
-        // 2. 初始化與取得已註冊帳號列表 (包含 jyun 老帳號自動相容與持久化)
-        function getRegisteredUsers() {
-            const KEY = 'registeredUsers';
-            let list = [];
-            const stored = localStorage.getItem(KEY);
-            if (stored) {
-                try {
-                    list = JSON.parse(stored);
-                    if (!Array.isArray(list)) list = [];
-                } catch (e) {
-                    list = [];
-                }
-            }
-
-            // 讀取永久刪除黑名單
-            let deletedUsers = [];
-            try {
-                const rawDeleted = localStorage.getItem('deletedUsers');
-                if (rawDeleted) deletedUsers = JSON.parse(rawDeleted);
-                if (!Array.isArray(deletedUsers)) deletedUsers = [];
-            } catch (e) {
-                deletedUsers = [];
-            }
-
-            // 清理本機過去誤存之帶有中文後綴的重複新帳號與已刪除帳號
-            list = list.filter(u => {
-                const un = (u.username || '').toLowerCase();
-                if (deletedUsers.some(d => d.toLowerCase() === un)) return false;
-                return un !== 'jyun專案開發者' && un !== 'test1測試帳號' && !un.includes('專案開發者') && !un.includes('測試帳號');
-            });
-
-            // 專案核心預設帳號清單 (管理員、學生與核心老用戶 jyun)
-            const coreDefaults = [
-                {
-                    username: 'jyun',
-                    password: '', // 老用戶相容標記：首次登入將自動綁定使用者輸入的密碼
-                    isLegacy: true,
-                    name: 'Jyun',
-                    role: '核心開發者',
-                    createdAt: new Date().toISOString()
-                },
-                {
-                    username: 'admin',
-                    password: '***REMOVED***',
-                    name: '管理員 (Admin)',
-                    role: '系統管理員',
-                    createdAt: new Date().toISOString()
-                },
-                {
-                    username: 'student',
-                    password: '***REMOVED***',
-                    name: '學生 (Student)',
-                    role: '學生研究員',
-                    createdAt: new Date().toISOString()
-                }
-            ];
-
-            // 智慧合併：若核心帳號尚未存在於 list 中且未被使用者刪除，自動補齊
-            coreDefaults.forEach(def => {
-                const defUser = def.username.toLowerCase();
-                if (deletedUsers.some(d => d.toLowerCase() === defUser)) return;
-                const existing = list.find(u => (u.username || '').toLowerCase() === defUser);
-                if (!existing) {
-                    list.unshift(def);
-                }
-            });
-
-            // 檢查本機先前登入過的 web_library_user，若尚未收錄且未被刪除則納入
-            const legacyUser = localStorage.getItem('web_library_user');
-            if (legacyUser && !deletedUsers.some(d => d.toLowerCase() === legacyUser.toLowerCase()) && !list.some(u => (u.username || '').toLowerCase() === legacyUser.toLowerCase())) {
-                list.unshift({
-                    username: legacyUser,
-                    password: '',
-                    isLegacy: true,
-                    name: legacyUser,
-                    role: '既有檔案使用者',
-                    createdAt: new Date().toISOString()
-                });
-            }
-
-            localStorage.setItem(KEY, JSON.stringify(list));
-            return list;
-        }
-
-        // 自動從後端 /api/user/list 同步伺服器端已有的帳號檔案 (如 bookmarks_*.json)
-        async function syncServerUsers() {
-            try {
-                const res = await fetch('/api/user/list');
-                if (!res.ok) return;
-                const data = await res.json();
-                if (data.success && Array.isArray(data.users)) {
-                    let deletedUsers = [];
-                    try {
-                        const rawDeleted = localStorage.getItem('deletedUsers');
-                        if (rawDeleted) deletedUsers = JSON.parse(rawDeleted);
-                        if (!Array.isArray(deletedUsers)) deletedUsers = [];
-                    } catch (e) {
-                        deletedUsers = [];
-                    }
-
-                    const list = getRegisteredUsers();
-                    let updated = false;
-                    data.users.forEach(u => {
-                        if (!u || u.includes('專案開發者') || u.includes('測試帳號')) return;
-                        if (deletedUsers.some(d => d.toLowerCase() === u.toLowerCase())) return;
-                        if (!list.some(item => item.username.toLowerCase() === u.toLowerCase())) {
-                            list.push({
-                                username: u,
-                                password: '',
-                                isLegacy: true,
-                                name: u,
-                                role: '既有檔案使用者',
-                                createdAt: new Date().toISOString()
-                            });
-                            updated = true;
-                        }
-                    });
-                    if (updated) {
-                        localStorage.setItem('registeredUsers', JSON.stringify(list));
-                    }
-                }
-            } catch (e) {
-                // 離線靜態瀏覽時忽略
-            }
-        }
-        syncServerUsers();
-
-        // 3. 雙模式切換 (登入 / 註冊)
-                function switchAuthMode(mode) {
+        // 3. 模式切換 (登入 / 註冊 / 忘記密碼)
+        function switchAuthMode(mode) {
             hideAlert();
             const isLogin = mode === 'login';
             const isForgot = mode === 'forgot';
@@ -586,25 +463,25 @@
             if (forgotForm) forgotForm.classList.add('d-none');
 
             if (isLogin) {
-                tabLogin.classList.add('active');
-                tabReg.classList.remove('active');
-                demoBox.classList.remove('d-none');
-                loginForm.classList.remove('d-none');
-                regForm.classList.add('d-none');
-                document.getElementById('usernameInput').focus();
+                tabLogin?.classList.add('active');
+                tabReg?.classList.remove('active');
+                demoBox?.classList.remove('d-none');
+                loginForm?.classList.remove('d-none');
+                regForm?.classList.add('d-none');
+                document.getElementById('usernameInput')?.focus();
 
-                if (typeof gsap !== 'undefined') {
+                if (typeof gsap !== 'undefined' && loginForm) {
                     gsap.fromTo(loginForm, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.25, ease: "power2.out" });
                 }
             } else {
-                tabReg.classList.add('active');
-                tabLogin.classList.remove('active');
-                demoBox.classList.add('d-none');
-                loginForm.classList.add('d-none');
-                regForm.classList.remove('d-none');
-                document.getElementById('regUsernameInput').focus();
+                tabReg?.classList.add('active');
+                tabLogin?.classList.remove('active');
+                demoBox?.classList.add('d-none');
+                loginForm?.classList.add('d-none');
+                regForm?.classList.remove('d-none');
+                document.getElementById('regUsernameInput')?.focus();
 
-                if (typeof gsap !== 'undefined') {
+                if (typeof gsap !== 'undefined' && regForm) {
                     gsap.fromTo(regForm, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.25, ease: "power2.out" });
                 }
             }
@@ -631,38 +508,44 @@
         // 5. 一鍵填入展示帳號
         function fillAccount(username, password) {
             switchAuthMode('login');
-            document.getElementById('usernameInput').value = username;
-            document.getElementById('passwordInput').value = password;
+            const uInput = document.getElementById('usernameInput');
+            const pInput = document.getElementById('passwordInput');
+            if (uInput) uInput.value = username;
+            if (pInput) pInput.value = password;
             hideAlert();
             showToast(`已自動帶入展示帳號 (${username})`, "bi-check-circle text-success");
-            document.getElementById('passwordInput').focus();
+            pInput?.focus();
         }
 
         // 6. 錯誤提示與 Toast 訊息
         function showAlert(msg) {
             const alertBox = document.getElementById('loginAlertBox');
             const alertText = document.getElementById('loginAlertText');
-            alertText.innerHTML = msg;
-            alertBox.classList.remove('d-none');
-            if (typeof gsap !== 'undefined') {
-                gsap.fromTo(alertBox, { scale: 0.95, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.2, ease: "power2.out" });
+            if (alertText) alertText.innerHTML = msg;
+            if (alertBox) {
+                alertBox.classList.remove('d-none');
+                if (typeof gsap !== 'undefined') {
+                    gsap.fromTo(alertBox, { scale: 0.95, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.2, ease: "power2.out" });
+                }
             }
         }
 
         function hideAlert() {
             const alertBox = document.getElementById('loginAlertBox');
-            alertBox.classList.add('d-none');
+            if (alertBox) alertBox.classList.add('d-none');
         }
 
         function showToast(message, iconClass = "bi-check-circle-fill text-success") {
             const toastEl = document.getElementById('loginToast');
             const toastMsg = document.getElementById('toastMessage');
-            toastMsg.innerHTML = `<i class="bi ${iconClass} fs-5"></i> <span>${message}</span>`;
-            const toast = new bootstrap.Toast(toastEl, { delay: 2600 });
-            toast.show();
+            if (toastMsg) toastMsg.innerHTML = `<i class="bi ${iconClass} fs-5"></i> <span>${message}</span>`;
+            if (toastEl && typeof bootstrap !== 'undefined') {
+                const toast = new bootstrap.Toast(toastEl, { delay: 2600 });
+                toast.show();
+            }
         }
 
-        // 7. 訪客快速體驗
+        // 7. 訪客快速體驗 (僅寫入 sessionStorage，無本機磁碟殘留)
         function guestLogin() {
             const guestUser = {
                 username: "guest",
@@ -671,201 +554,172 @@
                 loginTime: new Date().toISOString()
             };
             sessionStorage.setItem('currentUser', JSON.stringify(guestUser));
-            localStorage.setItem('web_library_user', 'guest');
             showToast("以訪客身分登入，正在跳轉...", "bi-person-check text-info");
             setTimeout(() => {
                 window.location.href = 'index.html';
             }, 500);
         }
 
-        // ==================== 8. 登入表單提交處理 (嚴格檢查註冊帳密) ====================
+        // ==================== 8. 登入表單提交處理 (向 NeDB 後端驗證加鹽雜湊密碼) ====================
         const loginForm = document.getElementById('loginForm');
-        loginForm.addEventListener('submit', function (e) {
-            e.preventDefault();
-            hideAlert();
+        if (loginForm) {
+            loginForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                hideAlert();
 
-            const username = document.getElementById('usernameInput').value.trim();
-            const password = document.getElementById('passwordInput').value.trim();
-            const rememberMe = document.getElementById('rememberMeCheckbox').checked;
+                const username = document.getElementById('usernameInput')?.value.trim();
+                const password = document.getElementById('passwordInput')?.value.trim();
 
-            if (!username) {
-                showAlert('請輸入使用者帳號');
-                document.getElementById('usernameInput').focus();
-                return;
-            }
-
-            if (!password) {
-                showAlert('請輸入登入密碼');
-                document.getElementById('passwordInput').focus();
-                return;
-            }
-
-            // 讀取所有已註冊帳號
-            const registeredUsers = getRegisteredUsers();
-            const matchedUser = registeredUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
-
-            // ⚠️ 關鍵防護：檢查帳號是否存在
-            if (!matchedUser) {
-                showAlert(`帳號「<strong>${escapeHtml(username)}</strong>」尚未註冊！<br><span class="mt-1 d-inline-block">👉 請點擊上方「<strong>註冊新帳號</strong>」建立專屬個人檔案。</span>`);
-                document.getElementById('usernameInput').focus();
-                return;
-            }
-
-            // 💡 老用戶智慧相容：若為本機既有帳號（如 jyun，且尚未固定密碼或為 isLegacy），自動採用使用者當前輸入的密碼進行綁定！
-            if (matchedUser.isLegacy || !matchedUser.password) {
-                matchedUser.password = password;
-                matchedUser.isLegacy = false;
-                localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
-            } else if (matchedUser.password !== password) {
-                showAlert('密碼不正確，請重新輸入！(可點擊上方一鍵帶入展示帳密)');
-                document.getElementById('passwordInput').focus();
-                return;
-            }
-
-            // 驗證通過，執行登入程序
-            const submitBtn = document.getElementById('submitLoginBtn');
-            const spinner = document.getElementById('submitSpinner');
-            const btnText = document.getElementById('submitBtnText');
-            submitBtn.disabled = true;
-            spinner.classList.remove('d-none');
-            btnText.textContent = "驗證成功，正在進入...";
-
-            setTimeout(() => {
-                const displayName = matchedUser.name || matchedUser.username;
-                const role = matchedUser.role || "一般會員";
-
-                const userInfo = {
-                    username: matchedUser.username,
-                    name: displayName,
-                    role: role,
-                    rememberMe: rememberMe,
-                    loginTime: new Date().toISOString()
-                };
-
-                localStorage.setItem('web_library_user', matchedUser.username);
-                if (matchedUser.avatar) {
-                    localStorage.setItem('web_library_custom_avatar_' + matchedUser.username, matchedUser.avatar);
-                }
-                if (rememberMe) {
-                    localStorage.setItem('currentUser', JSON.stringify(userInfo));
-                    sessionStorage.removeItem('currentUser');
-                } else {
-                    sessionStorage.setItem('currentUser', JSON.stringify(userInfo));
-                    localStorage.removeItem('currentUser');
+                if (!username) {
+                    showAlert('請輸入使用者帳號');
+                    document.getElementById('usernameInput')?.focus();
+                    return;
                 }
 
-                showToast(`歡迎回來，${displayName}！`, "bi-check-circle-fill text-success");
+                if (!password) {
+                    showAlert('請輸入登入密碼');
+                    document.getElementById('passwordInput')?.focus();
+                    return;
+                }
 
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 500);
-            }, 350);
-        });
+                const submitBtn = document.getElementById('submitLoginBtn');
+                const spinner = document.getElementById('submitSpinner');
+                const btnText = document.getElementById('submitBtnText');
+                if (submitBtn) submitBtn.disabled = true;
+                if (spinner) spinner.classList.remove('d-none');
+                if (btnText) btnText.textContent = "驗證中...";
 
-        // ==================== 9. 註冊表單提交處理 (新增帳號與持久化) ====================
+                try {
+                    const res = await fetch('/api/user/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await res.json();
+
+                    if (!res.ok || !data.success) {
+                        if (submitBtn) submitBtn.disabled = false;
+                        if (spinner) spinner.classList.add('d-none');
+                        if (btnText) btnText.innerHTML = '<i class="bi bi-box-arrow-in-right"></i> 立即登入';
+                        showAlert(data.error || '登入失敗，請確認帳號與密碼');
+                        return;
+                    }
+
+                    if (btnText) btnText.textContent = "驗證成功，正在進入...";
+                    const user = data.user;
+                    sessionStorage.setItem('currentUser', JSON.stringify(user));
+
+                    showToast(`歡迎回來，${user.name || user.username}！`, "bi-check-circle-fill text-success");
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 400);
+                } catch (err) {
+                    if (submitBtn) submitBtn.disabled = false;
+                    if (spinner) spinner.classList.add('d-none');
+                    if (btnText) btnText.innerHTML = '<i class="bi bi-box-arrow-in-right"></i> 立即登入';
+                    showAlert('無法連線至伺服器驗證，請確認後端服務是否已啟動');
+                }
+            });
+        }
+
+        // ==================== 9. 註冊表單提交處理 (NeDB 加鹽雜湊持久化) ====================
         const registerForm = document.getElementById('registerForm');
-        registerForm.addEventListener('submit', function (e) {
-            e.preventDefault();
-            hideAlert();
+        if (registerForm) {
+            registerForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                hideAlert();
 
-            const regUsername = document.getElementById('regUsernameInput').value.trim();
-            const regName = document.getElementById('regNameInput').value.trim() || regUsername;
-            const regPassword = document.getElementById('regPasswordInput').value.trim();
-            const regConfirmPassword = document.getElementById('regConfirmPasswordInput').value.trim();
+                const regUsername = document.getElementById('regUsernameInput')?.value.trim();
+                const regName = document.getElementById('regNameInput')?.value.trim() || regUsername;
+                const regPassword = document.getElementById('regPasswordInput')?.value.trim();
+                const regConfirmPassword = document.getElementById('regConfirmPasswordInput')?.value.trim();
 
-            if (!regUsername) {
-                showAlert('請設定使用者帳號');
-                document.getElementById('regUsernameInput').focus();
-                return;
-            }
+                if (!regUsername) {
+                    showAlert('請設定使用者帳號');
+                    document.getElementById('regUsernameInput')?.focus();
+                    return;
+                }
 
-            if (regUsername.length < 3) {
-                showAlert('帳號長度不得少於 3 個字元');
-                document.getElementById('regUsernameInput').focus();
-                return;
-            }
+                if (regUsername.length < 3) {
+                    showAlert('帳號長度不得少於 3 個字元');
+                    document.getElementById('regUsernameInput')?.focus();
+                    return;
+                }
 
-            // 限制帳號字元避免特殊符號破壞儲存
-            if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(regUsername)) {
-                showAlert('帳號僅支援中英文字母、數字與底線');
-                document.getElementById('regUsernameInput').focus();
-                return;
-            }
+                if (!/^[a-zA-Z0-9_一-龥]+$/.test(regUsername)) {
+                    showAlert('帳號僅支援中英文字母、數字與底線');
+                    document.getElementById('regUsernameInput')?.focus();
+                    return;
+                }
 
-            if (!regPassword) {
-                showAlert('請設定登入密碼');
-                document.getElementById('regPasswordInput').focus();
-                return;
-            }
+                if (!regPassword) {
+                    showAlert('請設定登入密碼');
+                    document.getElementById('regPasswordInput')?.focus();
+                    return;
+                }
 
-            if (regPassword.length < 4) {
-                showAlert('密碼長度不得少於 4 碼');
-                document.getElementById('regPasswordInput').focus();
-                return;
-            }
+                if (regPassword.length < 3) {
+                    showAlert('密碼長度不得少於 3 碼');
+                    document.getElementById('regPasswordInput')?.focus();
+                    return;
+                }
 
-            if (regPassword !== regConfirmPassword) {
-                showAlert('兩次輸入的密碼不一致，請重新確認！');
-                document.getElementById('regConfirmPasswordInput').focus();
-                return;
-            }
+                if (regPassword !== regConfirmPassword) {
+                    showAlert('兩次輸入的密碼不一致，請重新確認！');
+                    document.getElementById('regConfirmPasswordInput')?.focus();
+                    return;
+                }
 
-            // 檢查是否重複註冊
-            const registeredUsers = getRegisteredUsers();
-            const isDuplicate = registeredUsers.some(u => u.username.toLowerCase() === regUsername.toLowerCase());
+                const submitRegBtn = document.getElementById('submitRegBtn');
+                const submitRegSpinner = document.getElementById('submitRegSpinner');
+                const submitRegBtnText = document.getElementById('submitRegBtnText');
+                if (submitRegBtn) submitRegBtn.disabled = true;
+                if (submitRegSpinner) submitRegSpinner.classList.remove('d-none');
+                if (submitRegBtnText) submitRegBtnText.textContent = "註冊中...";
 
-            if (isDuplicate) {
-                showAlert(`帳號「<strong>${escapeHtml(regUsername)}</strong>」已經被註冊過了，請更換其他帳號！`);
-                document.getElementById('regUsernameInput').focus();
-                return;
-            }
+                try {
+                    const res = await fetch('/api/user/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username: regUsername,
+                            name: regName,
+                            password: regPassword,
+                            role: '註冊會員'
+                        })
+                    });
+                    const data = await res.json();
 
-            // 建立新使用者並寫入
-            const submitRegBtn = document.getElementById('submitRegBtn');
-            const submitRegSpinner = document.getElementById('submitRegSpinner');
-            const submitRegBtnText = document.getElementById('submitRegBtnText');
-            submitRegBtn.disabled = true;
-            submitRegSpinner.classList.remove('d-none');
-            submitRegBtnText.textContent = "註冊中...";
+                    if (!res.ok || !data.success) {
+                        if (submitRegBtn) submitRegBtn.disabled = false;
+                        if (submitRegSpinner) submitRegSpinner.classList.add('d-none');
+                        if (submitRegBtnText) submitRegBtnText.innerHTML = '<i class="bi bi-person-plus-fill"></i> 立即註冊帳號';
+                        showAlert(data.error || '註冊失敗，請更換帳號');
+                        return;
+                    }
 
-            const newUser = {
-                username: regUsername,
-                password: regPassword,
-                name: regName,
-                role: '註冊會員',
-                createdAt: new Date().toISOString()
-            };
+                    const user = data.user;
+                    sessionStorage.setItem('currentUser', JSON.stringify(user));
 
-            registeredUsers.push(newUser);
-            localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+                    showToast(`🎉 註冊成功！歡迎加入，${user.name || user.username}！`, "bi-check-circle-fill text-success");
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 500);
+                } catch (err) {
+                    if (submitRegBtn) submitRegBtn.disabled = false;
+                    if (submitRegSpinner) submitRegSpinner.classList.add('d-none');
+                    if (submitRegBtnText) submitRegBtnText.innerHTML = '<i class="bi bi-person-plus-fill"></i> 立即註冊帳號';
+                    showAlert('無法連線至伺服器註冊，請稍候再試');
+                }
+            });
+        }
 
-            // 註冊成功後自動登入
-            setTimeout(() => {
-                const userInfo = {
-                    username: newUser.username,
-                    name: newUser.name,
-                    role: newUser.role,
-                    rememberMe: true,
-                    loginTime: new Date().toISOString()
-                };
-
-                localStorage.setItem('web_library_user', newUser.username);
-                localStorage.setItem('currentUser', JSON.stringify(userInfo));
-
-                showToast(`🎉 註冊成功！歡迎加入，${newUser.name}！`, "bi-check-circle-fill text-success");
-
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 600);
-            }, 400);
-        });
-
-        // ==================== 10. 忘記密碼表單提交處理 (重設密碼與同密碼彩蛋) ====================
+        // ==================== 10. 忘記密碼表單提交處理 (NeDB 安全重設與同密碼彩蛋) ====================
         let pendingEasterEggUser = null;
 
         const forgotForm = document.getElementById('forgotForm');
         if (forgotForm) {
-            forgotForm.addEventListener('submit', function (e) {
+            forgotForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 hideAlert();
 
@@ -885,8 +739,8 @@
                     return;
                 }
 
-                if (newPassword.length < 4) {
-                    showAlert('新密碼長度不得少於 4 碼');
+                if (newPassword.length < 3) {
+                    showAlert('新密碼長度不得少於 3 碼');
                     document.getElementById('forgotPasswordInput')?.focus();
                     return;
                 }
@@ -897,70 +751,55 @@
                     return;
                 }
 
-                const registeredUsers = getRegisteredUsers();
-                let matchedUser = registeredUsers.find(u => (u.username || '').toLowerCase() === username.toLowerCase());
+                const submitForgotBtn = document.getElementById('submitForgotBtn');
+                const submitForgotSpinner = document.getElementById('submitForgotSpinner');
+                const submitForgotBtnText = document.getElementById('submitForgotBtnText');
+                if (submitForgotBtn) submitForgotBtn.disabled = true;
+                if (submitForgotSpinner) submitForgotSpinner.classList.remove('d-none');
+                if (submitForgotBtnText) submitForgotBtnText.textContent = "處理中...";
 
-                if (!matchedUser) {
-                    const legacyUser = localStorage.getItem('web_library_user');
-                    if (legacyUser && legacyUser.toLowerCase() === username.toLowerCase()) {
-                        matchedUser = {
-                            username: legacyUser,
-                            password: '',
-                            isLegacy: true,
-                            name: legacyUser,
-                            role: '既有檔案使用者',
-                            createdAt: new Date().toISOString()
-                        };
-                        registeredUsers.push(matchedUser);
-                    } else {
-                        showAlert(`查無帳號「<strong>${escapeHtml(username)}</strong>」，請確認帳號是否正確或先進行註冊！`);
-                        document.getElementById('forgotUsernameInput')?.focus();
-                        return;
-                    }
-                }
-
-                const oldPassword = matchedUser.password || '';
-                // 判定是否使用了跟之前一模一樣的密碼 (含既有密碼、前次重設密碼或經典預設密碼比對)
-                const isSamePassword = (oldPassword !== '' && oldPassword === newPassword) ||
-                                       (matchedUser.lastResetPassword && matchedUser.lastResetPassword === newPassword) ||
-                                       (!oldPassword && (newPassword === '123456' || newPassword === 'admin' || newPassword === 'jyun'));
-
-                // 立即重設密碼並更新持久化
-                matchedUser.password = newPassword;
-                matchedUser.lastResetPassword = newPassword;
-                matchedUser.isLegacy = false;
-                localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
-
-                // 嘗試通知後端同步 (非阻塞)
                 try {
-                    fetch('/api/user/reset-password', {
+                    const res = await fetch('/api/user/reset-password', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: matchedUser.username, newPassword: newPassword })
-                    }).catch(() => {});
-                } catch (_) {}
+                        body: JSON.stringify({ username, newPassword })
+                    });
+                    const data = await res.json();
 
-                if (isSamePassword) {
-                    // 觸發大字報彩蛋 Modal！
-                    pendingEasterEggUser = matchedUser;
-                    const easterEggModalEl = document.getElementById('samePasswordEasterEggModal');
-                    if (easterEggModalEl) {
-                        const easterEggModal = bootstrap.Modal.getOrCreateInstance(easterEggModalEl);
-                        easterEggModal.show();
+                    if (submitForgotBtn) submitForgotBtn.disabled = false;
+                    if (submitForgotSpinner) submitForgotSpinner.classList.add('d-none');
+                    if (submitForgotBtnText) submitForgotBtnText.innerHTML = '<i class="bi bi-shield-lock-fill"></i> 立即重設密碼';
+
+                    if (!res.ok || !data.success) {
+                        showAlert(data.error || '密碼重設失敗');
+                        return;
+                    }
+
+                    if (data.isSamePassword || data.samePassword) {
+                        pendingEasterEggUser = { username: username, name: username, role: '一般會員' };
+                        const easterEggModalEl = document.getElementById('samePasswordEasterEggModal');
+                        if (easterEggModalEl && typeof bootstrap !== 'undefined') {
+                            const easterEggModal = bootstrap.Modal.getOrCreateInstance(easterEggModalEl);
+                            easterEggModal.show();
+                        } else {
+                            showAlert('🎉 哈哈！你用了跟之前一模一樣的密碼！密碼已完成刷新。');
+                        }
                     } else {
-                        showAlert('🎉 哈哈！你用了跟之前一模一樣的密碼！密碼已重設。');
+                        showToast('🎉 密碼重設成功！請使用新密碼登入。', 'bi-check-circle-fill text-success');
+                        switchAuthMode('login');
+                        const userInput = document.getElementById('usernameInput');
+                        const pwdInput = document.getElementById('passwordInput');
+                        if (userInput) userInput.value = username;
+                        if (pwdInput) {
+                            pwdInput.value = newPassword;
+                            pwdInput.focus();
+                        }
                     }
-                } else {
-                    // 一般成功流程
-                    showToast('🎉 密碼重設成功！請使用新密碼登入。', 'bi-check-circle-fill text-success');
-                    switchAuthMode('login');
-                    const userInput = document.getElementById('usernameInput');
-                    const pwdInput = document.getElementById('passwordInput');
-                    if (userInput) userInput.value = matchedUser.username;
-                    if (pwdInput) {
-                        pwdInput.value = newPassword;
-                        pwdInput.focus();
-                    }
+                } catch (err) {
+                    if (submitForgotBtn) submitForgotBtn.disabled = false;
+                    if (submitForgotSpinner) submitForgotSpinner.classList.add('d-none');
+                    if (submitForgotBtnText) submitForgotBtnText.innerHTML = '<i class="bi bi-shield-lock-fill"></i> 立即重設密碼';
+                    showAlert('連線至伺服器失敗，請確認服務已啟動');
                 }
             });
         }
@@ -970,7 +809,7 @@
         if (easterEggBtn) {
             easterEggBtn.addEventListener('click', function () {
                 const easterEggModalEl = document.getElementById('samePasswordEasterEggModal');
-                if (easterEggModalEl) {
+                if (easterEggModalEl && typeof bootstrap !== 'undefined') {
                     const inst = bootstrap.Modal.getInstance(easterEggModalEl);
                     if (inst) inst.hide();
                 }
@@ -979,19 +818,13 @@
                     name: 'Jyun',
                     role: '核心會員'
                 };
-                const userInfo = {
+                sessionStorage.setItem('currentUser', JSON.stringify({
                     username: targetUser.username,
                     name: targetUser.name || targetUser.username,
                     role: targetUser.role || '一般會員',
-                    rememberMe: true,
                     loginTime: new Date().toISOString()
-                };
-                localStorage.setItem('web_library_user', targetUser.username);
-                if (targetUser.avatar) {
-                    localStorage.setItem('web_library_custom_avatar_' + targetUser.username, targetUser.avatar);
-                }
-                localStorage.setItem('currentUser', JSON.stringify(userInfo));
-                showToast(`🎉 歡迎回來，${userInfo.name}！正在為您自動登入...`, 'bi-check-circle-fill text-success');
+                }));
+                showToast(`🎉 歡迎回來，${targetUser.name || targetUser.username}！正在為您自動登入...`, 'bi-check-circle-fill text-success');
                 setTimeout(() => {
                     window.location.href = 'index.html';
                 }, 500);

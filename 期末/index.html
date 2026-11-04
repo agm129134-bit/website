@@ -10,14 +10,11 @@
 
     <title>網頁收藏圖書館 | Web Library</title>
 
-    <!-- 身分認證守衛：未登入者強制導向登入頁 (第一頁) -->
-
+    <!-- 身分認證守衛：未登入者強制導向登入頁 (第一頁，採用 sessionStorage 會話保護) -->
     <script>
       (function authGuard() {
-        const user =
-          localStorage.getItem("currentUser") ||
-          sessionStorage.getItem("currentUser");
-
+        try { localStorage.clear(); } catch(e) {}
+        const user = sessionStorage.getItem("currentUser");
         if (!user) {
           window.location.replace("login.html");
         }

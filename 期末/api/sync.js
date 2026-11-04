@@ -1,52 +1,22 @@
 /**
- * Web Library - 跨電腦雲端同步與 Bangumi 雙向同步核心模組
- * 採用 Node.js 原生環境 (CommonJS, http, https, fs, path, url)
- * 零依賴、免裝 npm 套件！支援多帳號伺服器端持久化與 Bangumi 雙向狀態更新
+ * Web Library - 跨電腦雲端同步、NeDB 資料庫與 Bangumi 雙向同步核心模組
+ * 採用 nedb-promises 嵌入式 NoSQL 資料庫 + Node.js 原生 Crypto 加鹽安全雜湊
+ * 支援多帳號伺服器端資料庫持久化、無明文密碼儲存與即時雙向狀態同步
  */
-const fs = require('fs');
-const path = require('path');
 const https = require('https');
-
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
-
-// 取得與持久化系統帳號清單 (支援多使用者檔案持久化，解決 getAccountsList is not defined 致命錯誤)
-function getAccountsList() {
-    if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    if (!fs.existsSync(ACCOUNTS_FILE)) {
-        const defaults = [
-            { username: 'admin', password: '***REMOVED***', name: '管理員 (Admin)', role: '系統管理員', avatar: 'default', bio: '系統全域管理員' },
-            { username: 'student', password: '***REMOVED***', name: '學生 (Student)', role: '學生研究員', avatar: 'geek-cat', bio: '探索個人化網頁圖書館' },
-            { username: 'jyun', password: '***REMOVED***', name: 'Jyun', role: '核心開發者', avatar: 'cyber', bio: '專案核心作者' }
-        ];
-        try {
-            fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(defaults, null, 2), 'utf8');
-        } catch (e) {}
-        return defaults;
-    }
-    try {
-        const raw = fs.readFileSync(ACCOUNTS_FILE, 'utf8');
-        return JSON.parse(raw || '[]');
-    } catch (e) {
-        return [];
-    }
-}
-
-function saveAccountsList(accounts) {
-    if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2), 'utf8');
-}
-
+const {
+    accountsDb,
+    bookmarksDb,
+    bookshelfDb,
+    hashPassword,
+    verifyPassword
+} = require('./db');
 
 // 統一設置 CORS 與 JSON 回應
 function sendJson(res, statusCode, payload) {
     if (res.writableEnded) return;
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PATCH, PUT');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PATCH, PUT, DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.statusCode = statusCode;
@@ -76,51 +46,25 @@ function parseRequestBody(req) {
     });
 }
 
-// 安全純化使用者名稱，避免路徑穿越並統一小寫以支援跨平台 (Linux/Docker) 檔案系統
+// 安全純化使用者名稱，避免路徑穿越並統一小寫
 function sanitizeUsername(username) {
     if (!username) return 'default';
     const clean = username.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '').trim().toLowerCase();
     return clean || 'default';
 }
 
-// 取得使用者儲存檔案路徑 (支援跨平台大小寫自動相容，確保 Linux / Docker 下 Jyun 與 jyun 100% 互通)
-function getUserFilePath(username) {
-    if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    const safeUser = sanitizeUsername(username);
-    const directPath = path.join(DATA_DIR, `bookmarks_${safeUser}.json`);
-    if (fs.existsSync(directPath)) return directPath;
-
-    // 遍歷比對 (忽略大小寫以防舊檔案保留大寫)
-    try {
-        const files = fs.readdirSync(DATA_DIR);
-        const matched = files.find(f => f.toLowerCase() === `bookmarks_${safeUser}.json`);
-        if (matched) return path.join(DATA_DIR, matched);
-    } catch (e) {}
-
-    return directPath;
-}
-
 // 記憶當前伺服器中最後活躍登入的使用者（供 Tampermonkey 快捷收藏自動動態歸屬）
 let _currentSessionUser = 'jyun';
 
-// 取得當前伺服器中已存在的活躍使用者（供 Tampermonkey 快捷收藏自動歸屬）
-function getDefaultActiveUser() {
+async function getDefaultActiveUser() {
     if (_currentSessionUser && _currentSessionUser !== 'default' && _currentSessionUser !== '期末展示學生' && _currentSessionUser !== '訪客') {
         return _currentSessionUser;
     }
     try {
-        if (fs.existsSync(DATA_DIR)) {
-            const files = fs.readdirSync(DATA_DIR);
-            const userFiles = files.filter(f => f.startsWith('bookmarks_') && f.endsWith('.json'));
-            if (userFiles.length > 0) {
-                // 優先使用非 default 的實體帳號（如 jyun）
-                const nonDefault = userFiles.find(f => !f.includes('default') && !f.includes('期末展示學生'));
-                const chosen = nonDefault || userFiles[0];
-                return chosen.replace('bookmarks_', '').replace('.json', '');
-            }
-        }
+        const acc = await accountsDb.findOne({ username: 'jyun' });
+        if (acc) return 'jyun';
+        const first = await accountsDb.findOne({});
+        if (first) return first.username;
     } catch (e) {}
     return 'default';
 }
@@ -190,7 +134,7 @@ async function resolveUsernameFromToken(token) {
 }
 
 /**
- * 處理跨電腦同步與 Bangumi 雙向同步路由
+ * 處理跨電腦同步、NeDB 資料庫與 Bangumi 雙向同步路由
  */
 async function handleSyncRoute(req, res) {
     const host = req.headers.host || '127.0.0.1';
@@ -201,7 +145,7 @@ async function handleSyncRoute(req, res) {
     if (req.method === 'OPTIONS') {
         res.writeHead(204, {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PATCH, PUT',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PATCH, PUT, DELETE',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         });
         return res.end();
@@ -209,32 +153,116 @@ async function handleSyncRoute(req, res) {
 
     try {
         // ==========================================
-        // 0. 取得本機已存在的所有使用者帳號清單 /api/user/list
+        // 0. 取得本機已存在的所有使用者帳號清單 /api/user/list (NeDB 查詢)
         // ==========================================
         if (pathname === '/api/user/list') {
             try {
-                const userList = [];
-                if (fs.existsSync(DATA_DIR)) {
-                    const files = fs.readdirSync(DATA_DIR);
-                    files.forEach(f => {
-                        if (f.startsWith('bookmarks_') && f.endsWith('.json')) {
-                            const u = f.replace('bookmarks_', '').replace('.json', '');
-                            // 過濾帶有中文後綴的重複錯誤檔案
-                            if (u && !u.includes('專案開發者') && !u.includes('測試帳號') && !userList.includes(u)) {
-                                userList.push(u);
-                            }
-                        }
-                    });
-                }
+                const accounts = await accountsDb.find({});
+                const userList = accounts.map(a => a.username).filter(Boolean);
                 if (!userList.includes('jyun')) userList.unshift('jyun');
                 return sendJson(res, 200, { success: true, users: userList });
             } catch (e) {
-                return sendJson(res, 200, { success: true, users: ['jyun', 'test1', 'admin', 'student'] });
+                return sendJson(res, 200, { success: true, users: ['jyun', 'admin', 'student'] });
             }
         }
 
         // ==========================================
-        // 0.5 刪除使用者帳號及其所有雲端書籤 /api/user/delete
+        // 0.1 使用者登入驗證端點 /api/user/login (NeDB + 加鹽雜湊驗證，拒絕明文)
+        // ==========================================
+        if (pathname === '/api/user/login' && req.method === 'POST') {
+            const body = await parseRequestBody(req);
+            const username = sanitizeUsername(body.username || body.user || '');
+            const password = String(body.password || '').trim();
+
+            if (!username || !password) {
+                return sendJson(res, 400, { success: false, error: '請輸入帳號與密碼' });
+            }
+
+            const acc = await accountsDb.findOne({ username });
+            if (!acc) {
+                return sendJson(res, 401, { success: false, error: '帳號不存在或密碼錯誤' });
+            }
+
+            const isValid = verifyPassword(password, acc.password);
+            if (!isValid) {
+                return sendJson(res, 401, { success: false, error: '帳號或密碼不正確' });
+            }
+
+            // 若舊密碼為早期明文，在此登入成功瞬間自動平滑升級為加鹽雜湊
+            if (acc.password && !acc.password.startsWith('scrypt:')) {
+                await accountsDb.update({ username }, { $set: { password: hashPassword(password), updatedAt: new Date().toISOString() } });
+                console.log(`[NeDB Security] 帳號 ${username} 密碼已自動平滑升級為加鹽雜湊`);
+            }
+
+            _currentSessionUser = username;
+
+            return sendJson(res, 200, {
+                success: true,
+                message: '登入驗證成功',
+                user: {
+                    username: acc.username,
+                    name: acc.name || acc.username,
+                    role: acc.role || '一般會員',
+                    avatar: acc.avatar || 'default',
+                    bio: acc.bio || '',
+                    sortPref: acc.sortPref || 'clicks',
+                    themePref: acc.themePref || 'dark'
+                }
+            });
+        }
+
+        // ==========================================
+        // 0.2 使用者註冊端點 /api/user/register (NeDB 加鹽雜湊存儲)
+        // ==========================================
+        if (pathname === '/api/user/register' && req.method === 'POST') {
+            const body = await parseRequestBody(req);
+            const username = sanitizeUsername(body.username || '');
+            const password = String(body.password || '').trim();
+            const name = String(body.name || username).trim();
+            const role = String(body.role || '一般會員').trim();
+
+            if (!username || username.length < 2) {
+                return sendJson(res, 400, { success: false, error: '帳號至少需 2 個字元' });
+            }
+            if (!password || password.length < 3) {
+                return sendJson(res, 400, { success: false, error: '密碼至少需 3 個字元' });
+            }
+
+            const exist = await accountsDb.findOne({ username });
+            if (exist) {
+                return sendJson(res, 400, { success: false, error: '該帳號名稱已存在，請選擇其他帳號' });
+            }
+
+            const newUser = {
+                username,
+                password: hashPassword(password), // 絕不儲存明文密碼！
+                name: name || username,
+                role: role,
+                avatar: 'default',
+                bio: '探索個人化網頁圖書館',
+                sortPref: 'newest',
+                themePref: 'dark',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+
+            await accountsDb.insert(newUser);
+            _currentSessionUser = username;
+
+            return sendJson(res, 200, {
+                success: true,
+                message: '註冊成功！密碼已安全加密儲存於 NeDB 資料庫。',
+                user: {
+                    username: newUser.username,
+                    name: newUser.name,
+                    role: newUser.role,
+                    avatar: newUser.avatar
+                }
+            });
+        }
+
+        // ==========================================
+        // 0.5 刪除使用者帳號及其所有雲端書籤 /api/user/delete (NeDB 同步清理)
         // ==========================================
         if (pathname === '/api/user/delete') {
             let username = query.user;
@@ -247,28 +275,19 @@ async function handleSyncRoute(req, res) {
             }
 
             const cleanUser = sanitizeUsername(username);
-            const filePath = getUserFilePath(cleanUser);
-
-            let deleted = false;
-            if (fs.existsSync(filePath)) {
-                try {
-                    fs.unlinkSync(filePath);
-                    deleted = true;
-                } catch (e) {
-                    return sendJson(res, 500, { success: false, error: '刪除檔案失敗: ' + e.message });
-                }
-            }
+            await accountsDb.remove({ username: cleanUser }, { multi: true });
+            await bookmarksDb.remove({ user: cleanUser }, { multi: true });
+            await bookshelfDb.remove({ user: cleanUser }, { multi: true });
 
             return sendJson(res, 200, {
                 success: true,
                 user: cleanUser,
-                deletedFile: deleted,
-                message: `帳號 [${cleanUser}] 及其伺服器端資料已成功刪除！`
+                message: `帳號 [${cleanUser}] 及其在 NeDB 資料庫中的所有資料已安全刪除！`
             });
         }
 
         // ==========================================
-        // 0.6 清空使用者帳號書籤 /api/user/clear
+        // 0.6 清空使用者帳號書籤 /api/user/clear (NeDB 書籤重設)
         // ==========================================
         if (pathname === '/api/user/clear') {
             let username = query.user;
@@ -281,31 +300,22 @@ async function handleSyncRoute(req, res) {
             }
 
             const cleanUser = sanitizeUsername(username);
-            const filePath = getUserFilePath(cleanUser);
-
-            const emptyData = {
-                user: cleanUser,
-                count: 0,
-                bookmarks: [],
-                updatedAt: new Date().toISOString()
-            };
-            try {
-                fs.writeFileSync(filePath, JSON.stringify(emptyData, null, 2), 'utf-8');
-            } catch (e) {
-                return sendJson(res, 500, { success: false, error: '清空失敗: ' + e.message });
-            }
+            await bookmarksDb.update(
+                { user: cleanUser },
+                { $set: { user: cleanUser, count: 0, bookmarks: [], updatedAt: new Date().toISOString() } },
+                { upsert: true }
+            );
 
             return sendJson(res, 200, {
                 success: true,
                 user: cleanUser,
                 count: 0,
-                message: `帳號 [${cleanUser}] 的書籤已自伺服器成功清空！`
+                message: `帳號 [${cleanUser}] 的書籤已自 NeDB 資料庫成功清空！`
             });
         }
 
-
         // ==========================================
-        // 0.7 忘記密碼與重設密碼 /api/user/reset-password
+        // 0.7 忘記密碼與重設密碼 /api/user/reset-password (加鹽雜湊更新)
         // ==========================================
         if (pathname === '/api/user/reset-password' && req.method === 'POST') {
             const body = await parseRequestBody(req);
@@ -319,51 +329,51 @@ async function handleSyncRoute(req, res) {
                 return sendJson(res, 400, { success: false, error: '新密碼至少需 3 個字元' });
             }
 
-            const accounts = getAccountsList();
-            let acc = accounts.find(a => a.username.toLowerCase() === username.toLowerCase());
+            let acc = await accountsDb.findOne({ username });
             let isSamePassword = false;
 
             if (acc) {
-                isSamePassword = (acc.password === newPassword);
-                acc.password = newPassword;
-                acc.updatedAt = new Date().toISOString();
+                isSamePassword = verifyPassword(newPassword, acc.password);
+                await accountsDb.update(
+                    { username },
+                    { $set: { password: hashPassword(newPassword), updatedAt: new Date().toISOString() } }
+                );
             } else {
-                acc = {
+                await accountsDb.insert({
                     username: username,
-                    password: newPassword,
+                    password: hashPassword(newPassword),
                     name: username,
                     role: '註冊使用者',
-                    avatar: 'avatar-1',
+                    avatar: 'default',
                     bio: '',
-                    createdAt: new Date().toISOString()
-                };
-                accounts.push(acc);
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
             }
-
-            saveAccountsList(accounts);
 
             return sendJson(res, 200, {
                 success: true,
                 user: username,
                 samePassword: isSamePassword,
+                isSamePassword: isSamePassword,
                 message: isSamePassword 
                     ? '哈哈！你輸入了跟先前一模一樣的密碼！系統已為您完成密碼確認重設。'
-                    : '密碼已成功重設！請使用新密碼登入。'
+                    : '密碼已成功以加鹽雜湊演算法加密並重設！請使用新密碼登入。'
             });
         }
 
         // ==========================================
-        // 0.8 個人資料取得與更新 /api/user/profile
+        // 0.8 個人資料取得與更新 /api/user/profile (NeDB 操作，安全過濾密碼)
         // ==========================================
         if (pathname === '/api/user/profile') {
             if (req.method === 'GET') {
-                const username = sanitizeUsername(query.user || query.username || getDefaultActiveUser());
-                const accounts = getAccountsList();
-                const acc = accounts.find(a => a.username.toLowerCase() === username.toLowerCase()) || {
+                const defaultUser = await getDefaultActiveUser();
+                const username = sanitizeUsername(query.user || query.username || defaultUser);
+                const acc = await accountsDb.findOne({ username }) || {
                     username: username,
                     name: username,
                     role: '使用者',
-                    avatar: 'avatar-1',
+                    avatar: 'default',
                     bio: '探索個人化網頁圖書館',
                     sortPref: 'clicks',
                     themePref: 'dark'
@@ -374,7 +384,7 @@ async function handleSyncRoute(req, res) {
                         username: acc.username,
                         name: acc.name || acc.username,
                         role: acc.role || '使用者',
-                        avatar: acc.avatar || 'avatar-1',
+                        avatar: acc.avatar || 'default',
                         bio: acc.bio || '',
                         sortPref: acc.sortPref || 'clicks',
                         themePref: acc.themePref || 'dark'
@@ -389,195 +399,174 @@ async function handleSyncRoute(req, res) {
                     return sendJson(res, 400, { success: false, error: '缺少帳號 username' });
                 }
 
-                const accounts = getAccountsList();
-                let acc = accounts.find(a => a.username.toLowerCase() === username.toLowerCase());
+                let acc = await accountsDb.findOne({ username });
                 if (!acc) {
-                    acc = { username: username, password: '', name: username, role: '使用者' };
-                    accounts.push(acc);
+                    acc = { username: username, password: '', name: username, role: '使用者', avatar: 'default', bio: '' };
+                    await accountsDb.insert(acc);
                 }
+
+                const updates = { updatedAt: new Date().toISOString() };
 
                 // 若要修改密碼，需比對舊密碼
                 if (body.newPassword && body.newPassword.trim()) {
                     const newPw = body.newPassword.trim();
                     const oldPw = (body.oldPassword || '').trim();
-                    if (acc.password && acc.password !== oldPw) {
+                    if (acc.password && !verifyPassword(oldPw, acc.password)) {
                         return sendJson(res, 400, { success: false, error: '原登入密碼不正確，無法修改密碼！' });
                     }
-                    acc.password = newPw;
+                    updates.password = hashPassword(newPw); // 加鹽加密儲存
                 }
 
-                if (body.name !== undefined) acc.name = String(body.name).trim();
-                if (body.bio !== undefined) acc.bio = String(body.bio).trim();
-                if (body.avatar !== undefined) acc.avatar = String(body.avatar).trim();
-                if (body.sortPref !== undefined) acc.sortPref = String(body.sortPref).trim();
-                if (body.themePref !== undefined) acc.themePref = String(body.themePref).trim();
-                acc.updatedAt = new Date().toISOString();
+                if (body.name !== undefined) updates.name = String(body.name).trim();
+                if (body.bio !== undefined) updates.bio = String(body.bio).trim();
+                if (body.avatar !== undefined) updates.avatar = String(body.avatar).trim();
+                if (body.sortPref !== undefined) updates.sortPref = String(body.sortPref).trim();
+                if (body.themePref !== undefined) updates.themePref = String(body.themePref).trim();
 
-                saveAccountsList(accounts);
+                await accountsDb.update({ username }, { $set: updates });
+                const updatedAcc = await accountsDb.findOne({ username });
 
                 return sendJson(res, 200, {
                     success: true,
-                    message: '個人設定與資料已成功儲存至伺服器！',
+                    message: '個人設定與資料已成功儲存至 NeDB 資料庫！',
                     profile: {
-                        username: acc.username,
-                        name: acc.name,
-                        role: acc.role,
-                        avatar: acc.avatar,
-                        bio: acc.bio,
-                        sortPref: acc.sortPref,
-                        themePref: acc.themePref
+                        username: updatedAcc.username,
+                        name: updatedAcc.name,
+                        role: updatedAcc.role,
+                        avatar: updatedAcc.avatar,
+                        bio: updatedAcc.bio,
+                        sortPref: updatedAcc.sortPref,
+                        themePref: updatedAcc.themePref
                     }
                 });
             }
         }
 
         // ==========================================
-        // 0.9 跨裝置立體書架同步端點 /api/user/bookshelf 與 /api/bookshelf
+        // 0.9 跨裝置立體書架同步端點 /api/user/bookshelf 與 /api/bookshelf (NeDB 存取)
         // ==========================================
         if (pathname === '/api/user/bookshelf' || pathname === '/api/bookshelf') {
-            // GET: 從伺服器拉取該帳號最新漫畫與小說立體書架
+            // GET: 從 NeDB 拉取該帳號最新漫畫與小說立體書架
             if (req.method === 'GET') {
-                let username = query.user || query.username || getDefaultActiveUser();
-                if ((username === '期末展示學生' || username === 'default') && getDefaultActiveUser() !== 'default') {
-                    username = getDefaultActiveUser();
+                const defaultUser = await getDefaultActiveUser();
+                let username = query.user || query.username || defaultUser;
+                if ((username === '期末展示學生' || username === 'default') && defaultUser !== 'default') {
+                    username = defaultUser;
                 } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
                     _currentSessionUser = sanitizeUsername(username);
                 }
                 const safeUser = sanitizeUsername(username);
-                const shelfPath = path.join(DATA_DIR, `bookshelf_${safeUser}.json`);
 
-                if (!fs.existsSync(shelfPath)) {
+                const record = await bookshelfDb.findOne({ user: safeUser });
+                if (!record) {
                     return sendJson(res, 200, {
                         success: true,
                         user: safeUser,
                         manga: [],
                         novel: [],
                         isNew: true,
-                        message: '帳號尚無伺服器端立體書架存檔'
+                        message: '帳號尚無 NeDB 立體書架存檔'
                     });
                 }
-
-                try {
-                    const parsed = JSON.parse(fs.readFileSync(shelfPath, 'utf-8') || '{}');
-                    return sendJson(res, 200, {
-                        success: true,
-                        user: safeUser,
-                        manga: Array.isArray(parsed.manga) ? parsed.manga : [],
-                        novel: Array.isArray(parsed.novel) ? parsed.novel : [],
-                        updatedAt: parsed.updatedAt || null
-                    });
-                } catch (e) {
-                    return sendJson(res, 500, { success: false, error: '書架讀取失敗: ' + e.message });
-                }
-            }
-
-            // POST: 將客戶端立體書架 (條漫與沉浸小說) 寫入伺服器端
-            else if (req.method === 'POST') {
-                const body = await parseRequestBody(req);
-                let username = body.user || body.username || query.user || getDefaultActiveUser();
-                if ((username === '期末展示學生' || username === 'default') && getDefaultActiveUser() !== 'default') {
-                    username = getDefaultActiveUser();
-                } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
-                    _currentSessionUser = sanitizeUsername(username);
-                }
-                const safeUser = sanitizeUsername(username);
-                const shelfPath = path.join(DATA_DIR, `bookshelf_${safeUser}.json`);
-
-                let currentShelf = { user: safeUser, manga: [], novel: [], updatedAt: new Date().toISOString() };
-                if (fs.existsSync(shelfPath)) {
-                    try {
-                        const parsed = JSON.parse(fs.readFileSync(shelfPath, 'utf-8') || '{}');
-                        if (Array.isArray(parsed.manga)) currentShelf.manga = parsed.manga;
-                        if (Array.isArray(parsed.novel)) currentShelf.novel = parsed.novel;
-                    } catch (e) {}
-                }
-
-                if (Array.isArray(body.manga)) {
-                    currentShelf.manga = body.manga;
-                }
-                if (Array.isArray(body.novel)) {
-                    currentShelf.novel = body.novel;
-                }
-                currentShelf.updatedAt = new Date().toISOString();
-
-                fs.writeFileSync(shelfPath, JSON.stringify(currentShelf, null, 2), 'utf-8');
 
                 return sendJson(res, 200, {
                     success: true,
                     user: safeUser,
-                    mangaCount: currentShelf.manga.length,
-                    novelCount: currentShelf.novel.length,
-                    savedAt: currentShelf.updatedAt,
-                    message: '立體書架收藏已成功同步至伺服器！'
+                    manga: Array.isArray(record.manga) ? record.manga : [],
+                    novel: Array.isArray(record.novel) ? record.novel : [],
+                    updatedAt: record.updatedAt || null
+                });
+            }
+
+            // POST: 將客戶端立體書架 (條漫與沉浸小說) 寫入 NeDB
+            else if (req.method === 'POST') {
+                const body = await parseRequestBody(req);
+                const defaultUser = await getDefaultActiveUser();
+                let username = body.user || body.username || query.user || defaultUser;
+                if ((username === '期末展示學生' || username === 'default') && defaultUser !== 'default') {
+                    username = defaultUser;
+                } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
+                    _currentSessionUser = sanitizeUsername(username);
+                }
+                const safeUser = sanitizeUsername(username);
+
+                const existing = await bookshelfDb.findOne({ user: safeUser }) || { manga: [], novel: [] };
+                let manga = Array.isArray(body.manga) ? body.manga : (existing.manga || []);
+                let novel = Array.isArray(body.novel) ? body.novel : (existing.novel || []);
+                const updatedAt = new Date().toISOString();
+
+                await bookshelfDb.update(
+                    { user: safeUser },
+                    { $set: { user: safeUser, manga, novel, updatedAt } },
+                    { upsert: true }
+                );
+
+                return sendJson(res, 200, {
+                    success: true,
+                    user: safeUser,
+                    mangaCount: manga.length,
+                    novelCount: novel.length,
+                    savedAt: updatedAt,
+                    message: '立體書架收藏已成功同步至 NeDB 資料庫！'
                 });
             }
         }
 
         // ==========================================
-        // 1. 跨電腦書籤收藏同步端點 /api/user/bookmarks 與 Tampermonkey 收藏端點 /api/bookmarks
+        // 1. 跨電腦書籤收藏同步端點 /api/user/bookmarks 與 Tampermonkey 收藏端點 /api/bookmarks (NeDB 存取)
         // ==========================================
         if (pathname === '/api/user/bookmarks' || pathname === '/api/bookmarks') {
-            // GET: 從伺服器拉取該帳號最新收藏
+            // GET: 從 NeDB 拉取該帳號最新收藏
             if (req.method === 'GET') {
-                let username = query.user || getDefaultActiveUser();
-                // 智慧帳號歸屬映射：若前端未登入或為展示帳號，自動對齊當前活躍實體帳號 (如 jyun)
-                if ((username === '期末展示學生' || username === 'default') && getDefaultActiveUser() !== 'default') {
-                    username = getDefaultActiveUser();
+                const defaultUser = await getDefaultActiveUser();
+                let username = query.user || defaultUser;
+                if ((username === '期末展示學生' || username === 'default') && defaultUser !== 'default') {
+                    username = defaultUser;
                 } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
                     _currentSessionUser = sanitizeUsername(username);
                 }
-                const filePath = getUserFilePath(username);
+                const safeUser = sanitizeUsername(username);
 
-                if (!fs.existsSync(filePath)) {
-                    // 全新或已刪除帳號預設為空書籤庫，絕不自動在磁碟建立幽靈檔案，亦不自動帶入其他帳號書籤
+                const record = await bookmarksDb.findOne({ user: safeUser });
+                if (!record) {
                     return sendJson(res, 200, {
                         success: true,
-                        user: sanitizeUsername(username),
+                        user: safeUser,
                         count: 0,
                         bookmarks: [],
                         isNewUser: true,
-                        message: '帳號無伺服器端存檔'
+                        message: '帳號尚無 NeDB 書籤存檔'
                     });
                 }
 
-                try {
-                    const fileContent = fs.readFileSync(filePath, 'utf-8');
-                    const parsed = JSON.parse(fileContent);
-                    const bookmarks = Array.isArray(parsed) ? parsed : (parsed.bookmarks || []);
-                    return sendJson(res, 200, {
-                        success: true,
-                        user: sanitizeUsername(username),
-                        count: bookmarks.length,
-                        bookmarks: bookmarks,
-                        updatedAt: parsed.updatedAt || null
-                    });
-                } catch (e) {
-                    return sendJson(res, 500, { success: false, error: '檔案讀取失敗: ' + e.message });
-                }
+                const bookmarks = Array.isArray(record.bookmarks) ? record.bookmarks : [];
+                return sendJson(res, 200, {
+                    success: true,
+                    user: safeUser,
+                    count: bookmarks.length,
+                    bookmarks: bookmarks,
+                    updatedAt: record.updatedAt || null
+                });
             }
 
-            // POST: 將客戶端收藏寫入伺服器端檔案 (支援整包覆蓋與 Tampermonkey 單筆快速插入)
+            // POST: 將客戶端收藏寫入 NeDB
             else if (req.method === 'POST') {
                 const body = await parseRequestBody(req);
-                let username = body.user || query.user || getDefaultActiveUser();
-                if ((username === '期末展示學生' || username === 'default') && getDefaultActiveUser() !== 'default') {
-                    username = getDefaultActiveUser();
+                const defaultUser = await getDefaultActiveUser();
+                let username = body.user || query.user || defaultUser;
+                if ((username === '期末展示學生' || username === 'default') && defaultUser !== 'default') {
+                    username = defaultUser;
                 } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
                     _currentSessionUser = sanitizeUsername(username);
                 }
-                const filePath = getUserFilePath(username);
+                const safeUser = sanitizeUsername(username);
 
-                let currentData = { user: sanitizeUsername(username), count: 0, bookmarks: [] };
-                if (fs.existsSync(filePath)) {
-                    try {
-                        const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-                        currentData.bookmarks = Array.isArray(parsed) ? parsed : (parsed.bookmarks || []);
-                    } catch (e) {}
-                }
+                const existing = await bookmarksDb.findOne({ user: safeUser }) || { bookmarks: [] };
+                let bookmarksList = Array.isArray(existing.bookmarks) ? existing.bookmarks : [];
 
                 if (Array.isArray(body.bookmarks)) {
-                    // 情境 A: 前端整批雙向同步或覆蓋更新 (全面標準化所有欄位，確保 id 絕不缺失)
-                    currentData.bookmarks = body.bookmarks.map((b, idx) => ({
+                    // 整批覆蓋更新
+                    bookmarksList = body.bookmarks.map((b, idx) => ({
                         id: b.id || ('bm_' + (Date.now() + idx)),
                         title: (b.title || '未命名網頁').trim(),
                         url: (b.url || '').trim(),
@@ -590,7 +579,7 @@ async function handleSyncRoute(req, res) {
                         createdAt: b.createdAt || new Date().toISOString()
                     }));
                 } else {
-                    // 情境 B: 篡改猴插件 (Tampermonkey) 單筆快速收藏
+                    // Tampermonkey 單筆快速收藏
                     const bm = body.bookmark || body;
                     if (!bm.url && !bm.title) {
                         return sendJson(res, 400, { success: false, error: '請提供有效的書籤資料 (缺少 url 或 title)' });
@@ -609,27 +598,27 @@ async function handleSyncRoute(req, res) {
                         createdAt: bm.createdAt || new Date().toISOString()
                     };
 
-                    // 若已存在相同網址則更新，否則插在最前 (unshift)
-                    const existIdx = currentData.bookmarks.findIndex(b => b.url === newBm.url);
+                    const existIdx = bookmarksList.findIndex(b => b.url === newBm.url);
                     if (existIdx >= 0) {
-                        currentData.bookmarks[existIdx] = { ...currentData.bookmarks[existIdx], ...newBm };
+                        bookmarksList[existIdx] = { ...bookmarksList[existIdx], ...newBm };
                     } else {
-                        currentData.bookmarks.unshift(newBm);
+                        bookmarksList.unshift(newBm);
                     }
                 }
 
-                currentData.count = currentData.bookmarks.length;
-                currentData.updatedAt = new Date().toISOString();
-                currentData.user = sanitizeUsername(username);
-
-                fs.writeFileSync(filePath, JSON.stringify(currentData, null, 2), 'utf-8');
+                const updatedAt = new Date().toISOString();
+                await bookmarksDb.update(
+                    { user: safeUser },
+                    { $set: { user: safeUser, count: bookmarksList.length, bookmarks: bookmarksList, updatedAt } },
+                    { upsert: true }
+                );
 
                 return sendJson(res, 200, {
                     success: true,
-                    user: currentData.user,
-                    count: currentData.count,
-                    savedAt: currentData.updatedAt,
-                    message: '書籤已成功儲存並同步至 Web Library！'
+                    user: safeUser,
+                    count: bookmarksList.length,
+                    savedAt: updatedAt,
+                    message: '書籤已成功儲存並同步至 NeDB 資料庫！'
                 });
             }
         }
@@ -657,7 +646,7 @@ async function handleSyncRoute(req, res) {
             const body = await parseRequestBody(req);
             const token = (body.token || '').trim();
             const subjectId = body.subjectId;
-            const statusType = parseInt(body.type || '3', 10); // 1:想看, 2:看過, 3:在看, 4:擱置, 5:拋棄
+            const statusType = parseInt(body.type || '3', 10);
             const rating = body.rating ? parseInt(body.rating, 10) : undefined;
             const comment = body.comment || undefined;
 
@@ -668,7 +657,6 @@ async function handleSyncRoute(req, res) {
             if (rating) payload.rate = rating;
             if (comment) payload.comment = comment;
 
-            // Bangumi API: POST /v0/users/{username}/collections/{subject_id}
             let username = (body.username || '').trim();
             if (!username && token) {
                 username = await resolveUsernameFromToken(token);
@@ -700,7 +688,6 @@ async function handleSyncRoute(req, res) {
 
             const result = await forwardToBangumi(`/v0/users/${encodeURIComponent(username)}/collections/${subjectId}`, 'GET', token);
             if (result.statusCode === 404) {
-                // 404 在 Bangumi 表示作品未被該使用者收藏
                 return sendJson(res, 200, {
                     success: true,
                     status: 200,
@@ -718,7 +705,7 @@ async function handleSyncRoute(req, res) {
         else if (pathname === '/api/bangumi/search' && req.method === 'GET') {
             const token = (query.token || (req.headers['authorization'] || '').replace('Bearer ', '')).trim();
             const q = query.q || '';
-            const type = query.type || '2'; // 1: book, 2: anime
+            const type = query.type || '2';
             if (!q) return sendJson(res, 400, { success: false, error: '缺少關鍵字 q' });
 
             const searchPath = `/search/subject/${encodeURIComponent(q)}?type=${encodeURIComponent(type)}&responseGroup=small`;
@@ -744,17 +731,15 @@ async function handleSyncRoute(req, res) {
             const token = (body.token || '').trim();
             const subjectId = body.subjectId;
             const episodeId = body.episodeId;
-            const epType = parseInt(body.type || '2', 10); // 2: 看過 / 1: 想看 / 3: 拋棄
+            const epType = parseInt(body.type || '2', 10);
 
             if (!token) return sendJson(res, 400, { success: false, error: '缺少 Bangumi Access Token' });
             if (!subjectId) return sendJson(res, 400, { success: false, error: '缺少 subjectId' });
 
             let result;
             if (episodeId) {
-                // 單集更新: PUT /v0/users/-/collections/{subject_id}/episodes/{episode_id}
                 result = await forwardToBangumi(`/v0/users/-/collections/${subjectId}/episodes/${episodeId}`, 'PUT', token, { type: epType });
             } else if (body.watchedEpisodes !== undefined) {
-                // 批次進度更新: PATCH /v0/users/-/collections/{subject_id}
                 result = await forwardToBangumi(`/v0/users/-/collections/${subjectId}`, 'PATCH', token, {
                     ep_status: parseInt(body.watchedEpisodes, 10)
                 });
