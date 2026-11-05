@@ -413,7 +413,10 @@ async function handleSyncRoute(req, res) {
                         avatar: acc.avatar || 'default',
                         bio: acc.bio || '',
                         sortPref: acc.sortPref || 'clicks',
-                        themePref: acc.themePref || 'dark'
+                        themePref: acc.themePref || 'dark',
+                        defaultSort: acc.defaultSort || null,
+                        defaultCategory: acc.defaultCategory || null,
+                        spotlightPref: typeof acc.spotlightPref === 'boolean' ? acc.spotlightPref : null
                     }
                 });
             }
@@ -448,6 +451,10 @@ async function handleSyncRoute(req, res) {
                 if (body.avatar !== undefined) updates.avatar = String(body.avatar).trim();
                 if (body.sortPref !== undefined) updates.sortPref = String(body.sortPref).trim();
                 if (body.themePref !== undefined) updates.themePref = String(body.themePref).trim();
+                // 首頁偏好 (預設排序 / 預設分類 / Spotlight 特效)，跨分頁與重新登入都要保留
+                if (body.defaultSort !== undefined) updates.defaultSort = String(body.defaultSort).trim();
+                if (body.defaultCategory !== undefined) updates.defaultCategory = String(body.defaultCategory).trim();
+                if (body.spotlightPref !== undefined) updates.spotlightPref = !!body.spotlightPref;
 
                 await accountsDb.update({ username }, { $set: updates });
                 const updatedAcc = await accountsDb.findOne({ username });
@@ -462,7 +469,10 @@ async function handleSyncRoute(req, res) {
                         avatar: updatedAcc.avatar,
                         bio: updatedAcc.bio,
                         sortPref: updatedAcc.sortPref,
-                        themePref: updatedAcc.themePref
+                        themePref: updatedAcc.themePref,
+                        defaultSort: updatedAcc.defaultSort || null,
+                        defaultCategory: updatedAcc.defaultCategory || null,
+                        spotlightPref: typeof updatedAcc.spotlightPref === 'boolean' ? updatedAcc.spotlightPref : null
                     }
                 });
             }

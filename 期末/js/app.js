@@ -237,32 +237,51 @@ function initApp() {
 
     // 載入使用者自訂的預設排序與預設啟動分類分頁
     const curU = (state.currentUser || 'jyun').toLowerCase().trim();
-    const savedDefaultSort = sessionStorage.getItem('web_library_default_sort_' + curU) || 'newest';
-    const savedDefaultCat = sessionStorage.getItem('web_library_default_category_' + curU) || 'all';
+    const applyHomePrefs = (sort, cat) => {
+      state.sortMode = sort;
+      state.activeCategory = cat;
 
-    state.sortMode = savedDefaultSort;
-    state.activeCategory = savedDefaultCat;
+      const sortEl = document.getElementById("sortSelect");
+      if (sortEl) {
+        sortEl.value = (sort === 'custom' || sort === 'time-desc') ? 'newest' : sort;
+        if (!sortEl.value) sortEl.value = 'newest';
+      }
 
-    const initialSortEl = document.getElementById("sortSelect");
-    if (initialSortEl) {
-      initialSortEl.value = (savedDefaultSort === 'custom' || savedDefaultSort === 'time-desc') ? 'newest' : savedDefaultSort;
-      if (!initialSortEl.value) initialSortEl.value = 'newest';
-    }
-
-    const initialCatNav = document.getElementById("categoryNav");
-    if (initialCatNav) {
-      initialCatNav.querySelectorAll(".nav-link").forEach((l) => {
-        if (l.getAttribute("data-category") === savedDefaultCat) {
-          l.classList.add("active");
-        } else {
-          l.classList.remove("active");
-        }
-      });
-    }
+      const catNav = document.getElementById("categoryNav");
+      if (catNav) {
+        catNav.querySelectorAll(".nav-link").forEach((l) => {
+          l.classList.toggle("active", l.getAttribute("data-category") === cat);
+        });
+      }
+    };
+    const sortKey = 'web_library_default_sort_' + curU;
+    const catKey = 'web_library_default_category_' + curU;
+    applyHomePrefs(sessionStorage.getItem(sortKey) || 'newest', sessionStorage.getItem(catKey) || 'all');
 
     setupEventListeners();
 
     updateUI();
+
+    // 新分頁 / 重新登入時 sessionStorage 是空的 → 從伺服器帳號取回偏好
+    if (curU !== 'guest' && curU !== '訪客' && !sessionStorage.getItem(sortKey)) {
+      fetch(`/api/user/profile?username=${encodeURIComponent(curU)}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          const p = data && data.success && data.profile;
+          if (!p || sessionStorage.getItem(sortKey)) return; // 期間使用者已自行修改則不覆蓋
+          if (p.defaultSort) sessionStorage.setItem(sortKey, p.defaultSort);
+          if (p.defaultCategory) sessionStorage.setItem(catKey, p.defaultCategory);
+          if (typeof p.spotlightPref === 'boolean') {
+            sessionStorage.setItem('web_library_spotlight_pref', p.spotlightPref ? 'true' : 'false');
+            if (typeof applySpotlightPref === 'function') applySpotlightPref(p.spotlightPref);
+          }
+          if (p.defaultSort || p.defaultCategory) {
+            applyHomePrefs(p.defaultSort || 'newest', p.defaultCategory || 'all');
+            updateUI();
+          }
+        })
+        .catch(() => {});
+    }
   }
 
   // 啟動時自動背景向伺服器拉取最新跨電腦雲端同步書籤
@@ -339,6 +358,9 @@ function loadFromStorage() {
     if (savedUser) state.currentUser = savedUser.toLowerCase().trim();
     state.displayUserName = state.currentUser;
   }
+
+  // 記下已解析的登入身分 (只寫身分，不觸發伺服器同步)；個人資料視窗等處依此判斷帳號
+  sessionStorage.setItem("web_library_user", state.currentUser);
 
   const savedToken = sessionStorage.getItem("web_library_token");
 
@@ -12997,8 +13019,13 @@ window.openEditProfileModal = function() {
         return;
     }
 
-    const username = sessionStorage.getItem('web_library_user') || 'admin';
-    const savedCustomAvatar = sessionStorage.getItem('web_library_custom_avatar_' + username);
+    // 用已解析的登入身分；過去預設 'admin' 會讓 jyun 的修改被存進 admin 帳號
+    const username = state.currentUser || sessionStorage.getItem('web_library_user');
+    if (!username || username === 'guest' || username === '訪客') {
+        showToast('訪客模式無法修改個人資料，請先登入', 'bi-info-circle text-info');
+        return;
+    }
+    let savedCustomAvatar = sessionStorage.getItem('web_library_custom_avatar_' + username);
 
     let profileData = {
         username: username,
@@ -13034,6 +13061,12 @@ window.openEditProfileModal = function() {
                 profileData = { ...profileData, ...data.profile };
                 if (savedCustomAvatar && (!profileData.avatar || profileData.avatar === 'default' || profileData.avatar === 'avatar-1')) {
                     profileData.avatar = savedCustomAvatar;
+                }
+                // 伺服器上存的是自訂圖片 → 也放進下方頭像選單 (新分頁 sessionStorage 是空的)
+                const serverAvatar = profileData.avatar || '';
+                if (serverAvatar.startsWith('data:image') || serverAvatar.startsWith('http')) {
+                    savedCustomAvatar = serverAvatar;
+                    sessionStorage.setItem('web_library_custom_avatar_' + username, serverAvatar);
                 }
                 populateProfileForm(profileData, savedCustomAvatar);
             }
@@ -13136,7 +13169,8 @@ window.saveUserProfile = async function(e) {
                     oldPassword,
                     newPassword,
                     defaultSort,
-                    defaultCategory
+                    defaultCategory,
+                    spotlightPref: !!glowPref
                 })
             });
             const data = await res.json();
@@ -13234,7 +13268,7 @@ window.handleCustomAvatarUpload = function(event) {
             const base64Url = canvas.toDataURL('image/jpeg', 0.85);
 
             // 寫入當前選中值與本地持久化
-            const username = sessionStorage.getItem('web_library_user') || 'admin';
+            const username = state.currentUser || sessionStorage.getItem('web_library_user');
             sessionStorage.setItem('web_library_custom_avatar_' + username, base64Url);
 
             document.querySelectorAll('.avatar-choice-item').forEach(el => el.classList.remove('selected'));
