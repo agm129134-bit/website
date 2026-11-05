@@ -4779,16 +4779,14 @@ body.dark-theme .tag-badge {
   box-shadow: var(--shadow-md);
 }
 
-/* ---------- 音樂靈動島：移到右下角，不再壓住導覽列按鈕 ---------- */
+/* ---------- 音樂靈動島：固定在畫面上方置中 ---------- */
 
 .dynamic-island-container {
-  top: auto;
-  bottom: var(--space-4);
-  left: auto;
-  right: var(--space-4);
-  transform: none;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 /* 對話框開啟時退到遮罩後面，不擋住對話框按鈕 (通知除外) */
@@ -4796,15 +4794,10 @@ body.modal-open .dynamic-island-container:not(:has(.notifying)) {
   z-index: 1040;
 }
 
-/* 批量操作列出現時往上讓位 */
-body:has(.batch-action-bar:not(.d-none)) .dynamic-island-container {
-  bottom: 96px;
-}
-
 .dynamic-island,
 .dynamic-island.idle,
 .dynamic-island.paused {
-  transform-origin: bottom right;
+  transform-origin: top center;
   transition: width var(--dur-slow) var(--ease-out), height var(--dur-slow) var(--ease-out),
     border-radius var(--dur-slow) var(--ease-out), background-color var(--dur) var(--ease-out),
     border-color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out),
@@ -4844,7 +4837,7 @@ body:has(.batch-action-bar:not(.d-none)) .dynamic-island-container {
 }
 
 .dynamic-island.swipe-up-dismiss {
-  transform: translateY(8px) !important;
+  transform: translateY(-8px) !important;
   transition: transform var(--dur) var(--ease-out), opacity var(--dur) var(--ease-out) !important;
 }
 
@@ -4877,10 +4870,6 @@ body:has(.batch-action-bar:not(.d-none)) .dynamic-island-container {
 }
 
 @media (max-width: 576px) {
-  .dynamic-island-container {
-    right: var(--space-3);
-    bottom: var(--space-3);
-  }
   .dynamic-island.idle {
     width: 168px;
   }
