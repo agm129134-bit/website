@@ -4931,6 +4931,219 @@ body.modal-open .dynamic-island-container:not(:has(.notifying)) {
   }
 }
 
+/* ---------- iPhone Duo 展開：導覽列移到右側變成直式功能列 (仿 App「完美最佳化」) ----------
+   直向 / 橫向展開都套用；外螢幕與一般手機維持原本上方導覽列。純 CSS，不改 HTML 與 JS。 */
+@media (pointer: coarse) and (min-width: 590px) and (max-width: 720px) and (min-aspect-ratio: 3/5) and (max-aspect-ratio: 1/1),
+       (pointer: coarse) and (min-width: 840px) and (max-width: 960px) and (min-aspect-ratio: 6/5) and (max-aspect-ratio: 2/1) {
+  :root {
+    --duo-rail-w: 72px;
+  }
+
+  body {
+    padding-right: var(--duo-rail-w);
+  }
+
+  /* 功能列本體：貼齊右側、滿版高度 */
+  .navbar.sticky-top {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: var(--duo-rail-w);
+    padding: 0 !important;
+    border-bottom: 0 !important;
+    border-left: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.08));
+    box-shadow: none !important;
+    z-index: 1030;
+  }
+
+  .navbar.sticky-top > .container-fluid {
+    height: 100%;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: max(12px, env(safe-area-inset-top)) 8px max(12px, env(safe-area-inset-bottom)) !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+
+  /* 品牌只留圖示 */
+  .navbar.sticky-top .navbar-brand {
+    margin: 0;
+    padding: 0;
+    gap: 0 !important;
+  }
+
+  .navbar.sticky-top .navbar-brand > :not(.brand-icon) {
+    display: none !important;
+  }
+
+  .navbar.sticky-top .navbar-toggler {
+    display: none !important;
+  }
+
+  /* 摺疊選單永遠展開成直排 */
+  .navbar.sticky-top .navbar-collapse {
+    display: flex !important;
+    flex-direction: column;
+    flex-grow: 1;
+    flex-basis: auto;
+    width: 100%;
+    align-items: center;
+    justify-content: flex-start !important;
+    gap: 10px;
+  }
+
+  .navbar.sticky-top .navbar-collapse > div:not(.navbar-search-wrapper),
+  .navbar.sticky-top .navbar-actions-group {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    width: 100%;
+  }
+
+  /* 按鈕改成 48px 圖示鍵，文字保留給讀屏與 title 提示 */
+  .navbar.sticky-top .btn {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    padding: 0 !important;
+    justify-content: center !important;
+    font-size: 0 !important;
+    gap: 0 !important;
+    border-radius: 14px !important;
+  }
+
+  .navbar.sticky-top .btn > i,
+  .navbar.sticky-top .btn #navUserAvatarWrapper i {
+    font-size: 1.2rem !important;
+  }
+
+  .navbar.sticky-top .btn #navUserAvatarWrapper {
+    margin: 0 !important;
+  }
+
+  .navbar.sticky-top .btn > span:not(.badge):not(#navUserAvatarWrapper),
+  .navbar.sticky-top .dropdown-toggle::after {
+    display: none !important;
+  }
+
+  /* 數字徽章縮成右上角小點 */
+  .navbar.sticky-top .btn .badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    margin: 0 !important;
+    font-size: 0.6rem !important;
+    padding: 0.2em 0.4em;
+  }
+
+  /* 下拉選單：從功能列往左展開 */
+  .navbar.sticky-top .dropdown-menu {
+    position: fixed !important;
+    inset: auto calc(var(--duo-rail-w) + 8px) auto auto !important;
+    transform: none !important;
+    margin: -48px 0 0 0 !important;
+    max-height: 70dvh;
+    overflow-y: auto;
+  }
+
+  /* 搜尋：平時是放大鏡圖示，點下去往左展開成搜尋框 */
+  .navbar.sticky-top .navbar-search-wrapper {
+    position: relative !important;
+    width: 48px !important;
+    min-width: 48px;
+    max-width: 48px;
+    height: 48px;
+    margin: 0 !important;
+    flex: 0 0 auto;
+  }
+
+  .navbar.sticky-top .navbar-search-wrapper .search-input-group {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 48px !important;
+    height: 48px;
+    flex-wrap: nowrap;
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--bs-tertiary-bg, #f1f5f9);
+    transition: width var(--dur, 0.2s) var(--ease-out, ease-out), box-shadow var(--dur, 0.2s) var(--ease-out, ease-out);
+  }
+
+  .navbar.sticky-top .navbar-search-wrapper .input-group-text {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: 48px;
+    justify-content: center;
+    padding: 0 !important;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .navbar.sticky-top .navbar-search-wrapper .form-control {
+    height: 48px;
+    padding-left: 14px !important;
+    padding-right: 52px !important;
+    background: transparent;
+    color: transparent;
+  }
+
+  /* fixed 才能跳出功能列的捲動裁切；top 沿用原本位置 */
+  .navbar.sticky-top .navbar-search-wrapper:focus-within .search-input-group {
+    position: fixed;
+    top: auto;
+    right: calc(var(--duo-rail-w) - 60px);
+    width: min(420px, calc(100vw - var(--duo-rail-w) - 32px)) !important;
+    box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.15));
+    z-index: 1040;
+  }
+
+  .navbar.sticky-top .navbar-search-wrapper:focus-within .form-control {
+    color: inherit;
+  }
+
+  /* Docker 狀態徽章縮成綠/灰小圓點 */
+  .navbar.sticky-top #navDockerBadge {
+    font-size: 0 !important;
+    width: 10px;
+    height: 10px;
+    padding: 0;
+    border-radius: 50%;
+    top: 6px;
+    right: 6px;
+  }
+
+  /* 主題切換等收在底部 */
+  .navbar.sticky-top #themeToggleBtn {
+    margin-top: auto;
+  }
+
+  /* 其他貼齊右側 / 滿版寬的固定元素避開功能列 */
+  .batch-action-bar.fixed-bottom {
+    right: var(--duo-rail-w);
+  }
+
+  /* 音樂靈動島置中於內容區，內容往下讓出它的高度 */
+  .dynamic-island-container {
+    left: calc((100% - var(--duo-rail-w)) / 2);
+  }
+
+  body {
+    padding-top: 56px;
+  }
+}
+
 /* ---------- 尊重「減少動態效果」設定 ---------- */
 
 @media (prefers-reduced-motion: reduce) {
