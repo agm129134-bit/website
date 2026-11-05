@@ -207,8 +207,8 @@
                     const activeContent = carouselEl.querySelector('.carousel-item.active .acg-carousel-content');
                     if (activeContent && typeof gsap !== 'undefined') {
                         gsap.fromTo(activeContent,
-                            { opacity: 0, x: 25 },
-                            { opacity: 1, x: 0, duration: 0.45, ease: "power2.out" }
+                            { opacity: 0, x: 8 },
+                            { opacity: 1, x: 0, duration: 0.25, ease: "power2.out", clearProps: "transform,opacity" }
                         );
                     }
                 });
@@ -240,51 +240,40 @@
     window.loadAcgPageCalendar = loadAcgPageCalendar;
 
     // GSAP 動態管理與懸浮微互動
+    let acgIntroTl = null;
+
     function initAcgGsapAnimations() {
         if (typeof gsap === 'undefined') return;
 
-        // 1. 開場時間軸 (Sequence Timeline)
-        const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+        // 1. 開場時間軸：短距離淡入、不彈跳。SPA 來回切換重複呼叫時先還原上一次，避免元素卡在半透明
+        if (acgIntroTl) acgIntroTl.revert();
+        const tl = gsap.timeline({ defaults: { ease: "power2.out", duration: 0.3, clearProps: "transform,opacity" } });
+        acgIntroTl = tl;
 
-        // 頂部導航列從上方淡入降下
-        if (document.querySelector(".navbar")) {
-            tl.from(".navbar", {
-                y: -35,
-                opacity: 0,
-                duration: 0.65
+        // 焦點推薦輪播 Banner 區塊淡入
+        if (document.querySelector(".acg-carousel-container")) {
+            tl.from(".acg-carousel-container, section.mb-4 > .d-flex", {
+                y: 8,
+                opacity: 0
             });
         }
 
-        // 焦點推薦輪播 Banner 區塊微縮放浮現
-        if (document.querySelector(".acg-carousel-container")) {
-            tl.from(".acg-carousel-container, section.mb-4 > .d-flex", {
-                y: 20,
-                opacity: 0,
-                scale: 0.98,
-                duration: 0.65
-            }, "-=0.35");
-        }
-
-        // 四大核心卡片彈性依序浮現 (Stagger Bounce In)
+        // 四大核心卡片依序淡入
         if (document.querySelector(".acg-feature-card")) {
             tl.from(".acg-feature-card", {
-                y: 40,
+                y: 8,
                 opacity: 0,
-                scale: 0.92,
-                stagger: 0.1,
-                duration: 0.65,
-                ease: "back.out(1.5)"
-            }, "-=0.3");
+                stagger: 0.05
+            }, "-=0.15");
         }
 
         // 最近觀看紀錄與下方時間表平滑滑入
         if (document.querySelector("#acgWatchHistorySection, section:has(#bangumiAnimeGrid)")) {
             tl.from("#acgWatchHistorySection, section:has(#bangumiAnimeGrid)", {
-                y: 25,
+                y: 8,
                 opacity: 0,
-                stagger: 0.12,
-                duration: 0.6
-            }, "-=0.25");
+                stagger: 0.06
+            }, "-=0.15");
         }
 
         // 2. 四大核心卡片懸浮微互動 (Hover 浮起、圖標微旋轉、按鈕彈力反饋)
@@ -292,58 +281,24 @@
             if (card.dataset.gsapHoverBound) return;
             card.dataset.gsapHoverBound = "true";
 
-            const icon = card.querySelector('i.bi');
             const btn = card.querySelector('.btn');
 
             card.addEventListener('mouseenter', () => {
-                gsap.to(card, {
-                    y: -8,
-                    boxShadow: "0 16px 36px rgba(15, 23, 42, 0.14)",
-                    borderColor: "#38bdf8",
-                    duration: 0.3,
-                    ease: "power2.out"
-                });
-                if (icon) {
-                    gsap.to(icon, {
-                        scale: 1.25,
-                        rotate: 8,
-                        duration: 0.35,
-                        ease: "back.out(2)"
-                    });
-                }
+                // 極簡：只輕微上浮，邊框與陰影交給 CSS :hover
+                gsap.to(card, { y: -2, duration: 0.2, ease: "power2.out" });
             });
 
             card.addEventListener('mouseleave', () => {
-                gsap.to(card, {
-                    y: 0,
-                    boxShadow: "0 .125rem .25rem rgba(0,0,0,.075)",
-                    borderColor: "rgba(0,0,0,.125)",
-                    duration: 0.3,
-                    ease: "power2.out"
-                });
-                if (icon) {
-                    gsap.to(icon, {
-                        scale: 1,
-                        rotate: 0,
-                        duration: 0.3,
-                        ease: "power2.out"
-                    });
-                }
+                gsap.to(card, { y: 0, duration: 0.2, ease: "power2.out", clearProps: "transform" });
             });
 
             if (btn) {
-                btn.addEventListener('mouseenter', () => {
-                    gsap.to(btn, { scale: 1.03, duration: 0.2, ease: "power1.out" });
-                });
-                btn.addEventListener('mouseleave', () => {
-                    gsap.to(btn, { scale: 1, duration: 0.2, ease: "power1.out" });
-                });
                 btn.addEventListener('mousedown', () => {
-                    gsap.to(btn, { scale: 0.95, duration: 0.1 });
+                    gsap.to(btn, { scale: 0.98, duration: 0.1, ease: "power2.out" });
                 });
-                btn.addEventListener('mouseup', () => {
-                    gsap.to(btn, { scale: 1.03, duration: 0.15, ease: "back.out(2)" });
-                });
+                ['mouseup', 'mouseleave'].forEach(evt => btn.addEventListener(evt, () => {
+                    gsap.to(btn, { scale: 1, duration: 0.15, ease: "power2.out" });
+                }));
             }
         });
 
@@ -355,8 +310,8 @@
                 const dialog = modal.querySelector('.modal-dialog');
                 if (dialog) {
                     gsap.fromTo(dialog,
-                        { scale: 0.88, opacity: 0, y: -25 },
-                        { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.4)" }
+                        { opacity: 0, y: 8 },
+                        { opacity: 1, y: 0, duration: 0.22, ease: "power2.out" }
                     );
                 }
             });
@@ -369,13 +324,14 @@
             const observer = new MutationObserver(() => {
                 const cards = gridEl.querySelectorAll('.col-6');
                 if (cards.length > 0 && typeof gsap !== 'undefined') {
-                    gsap.from(cards, {
-                        opacity: 0,
-                        y: 20,
-                        scale: 0.95,
-                        duration: 0.4,
-                        stagger: 0.03,
-                        ease: "power2.out"
+                    // fromTo + clearProps：連續重繪時不會把卡片卡在半透明
+                    gsap.fromTo(cards, { opacity: 0, y: 8 }, {
+                        opacity: 1,
+                        y: 0,
+                        duration: 0.25,
+                        stagger: Math.min(0.02, 0.3 / cards.length),
+                        ease: "power2.out",
+                        clearProps: "transform,opacity"
                     });
                 }
             });

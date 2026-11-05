@@ -23,9 +23,48 @@ const WATCH_STATUS_TAGS = new Set([
   "想看", "在看", "看過", "已看", "已看過", "已在看",
   "想讀", "在讀", "讀過", "已讀", "已讀過", "已在讀",
   "在看/在讀", "看過/讀過", "想看/想讀", "#在看/在讀", "#看過/讀過", "#想看/想讀",
+  "擱置", "拋棄",
 ]);
 function stripWatchStatusTags(tags) {
   return tags.filter((t) => !WATCH_STATUS_TAGS.has(t));
+}
+
+// Bangumi 收藏狀態代碼 (v0 API CollectionType)：1 想看, 2 看過, 3 在看, 4 擱置, 5 拋棄
+// 動畫用「看」、書籍 (漫畫/小說, subject_type=1) 用「讀」
+const BGM_STATUS_LABELS = {
+  watch: { 1: "想看", 2: "已看過", 3: "已在看", 4: "擱置", 5: "拋棄" },
+  read: { 1: "想讀", 2: "已讀過", 3: "已在讀", 4: "擱置", 5: "拋棄" },
+};
+function bgmStatusLabel(type, isBook) {
+  return BGM_STATUS_LABELS[isBook ? "read" : "watch"][parseInt(type, 10)] || "";
+}
+function bgmStatusClass(type) {
+  const t = parseInt(type, 10);
+  if (t === 3) return "text-success fw-bold";
+  if (t === 2) return "text-primary fw-bold";
+  if (t === 1) return "text-danger fw-bold";
+  if (t === 4) return "text-warning fw-bold";
+  if (t === 5) return "text-secondary fw-bold";
+  return "text-white-50";
+}
+// 由標籤推斷收藏狀態代碼 (無 bangumiStatus 的舊資料用)，找不到回傳 0
+function bgmStatusFromTags(tags) {
+  if (!Array.isArray(tags)) return 0;
+  const has = (re) => tags.some((t) => typeof t === "string" && re.test(t));
+  if (has(/拋棄|抛弃/)) return 5;
+  if (has(/擱置|搁置/)) return 4;
+  if (has(/在看|在讀|在读/)) return 3;
+  if (has(/看過|看过|已看|讀過|读过|已讀/)) return 2;
+  if (has(/想看|想讀|想读/)) return 1;
+  return 0;
+}
+
+// 從書籤取得已綁定的 Bangumi subject ID (bangumiSubjectId 或 bgm.tv / bangumi.tv / chii.in 條目網址)
+function bgmBoundSubjectId(b) {
+  if (!b) return "";
+  if (b.bangumiSubjectId) return String(b.bangumiSubjectId);
+  const m = /(?:bgm\.tv|bangumi\.tv|chii\.in)\/subject\/(\d+)/i.exec(b.url || "");
+  return m ? m[1] : "";
 }
 
 // 產生唯一 ID：<prefix>_<timestamp>_<隨機碼>
@@ -146,6 +185,13 @@ async function seamlessNavigateTo(url, isPopState = false) {
       document.body.appendChild(document.importNode(node, true));
     });
 
+    // 舊頁面節點已移除：清掉仍在跑、但目標已脫離畫面的 GSAP 動畫
+    if (typeof gsap !== "undefined") {
+      gsap.globalTimeline.getChildren(true, true, false).forEach((tween) => {
+        if (tween.targets().some((t) => t instanceof Element && !t.isConnected)) tween.kill();
+      });
+    }
+
     document.title = newDoc.title;
     if (!isPopState) {
       history.pushState({ url }, newDoc.title, url);
@@ -244,6 +290,7 @@ function initApp() {
     // 載入使用者自訂的預設排序與預設啟動分類分頁
     const curU = (state.currentUser || 'jyun').toLowerCase().trim();
     const applyHomePrefs = (sort, cat) => {
+      cat = normalizeCategoryFilter(cat);
       state.sortMode = sort;
       state.activeCategory = cat;
 
@@ -755,6 +802,7 @@ window.syncStatusToBangumi = async function (
   statusType = 3,
   rating = null,
   comment = null,
+  isBook = false,
 ) {
   const token = window.getBangumiToken();
 
@@ -781,16 +829,8 @@ window.syncStatusToBangumi = async function (
     const data = await res.json();
 
     if (data.success) {
-      const statusNames = {
-        1: "想看",
-        2: "看過",
-        3: "在看",
-        4: "擱置",
-        5: "拋棄",
-      };
-
       showToast(
-        `🎉 已成功同步回寫 Bangumi：狀態改為「${statusNames[statusType] || "在看"}」！`,
+        `🎉 已成功同步回寫 Bangumi：狀態改為「${bgmStatusLabel(statusType, isBook) || "已收藏"}」！`,
         "bi-cloud-check-fill text-success",
       );
       return true;
@@ -879,17 +919,122 @@ function updateUI() {
   if (userApiTokenInput) userApiTokenInput.value = state.apiToken;
 }
 
-// 動畫項目判定 (由 Qwen 27B 設計之多重條件比對)
+// ==========================================
+// 書籤分類方案 (單一來源：每個書籤恰好屬於一個分類)
+// anime 動畫 · manga 漫畫/小說 · video 影片 · web 一般網頁 · other 資源/其他
+// 規則：
+//   1. 已存的 category 若是新方案中的有效值 → 直接採用 (含使用者手動設定)
+//   2. 舊值 (resource / 空值 / 未知值) → 依網域清單 + 關鍵字推斷，推斷不出則歸 other
+//   推斷只在讀取時進行，不會改寫使用者資料
+// ==========================================
+const BOOKMARK_CATEGORIES = ["anime", "manga", "video", "web", "other"];
+
+const BOOKMARK_CATEGORY_META = {
+  anime: { label: "動畫", icon: "bi-broadcast", badge: "badge-cat-anime" },
+  manga: { label: "漫畫 / 小說", icon: "bi-book-half", badge: "badge-cat-manga" },
+  video: { label: "影片影音", icon: "bi-play-btn-fill", badge: "badge-cat-video" },
+  web: { label: "一般網頁", icon: "bi-globe2", badge: "badge-cat-web" },
+  other: { label: "資源 / 其他", icon: "bi-box-seam-fill", badge: "badge-cat-resource" },
+};
+
+// 舊分類值 → 新分類 (resource 為舊版「動漫與資源」，需再依內容細分)
+const LEGACY_CATEGORY_MAP = { resource: "other" };
+
+const CATEGORY_HOSTS = {
+  manga: [
+    "manga.bilibili.com", "copymanga", "mangacopy", "dm5.com", "manhuagui.com",
+    "mangadex.org", "comick.io", "comick.app", "baozimh.com", "dmzj.com",
+    "idmzj.com", "zaimanhua.com", "kuaikanmanhua.com", "ac.qq.com",
+    "webtoons.com", "comic.naver.com", "manhuaren.com", "mangabz.com",
+    "wenku8", "bilinovel.com", "linovelib.com", "esjzone", "syosetu.com",
+    "kakuyomu.jp",
+  ],
+  anime: [
+    "ani.gamer.com.tw", "anime1.me", "anime1.in", "myself-bbs.com",
+    "agefans", "agedm", "7sefun", "bimiacg", "bimi", "girigirilove",
+    "omofun", "crunchyroll.com", "hidive.com", "animeone",
+  ],
+  bangumi: ["bgm.tv", "bangumi.tv", "chii.in"],
+  video: [
+    "youtube.com", "youtu.be", "bilibili.com", "b23.tv", "nicovideo.jp",
+    "vimeo.com", "twitch.tv", "iqiyi.com", "youku.com", "v.qq.com",
+    "tiktok.com", "douyin.com",
+  ],
+  other: [
+    "pan.quark.cn", "pan.baidu.com", "drive.google.com", "mega.nz",
+    "aliyundrive.com", "alipan.com", "115.com", "lanzou", "mediafire.com",
+    "nyaa.si", "dmhy.org", "mikanani.me", "acg.rip",
+  ],
+};
+
+const MANGA_KEYWORDS = /漫畫|漫画|条漫|條漫|書籍|书籍|小說|小说|輕小說|轻小说|文庫|manga|comic|webtoon|novel/i;
+const ANIME_KEYWORDS = /動畫|动画|番劇|番剧|新番|anime/i;
+
+function hostMatchesList(host, list) {
+  return list.some((d) =>
+    d.includes(".") ? host === d || host.endsWith("." + d) : host.includes(d),
+  );
+}
+
+// 由網址 / 標題 / 標籤推斷分類，推斷不出回傳 null
+function detectCategoryFromSignals(url, title, tags) {
+  let host = "";
+  let path = "";
+
+  try {
+    const parsed = new URL(url || "");
+    host = parsed.hostname.toLowerCase();
+    path = parsed.pathname.toLowerCase();
+  } catch (e) {}
+  const tagText = Array.isArray(tags) ? tags.join(" ") : tags || "";
+
+  if (host) {
+    if (hostMatchesList(host, CATEGORY_HOSTS.manga)) return "manga";
+    if (host.endsWith("bilibili.com") && path.startsWith("/bangumi/"))
+      return "anime";
+    if (hostMatchesList(host, CATEGORY_HOSTS.anime)) return "anime";
+    if (hostMatchesList(host, CATEGORY_HOSTS.bangumi)) {
+      // Bangumi 條目同時有書籍與動畫，依標籤/標題區分，預設為動畫
+      if (MANGA_KEYWORDS.test(tagText)) return "manga";
+      if (ANIME_KEYWORDS.test(tagText)) return "anime";
+      return MANGA_KEYWORDS.test(title || "") ? "manga" : "anime";
+    }
+    if (hostMatchesList(host, CATEGORY_HOSTS.video)) return "video";
+    if (hostMatchesList(host, CATEGORY_HOSTS.other)) return "other";
+  }
+
+  if (MANGA_KEYWORDS.test(tagText)) return "manga";
+  if (ANIME_KEYWORDS.test(tagText)) return "anime";
+  return null;
+}
+
+// 取得書籤的有效分類 (唯讀，不修改 item)
+function getBookmarkCategory(item) {
+  if (!item) return "other";
+  const stored = String(item.category || "").trim().toLowerCase();
+
+  if (BOOKMARK_CATEGORIES.includes(stored)) return stored;
+
+  return (
+    detectCategoryFromSignals(item.url, item.title, item.tags) ||
+    LEGACY_CATEGORY_MAP[stored] ||
+    "other"
+  );
+}
+
+// 篩選鍵正規化 (舊偏好值 resource → other，未知值 → all)
+function normalizeCategoryFilter(cat) {
+  const key = String(cat || "all").trim().toLowerCase();
+
+  if (key === "all" || BOOKMARK_CATEGORIES.includes(key)) return key;
+  return LEGACY_CATEGORY_MAP[key] || "all";
+}
+
+window.getBookmarkCategory = getBookmarkCategory;
+
+// 動畫項目判定 (統一走分類方案，避免漫畫因 Bangumi 標籤被誤判為動畫)
 function isAnimeItem(item) {
-  if (!item) return false;
-
-  if (item.category === "anime") return true;
-  const tags = Array.isArray(item.tags) ? item.tags.join(" ") : item.tags || "";
-
-  if (/動漫|動畫|Bangumi同步|本季新番/i.test(tags)) return true;
-
-  if (/bgm\.tv/i.test(item.url || "")) return true;
-  return false;
+  return getBookmarkCategory(item) === "anime";
 }
 
 // 統計數量更新
@@ -897,19 +1042,17 @@ function updateStats() {
   const statWeb = document.getElementById("statWebCount");
 
   if (!statWeb) return;
-  const animeCount = state.bookmarks.filter(isAnimeItem).length;
+  // 每個書籤只計入一個分類，按鈕數字與篩選結果一致
+  const catCounts = { anime: 0, manga: 0, video: 0, web: 0, other: 0 };
 
-  const webCount = state.bookmarks.filter(
-    (b) => b.category === "web" && !isAnimeItem(b),
-  ).length;
-
-  const videoCount = state.bookmarks.filter(
-    (b) => b.category === "video" && !isAnimeItem(b),
-  ).length;
-
-  const resCount = state.bookmarks.filter(
-    (b) => (b.category === "resource" || !b.category) && !isAnimeItem(b),
-  ).length;
+  state.bookmarks.forEach((b) => {
+    catCounts[getBookmarkCategory(b)]++;
+  });
+  const animeCount = catCounts.anime;
+  const webCount = catCounts.web;
+  const videoCount = catCounts.video;
+  const mangaCount = catCounts.manga;
+  const otherCount = catCounts.other;
   const totalCount = state.bookmarks.length;
   statWeb.textContent = webCount;
   const statVideo = document.getElementById("statVideoCount");
@@ -917,7 +1060,14 @@ function updateStats() {
   if (statVideo) statVideo.textContent = videoCount;
   const statRes = document.getElementById("statResCount");
 
-  if (statRes) statRes.textContent = resCount;
+  // 第三張統計卡：動畫 + 漫畫 + 資源/其他 (三張卡合計 = 全部收藏)
+  if (statRes) statRes.textContent = animeCount + mangaCount + otherCount;
+  const bManga = document.getElementById("badgeMangaCount");
+
+  if (bManga) bManga.textContent = mangaCount;
+  const bOther = document.getElementById("badgeOtherCount");
+
+  if (bOther) bOther.textContent = otherCount;
   const bAll = document.getElementById("badgeAllCount");
 
   if (bAll) bAll.textContent = totalCount;
@@ -932,7 +1082,7 @@ function updateStats() {
   if (bVideo) bVideo.textContent = videoCount;
   const bRes = document.getElementById("badgeResCount");
 
-  if (bRes) bRes.textContent = resCount;
+  if (bRes) bRes.textContent = otherCount;
 }
 
 // 標籤篩選晶片動態渲染
@@ -989,19 +1139,11 @@ function renderTagChips() {
 function getFilteredAndSortedBookmarks() {
   let result = [...state.bookmarks];
 
-  // 1. 分類過濾 (動漫與資源包含動漫與資源索引)
-  if (state.activeCategory !== "all") {
-    if (state.activeCategory === "anime") {
-      result = result.filter(isAnimeItem);
-    } else if (state.activeCategory === "resource") {
-      result = result.filter(
-        (b) => (b.category === "resource" || !b.category) && !isAnimeItem(b),
-      );
-    } else {
-      result = result.filter(
-        (b) => b.category === state.activeCategory && !isAnimeItem(b),
-      );
-    }
+  // 1. 分類過濾 (與 updateStats 共用 getBookmarkCategory)
+  const activeCat = normalizeCategoryFilter(state.activeCategory);
+
+  if (activeCat !== "all") {
+    result = result.filter((b) => getBookmarkCategory(b) === activeCat);
   }
 
   // 2. 標籤過濾
@@ -1130,6 +1272,7 @@ function renderBookmarks(skipAnimation = false) {
       else resetBtn.classList.add("d-none");
     }
 
+    container._renderedIds = new Set();
     return;
   }
 
@@ -1145,26 +1288,18 @@ function renderBookmarks(skipAnimation = false) {
     col.className = colClass;
 
     // 分類徽章與圖示設定
-    let catBadgeClass = "badge-cat-web";
-    let catLabel = "一般網頁";
-    let catIcon = "bi-globe2";
+    const itemCat = getBookmarkCategory(item);
+    const catMeta = BOOKMARK_CATEGORY_META[itemCat];
+    const catBadgeClass = catMeta.badge;
+    let catLabel = catMeta.label;
+    const catIcon = catMeta.icon;
 
-    if (isAnimeItem(item)) {
-      catBadgeClass = "badge-cat-anime";
-
+    if (itemCat === "anime") {
       const tags = Array.isArray(item.tags)
         ? item.tags.join(" ")
         : item.tags || "";
-      catLabel = /新番/i.test(tags) ? "動畫新番" : "動畫";
-      catIcon = "bi-broadcast";
-    } else if (item.category === "video") {
-      catBadgeClass = "badge-cat-video";
-      catLabel = "影片影音";
-      catIcon = "bi-play-btn-fill";
-    } else if (item.category === "resource") {
-      catBadgeClass = "badge-cat-resource";
-      catLabel = "動漫資源";
-      catIcon = "bi-box-seam-fill";
+
+      if (/新番/i.test(tags)) catLabel = "動畫新番";
     }
 
     // 解析網域名稱與 Favicon
@@ -1341,34 +1476,36 @@ function renderBookmarks(skipAnimation = false) {
     container.appendChild(col);
   });
 
-  // GSAP 3 物理交錯彈入動畫 (Stagger In & Smooth Damping)
-  if (!skipAnimation && typeof gsap !== "undefined") {
-    const isList = state.viewMode === "list";
+  // 進場動畫只給「這次新出現」的卡片 (首次載入、切換分類/搜尋後新符合的卡片)。
+  // 點擊次數、置頂、批量勾選、狀態變更等原地重繪不再整片重播，避免閃爍。
+  const prevIds = container._renderedIds;
+  const viewChanged = container._renderedView !== state.viewMode;
+  container._renderedIds = new Set(items.map((it) => it.id));
+  container._renderedView = state.viewMode;
 
-    if (isList) {
+  if (!skipAnimation && typeof gsap !== "undefined") {
+    const cols = container.children;
+    const freshCards = items
+      .map((it, i) =>
+        !prevIds || viewChanged || !prevIds.has(it.id)
+          ? cols[i] && cols[i].querySelector(".bookmark-card")
+          : null,
+      )
+      .filter(Boolean);
+
+    if (freshCards.length > 0) {
+      const isList = state.viewMode === "list";
       gsap.fromTo(
-        "#bookmarkContainer .bookmark-card",
-        { x: -30, opacity: 0 },
+        freshCards,
+        isList ? { x: -8, opacity: 0 } : { y: 8, opacity: 0 },
         {
           x: 0,
-          opacity: 1,
-          duration: 0.32,
-          stagger: 0.025,
-          ease: "power2.out",
-          clearProps: "transform,opacity",
-        },
-      );
-    } else {
-      gsap.fromTo(
-        "#bookmarkContainer .bookmark-card",
-        { y: 22, opacity: 0, scale: 0.96 },
-        {
           y: 0,
           opacity: 1,
-          scale: 1,
-          duration: 0.38,
-          stagger: 0.03,
-          ease: "back.out(1.3)",
+          duration: 0.25,
+          // 總錯開時間上限 0.3s，卡片再多也不會拖長
+          stagger: Math.min(0.02, 0.3 / freshCards.length),
+          ease: "power2.out",
           clearProps: "transform,opacity",
         },
       );
@@ -1406,8 +1543,8 @@ window.openImagePreview = function (imgSrc, title = "圖片預覽") {
   if (typeof gsap !== "undefined") {
     gsap.fromTo(
       "#imagePreviewImg",
-      { scale: 0.88, opacity: 0 },
-      { scale: 1, opacity: 1, duration: 0.28, ease: "back.out(1.4)" },
+      { scale: 0.98, opacity: 0 },
+      { scale: 1, opacity: 1, duration: 0.2, ease: "power2.out" },
     );
   }
 };
@@ -1843,7 +1980,7 @@ window.editBookmark = function (id) {
   document.getElementById("editBookmarkId").value = item.id;
   document.getElementById("bmUrl").value = item.url;
   document.getElementById("bmTitle").value = item.title;
-  document.getElementById("bmCategory").value = item.category;
+  document.getElementById("bmCategory").value = getBookmarkCategory(item);
   document.getElementById("bmTags").value = (item.tags || []).join(", ");
   document.getElementById("bmCover").value = item.cover || "";
   document.getElementById("bmDesc").value = item.desc || "";
@@ -1985,10 +2122,14 @@ function autoDetectUrl(url) {
       defaultTags = ["動畫", "新番", "Kazumi播放"];
       guessedTitle = "動畫新番番劇";
     } else if (host.includes("dm5.com") || host.includes("copymanga")) {
-      guessedCategory = "resource";
+      guessedCategory = "manga";
       defaultTags = ["漫畫", "ACG資源"];
       guessedTitle = "漫畫閱讀資源";
     }
+
+    // 以統一的網域清單 + 關鍵字方案為準 (與首頁篩選一致)
+    guessedCategory =
+      detectCategoryFromSignals(url, "", defaultTags) || guessedCategory;
 
     document.getElementById("bmCategory").value = guessedCategory;
 
@@ -2004,15 +2145,10 @@ function autoDetectUrl(url) {
       document.getElementById("bmCover").value = guessedCover;
     }
 
-    const catNames = {
-      anime: "動畫",
-      video: "影片",
-      resource: "資源",
-      web: "一般網頁",
-    };
+    const catMeta = BOOKMARK_CATEGORY_META[guessedCategory];
 
     showToast(
-      `已辨識網站來源：自動切換至「${catNames[guessedCategory] || "一般網頁"}」分類！`,
+      `已辨識網站來源：自動切換至「${catMeta ? catMeta.label : "一般網頁"}」分類！`,
       "bi-magic text-primary",
     );
   } catch (e) {
@@ -8212,64 +8348,93 @@ window.openNovelSearchModal = function (defaultKeyword = "") {
 };
 
 // ============================================================
-// Legado 輕小說多書源切換與檢索核心 (Wenku8 輕小說文庫 vs Bilinovel 嗶哩輕小說)
+// 小說線上書源切換與檢索核心 (飄天文學 piaotia vs 愛下電子書 ixdzs)
 // ============================================================
 
-let currentNovelSource =
-  sessionStorage.getItem("novel_preferred_source") || "wenku8";
+const NOVEL_SOURCES = {
+  piaotia: { name: "飄天文學", badge: "📖 飄天" },
+  ixdzs: { name: "愛下電子書", badge: "📚 愛下" },
+};
+
+// 舊版 wenku8 / bilinovel 已失效，sessionStorage 若存舊值則改回預設書源
+let currentNovelSource = NOVEL_SOURCES[
+  sessionStorage.getItem("novel_preferred_source")
+]
+  ? sessionStorage.getItem("novel_preferred_source")
+  : "piaotia";
+
+// 產生可安全放進 onclick="fn(...)" 的 JS 字串參數 (避免標題含引號時破壞屬性)
+function novelJsArg(value) {
+  return escapeHtml(JSON.stringify(String(value ?? "")));
+}
+
+// 讀取後端錯誤訊息；後端未啟動或回傳非 JSON 時給通用訊息
+async function readNovelApi(resp) {
+  let json = null;
+
+  try {
+    json = await resp.json();
+  } catch (e) {}
+
+  if (resp.ok && json && json.success) return { ok: true, json };
+
+  return {
+    ok: false,
+    error:
+      (json && json.error) ||
+      `小說服務回應異常 (HTTP ${resp.status})`,
+  };
+}
+
+function renderNovelNotice(container, title, detail, isError) {
+  if (!container) return;
+
+  container.innerHTML = `
+            <div class="text-center py-5 text-secondary">
+                <i class="bi ${isError ? "bi-wifi-off text-danger" : "bi-journal-x text-warning"} fs-2 d-block mb-2 opacity-75"></i>
+                <div class="text-white fw-bold">${escapeHtml(title)}</div>
+                ${detail ? `<div class="small text-white-50 mt-1">${escapeHtml(detail)}</div>` : ""}
+            </div>
+        `;
+}
 
 function updateNovelSourcePills() {
-  const pillWenku = document.getElementById("sourcePill-wenku8");
-  const pillBili = document.getElementById("sourcePill-bilinovel");
+  Object.keys(NOVEL_SOURCES).forEach((key) => {
+    const pill = document.getElementById(`sourcePill-${key}`);
+
+    if (!pill) return;
+
+    pill.className =
+      key === currentNovelSource
+        ? "btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold novel-source-pill"
+        : "btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill";
+  });
+
   const badge = document.getElementById("currentNovelSourceBadge");
 
-  if (currentNovelSource === "bilinovel") {
-    if (pillBili)
-      pillBili.className =
-        "btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold novel-source-pill";
-
-    if (pillWenku)
-      pillWenku.className =
-        "btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill";
-
-    if (badge) badge.textContent = "當前：嗶哩輕小說";
-  } else {
-    if (pillWenku)
-      pillWenku.className =
-        "btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold novel-source-pill";
-
-    if (pillBili)
-      pillBili.className =
-        "btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill";
-
-    if (badge) badge.textContent = "當前：輕小說文庫";
-  }
+  if (badge)
+    badge.textContent = `當前：${NOVEL_SOURCES[currentNovelSource].name}`;
 }
 
 window.setNovelSource = function (src) {
-  currentNovelSource = src || "wenku8";
+  currentNovelSource = NOVEL_SOURCES[src] ? src : "piaotia";
 
   sessionStorage.setItem("novel_preferred_source", currentNovelSource);
 
   updateNovelSourcePills();
 
-  const sourceName =
-    currentNovelSource === "bilinovel"
-      ? "Bilinovel 嗶哩輕小說"
-      : "Wenku8 輕小說文庫";
-
   showToast(
-    `📚 已切換至書源【${sourceName}】`,
+    `📚 已切換至書源【${NOVEL_SOURCES[currentNovelSource].name}】`,
     "bi-journal-bookmark-fill text-success",
   );
 
-  // 重新檢索當前輸入框關鍵字或重整推薦
+  // 有關鍵字才重新檢索，否則僅提示輸入
   const input = document.getElementById("novelDrawerKeywordInput");
   const kw = input ? input.value.trim() : "";
 
   searchNovelFromDrawer(kw);
 };
-// 在抽屜中進行小說檢索（支援 Wenku8 與 Bilinovel 多書源）
+// 在抽屜中進行小說檢索（飄天文學 / 愛下電子書）
 window.searchNovelFromDrawer = async function (keyword) {
   const q = (
     keyword !== undefined && keyword !== null
@@ -8278,13 +8443,8 @@ window.searchNovelFromDrawer = async function (keyword) {
         ? document.getElementById("novelDrawerKeywordInput").value
         : ""
   ).trim();
-  const selectEl = document.getElementById("novelSourceSelect");
-
-  const source =
-    selectEl && selectEl.value ? selectEl.value : currentNovelSource;
-
-  const sourceName =
-    source === "bilinovel" ? "Bilinovel 嗶哩輕小說" : "Wenku8 輕小說文庫";
+  const source = currentNovelSource;
+  const sourceName = NOVEL_SOURCES[source].name;
   const container = document.getElementById("novelSearchResultsContainer");
   const summaryBox = document.getElementById("novelSelectedSummaryBox");
 
@@ -8294,66 +8454,94 @@ window.searchNovelFromDrawer = async function (keyword) {
     summaryBox.classList.add("d-none");
   }
 
+  if (!q) {
+    novelState.searchResults = [];
+    renderNovelNotice(
+      container,
+      "請輸入小說名稱或作者",
+      `目前書源：${sourceName}，例如「诡秘之主」、「斗破苍穹」。`,
+      false,
+    );
+
+    return;
+  }
+
+  // 避免快速連續搜尋時，較慢的舊回應覆蓋新結果
+  const searchToken = Symbol("novelSearch");
+
+  novelState.searchToken = searchToken;
+
   if (container) {
     container.innerHTML = `
             <div class="text-center py-5 text-secondary">
                 <div class="spinner-border text-success spinner-border-sm mb-2" role="status"></div>
-                <div>正在【${sourceName}】檢索${q ? `《${escapeHtml(q)}》` : "精選輕小說"}...</div>
+                <div>正在【${escapeHtml(sourceName)}】檢索《${escapeHtml(q)}》...</div>
             </div>
         `;
   }
 
   let results = [];
+  let errorMsg = "";
 
   try {
     const resp = await fetch(
       `/api/novel/search?q=${encodeURIComponent(q)}&source=${encodeURIComponent(source)}`,
+      { signal: AbortSignal.timeout(20000) },
     );
+    const r = await readNovelApi(resp);
 
-    if (resp.ok) {
-      const json = await resp.json();
-
-      if (
-        json.success &&
-        Array.isArray(json.results) &&
-        json.results.length > 0
-      ) {
-        results = json.results;
-      }
+    if (r.ok) {
+      results = Array.isArray(r.json.results) ? r.json.results : [];
+    } else {
+      errorMsg = r.error;
     }
   } catch (err) {
-    console.warn("後端小說 API 未啟動或回應異常：", err);
+    console.warn("小說搜尋失敗：", err);
+    errorMsg =
+      err && err.name === "TimeoutError"
+        ? "搜尋逾時，書源回應過慢"
+        : "無法連線到小說服務，請確認伺服器已啟動";
   }
+
+  if (novelState.searchToken !== searchToken) return;
 
   novelState.searchResults = results;
 
-  renderNovelSearchResults(results);
+  if (errorMsg) {
+    renderNovelNotice(
+      container,
+      `書源【${sourceName}】暫時無法使用`,
+      `${errorMsg}。可切換上方其他書源再試一次。`,
+      true,
+    );
+
+    return;
+  }
+
+  renderNovelSearchResults(results, q, sourceName);
 };
 
 // 渲染小說搜尋結果清單 (包含書源標籤)
-function renderNovelSearchResults(novels) {
+function renderNovelSearchResults(novels, q = "", sourceName = "") {
   const container = document.getElementById("novelSearchResultsContainer");
 
   if (!container) return;
 
   if (!novels || novels.length === 0) {
-    container.innerHTML = `
-            <div class="text-center py-5 text-secondary">
-                <i class="bi bi-journal-x fs-2 d-block mb-2 text-warning opacity-75"></i>
-                <div>未找到相關輕小說作品，請嘗試其他關鍵字</div>
-            </div>
-        `;
+    renderNovelNotice(
+      container,
+      `【${sourceName || "此書源"}】找不到${q ? `「${q}」` : ""}相關作品`,
+      "請嘗試其他關鍵字（簡體字通常較容易命中），或切換上方其他書源。",
+      false,
+    );
 
     return;
   }
 
   container.innerHTML = novels
     .map((n) => {
-      const sourceBadge =
-        n.source === "bilinovel" ||
-        (n.sourceName && n.sourceName.includes("嗶哩"))
-          ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle small me-1">📚 Bilinovel</span>'
-          : '<span class="badge bg-success-subtle text-success border border-success-subtle small me-1">📖 Wenku8</span>';
+      const srcInfo = NOVEL_SOURCES[n.source] || { badge: "📖 書源" };
+      const sourceBadge = `<span class="badge bg-success-subtle text-success border border-success-subtle small me-1">${escapeHtml(srcInfo.badge)}</span>`;
 
       const inShelf =
         typeof window.getNovelBookshelf === "function" &&
@@ -8390,16 +8578,14 @@ function renderNovelSearchResults(novels) {
                         <div class="small mb-1" style="color: #cbd5e1;">
                             <span><i class="bi bi-person text-success"></i> ${escapeHtml(n.author || "佚名")}</span>
                             <span class="mx-2">·</span>
-                            <span><i class="bi bi-tag text-success"></i> ${escapeHtml(n.category || "輕小說")}</span>
-                            <span class="mx-2">·</span>
-                            <span><i class="bi bi-list-ol text-success"></i> 共 ${n.chapterCount || "多"} 章</span>
+                            <span><i class="bi bi-tag text-success"></i> ${escapeHtml(n.category || n.sourceName || "小說")}</span>
                         </div>
                         <p class="card-text small text-truncate mb-2" style="max-width: 480px; color: #94a3b8;">${escapeHtml(n.intro || "")}</p>
                         <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <button class="btn btn-sm btn-success rounded-pill px-3" onclick="selectNovel('${escapeHtml(n.id)}', '${escapeHtml(n.title)}', '${escapeHtml(n.cover || "")}', '${escapeHtml(n.author || "")}', '${escapeHtml(n.intro || "")}')">
+                            <button class="btn btn-sm btn-success rounded-pill px-3" onclick="selectNovel(${novelJsArg(n.id)}, ${novelJsArg(n.title)}, ${novelJsArg(n.cover || "")}, ${novelJsArg(n.author || "")}, ${novelJsArg(n.intro || "")}, ${novelJsArg(n.source || "")})">
                                 <i class="bi bi-book-half me-1"></i> 開始閱讀 / 選集
                             </button>
-                            <button class="btn btn-sm ${shelfBtnClass} rounded-pill px-3" onclick="toggleNovelBookshelfItem('${escapeHtml(n.title)}', '${escapeHtml(n.cover || "")}', this)" title="${shelfBtnTitle}">
+                            <button class="btn btn-sm ${shelfBtnClass} rounded-pill px-3" onclick="toggleNovelBookshelfItem(${novelJsArg(n.title)}, ${novelJsArg(n.cover || "")}, this)" title="${shelfBtnTitle}">
                                 ${shelfBtnText}
                             </button>
                         </div>
@@ -8419,9 +8605,9 @@ window.selectNovel = async function (
   cover,
   author,
   intro = "",
+  sourceKey = "",
 ) {
-  const selectEl = document.getElementById("novelSourceSelect");
-  const source = selectEl ? selectEl.value : currentNovelSource;
+  const source = NOVEL_SOURCES[sourceKey] ? sourceKey : currentNovelSource;
 
   novelState.currentNovel = {
     id: novelId,
@@ -8468,31 +8654,47 @@ window.selectNovel = async function (
   }
 
   let chapters = [];
+  let errorMsg = "";
 
   try {
     const resp = await fetch(
-      `/api/novel/chapters?novelId=${encodeURIComponent(novelId)}&title=${encodeURIComponent(title)}&source=${encodeURIComponent(source)}`,
+      `/api/novel/chapters?novelId=${encodeURIComponent(novelId)}&source=${encodeURIComponent(source)}`,
+      { signal: AbortSignal.timeout(20000) },
     );
+    const r = await readNovelApi(resp);
 
-    if (resp.ok) {
-      const json = await resp.json();
-
-      if (
-        json.success &&
-        Array.isArray(json.chapters) &&
-        json.chapters.length > 0
-      ) {
-        chapters = json.chapters;
-      }
+    if (r.ok) {
+      chapters = Array.isArray(r.json.chapters) ? r.json.chapters : [];
+    } else {
+      errorMsg = r.error;
     }
   } catch (err) {
     console.warn("載入後端小說章節失敗：", err);
+    errorMsg =
+      err && err.name === "TimeoutError"
+        ? "載入目錄逾時，書源回應過慢"
+        : "無法連線到小說服務";
   }
+
+  // 使用者已改選其他作品時，丟棄過期回應
+  if (!novelState.currentNovel || novelState.currentNovel.id !== novelId)
+    return;
 
   novelState.chapters = chapters;
   const countEl = document.getElementById("novelSelectedChapterCount");
 
   if (countEl) countEl.textContent = `共 ${chapters.length} 章`;
+
+  if (errorMsg) {
+    renderNovelNotice(
+      container,
+      `無法載入《${title}》的章節目錄`,
+      `${errorMsg}。請稍後再試，或切換其他書源。`,
+      true,
+    );
+
+    return;
+  }
 
   renderNovelChapterList(chapters, novelId, title);
 };
@@ -8526,7 +8728,7 @@ function renderNovelChapterList(chapters, novelId, title) {
                 (ch, idx) => `
                 <div class="col-12 col-sm-6">
                     <button class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate py-2 px-3 d-flex align-items-center justify-content-between chapter-select-btn ${novelState.currentChapterIdx === idx ? "border-success text-success bg-success bg-opacity-10 active" : ""}"
-                            onclick="loadNovelChapter('${escapeHtml(novelId)}', '${escapeHtml(ch.id)}', ${idx}, '${escapeHtml(title)}')">
+                            onclick="loadNovelChapter(${novelJsArg(novelId)}, ${novelJsArg(ch.id)}, ${idx}, ${novelJsArg(title)})">
                         <span class="text-truncate">${escapeHtml(ch.title)}</span>
                         <i class="bi bi-chevron-right small opacity-50 ms-2"></i>
                     </button>
@@ -8632,37 +8834,48 @@ window.loadNovelChapter = async function (
 
   let loadedParagraphs = null;
   let loadedChapterTitle = "";
-  const selectEl = document.getElementById("novelSourceSelect");
-  const source = selectEl ? selectEl.value : currentNovelSource;
+  // 章節屬於「開啟該書時」的書源，不受之後切換書源影響
+  const source =
+    novelState.currentNovel &&
+    novelState.currentNovel.id === novelId &&
+    NOVEL_SOURCES[novelState.currentNovel.source]
+      ? novelState.currentNovel.source
+      : currentNovelSource;
+  let errorMsg = "";
 
   try {
     const resp = await fetch(
-      `/api/novel/content?novelId=${encodeURIComponent(novelId)}&chapterId=${encodeURIComponent(chapterId)}&title=${encodeURIComponent(novelTitle)}&source=${encodeURIComponent(source)}`,
+      `/api/novel/content?novelId=${encodeURIComponent(novelId)}&chapterId=${encodeURIComponent(chapterId)}&source=${encodeURIComponent(source)}`,
+      { signal: AbortSignal.timeout(20000) },
     );
+    const r = await readNovelApi(resp);
 
-    if (resp.ok) {
-      const json = await resp.json();
-
-      if (
-        json.success &&
-        Array.isArray(json.paragraphs) &&
-        json.paragraphs.length > 0
-      ) {
-        loadedParagraphs = json.paragraphs;
-        loadedChapterTitle = json.title;
-      }
+    if (r.ok && Array.isArray(r.json.paragraphs) && r.json.paragraphs.length) {
+      loadedParagraphs = r.json.paragraphs;
+      loadedChapterTitle = r.json.title;
+    } else {
+      errorMsg = r.ok ? "此章節沒有正文" : r.error;
     }
   } catch (err) {
     console.warn("後端章節內容獲取失敗：", err);
+    errorMsg =
+      err && err.name === "TimeoutError"
+        ? "載入正文逾時，書源回應過慢"
+        : "無法連線到小說服務";
   }
 
   if (!loadedParagraphs || loadedParagraphs.length === 0) {
+    const chTitle =
+      novelState.chapters && novelState.chapters[chapterIdx]
+        ? novelState.chapters[chapterIdx].title
+        : `第 ${chapterIdx + 1} 章`;
+
     loadedParagraphs = [
-      `【提示】當前書源暫無《${novelTitle || "本作品"}》第 ${chapterIdx + 1} 章之正文內容。`,
-      `可能原因：該小說尚未收錄於目前所選的書源資料庫中，或來源端暫時維護中。`,
-      `建議您可以嘗試切換頂部之小說書源（如 輕小說文庫 / 嗶哩輕小說）再次檢索。`,
+      `【書源暫時無法使用】無法載入《${novelTitle || "本作品"}》${chTitle} 的正文。`,
+      `原因：${errorMsg || "未知錯誤"}。`,
+      `請稍後再按一次章節重試，或從「目錄」切換到其他書源重新搜尋。`,
     ];
-    loadedChapterTitle = `章節正文暫缺`;
+    loadedChapterTitle = `章節載入失敗`;
   }
 
   novelState.currentChapterIdx = chapterIdx;
@@ -8779,6 +8992,7 @@ window.openNovelChapterPicker = function () {
     novelState.currentNovel.cover,
     novelState.currentNovel.author,
     novelState.currentNovel.intro,
+    novelState.currentNovel.source,
   );
   const modalEl = document.getElementById("novelSourceModal");
 
@@ -9711,26 +9925,37 @@ window.triggerBangumiUserSync = async function (mode = "import") {
       subjectType === "all" ? [2, 1] : [parseInt(subjectType, 10)];
     let allItems = [];
 
+    // v0 API 每頁上限 50 筆，需依 total/offset 逐頁取回 (最多 20 頁，避免無限迴圈)
+    const PAGE_LIMIT = 50;
+    const MAX_PAGES = 20;
+
     for (const sType of typesToFetch) {
-      const apiUrl = `https://api.bgm.tv/v0/users/${encodeURIComponent(username)}/collections?subject_type=${sType}&type=${syncType}&limit=30`;
-
       try {
-        const res = await fetch(apiUrl, {
-          headers: { Accept: "application/json" },
-        });
+        for (let page = 0; page < MAX_PAGES; page++) {
+          const offset = page * PAGE_LIMIT;
+          const apiUrl = `https://api.bgm.tv/v0/users/${encodeURIComponent(username)}/collections?subject_type=${sType}&type=${syncType}&limit=${PAGE_LIMIT}&offset=${offset}`;
+          const res = await fetch(apiUrl, {
+            headers: { Accept: "application/json" },
+          });
 
-        if (res.ok) {
-          const data = await res.json();
-
-          if (Array.isArray(data.data)) {
-            allItems = allItems.concat(
-              data.data.map((d) => ({ ...d, requestedSubjectType: sType })),
-            );
+          if (!res.ok) {
+            if (res.status === 404 && page === 0 && typesToFetch.length === 1) {
+              throw new Error(
+                `找不到使用者【${username}】，請檢查使用者名稱或數字 UID 是否正確。`,
+              );
+            }
+            break;
           }
-        } else if (res.status === 404 && typesToFetch.length === 1) {
-          throw new Error(
-            `找不到使用者【${username}】，請檢查使用者名稱或數字 UID 是否正確。`,
+
+          const data = await res.json();
+          const pageItems = Array.isArray(data.data) ? data.data : [];
+
+          allItems = allItems.concat(
+            pageItems.map((d) => ({ ...d, requestedSubjectType: sType })),
           );
+
+          const total = parseInt(data.total, 10) || 0;
+          if (pageItems.length < PAGE_LIMIT || offset + pageItems.length >= total) break;
         }
       } catch (fetchErr) {
         if (typesToFetch.length === 1) throw fetchErr;
@@ -9769,34 +9994,33 @@ window.triggerBangumiUserSync = async function (mode = "import") {
       let currentEp = item.ep_status || 0;
       const totalEps = subject.eps || subject.total_episodes || "?";
       const scoreStr = subject.score ? `⭐ 評分 ${subject.score}` : "";
-      const statusNum = parseInt(syncType, 10) || 3;
+      // 以 API 回傳的實際收藏狀態為準 (1 想看, 2 看過, 3 在看, 4 擱置, 5 拋棄)
+      const statusNum =
+        parseInt(item.type, 10) || parseInt(syncType, 10) || 3;
 
-      const specificStatusLabel = isBook
-        ? statusNum === 1
-          ? "想讀"
-          : statusNum === 2
-            ? "已讀過"
-            : "已在讀"
-        : statusNum === 1
-          ? "想看"
-          : statusNum === 2
-            ? "已看過"
-            : "已在看";
-      const category = isBook ? "resource" : "anime";
+      const specificStatusLabel = bgmStatusLabel(statusNum, isBook);
+      const category = isBook ? "manga" : "anime";
       const tags = ["Bangumi同步", specificStatusLabel, currentTypeName];
 
       if (isBook) tags.push("書籍", "漫畫", "小說");
       else tags.push("動畫");
 
-      // 檢查圖書館中是否已存在
-      const existingIdx = state.bookmarks.findIndex(
-        (b) =>
-          b.url === bgmUrl ||
-          (b.title === title &&
-            (b.category === category ||
-              b.category === "anime" ||
-              b.category === "resource")),
+      // 檢查圖書館中是否已存在：優先以 subject ID 比對；
+      // 僅在同為動畫/同為書籍、且尚未綁定其他條目時才以標題比對
+      // (避免同名的動畫與漫畫/小說互相覆蓋狀態)
+      const boundSubjectId = bgmBoundSubjectId;
+      let existingIdx = state.bookmarks.findIndex(
+        (b) => b.url === bgmUrl || boundSubjectId(b) === String(subjectId),
       );
+      if (existingIdx === -1) {
+        existingIdx = state.bookmarks.findIndex(
+          (b) =>
+            b.title === title &&
+            !boundSubjectId(b) &&
+            ["anime", "resource", "manga", "novel"].includes(b.category) &&
+            isMangaItem(b) === isBook,
+        );
+      }
 
       if (existingIdx !== -1) {
         const existing = state.bookmarks[existingIdx];
@@ -9837,6 +10061,7 @@ window.triggerBangumiUserSync = async function (mode = "import") {
         existing.category = category;
         existing.bangumiStatus = statusNum;
         existing.bangumiSubjectId = subjectId;
+        existing.bangumiSubjectType = isBook ? 1 : 2;
 
         if (!Array.isArray(existing.tags)) existing.tags = [];
 
@@ -9869,6 +10094,7 @@ window.triggerBangumiUserSync = async function (mode = "import") {
           desc: desc,
           bangumiStatus: statusNum,
           bangumiSubjectId: subjectId,
+          bangumiSubjectType: isBook ? 1 : 2,
           pinned: false,
           clicks: 0,
           createdAt: new Date().toISOString(),
@@ -9960,8 +10186,8 @@ window.toggleBatchMode = function (forceState) {
   if (state.isBatchMode && typeof gsap !== "undefined") {
     gsap.fromTo(
       "#bookmarkContainer .bookmark-batch-checkbox",
-      { scale: 0.4, opacity: 0 },
-      { scale: 1, opacity: 1, duration: 0.25, stagger: 0.012, ease: "back.out(2)", clearProps: "transform,opacity" },
+      { scale: 0.8, opacity: 0 },
+      { scale: 1, opacity: 1, duration: 0.2, stagger: 0.01, ease: "power2.out", clearProps: "transform,opacity" },
     );
   }
 
@@ -10056,12 +10282,7 @@ window.batchChangeCategory = function (newCategory) {
     return;
   }
 
-  const catNames = {
-    anime: "動畫 (Kazumi)",
-    web: "一般網頁",
-    video: "影片影音",
-    resource: "動漫資源",
-  };
+  if (!BOOKMARK_CATEGORIES.includes(newCategory)) return;
   let count = 0;
 
   state.bookmarks.forEach((b) => {
@@ -10079,7 +10300,7 @@ window.batchChangeCategory = function (newCategory) {
   updateBatchUI();
 
   showToast(
-    `🎉 成功將 ${count} 個項目變更為「${catNames[newCategory] || newCategory}」！`,
+    `🎉 成功將 ${count} 個項目變更為「${BOOKMARK_CATEGORY_META[newCategory].label}」！`,
     "bi-check-circle-fill text-success",
   );
 };
@@ -10679,13 +10900,24 @@ document.addEventListener("DOMContentLoaded", () => {
 function isMangaItem(item) {
   if (!item) return false;
 
+  // Bangumi 匯入時記錄的 subject_type：1 = 書籍 (漫畫/小說)、2 = 動畫
+  const st = parseInt(item.bangumiSubjectType, 10);
+  if (st === 1) return true;
+  if (st === 2) return false;
+
   return (
     item.category === "manga" ||
+    item.category === "novel" ||
     item.category === "resource" ||
     (Array.isArray(item.tags) &&
       item.tags.some(
         (t) =>
-          t.includes("漫畫") || t.includes("条漫") || t.includes("Tachimanga"),
+          typeof t === "string" &&
+          (t.includes("漫畫") ||
+            t.includes("条漫") ||
+            t.includes("Tachimanga") ||
+            t.includes("小說") ||
+            t.includes("書籍")),
       ))
   );
 }
@@ -10694,67 +10926,23 @@ window.getBookmarkWatchStatusLabel = function (item) {
   if (!item) return "狀態";
   const isManga = isMangaItem(item);
 
-  // 1. 優先檢查 bangumiStatus 數值 (3: 已在看/已在讀, 2: 已看過/已讀過, 1: 想看/想讀)
-  if (item.bangumiStatus !== undefined && item.bangumiStatus !== null) {
-    const s = parseInt(item.bangumiStatus, 10);
+  // 1. 優先檢查 bangumiStatus 數值 (1 想看, 2 看過, 3 在看, 4 擱置, 5 拋棄)
+  const fromField = bgmStatusLabel(item.bangumiStatus, isManga);
+  if (fromField) return fromField;
 
-    if (s === 3) return isManga ? "已在讀" : "已在看";
+  // 2. 檢查 tags 標籤陣列 (支援複合標籤如「在看/在讀」、「#已看」等)
+  const fromTags = bgmStatusLabel(bgmStatusFromTags(item.tags), isManga);
+  if (fromTags) return fromTags;
 
-    if (s === 2) return isManga ? "已讀過" : "已看過";
+  // 3. 檢查快取 (以 subject ID 或「類型 + 完整標題」為鍵，避免不同季/同名動畫漫畫混用)
+  const cache = window.bangumiSubjectStatusCache || {};
+  const cached =
+    (item.bangumiSubjectId && cache[bgmSubjectCacheKey(item.bangumiSubjectId)]) ||
+    (item.title && cache[bgmTitleCacheKey(item.title, isManga ? 1 : 2)]);
 
-    if (s === 1) return isManga ? "想讀" : "想看";
-  }
-
-  // 2. 檢查 tags 標籤陣列 (支援模糊匹配、複合標籤如「在看/在讀」、「#在看/在讀」、「#已看」等)
-  if (Array.isArray(item.tags)) {
-    if (
-      item.tags.some(
-        (t) =>
-          typeof t === "string" && (t.includes("在看") || t.includes("在讀")),
-      )
-    ) {
-      return isManga ? "已在讀" : "已在看";
-    }
-
-    if (
-      item.tags.some(
-        (t) =>
-          typeof t === "string" &&
-          (t.includes("看過") ||
-            t.includes("已看") ||
-            t.includes("讀過") ||
-            t.includes("已讀")),
-      )
-    ) {
-      return isManga ? "已讀過" : "已看過";
-    }
-
-    if (
-      item.tags.some(
-        (t) =>
-          typeof t === "string" && (t.includes("想看") || t.includes("想讀")),
-      )
-    ) {
-      return isManga ? "想讀" : "想看";
-    }
-  }
-
-  // 3. 檢查快取
-  if (item.title) {
-    const cleanTitle = cleanBangumiQueryTitle(item.title);
-
-    const cached =
-      window.bangumiSubjectStatusCache &&
-      (window.bangumiSubjectStatusCache[cleanTitle] ||
-        window.bangumiSubjectStatusCache[item.title]);
-
-    if (cached && cached.type > 0) {
-      if (cached.type === 3) return isManga ? "已在讀" : "已在看";
-
-      if (cached.type === 2) return isManga ? "已讀過" : "已看過";
-
-      if (cached.type === 1) return isManga ? "想讀" : "想看";
-    }
+  if (cached && cached.type > 0) {
+    const fromCache = bgmStatusLabel(cached.type, isManga);
+    if (fromCache) return fromCache;
   }
 
   return "標記狀態";
@@ -10766,17 +10954,8 @@ window.updateCardWatchStatus = async function (bookmarkId, newType) {
   if (!item) return;
   const isManga = isMangaItem(item);
 
-  const typeLabel = isManga
-    ? newType === 1
-      ? "想讀"
-      : newType === 2
-        ? "已讀過"
-        : "已在讀"
-    : newType === 1
-      ? "想看"
-      : newType === 2
-        ? "已看過"
-        : "已在看";
+  const typeLabel = bgmStatusLabel(newType, isManga);
+  if (!typeLabel) return;
 
   if (!Array.isArray(item.tags)) item.tags = [];
 
@@ -10819,7 +10998,7 @@ window.updateCardWatchStatus = async function (bookmarkId, newType) {
     }
 
     if (subjectId) {
-      await window.syncStatusToBangumi(subjectId, newType);
+      await window.syncStatusToBangumi(subjectId, newType, null, null, isManga);
     } else {
       showToast(
         "已更新本地標記（未找到對應 Bangumi 作品 ID）",
@@ -10901,148 +11080,135 @@ function cleanBangumiQueryTitle(rawTitle) {
   return t;
 }
 
+// 標題正規化：只去除空白與標點、統一大小寫；保留季數/篇章等資訊，避免不同季別被視為同一作品
+function bgmNormTitle(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[\s　·・:：;；!！?？。.,，、~～\-_'"‘’“”「」『』()（）\[\]【】<>《》〈〉♪☆★♥♡]/g, "");
+}
+// 快取鍵：以「條目類型 (1 書籍 / 2 動畫) + 完整標題」或 subject ID 區分，避免同名動畫與漫畫/小說互相覆蓋
+function bgmTitleCacheKey(title, typeId) {
+  return `t${parseInt(typeId, 10) === 1 ? 1 : 2}|${bgmNormTitle(title)}`;
+}
+function bgmSubjectCacheKey(subjectId) {
+  return `id|${subjectId}`;
+}
+// 含季數/篇章標記的標題不可退回「去除季數後」的模糊搜尋，否則會對到第一季等其他條目
+const BGM_SEASON_RE =
+  /第[0-9一二三四五六七八九十百]+[季期部]|Season\s*\d+|\bS\d+\b|Part\s*\d+|劇場版|剧场版|特別篇|OVA|OAD/i;
+
 window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
-  const cleanTitle = cleanBangumiQueryTitle(title);
+  const rawTitle = String(title || "").trim();
+  if (!rawTitle) return null;
 
-  if (!cleanTitle && !title) return null;
-  const queryKey = cleanTitle || title.trim();
+  const isBook = parseInt(typeId, 10) === 1;
+  const subjectType = isBook ? 1 : 2;
+  const cache = window.bangumiSubjectStatusCache;
+  const titleKey = bgmTitleCacheKey(rawTitle, subjectType);
 
-  if (window.bangumiSubjectStatusCache[queryKey]) {
-    return window.bangumiSubjectStatusCache[queryKey];
-  }
-
-  if (window.bangumiSubjectStatusCache[title]) {
-    return window.bangumiSubjectStatusCache[title];
-  }
+  if (cache[titleKey]) return cache[titleKey];
 
   const token = window.getBangumiToken ? window.getBangumiToken() : "";
+  const norm = bgmNormTitle(rawTitle) || rawTitle;
 
-  // 檢查本地現有書籤庫是否已綁定 subjectId 或具備狀態標籤
+  // 檢查本地書籤庫：只接受「完整標題相同」且「同為動畫 / 同為書籍」的書籤
   let knownSubjectId = null;
   let localColType = 0;
 
-  const existingBm = (state.bookmarks || []).find((b) => {
-    if (!b) return false;
-
-    if (b.title === title || b.title === queryKey) return true;
-    const bClean = cleanBangumiQueryTitle(b.title);
-    return bClean && (bClean === queryKey || bClean === title);
-  });
+  const existingBm = (state.bookmarks || []).find(
+    (b) =>
+      b &&
+      b.title &&
+      (bgmNormTitle(b.title) || b.title.trim()) === norm &&
+      isMangaItem(b) === isBook,
+  );
 
   if (existingBm) {
-    if (existingBm.bangumiSubjectId) {
-      knownSubjectId = existingBm.bangumiSubjectId;
-    } else if (
-      existingBm.url &&
-      /bgm\.tv\/subject\/(\d+)/.test(existingBm.url)
-    ) {
-      knownSubjectId = existingBm.url.match(/bgm\.tv\/subject\/(\d+)/)[1];
-    }
+    knownSubjectId = bgmBoundSubjectId(existingBm) || null;
 
-    if (existingBm.bangumiStatus) {
-      localColType = parseInt(existingBm.bangumiStatus, 10) || 0;
-    } else if (Array.isArray(existingBm.tags)) {
-      if (
-        existingBm.tags.some(
-          (t) =>
-            typeof t === "string" && (t.includes("在看") || t.includes("在讀")),
-        )
-      )
-        localColType = 3;
-      else if (
-        existingBm.tags.some(
-          (t) =>
-            typeof t === "string" &&
-            (t.includes("看過") ||
-              t.includes("已看") ||
-              t.includes("讀過") ||
-              t.includes("已讀")),
-        )
-      )
-        localColType = 2;
-      else if (
-        existingBm.tags.some(
-          (t) =>
-            typeof t === "string" && (t.includes("想看") || t.includes("想讀")),
-        )
-      )
-        localColType = 1;
-    }
+    localColType =
+      parseInt(existingBm.bangumiStatus, 10) ||
+      bgmStatusFromTags(existingBm.tags);
+    if (!(localColType >= 1 && localColType <= 5)) localColType = 0;
   }
+
+  const searchSubjects = async (q) => {
+    const r = await fetch(
+      `/api/bangumi/search?q=${encodeURIComponent(q)}&type=${subjectType}${token ? `&token=${encodeURIComponent(token)}` : ""}`,
+    );
+    const d = await r.json();
+    const list =
+      d && d.success && d.data && Array.isArray(d.data.data) ? d.data.data : [];
+    // 只保留同類型條目 (1 書籍 / 2 動畫)
+    return list.filter(
+      (s) => s && s.id && (!s.type || parseInt(s.type, 10) === subjectType),
+    );
+  };
+  const exactMatch = (list, n) =>
+    list.find(
+      (s) =>
+        (s.name_cn && bgmNormTitle(s.name_cn) === n) ||
+        (s.name && bgmNormTitle(s.name) === n),
+    );
 
   try {
     let subjectId = knownSubjectId;
-    let subjectTitle = queryKey;
+    let subjectTitle = rawTitle;
 
-    // 若尚未知曉 subjectId，則向後端 Bangumi Search 檢索
+    // 若尚未知曉 subjectId，則向後端 Bangumi Search 檢索 (先用完整標題)
     if (!subjectId) {
-      const searchRes = await fetch(
-        `/api/bangumi/search?q=${encodeURIComponent(queryKey)}&type=${typeId}${token ? `&token=${encodeURIComponent(token)}` : ""}`,
-      );
-      const searchData = await searchRes.json();
+      let list = await searchSubjects(rawTitle);
+      let picked = exactMatch(list, norm) || list[0] || null;
 
-      if (
-        searchData.success &&
-        searchData.data &&
-        Array.isArray(searchData.data.data) &&
-        searchData.data.data.length > 0
-      ) {
-        const candidates = searchData.data.data;
+      if (!picked) {
+        const cleaned = cleanBangumiQueryTitle(rawTitle);
 
-        const matchedSubject =
-          candidates.find(
-            (s) =>
-              (s.name_cn &&
-                (s.name_cn.trim() === queryKey ||
-                  s.name_cn.trim() === title)) ||
-              (s.name &&
-                (s.name.trim() === queryKey || s.name.trim() === title)),
-          ) ||
-          candidates.find(
-            (s) =>
-              (s.name_cn &&
-                (s.name_cn.includes(queryKey) ||
-                  queryKey.includes(s.name_cn))) ||
-              (s.name &&
-                (s.name.includes(queryKey) || queryKey.includes(s.name))),
-          ) ||
-          candidates[0];
-
-        if (matchedSubject && matchedSubject.id) {
-          subjectId = matchedSubject.id;
-
-          subjectTitle =
-            matchedSubject.name_cn || matchedSubject.name || queryKey;
+        if (cleaned && cleaned !== rawTitle && !BGM_SEASON_RE.test(rawTitle)) {
+          list = await searchSubjects(cleaned);
+          picked = exactMatch(list, bgmNormTitle(cleaned)) || null;
         }
+      }
+
+      if (picked) {
+        subjectId = String(picked.id);
+        subjectTitle = picked.name_cn || picked.name || rawTitle;
       }
     }
 
     if (subjectId) {
       let colType = 0; // 0 = 未收藏
+      let remoteKnown = false;
 
       if (token) {
-        const colRes = await fetch(
-          `/api/bangumi/collection?subjectId=${subjectId}&token=${encodeURIComponent(token)}`,
-        );
-        const colData = await colRes.json();
+        try {
+          const colRes = await fetch(
+            `/api/bangumi/collection?subjectId=${encodeURIComponent(subjectId)}&token=${encodeURIComponent(token)}`,
+          );
+          const colData = await colRes.json();
 
-        if (
-          colData.success &&
-          colData.data &&
-          typeof colData.data.type !== "undefined"
-        ) {
-          colType = parseInt(colData.data.type, 10) || 0;
+          if (
+            colData.success &&
+            colData.data &&
+            typeof colData.data.type !== "undefined"
+          ) {
+            colType = parseInt(colData.data.type, 10) || 0;
+            remoteKnown = true;
+          }
+        } catch (colErr) {
+          console.warn("查詢 Bangumi 收藏狀態失敗:", colErr.message);
         }
       }
 
-      // 若 Bangumi 未查詢到或未收藏但本地書籤已有標記，優先回退本地標記
-      if (colType === 0 && localColType > 0) {
+      // Bangumi 查詢失敗 / 未綁定 Token，或使用者設定「本地優先」時，採用本地書籤標記
+      const preferLocal =
+        (window.getBgmPriority ? window.getBgmPriority() : "bangumi") === "local";
+      if (localColType > 0 && (!remoteKnown || preferLocal)) {
         colType = localColType;
       }
 
       const resObj = { subjectId, type: colType, title: subjectTitle };
-      window.bangumiSubjectStatusCache[queryKey] = resObj;
-      window.bangumiSubjectStatusCache[title] = resObj;
+      cache[titleKey] = resObj;
+      cache[bgmSubjectCacheKey(subjectId)] = resObj;
 
       if (existingBm && !existingBm.bangumiSubjectId) {
         existingBm.bangumiSubjectId = subjectId;
@@ -11062,9 +11228,9 @@ window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
     const fallbackObj = {
       subjectId: knownSubjectId,
       type: localColType,
-      title: queryKey,
+      title: rawTitle,
     };
-    window.bangumiSubjectStatusCache[queryKey] = fallbackObj;
+    cache[titleKey] = fallbackObj;
     return fallbackObj;
   }
 
@@ -11075,7 +11241,7 @@ window.checkAndRenderBangumiStatus = async function (title, typeId, elementId) {
   const el = document.getElementById(elementId);
 
   if (!el) return;
-  const isManga = typeId === 1;
+  const isManga = parseInt(typeId, 10) === 1;
   const info = await window.fetchBangumiSubjectStatus(title, typeId);
 
   if (!info) {
@@ -11085,21 +11251,11 @@ window.checkAndRenderBangumiStatus = async function (title, typeId, elementId) {
     return;
   }
 
-  const type = info.type;
+  const label = bgmStatusLabel(info.type, isManga);
 
-  const mapLabels = isManga
-    ? { 1: "想讀", 2: "已讀過", 3: "已在讀", 4: "擱置", 5: "拋棄" }
-    : { 1: "想看", 2: "已看過", 3: "已在看", 4: "擱置", 5: "拋棄" };
-
-  if (mapLabels[type]) {
-    el.textContent = mapLabels[type];
-
-    el.className =
-      type === 3
-        ? "text-success fw-bold"
-        : type === 2
-          ? "text-primary fw-bold"
-          : "text-danger fw-bold";
+  if (label) {
+    el.textContent = label;
+    el.className = bgmStatusClass(info.type);
   } else {
     el.textContent = "未收藏";
     el.className = "text-white-50";
@@ -11134,34 +11290,36 @@ window.applyBangumiStatusChange = async function (
     return;
   }
 
-  const success = await window.syncStatusToBangumi(info.subjectId, statusType);
+  const success = await window.syncStatusToBangumi(
+    info.subjectId,
+    statusType,
+    null,
+    null,
+    isManga,
+  );
 
   if (success) {
     info.type = statusType;
-    const cleanTitle = cleanBangumiQueryTitle(title);
-    window.bangumiSubjectStatusCache[cleanTitle] = info;
-    window.bangumiSubjectStatusCache[title] = info;
+    window.bangumiSubjectStatusCache[bgmTitleCacheKey(title, isManga ? 1 : 2)] =
+      info;
+    window.bangumiSubjectStatusCache[bgmSubjectCacheKey(info.subjectId)] = info;
 
-    // 同步更新本地書籤庫中匹配作品的狀態標記與卡片
-    const typeLabel = isManga
-      ? statusType === 1
-        ? "想讀"
-        : statusType === 2
-          ? "已讀過"
-          : "已在讀"
-      : statusType === 1
-        ? "想看"
-        : statusType === 2
-          ? "已看過"
-          : "已在看";
+    // 同步更新本地書籤庫中「同一條目」的狀態標記與卡片
+    const typeLabel = bgmStatusLabel(statusType, isManga);
+    const norm = bgmNormTitle(title);
     let updatedAnyBookmark = false;
 
     (state.bookmarks || []).forEach((bm) => {
-      if (
-        bm.title === title ||
-        bm.title === cleanTitle ||
-        bm.bangumiSubjectId === info.subjectId
-      ) {
+      if (!bm) return;
+      const bound = bgmBoundSubjectId(bm);
+      const sameSubject = bound && bound === String(info.subjectId);
+      const sameTitleUnbound =
+        !bound &&
+        bm.title &&
+        bgmNormTitle(bm.title) === norm &&
+        isMangaItem(bm) === !!isManga;
+
+      if (sameSubject || sameTitleUnbound) {
         bm.bangumiSubjectId = info.subjectId;
         bm.bangumiStatus = statusType;
 
@@ -11169,7 +11327,7 @@ window.applyBangumiStatusChange = async function (
 
         bm.tags = stripWatchStatusTags(bm.tags);
 
-        bm.tags.push(typeLabel);
+        if (typeLabel) bm.tags.push(typeLabel);
         updatedAnyBookmark = true;
       }
     });
@@ -11184,17 +11342,8 @@ window.applyBangumiStatusChange = async function (
       const el = document.getElementById(elementId);
 
       if (el) {
-        const mapLabels = isManga
-          ? { 1: "想讀", 2: "已讀過", 3: "已在讀" }
-          : { 1: "想看", 2: "已看過", 3: "已在看" };
-        el.textContent = mapLabels[statusType] || "已收藏";
-
-        el.className =
-          statusType === 3
-            ? "text-success fw-bold"
-            : statusType === 2
-              ? "text-primary fw-bold"
-              : "text-danger fw-bold";
+        el.textContent = typeLabel || "已收藏";
+        el.className = bgmStatusClass(statusType);
       }
     }
   }
@@ -12059,7 +12208,10 @@ window.handleImportBookmarks = function (event) {
           title: item.title || item.name || "未命名書籤",
           url: item.url,
           cover: item.cover || "",
-          category: item.category || "other",
+          category:
+            item.category ||
+            detectCategoryFromSignals(item.url, item.title, item.tags) ||
+            "other",
           tags: Array.isArray(item.tags) ? item.tags : [],
           desc: item.desc || item.description || "",
           pinned: !!item.pinned,
@@ -13030,7 +13182,7 @@ function populateProfileForm(profileData, savedCustomAvatar) {
 
     const prefCatEl = document.getElementById('profileDefaultCategorySelect');
     if (prefCatEl) {
-        prefCatEl.value = savedCatPref;
+        prefCatEl.value = normalizeCategoryFilter(savedCatPref);
         if (!prefCatEl.value) prefCatEl.value = 'all';
     }
     const selectedAvatarInput = document.getElementById('profileSelectedAvatar');

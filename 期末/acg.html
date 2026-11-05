@@ -43,7 +43,7 @@
         .acg-carousel-container {
             border-radius: var(--radius-lg);
             overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+            box-shadow: var(--shadow-md);
             background: #0f172a;
         }
 
@@ -89,42 +89,43 @@
             .acg-carousel-content { flex-direction: column; text-align: center; padding: 1.5rem; }
             .acg-poster-img { width: 140px; margin-bottom: 1rem; }
         }
+        @media (max-width: 575.98px) {
+            /* 手機：指示點會壓到按鈕，改靠左右箭頭切換；品牌徽章收起讓漢堡選單留在同一列 */
+            #carouselIndicators { display: none; }
+            .navbar-brand .badge { display: none; }
+        }
 
         /* 輪播圖控制箭頭升級：高對比毛玻璃圓形控制鈕 (深色模式與淺色皆極致清晰) */
         .carousel-control-prev,
         .carousel-control-next {
             z-index: 25 !important;
-            width: 48px !important;
-            height: 48px !important;
+            width: 40px !important;
+            height: 40px !important;
             top: 50% !important;
             transform: translateY(-50%) !important;
-            background: rgba(15, 23, 42, 0.75) !important;
-            backdrop-filter: blur(10px) !important;
-            -webkit-backdrop-filter: blur(10px) !important;
-            border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
+            background: rgba(15, 23, 42, 0.45) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
             border-radius: 50% !important;
             margin: 0 16px !important;
             cursor: pointer;
-            opacity: 0.88 !important;
+            opacity: 0.85 !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+            transition: background-color var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), opacity var(--dur) var(--ease-out) !important;
+            box-shadow: none !important;
         }
         .carousel-control-prev:hover,
         .carousel-control-next:hover {
             opacity: 1 !important;
-            background: rgba(30, 41, 59, 0.95) !important;
-            border-color: rgba(255, 255, 255, 0.75) !important;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(255, 255, 255, 0.35) !important;
-            transform: translateY(-50%) scale(1.1) !important;
+            background: rgba(15, 23, 42, 0.7) !important;
+            border-color: rgba(255, 255, 255, 0.4) !important;
         }
         .carousel-control-prev-icon,
         .carousel-control-next-icon {
-            width: 1.6rem !important;
-            height: 1.6rem !important;
-            filter: brightness(0) invert(1) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8)) !important;
+            width: 1.25rem !important;
+            height: 1.25rem !important;
+            filter: brightness(0) invert(1) !important;
         }
         .carousel-indicators {
             z-index: 25 !important;
@@ -140,7 +141,7 @@
             border-radius: 3px;
             margin: 2px 3px;
             background-color: rgba(255, 255, 255, 0.45);
-            transition: all 0.25s ease;
+            transition: width var(--dur) var(--ease-out), background-color var(--dur) var(--ease-out);
             width: 18px;
         }
         .carousel-indicators .active {
@@ -150,16 +151,30 @@
 
         /* GSAP 專屬動態平滑樣式 */
         .acg-feature-card {
-            transition: box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
+            border-radius: var(--radius-lg) !important;
+            transition: box-shadow var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
             will-change: transform, opacity;
             cursor: pointer;
         }
         .acg-feature-card:hover {
-            box-shadow: 0 16px 36px rgba(15, 23, 42, 0.14) !important;
+            box-shadow: var(--shadow-md) !important;
+            border-color: var(--border-strong) !important;
         }
         .acg-feature-card .bi {
             display: inline-block;
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        /* 四張入口卡：顏色只留在小標與圖示，主按鈕統一墨色 */
+        #acgFeaturesSection .card-body > .btn {
+            background-color: var(--ink);
+            border-color: var(--ink);
+            color: var(--on-ink);
+            transition: background-color var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
+        }
+        #acgFeaturesSection .card-body > .btn:hover,
+        #acgFeaturesSection .card-body > .btn:active {
+            background-color: var(--ink-hover);
+            border-color: var(--ink-hover);
+            color: var(--on-ink);
         }
 
         /* ==================== 3D 擬真立體書架 (Apple Books 質感) ==================== */
@@ -822,7 +837,7 @@
                         </div>
                         <h5 class="fw-bold mb-1">🎮 遊戲專區與工具庫</h5>
                         <p class="text-muted small mb-4">收錄精選手遊與家機工具、官方 Wiki 與資料庫，支援 FGO Chaldea 素材規劃、Mooncell 在線使用與跳轉。</p>
-                        <button class="btn btn-warning text-dark fw-bold w-100 mt-auto rounded-2 shadow-sm" onclick="openGameHubModal()">
+                        <button class="btn btn-warning w-100 mt-auto rounded-2" onclick="openGameHubModal()">
                             <i class="bi bi-controller"></i> 開啟遊戲專區
                         </button>
                     </div>
@@ -1726,25 +1741,25 @@
                     <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="關閉"></button>
                 </div>
                 <div class="modal-body p-4 bg-dark">
-                    <!-- 書源切換按鈕列 (仿 Kazumi 多來源切換: Wenku8 vs Bilinovel) -->
+                    <!-- 書源切換按鈕列 (飄天文學 vs 愛下電子書，皆為免登入線上書源) -->
                     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                         <div class="d-flex align-items-center gap-2 flex-wrap">
                             <span class="small text-white-50 fw-semibold"><i class="bi bi-hdd-network"></i> 小說書源：</span>
                             <div class="d-flex align-items-center gap-2" role="group" aria-label="小說書源切換">
-                                <button type="button" class="btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold novel-source-pill" id="sourcePill-wenku8" onclick="setNovelSource('wenku8')">
-                                    <i class="bi bi-book me-1"></i> 輕小說文庫 (Wenku8)
+                                <button type="button" class="btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold novel-source-pill" id="sourcePill-piaotia" onclick="setNovelSource('piaotia')">
+                                    <i class="bi bi-book me-1"></i> 飄天文學
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill" id="sourcePill-bilinovel" onclick="setNovelSource('bilinovel')">
-                                    <i class="bi bi-journal-richtext me-1"></i> 嗶哩輕小說 (Bilinovel)
+                                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill" id="sourcePill-ixdzs" onclick="setNovelSource('ixdzs')">
+                                    <i class="bi bi-journal-richtext me-1"></i> 愛下電子書
                                 </button>
                             </div>
                         </div>
-                        <span class="badge bg-dark border border-secondary text-white-50 small" id="currentNovelSourceBadge">當前：輕小說文庫</span>
+                        <span class="badge bg-dark border border-secondary text-white-50 small" id="currentNovelSourceBadge">當前：飄天文學</span>
                     </div>
 
                     <!-- 獨立檢索列：無寬度限制、直覺、防文字截斷 -->
                     <div class="input-group mb-3">
-                        <input type="text" id="novelDrawerKeywordInput" class="form-control bg-black border-secondary text-white py-2" placeholder="輸入輕小說名稱或作者..." onkeydown="if(event.key==='Enter') searchNovelFromDrawer(this.value)">
+                        <input type="text" id="novelDrawerKeywordInput" class="form-control bg-black border-secondary text-white py-2" placeholder="輸入小說名稱或作者..." onkeydown="if(event.key==='Enter') searchNovelFromDrawer(this.value)">
                         <button class="btn btn-success px-4 fw-semibold" type="button" onclick="searchNovelFromDrawer(document.getElementById('novelDrawerKeywordInput').value)">
                             <i class="bi bi-search me-1"></i> 檢索小說
                         </button>
@@ -1919,6 +1934,8 @@
 
     <!-- GSAP 3 高效能專業動畫庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <!-- 尊重系統「減少動態效果」：GSAP 動畫幾乎瞬間完成 -->
+    <script>if (typeof gsap !== "undefined") gsap.matchMedia().add("(prefers-reduced-motion: reduce)", () => { gsap.globalTimeline.timeScale(20); return () => gsap.globalTimeline.timeScale(1); });</script>
     <!-- Bootstrap 5 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- App Logic JS -->

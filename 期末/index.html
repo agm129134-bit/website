@@ -59,7 +59,7 @@
 
     <!-- Custom Styles -->
 
-    <link rel="stylesheet" href="css/style.css?v=20261028_fix_overlap_v3" />
+    <link rel="stylesheet" href="css/style.css?v=20261105_minimal" />
 
     <!-- JSZip for EPUB Ebook Parsing -->
 
@@ -647,8 +647,8 @@
     <main class="container-fluid px-lg-4 py-4">
       <!-- 頂部資訊與統計面板 (極簡邊框微質感) -->
 
-      <header class="row g-3 mb-4">
-        <div class="col-12 col-md-4">
+      <header class="row g-2 g-sm-3 mb-4">
+        <div class="col-4">
           <div class="card stat-card bg-gradient-web">
             <div
               class="card-body d-flex align-items-center justify-content-between p-3"
@@ -666,7 +666,7 @@
           </div>
         </div>
 
-        <div class="col-12 col-md-4">
+        <div class="col-4">
           <div class="card stat-card bg-gradient-video">
             <div
               class="card-body d-flex align-items-center justify-content-between p-3"
@@ -684,13 +684,13 @@
           </div>
         </div>
 
-        <div class="col-12 col-md-4">
+        <div class="col-4">
           <div class="card stat-card bg-gradient-res">
             <div
               class="card-body d-flex align-items-center justify-content-between p-3"
             >
               <div>
-                <span class="small fw-semibold">動漫與資源索引</span>
+                <span class="small fw-semibold">動畫、漫畫與資源</span>
 
                 <h3 class="mb-0 mt-1" id="statResCount">0</h3>
               </div>
@@ -821,15 +821,32 @@
               <li class="nav-item">
                 <button
                   class="nav-link rounded-pill d-flex align-items-center gap-1"
-                  data-category="resource"
+                  data-category="manga"
+                >
+                  <i class="bi bi-book-half text-primary"></i>
+
+                  <span>漫畫 / 小說</span>
+
+                  <span
+                    class="badge bg-primary-subtle text-primary rounded-pill ms-1"
+                    id="badgeMangaCount"
+                    >0</span
+                  >
+                </button>
+              </li>
+
+              <li class="nav-item">
+                <button
+                  class="nav-link rounded-pill d-flex align-items-center gap-1"
+                  data-category="other"
                 >
                   <i class="bi bi-gem text-success"></i>
 
-                  <span>動漫與資源</span>
+                  <span>資源 / 其他</span>
 
                   <span
                     class="badge bg-success-subtle text-success rounded-pill ms-1"
-                    id="badgeResCount"
+                    id="badgeOtherCount"
                     >0</span
                   >
                 </button>
@@ -1085,8 +1102,12 @@
                       🎬 影音影片 (Bilibili / YouTube / 影視)
                     </option>
 
-                    <option value="resource">
-                      📦 動漫與資源 (漫畫 / 載點 / ACG 資源)
+                    <option value="manga">
+                      📚 漫畫 / 小說 (漫畫站 / 輕小說 / Bangumi 書籍)
+                    </option>
+
+                    <option value="other">
+                      📦 資源 / 其他 (網盤 / 載點 / 未分類)
                     </option>
                   </select>
                 </div>
@@ -1487,7 +1508,8 @@
                         <option value="anime">動畫 (Anime)</option>
                         <option value="web">一般網頁 (Web)</option>
                         <option value="video">影片串流 (B站/YT)</option>
-                        <option value="resource">動漫與資源 (Resource)</option>
+                        <option value="manga">漫畫 / 小說 (Manga)</option>
+                        <option value="other">資源 / 其他 (Other)</option>
                       </select>
                     </div>
                     <div class="col-12">
@@ -4514,7 +4536,7 @@
           </div>
 
           <div class="modal-body p-4 bg-dark">
-            <!-- 書源切換按鈕列 (仿 Kazumi 多來源切換: Wenku8 vs Bilinovel) -->
+            <!-- 書源切換按鈕列 (飄天文學 vs 愛下電子書，皆為免登入線上書源) -->
 
             <div
               class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2"
@@ -4532,20 +4554,19 @@
                   <button
                     type="button"
                     class="btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold novel-source-pill"
-                    id="sourcePill-wenku8"
-                    onclick="setNovelSource('wenku8')"
+                    id="sourcePill-piaotia"
+                    onclick="setNovelSource('piaotia')"
                   >
-                    <i class="bi bi-book me-1"></i> 輕小說文庫 (Wenku8)
+                    <i class="bi bi-book me-1"></i> 飄天文學
                   </button>
 
                   <button
                     type="button"
                     class="btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill"
-                    id="sourcePill-bilinovel"
-                    onclick="setNovelSource('bilinovel')"
+                    id="sourcePill-ixdzs"
+                    onclick="setNovelSource('ixdzs')"
                   >
-                    <i class="bi bi-journal-richtext me-1"></i> 嗶哩輕小說
-                    (Bilinovel)
+                    <i class="bi bi-journal-richtext me-1"></i> 愛下電子書
                   </button>
                 </div>
               </div>
@@ -4553,7 +4574,7 @@
               <span
                 class="badge bg-dark border border-secondary text-white-50 small"
                 id="currentNovelSourceBadge"
-                >當前：輕小說文庫</span
+                >當前：飄天文學</span
               >
             </div>
 
@@ -4564,7 +4585,7 @@
                 type="text"
                 id="novelDrawerKeywordInput"
                 class="form-control bg-black border-secondary text-white py-2"
-                placeholder="輸入輕小說名稱或作者..."
+                placeholder="輸入小說名稱或作者..."
                 onkeydown="
                   if (event.key === 'Enter') searchNovelFromDrawer(this.value);
                 "
@@ -4743,8 +4764,17 @@
                 <a
                   class="dropdown-item"
                   href="#"
-                  onclick="batchChangeCategory('resource')"
-                  ><i class="bi bi-gem me-2 text-success"></i> 動漫與資源</a
+                  onclick="batchChangeCategory('manga')"
+                  ><i class="bi bi-book-half me-2 text-primary"></i> 漫畫 / 小說</a
+                >
+              </li>
+
+              <li>
+                <a
+                  class="dropdown-item"
+                  href="#"
+                  onclick="batchChangeCategory('other')"
+                  ><i class="bi bi-gem me-2 text-success"></i> 資源 / 其他</a
                 >
               </li>
             </ul>
@@ -5091,6 +5121,8 @@
     <!-- GSAP 3 物理動態引擎 (微互動與流暢彈入動畫) -->
 
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <!-- 尊重系統「減少動態效果」：GSAP 動畫幾乎瞬間完成 -->
+    <script>if (typeof gsap !== "undefined") gsap.matchMedia().add("(prefers-reduced-motion: reduce)", () => { gsap.globalTimeline.timeScale(20); return () => gsap.globalTimeline.timeScale(1); });</script>
 
     <!-- Hls.js for native m3u8 playback in Chrome/Edge -->
 
