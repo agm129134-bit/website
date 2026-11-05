@@ -4,7 +4,6 @@
  * 只提供日本小說，兩個書源皆為作者自行免費公開、免登入：
  *   - syosetu  : 小説家になろう (官方 API 搜尋 + ncode.syosetu.com 公開頁面)
  *   - kakuyomu : カクヨム (kakuyomu.jp 頁面內嵌的 Next.js 公開資料)
- * 先前的中國網文書源 (飄天文學 / 愛下電子書) 已移除。
  *
  * 端點：
  *   GET /api/novel/search?q=&source=
