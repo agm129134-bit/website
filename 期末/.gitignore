@@ -1,0 +1,9 @@
+# 執行時產生的使用者資料 (帳號、書籤、書架、音樂收藏)，只留在本機 / Docker volume
+data/*.db
+data/accounts.json
+data/bookmarks_*.json
+data/bookshelf_*.json
+data/test_docker.txt
+
+# 本機開發設定
+.claude/
