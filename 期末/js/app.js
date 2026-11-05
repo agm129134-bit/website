@@ -8338,64 +8338,93 @@ window.openNovelSearchModal = function (defaultKeyword = "") {
 };
 
 // ============================================================
-// Legado 輕小說多書源切換與檢索核心 (Wenku8 輕小說文庫 vs Bilinovel 嗶哩輕小說)
+// 小說線上書源切換與檢索核心 (飄天文學 piaotia vs 愛下電子書 ixdzs)
 // ============================================================
 
-let currentNovelSource =
-  sessionStorage.getItem("novel_preferred_source") || "wenku8";
+const NOVEL_SOURCES = {
+  piaotia: { name: "飄天文學", badge: "📖 飄天" },
+  ixdzs: { name: "愛下電子書", badge: "📚 愛下" },
+};
+
+// 舊版 wenku8 / bilinovel 已失效，sessionStorage 若存舊值則改回預設書源
+let currentNovelSource = NOVEL_SOURCES[
+  sessionStorage.getItem("novel_preferred_source")
+]
+  ? sessionStorage.getItem("novel_preferred_source")
+  : "piaotia";
+
+// 產生可安全放進 onclick="fn(...)" 的 JS 字串參數 (避免標題含引號時破壞屬性)
+function novelJsArg(value) {
+  return escapeHtml(JSON.stringify(String(value ?? "")));
+}
+
+// 讀取後端錯誤訊息；後端未啟動或回傳非 JSON 時給通用訊息
+async function readNovelApi(resp) {
+  let json = null;
+
+  try {
+    json = await resp.json();
+  } catch (e) {}
+
+  if (resp.ok && json && json.success) return { ok: true, json };
+
+  return {
+    ok: false,
+    error:
+      (json && json.error) ||
+      `小說服務回應異常 (HTTP ${resp.status})`,
+  };
+}
+
+function renderNovelNotice(container, title, detail, isError) {
+  if (!container) return;
+
+  container.innerHTML = `
+            <div class="text-center py-5 text-secondary">
+                <i class="bi ${isError ? "bi-wifi-off text-danger" : "bi-journal-x text-warning"} fs-2 d-block mb-2 opacity-75"></i>
+                <div class="text-white fw-bold">${escapeHtml(title)}</div>
+                ${detail ? `<div class="small text-white-50 mt-1">${escapeHtml(detail)}</div>` : ""}
+            </div>
+        `;
+}
 
 function updateNovelSourcePills() {
-  const pillWenku = document.getElementById("sourcePill-wenku8");
-  const pillBili = document.getElementById("sourcePill-bilinovel");
+  Object.keys(NOVEL_SOURCES).forEach((key) => {
+    const pill = document.getElementById(`sourcePill-${key}`);
+
+    if (!pill) return;
+
+    pill.className =
+      key === currentNovelSource
+        ? "btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold novel-source-pill"
+        : "btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill";
+  });
+
   const badge = document.getElementById("currentNovelSourceBadge");
 
-  if (currentNovelSource === "bilinovel") {
-    if (pillBili)
-      pillBili.className =
-        "btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold novel-source-pill";
-
-    if (pillWenku)
-      pillWenku.className =
-        "btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill";
-
-    if (badge) badge.textContent = "當前：嗶哩輕小說";
-  } else {
-    if (pillWenku)
-      pillWenku.className =
-        "btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold novel-source-pill";
-
-    if (pillBili)
-      pillBili.className =
-        "btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill";
-
-    if (badge) badge.textContent = "當前：輕小說文庫";
-  }
+  if (badge)
+    badge.textContent = `當前：${NOVEL_SOURCES[currentNovelSource].name}`;
 }
 
 window.setNovelSource = function (src) {
-  currentNovelSource = src || "wenku8";
+  currentNovelSource = NOVEL_SOURCES[src] ? src : "piaotia";
 
   sessionStorage.setItem("novel_preferred_source", currentNovelSource);
 
   updateNovelSourcePills();
 
-  const sourceName =
-    currentNovelSource === "bilinovel"
-      ? "Bilinovel 嗶哩輕小說"
-      : "Wenku8 輕小說文庫";
-
   showToast(
-    `📚 已切換至書源【${sourceName}】`,
+    `📚 已切換至書源【${NOVEL_SOURCES[currentNovelSource].name}】`,
     "bi-journal-bookmark-fill text-success",
   );
 
-  // 重新檢索當前輸入框關鍵字或重整推薦
+  // 有關鍵字才重新檢索，否則僅提示輸入
   const input = document.getElementById("novelDrawerKeywordInput");
   const kw = input ? input.value.trim() : "";
 
   searchNovelFromDrawer(kw);
 };
-// 在抽屜中進行小說檢索（支援 Wenku8 與 Bilinovel 多書源）
+// 在抽屜中進行小說檢索（飄天文學 / 愛下電子書）
 window.searchNovelFromDrawer = async function (keyword) {
   const q = (
     keyword !== undefined && keyword !== null
@@ -8404,13 +8433,8 @@ window.searchNovelFromDrawer = async function (keyword) {
         ? document.getElementById("novelDrawerKeywordInput").value
         : ""
   ).trim();
-  const selectEl = document.getElementById("novelSourceSelect");
-
-  const source =
-    selectEl && selectEl.value ? selectEl.value : currentNovelSource;
-
-  const sourceName =
-    source === "bilinovel" ? "Bilinovel 嗶哩輕小說" : "Wenku8 輕小說文庫";
+  const source = currentNovelSource;
+  const sourceName = NOVEL_SOURCES[source].name;
   const container = document.getElementById("novelSearchResultsContainer");
   const summaryBox = document.getElementById("novelSelectedSummaryBox");
 
@@ -8420,66 +8444,94 @@ window.searchNovelFromDrawer = async function (keyword) {
     summaryBox.classList.add("d-none");
   }
 
+  if (!q) {
+    novelState.searchResults = [];
+    renderNovelNotice(
+      container,
+      "請輸入小說名稱或作者",
+      `目前書源：${sourceName}，例如「诡秘之主」、「斗破苍穹」。`,
+      false,
+    );
+
+    return;
+  }
+
+  // 避免快速連續搜尋時，較慢的舊回應覆蓋新結果
+  const searchToken = Symbol("novelSearch");
+
+  novelState.searchToken = searchToken;
+
   if (container) {
     container.innerHTML = `
             <div class="text-center py-5 text-secondary">
                 <div class="spinner-border text-success spinner-border-sm mb-2" role="status"></div>
-                <div>正在【${sourceName}】檢索${q ? `《${escapeHtml(q)}》` : "精選輕小說"}...</div>
+                <div>正在【${escapeHtml(sourceName)}】檢索《${escapeHtml(q)}》...</div>
             </div>
         `;
   }
 
   let results = [];
+  let errorMsg = "";
 
   try {
     const resp = await fetch(
       `/api/novel/search?q=${encodeURIComponent(q)}&source=${encodeURIComponent(source)}`,
+      { signal: AbortSignal.timeout(20000) },
     );
+    const r = await readNovelApi(resp);
 
-    if (resp.ok) {
-      const json = await resp.json();
-
-      if (
-        json.success &&
-        Array.isArray(json.results) &&
-        json.results.length > 0
-      ) {
-        results = json.results;
-      }
+    if (r.ok) {
+      results = Array.isArray(r.json.results) ? r.json.results : [];
+    } else {
+      errorMsg = r.error;
     }
   } catch (err) {
-    console.warn("後端小說 API 未啟動或回應異常：", err);
+    console.warn("小說搜尋失敗：", err);
+    errorMsg =
+      err && err.name === "TimeoutError"
+        ? "搜尋逾時，書源回應過慢"
+        : "無法連線到小說服務，請確認伺服器已啟動";
   }
+
+  if (novelState.searchToken !== searchToken) return;
 
   novelState.searchResults = results;
 
-  renderNovelSearchResults(results);
+  if (errorMsg) {
+    renderNovelNotice(
+      container,
+      `書源【${sourceName}】暫時無法使用`,
+      `${errorMsg}。可切換上方其他書源再試一次。`,
+      true,
+    );
+
+    return;
+  }
+
+  renderNovelSearchResults(results, q, sourceName);
 };
 
 // 渲染小說搜尋結果清單 (包含書源標籤)
-function renderNovelSearchResults(novels) {
+function renderNovelSearchResults(novels, q = "", sourceName = "") {
   const container = document.getElementById("novelSearchResultsContainer");
 
   if (!container) return;
 
   if (!novels || novels.length === 0) {
-    container.innerHTML = `
-            <div class="text-center py-5 text-secondary">
-                <i class="bi bi-journal-x fs-2 d-block mb-2 text-warning opacity-75"></i>
-                <div>未找到相關輕小說作品，請嘗試其他關鍵字</div>
-            </div>
-        `;
+    renderNovelNotice(
+      container,
+      `【${sourceName || "此書源"}】找不到${q ? `「${q}」` : ""}相關作品`,
+      "請嘗試其他關鍵字（簡體字通常較容易命中），或切換上方其他書源。",
+      false,
+    );
 
     return;
   }
 
   container.innerHTML = novels
     .map((n) => {
-      const sourceBadge =
-        n.source === "bilinovel" ||
-        (n.sourceName && n.sourceName.includes("嗶哩"))
-          ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle small me-1">📚 Bilinovel</span>'
-          : '<span class="badge bg-success-subtle text-success border border-success-subtle small me-1">📖 Wenku8</span>';
+      const srcInfo = NOVEL_SOURCES[n.source] || { badge: "📖 書源" };
+      const sourceBadge = `<span class="badge bg-success-subtle text-success border border-success-subtle small me-1">${escapeHtml(srcInfo.badge)}</span>`;
 
       const inShelf =
         typeof window.getNovelBookshelf === "function" &&
@@ -8516,16 +8568,14 @@ function renderNovelSearchResults(novels) {
                         <div class="small mb-1" style="color: #cbd5e1;">
                             <span><i class="bi bi-person text-success"></i> ${escapeHtml(n.author || "佚名")}</span>
                             <span class="mx-2">·</span>
-                            <span><i class="bi bi-tag text-success"></i> ${escapeHtml(n.category || "輕小說")}</span>
-                            <span class="mx-2">·</span>
-                            <span><i class="bi bi-list-ol text-success"></i> 共 ${n.chapterCount || "多"} 章</span>
+                            <span><i class="bi bi-tag text-success"></i> ${escapeHtml(n.category || n.sourceName || "小說")}</span>
                         </div>
                         <p class="card-text small text-truncate mb-2" style="max-width: 480px; color: #94a3b8;">${escapeHtml(n.intro || "")}</p>
                         <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <button class="btn btn-sm btn-success rounded-pill px-3" onclick="selectNovel('${escapeHtml(n.id)}', '${escapeHtml(n.title)}', '${escapeHtml(n.cover || "")}', '${escapeHtml(n.author || "")}', '${escapeHtml(n.intro || "")}')">
+                            <button class="btn btn-sm btn-success rounded-pill px-3" onclick="selectNovel(${novelJsArg(n.id)}, ${novelJsArg(n.title)}, ${novelJsArg(n.cover || "")}, ${novelJsArg(n.author || "")}, ${novelJsArg(n.intro || "")}, ${novelJsArg(n.source || "")})">
                                 <i class="bi bi-book-half me-1"></i> 開始閱讀 / 選集
                             </button>
-                            <button class="btn btn-sm ${shelfBtnClass} rounded-pill px-3" onclick="toggleNovelBookshelfItem('${escapeHtml(n.title)}', '${escapeHtml(n.cover || "")}', this)" title="${shelfBtnTitle}">
+                            <button class="btn btn-sm ${shelfBtnClass} rounded-pill px-3" onclick="toggleNovelBookshelfItem(${novelJsArg(n.title)}, ${novelJsArg(n.cover || "")}, this)" title="${shelfBtnTitle}">
                                 ${shelfBtnText}
                             </button>
                         </div>
@@ -8545,9 +8595,9 @@ window.selectNovel = async function (
   cover,
   author,
   intro = "",
+  sourceKey = "",
 ) {
-  const selectEl = document.getElementById("novelSourceSelect");
-  const source = selectEl ? selectEl.value : currentNovelSource;
+  const source = NOVEL_SOURCES[sourceKey] ? sourceKey : currentNovelSource;
 
   novelState.currentNovel = {
     id: novelId,
@@ -8594,31 +8644,47 @@ window.selectNovel = async function (
   }
 
   let chapters = [];
+  let errorMsg = "";
 
   try {
     const resp = await fetch(
-      `/api/novel/chapters?novelId=${encodeURIComponent(novelId)}&title=${encodeURIComponent(title)}&source=${encodeURIComponent(source)}`,
+      `/api/novel/chapters?novelId=${encodeURIComponent(novelId)}&source=${encodeURIComponent(source)}`,
+      { signal: AbortSignal.timeout(20000) },
     );
+    const r = await readNovelApi(resp);
 
-    if (resp.ok) {
-      const json = await resp.json();
-
-      if (
-        json.success &&
-        Array.isArray(json.chapters) &&
-        json.chapters.length > 0
-      ) {
-        chapters = json.chapters;
-      }
+    if (r.ok) {
+      chapters = Array.isArray(r.json.chapters) ? r.json.chapters : [];
+    } else {
+      errorMsg = r.error;
     }
   } catch (err) {
     console.warn("載入後端小說章節失敗：", err);
+    errorMsg =
+      err && err.name === "TimeoutError"
+        ? "載入目錄逾時，書源回應過慢"
+        : "無法連線到小說服務";
   }
+
+  // 使用者已改選其他作品時，丟棄過期回應
+  if (!novelState.currentNovel || novelState.currentNovel.id !== novelId)
+    return;
 
   novelState.chapters = chapters;
   const countEl = document.getElementById("novelSelectedChapterCount");
 
   if (countEl) countEl.textContent = `共 ${chapters.length} 章`;
+
+  if (errorMsg) {
+    renderNovelNotice(
+      container,
+      `無法載入《${title}》的章節目錄`,
+      `${errorMsg}。請稍後再試，或切換其他書源。`,
+      true,
+    );
+
+    return;
+  }
 
   renderNovelChapterList(chapters, novelId, title);
 };
@@ -8652,7 +8718,7 @@ function renderNovelChapterList(chapters, novelId, title) {
                 (ch, idx) => `
                 <div class="col-12 col-sm-6">
                     <button class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate py-2 px-3 d-flex align-items-center justify-content-between chapter-select-btn ${novelState.currentChapterIdx === idx ? "border-success text-success bg-success bg-opacity-10 active" : ""}"
-                            onclick="loadNovelChapter('${escapeHtml(novelId)}', '${escapeHtml(ch.id)}', ${idx}, '${escapeHtml(title)}')">
+                            onclick="loadNovelChapter(${novelJsArg(novelId)}, ${novelJsArg(ch.id)}, ${idx}, ${novelJsArg(title)})">
                         <span class="text-truncate">${escapeHtml(ch.title)}</span>
                         <i class="bi bi-chevron-right small opacity-50 ms-2"></i>
                     </button>
@@ -8758,37 +8824,48 @@ window.loadNovelChapter = async function (
 
   let loadedParagraphs = null;
   let loadedChapterTitle = "";
-  const selectEl = document.getElementById("novelSourceSelect");
-  const source = selectEl ? selectEl.value : currentNovelSource;
+  // 章節屬於「開啟該書時」的書源，不受之後切換書源影響
+  const source =
+    novelState.currentNovel &&
+    novelState.currentNovel.id === novelId &&
+    NOVEL_SOURCES[novelState.currentNovel.source]
+      ? novelState.currentNovel.source
+      : currentNovelSource;
+  let errorMsg = "";
 
   try {
     const resp = await fetch(
-      `/api/novel/content?novelId=${encodeURIComponent(novelId)}&chapterId=${encodeURIComponent(chapterId)}&title=${encodeURIComponent(novelTitle)}&source=${encodeURIComponent(source)}`,
+      `/api/novel/content?novelId=${encodeURIComponent(novelId)}&chapterId=${encodeURIComponent(chapterId)}&source=${encodeURIComponent(source)}`,
+      { signal: AbortSignal.timeout(20000) },
     );
+    const r = await readNovelApi(resp);
 
-    if (resp.ok) {
-      const json = await resp.json();
-
-      if (
-        json.success &&
-        Array.isArray(json.paragraphs) &&
-        json.paragraphs.length > 0
-      ) {
-        loadedParagraphs = json.paragraphs;
-        loadedChapterTitle = json.title;
-      }
+    if (r.ok && Array.isArray(r.json.paragraphs) && r.json.paragraphs.length) {
+      loadedParagraphs = r.json.paragraphs;
+      loadedChapterTitle = r.json.title;
+    } else {
+      errorMsg = r.ok ? "此章節沒有正文" : r.error;
     }
   } catch (err) {
     console.warn("後端章節內容獲取失敗：", err);
+    errorMsg =
+      err && err.name === "TimeoutError"
+        ? "載入正文逾時，書源回應過慢"
+        : "無法連線到小說服務";
   }
 
   if (!loadedParagraphs || loadedParagraphs.length === 0) {
+    const chTitle =
+      novelState.chapters && novelState.chapters[chapterIdx]
+        ? novelState.chapters[chapterIdx].title
+        : `第 ${chapterIdx + 1} 章`;
+
     loadedParagraphs = [
-      `【提示】當前書源暫無《${novelTitle || "本作品"}》第 ${chapterIdx + 1} 章之正文內容。`,
-      `可能原因：該小說尚未收錄於目前所選的書源資料庫中，或來源端暫時維護中。`,
-      `建議您可以嘗試切換頂部之小說書源（如 輕小說文庫 / 嗶哩輕小說）再次檢索。`,
+      `【書源暫時無法使用】無法載入《${novelTitle || "本作品"}》${chTitle} 的正文。`,
+      `原因：${errorMsg || "未知錯誤"}。`,
+      `請稍後再按一次章節重試，或從「目錄」切換到其他書源重新搜尋。`,
     ];
-    loadedChapterTitle = `章節正文暫缺`;
+    loadedChapterTitle = `章節載入失敗`;
   }
 
   novelState.currentChapterIdx = chapterIdx;
@@ -8905,6 +8982,7 @@ window.openNovelChapterPicker = function () {
     novelState.currentNovel.cover,
     novelState.currentNovel.author,
     novelState.currentNovel.intro,
+    novelState.currentNovel.source,
   );
   const modalEl = document.getElementById("novelSourceModal");
 
