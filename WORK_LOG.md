@@ -73,7 +73,7 @@ node -c js/app.js && node -c js/acg.js && node -c server.js
 - 現在：**兩邊都開 → 8090；只開 8095 → 8095**；設定面板填自訂伺服器仍優先。
 - 版本 1.6.3。**需要手動更新 Chrome 裡安裝的腳本**。
 
-### 7. 全專案檢查（分支 `fix/server-exposure-and-user-identity`，尚未合併）
+### 7. 全專案檢查（PR #5）
 檢查項目：所有 JS 與 HTML 內嵌 script 語法、133 個 onclick 等事件處理函式都存在、getElementById 的 null 防護、所有 GET API 與靜態檔、瀏覽器實測（訪客 / jyun、SPA 切頁、輪播、時間表、console 錯誤）。
 
 發現並修正：
@@ -86,7 +86,6 @@ node -c js/app.js && node -c js/acg.js && node -c server.js
 
 ## 三、還沒做 / 待決定
 
-- [ ] 合併 `fix/server-exposure-and-user-identity` 到 `main`（已推上 GitHub，Docker 8095 已在跑這版）。
 - [ ] 8090 本機 server 目前沒開；重新 `node server.js` 後就會是修好的版本。
 - [ ] 更新 Chrome 篡改猴腳本到 1.6.3。
 - [ ] 明文密碼仍留在 git 歷史（repo 已私人化）。若這些密碼在別處也有用，**建議更換**。
@@ -112,4 +111,4 @@ node -c js/app.js && node -c js/acg.js && node -c server.js
 | #2 | 修正訪客登入清空 jyun 書籤 | ✅ 已合併 |
 | #3 | Docker 改用獨立具名 volume | ✅ 已合併 |
 | #4 | 篡改猴優先送 8090 | ✅ 已合併 |
-| — | 伺服器檔案外洩 / 崩潰 / XSS + 音樂頭像身分修正 | ⏳ 分支已推送，待合併 |
+| #5 | 伺服器檔案外洩 / 崩潰 / XSS + 音樂頭像身分修正 + 本日誌 | ✅ 已合併 |
