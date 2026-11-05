@@ -4,7 +4,7 @@
 
 // @namespace    http://tampermonkey.net/
 
-// @version      1.6.2
+// @version      1.6.3
 
 // @description  完美相容 YouTube、Bangumi、動漫劇院全域影片/彈幕雙向秒級同步橋樑 (解決跨域 iframe 暫停/跳轉割裂)、自由拖曳移動位置、開關懸浮球與 Alt + B 快捷鍵收藏！
 
@@ -1527,14 +1527,18 @@
             btn.textContent = "傳送中...";
         }
 
-        // 智慧候選端點清單（優先使用當前設定，失敗時自動秒級切換 8090 與 Docker 8095）
-        const candidateUrls = [
-            config.serverUrl,
+        // 候選端點：每次都先試本機 8090，連不上才送 Docker 8095 (兩邊資料各自獨立)
+        // 只有在設定面板填了其他伺服器 (非 8090/8095) 時才優先使用該網址
+        const defaultUrls = [
             "http://localhost:8090/api/user/bookmarks",
             "http://localhost:8095/api/user/bookmarks",
             "http://127.0.0.1:8090/api/user/bookmarks",
             "http://127.0.0.1:8095/api/user/bookmarks"
-        ].filter((u, i, arr) => u && arr.indexOf(u) === i);
+        ];
+        const customUrl = config.serverUrl;
+        const candidateUrls = customUrl && !defaultUrls.includes(customUrl)
+            ? [customUrl, ...defaultUrls]
+            : defaultUrls;
 
         let currentIndex = 0;
 
@@ -1591,9 +1595,8 @@
                             btn.disabled = false;
                             btn.textContent = "確認收藏";
                         }
-                        const portLabel = url.includes("8095") ? "Docker 8095" : "Port 8090";
+                        const portLabel = url.includes(":8095/") ? "Docker 8095" : url.includes(":8090/") ? "Port 8090" : new URL(url).host;
                         showNotice(`🎉 成功收藏至 Web Library！(${portLabel})`);
-                        config.serverUrl = url; // 自動記憶通暢之 URL
                         const modal = document.getElementById("wl-collector-modal");
                         if (modal) modal.style.setProperty("display", "none", "important");
                     } else {
