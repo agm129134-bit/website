@@ -4,7 +4,7 @@
 
 // @namespace    http://tampermonkey.net/
 
-// @version      1.6.3
+// @version      1.6.4
 
 // @description  完美相容 YouTube、Bangumi、動漫劇院全域影片/彈幕雙向秒級同步橋樑 (解決跨域 iframe 暫停/跳轉割裂)、自由拖曳移動位置、開關懸浮球與 Alt + B 快捷鍵收藏！
 
@@ -389,11 +389,39 @@
 
             }
 
-        } else if (host.includes("ani.gamer.com.tw") || host.includes("bangumi.tv") || host.includes("copymanga") || host.includes("dm5.com")) {
+        } else if (/(^|\.)(copymanga|mangacopy|dm5\.com|manhuagui\.com|mangadex\.org|baozimh\.com|kuaikanmanhua\.com|webtoons\.com|wenku8|bilinovel\.com|linovelib\.com)/.test(host) || host === "manga.bilibili.com") {
 
-            category = "resource";
+            // 漫畫 / 小說站 (與 Web Library 首頁分類方案一致)
 
-            defaultTags = ["動漫", "漫畫", "ACG資源"];
+            category = "manga";
+
+            defaultTags = ["漫畫", "ACG資源"];
+
+            const posterImg = document.querySelector(".anime_cover img, .coverList img, .data .poster img, .pic img");
+
+            if (posterImg && posterImg.src) coverUrl = posterImg.src;
+
+        } else if (host.includes("ani.gamer.com.tw") || host.includes("bangumi.tv") || host.includes("bgm.tv") || host.includes("anime1.me") || host.includes("agefans") || host.includes("myself-bbs.com")) {
+
+            category = "anime";
+
+            defaultTags = ["動畫", "ACG資源"];
+
+            // Bangumi 條目同時有書籍：依條目類型 (h1.nameSingle small) 區分
+
+            if (/bangumi\.tv|bgm\.tv/.test(host)) {
+
+                const subjType = document.querySelector("h1.nameSingle small")?.textContent || "";
+
+                if (/漫画|漫畫|小说|小說|书籍|書籍|画集|绘本|Novel|Manga/i.test(subjType)) {
+
+                    category = "manga";
+
+                    defaultTags = ["漫畫", "書籍", "ACG資源"];
+
+                }
+
+            }
 
             const posterImg = document.querySelector(".anime_cover img, .coverList img, .data .poster img, .pic img");
 
@@ -1227,7 +1255,11 @@
 
             { val: "video", text: "🎬 影片影音" },
 
-            { val: "resource", text: "📦 動漫資源" }
+            { val: "anime", text: "📺 動畫" },
+
+            { val: "manga", text: "📚 漫畫 / 小說" },
+
+            { val: "other", text: "📦 資源 / 其他" }
 
         ].forEach(opt => {
 

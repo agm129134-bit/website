@@ -690,7 +690,7 @@
               class="card-body d-flex align-items-center justify-content-between p-3"
             >
               <div>
-                <span class="small fw-semibold">動漫與資源索引</span>
+                <span class="small fw-semibold">動畫、漫畫與資源</span>
 
                 <h3 class="mb-0 mt-1" id="statResCount">0</h3>
               </div>
@@ -821,15 +821,32 @@
               <li class="nav-item">
                 <button
                   class="nav-link rounded-pill d-flex align-items-center gap-1"
-                  data-category="resource"
+                  data-category="manga"
+                >
+                  <i class="bi bi-book-half text-primary"></i>
+
+                  <span>漫畫 / 小說</span>
+
+                  <span
+                    class="badge bg-primary-subtle text-primary rounded-pill ms-1"
+                    id="badgeMangaCount"
+                    >0</span
+                  >
+                </button>
+              </li>
+
+              <li class="nav-item">
+                <button
+                  class="nav-link rounded-pill d-flex align-items-center gap-1"
+                  data-category="other"
                 >
                   <i class="bi bi-gem text-success"></i>
 
-                  <span>動漫與資源</span>
+                  <span>資源 / 其他</span>
 
                   <span
                     class="badge bg-success-subtle text-success rounded-pill ms-1"
-                    id="badgeResCount"
+                    id="badgeOtherCount"
                     >0</span
                   >
                 </button>
@@ -1085,8 +1102,12 @@
                       🎬 影音影片 (Bilibili / YouTube / 影視)
                     </option>
 
-                    <option value="resource">
-                      📦 動漫與資源 (漫畫 / 載點 / ACG 資源)
+                    <option value="manga">
+                      📚 漫畫 / 小說 (漫畫站 / 輕小說 / Bangumi 書籍)
+                    </option>
+
+                    <option value="other">
+                      📦 資源 / 其他 (網盤 / 載點 / 未分類)
                     </option>
                   </select>
                 </div>
@@ -1487,7 +1508,8 @@
                         <option value="anime">動畫 (Anime)</option>
                         <option value="web">一般網頁 (Web)</option>
                         <option value="video">影片串流 (B站/YT)</option>
-                        <option value="resource">動漫與資源 (Resource)</option>
+                        <option value="manga">漫畫 / 小說 (Manga)</option>
+                        <option value="other">資源 / 其他 (Other)</option>
                       </select>
                     </div>
                     <div class="col-12">
@@ -4743,8 +4765,17 @@
                 <a
                   class="dropdown-item"
                   href="#"
-                  onclick="batchChangeCategory('resource')"
-                  ><i class="bi bi-gem me-2 text-success"></i> 動漫與資源</a
+                  onclick="batchChangeCategory('manga')"
+                  ><i class="bi bi-book-half me-2 text-primary"></i> 漫畫 / 小說</a
+                >
+              </li>
+
+              <li>
+                <a
+                  class="dropdown-item"
+                  href="#"
+                  onclick="batchChangeCategory('other')"
+                  ><i class="bi bi-gem me-2 text-success"></i> 資源 / 其他</a
                 >
               </li>
             </ul>

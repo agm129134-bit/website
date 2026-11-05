@@ -421,6 +421,12 @@ body {
   border: 1px solid var(--cat-res-border);
 }
 
+.badge-cat-manga {
+  background: rgba(37, 99, 235, 0.9);
+  color: #ffffff;
+  border: 1px solid rgba(29, 78, 216, 0.8);
+}
+
 /* 卡片主體文字排版 */
 
 .card-content-body {

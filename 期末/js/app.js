@@ -283,6 +283,7 @@ function initApp() {
     // 載入使用者自訂的預設排序與預設啟動分類分頁
     const curU = (state.currentUser || 'jyun').toLowerCase().trim();
     const applyHomePrefs = (sort, cat) => {
+      cat = normalizeCategoryFilter(cat);
       state.sortMode = sort;
       state.activeCategory = cat;
 
@@ -911,17 +912,122 @@ function updateUI() {
   if (userApiTokenInput) userApiTokenInput.value = state.apiToken;
 }
 
-// 動畫項目判定 (由 Qwen 27B 設計之多重條件比對)
+// ==========================================
+// 書籤分類方案 (單一來源：每個書籤恰好屬於一個分類)
+// anime 動畫 · manga 漫畫/小說 · video 影片 · web 一般網頁 · other 資源/其他
+// 規則：
+//   1. 已存的 category 若是新方案中的有效值 → 直接採用 (含使用者手動設定)
+//   2. 舊值 (resource / 空值 / 未知值) → 依網域清單 + 關鍵字推斷，推斷不出則歸 other
+//   推斷只在讀取時進行，不會改寫使用者資料
+// ==========================================
+const BOOKMARK_CATEGORIES = ["anime", "manga", "video", "web", "other"];
+
+const BOOKMARK_CATEGORY_META = {
+  anime: { label: "動畫", icon: "bi-broadcast", badge: "badge-cat-anime" },
+  manga: { label: "漫畫 / 小說", icon: "bi-book-half", badge: "badge-cat-manga" },
+  video: { label: "影片影音", icon: "bi-play-btn-fill", badge: "badge-cat-video" },
+  web: { label: "一般網頁", icon: "bi-globe2", badge: "badge-cat-web" },
+  other: { label: "資源 / 其他", icon: "bi-box-seam-fill", badge: "badge-cat-resource" },
+};
+
+// 舊分類值 → 新分類 (resource 為舊版「動漫與資源」，需再依內容細分)
+const LEGACY_CATEGORY_MAP = { resource: "other" };
+
+const CATEGORY_HOSTS = {
+  manga: [
+    "manga.bilibili.com", "copymanga", "mangacopy", "dm5.com", "manhuagui.com",
+    "mangadex.org", "comick.io", "comick.app", "baozimh.com", "dmzj.com",
+    "idmzj.com", "zaimanhua.com", "kuaikanmanhua.com", "ac.qq.com",
+    "webtoons.com", "comic.naver.com", "manhuaren.com", "mangabz.com",
+    "wenku8", "bilinovel.com", "linovelib.com", "esjzone", "syosetu.com",
+    "kakuyomu.jp",
+  ],
+  anime: [
+    "ani.gamer.com.tw", "anime1.me", "anime1.in", "myself-bbs.com",
+    "agefans", "agedm", "7sefun", "bimiacg", "bimi", "girigirilove",
+    "omofun", "crunchyroll.com", "hidive.com", "animeone",
+  ],
+  bangumi: ["bgm.tv", "bangumi.tv", "chii.in"],
+  video: [
+    "youtube.com", "youtu.be", "bilibili.com", "b23.tv", "nicovideo.jp",
+    "vimeo.com", "twitch.tv", "iqiyi.com", "youku.com", "v.qq.com",
+    "tiktok.com", "douyin.com",
+  ],
+  other: [
+    "pan.quark.cn", "pan.baidu.com", "drive.google.com", "mega.nz",
+    "aliyundrive.com", "alipan.com", "115.com", "lanzou", "mediafire.com",
+    "nyaa.si", "dmhy.org", "mikanani.me", "acg.rip",
+  ],
+};
+
+const MANGA_KEYWORDS = /漫畫|漫画|条漫|條漫|書籍|书籍|小說|小说|輕小說|轻小说|文庫|manga|comic|webtoon|novel/i;
+const ANIME_KEYWORDS = /動畫|动画|番劇|番剧|新番|anime/i;
+
+function hostMatchesList(host, list) {
+  return list.some((d) =>
+    d.includes(".") ? host === d || host.endsWith("." + d) : host.includes(d),
+  );
+}
+
+// 由網址 / 標題 / 標籤推斷分類，推斷不出回傳 null
+function detectCategoryFromSignals(url, title, tags) {
+  let host = "";
+  let path = "";
+
+  try {
+    const parsed = new URL(url || "");
+    host = parsed.hostname.toLowerCase();
+    path = parsed.pathname.toLowerCase();
+  } catch (e) {}
+  const tagText = Array.isArray(tags) ? tags.join(" ") : tags || "";
+
+  if (host) {
+    if (hostMatchesList(host, CATEGORY_HOSTS.manga)) return "manga";
+    if (host.endsWith("bilibili.com") && path.startsWith("/bangumi/"))
+      return "anime";
+    if (hostMatchesList(host, CATEGORY_HOSTS.anime)) return "anime";
+    if (hostMatchesList(host, CATEGORY_HOSTS.bangumi)) {
+      // Bangumi 條目同時有書籍與動畫，依標籤/標題區分，預設為動畫
+      if (MANGA_KEYWORDS.test(tagText)) return "manga";
+      if (ANIME_KEYWORDS.test(tagText)) return "anime";
+      return MANGA_KEYWORDS.test(title || "") ? "manga" : "anime";
+    }
+    if (hostMatchesList(host, CATEGORY_HOSTS.video)) return "video";
+    if (hostMatchesList(host, CATEGORY_HOSTS.other)) return "other";
+  }
+
+  if (MANGA_KEYWORDS.test(tagText)) return "manga";
+  if (ANIME_KEYWORDS.test(tagText)) return "anime";
+  return null;
+}
+
+// 取得書籤的有效分類 (唯讀，不修改 item)
+function getBookmarkCategory(item) {
+  if (!item) return "other";
+  const stored = String(item.category || "").trim().toLowerCase();
+
+  if (BOOKMARK_CATEGORIES.includes(stored)) return stored;
+
+  return (
+    detectCategoryFromSignals(item.url, item.title, item.tags) ||
+    LEGACY_CATEGORY_MAP[stored] ||
+    "other"
+  );
+}
+
+// 篩選鍵正規化 (舊偏好值 resource → other，未知值 → all)
+function normalizeCategoryFilter(cat) {
+  const key = String(cat || "all").trim().toLowerCase();
+
+  if (key === "all" || BOOKMARK_CATEGORIES.includes(key)) return key;
+  return LEGACY_CATEGORY_MAP[key] || "all";
+}
+
+window.getBookmarkCategory = getBookmarkCategory;
+
+// 動畫項目判定 (統一走分類方案，避免漫畫因 Bangumi 標籤被誤判為動畫)
 function isAnimeItem(item) {
-  if (!item) return false;
-
-  if (item.category === "anime") return true;
-  const tags = Array.isArray(item.tags) ? item.tags.join(" ") : item.tags || "";
-
-  if (/動漫|動畫|Bangumi同步|本季新番/i.test(tags)) return true;
-
-  if (/bgm\.tv/i.test(item.url || "")) return true;
-  return false;
+  return getBookmarkCategory(item) === "anime";
 }
 
 // 統計數量更新
@@ -929,19 +1035,17 @@ function updateStats() {
   const statWeb = document.getElementById("statWebCount");
 
   if (!statWeb) return;
-  const animeCount = state.bookmarks.filter(isAnimeItem).length;
+  // 每個書籤只計入一個分類，按鈕數字與篩選結果一致
+  const catCounts = { anime: 0, manga: 0, video: 0, web: 0, other: 0 };
 
-  const webCount = state.bookmarks.filter(
-    (b) => b.category === "web" && !isAnimeItem(b),
-  ).length;
-
-  const videoCount = state.bookmarks.filter(
-    (b) => b.category === "video" && !isAnimeItem(b),
-  ).length;
-
-  const resCount = state.bookmarks.filter(
-    (b) => (b.category === "resource" || !b.category) && !isAnimeItem(b),
-  ).length;
+  state.bookmarks.forEach((b) => {
+    catCounts[getBookmarkCategory(b)]++;
+  });
+  const animeCount = catCounts.anime;
+  const webCount = catCounts.web;
+  const videoCount = catCounts.video;
+  const mangaCount = catCounts.manga;
+  const otherCount = catCounts.other;
   const totalCount = state.bookmarks.length;
   statWeb.textContent = webCount;
   const statVideo = document.getElementById("statVideoCount");
@@ -949,7 +1053,14 @@ function updateStats() {
   if (statVideo) statVideo.textContent = videoCount;
   const statRes = document.getElementById("statResCount");
 
-  if (statRes) statRes.textContent = resCount;
+  // 第三張統計卡：動畫 + 漫畫 + 資源/其他 (三張卡合計 = 全部收藏)
+  if (statRes) statRes.textContent = animeCount + mangaCount + otherCount;
+  const bManga = document.getElementById("badgeMangaCount");
+
+  if (bManga) bManga.textContent = mangaCount;
+  const bOther = document.getElementById("badgeOtherCount");
+
+  if (bOther) bOther.textContent = otherCount;
   const bAll = document.getElementById("badgeAllCount");
 
   if (bAll) bAll.textContent = totalCount;
@@ -964,7 +1075,7 @@ function updateStats() {
   if (bVideo) bVideo.textContent = videoCount;
   const bRes = document.getElementById("badgeResCount");
 
-  if (bRes) bRes.textContent = resCount;
+  if (bRes) bRes.textContent = otherCount;
 }
 
 // 標籤篩選晶片動態渲染
@@ -1021,19 +1132,11 @@ function renderTagChips() {
 function getFilteredAndSortedBookmarks() {
   let result = [...state.bookmarks];
 
-  // 1. 分類過濾 (動漫與資源包含動漫與資源索引)
-  if (state.activeCategory !== "all") {
-    if (state.activeCategory === "anime") {
-      result = result.filter(isAnimeItem);
-    } else if (state.activeCategory === "resource") {
-      result = result.filter(
-        (b) => (b.category === "resource" || !b.category) && !isAnimeItem(b),
-      );
-    } else {
-      result = result.filter(
-        (b) => b.category === state.activeCategory && !isAnimeItem(b),
-      );
-    }
+  // 1. 分類過濾 (與 updateStats 共用 getBookmarkCategory)
+  const activeCat = normalizeCategoryFilter(state.activeCategory);
+
+  if (activeCat !== "all") {
+    result = result.filter((b) => getBookmarkCategory(b) === activeCat);
   }
 
   // 2. 標籤過濾
@@ -1177,26 +1280,18 @@ function renderBookmarks(skipAnimation = false) {
     col.className = colClass;
 
     // 分類徽章與圖示設定
-    let catBadgeClass = "badge-cat-web";
-    let catLabel = "一般網頁";
-    let catIcon = "bi-globe2";
+    const itemCat = getBookmarkCategory(item);
+    const catMeta = BOOKMARK_CATEGORY_META[itemCat];
+    const catBadgeClass = catMeta.badge;
+    let catLabel = catMeta.label;
+    const catIcon = catMeta.icon;
 
-    if (isAnimeItem(item)) {
-      catBadgeClass = "badge-cat-anime";
-
+    if (itemCat === "anime") {
       const tags = Array.isArray(item.tags)
         ? item.tags.join(" ")
         : item.tags || "";
-      catLabel = /新番/i.test(tags) ? "動畫新番" : "動畫";
-      catIcon = "bi-broadcast";
-    } else if (item.category === "video") {
-      catBadgeClass = "badge-cat-video";
-      catLabel = "影片影音";
-      catIcon = "bi-play-btn-fill";
-    } else if (item.category === "resource") {
-      catBadgeClass = "badge-cat-resource";
-      catLabel = "動漫資源";
-      catIcon = "bi-box-seam-fill";
+
+      if (/新番/i.test(tags)) catLabel = "動畫新番";
     }
 
     // 解析網域名稱與 Favicon
@@ -1875,7 +1970,7 @@ window.editBookmark = function (id) {
   document.getElementById("editBookmarkId").value = item.id;
   document.getElementById("bmUrl").value = item.url;
   document.getElementById("bmTitle").value = item.title;
-  document.getElementById("bmCategory").value = item.category;
+  document.getElementById("bmCategory").value = getBookmarkCategory(item);
   document.getElementById("bmTags").value = (item.tags || []).join(", ");
   document.getElementById("bmCover").value = item.cover || "";
   document.getElementById("bmDesc").value = item.desc || "";
@@ -2017,10 +2112,14 @@ function autoDetectUrl(url) {
       defaultTags = ["動畫", "新番", "Kazumi播放"];
       guessedTitle = "動畫新番番劇";
     } else if (host.includes("dm5.com") || host.includes("copymanga")) {
-      guessedCategory = "resource";
+      guessedCategory = "manga";
       defaultTags = ["漫畫", "ACG資源"];
       guessedTitle = "漫畫閱讀資源";
     }
+
+    // 以統一的網域清單 + 關鍵字方案為準 (與首頁篩選一致)
+    guessedCategory =
+      detectCategoryFromSignals(url, "", defaultTags) || guessedCategory;
 
     document.getElementById("bmCategory").value = guessedCategory;
 
@@ -2036,15 +2135,10 @@ function autoDetectUrl(url) {
       document.getElementById("bmCover").value = guessedCover;
     }
 
-    const catNames = {
-      anime: "動畫",
-      video: "影片",
-      resource: "資源",
-      web: "一般網頁",
-    };
+    const catMeta = BOOKMARK_CATEGORY_META[guessedCategory];
 
     showToast(
-      `已辨識網站來源：自動切換至「${catNames[guessedCategory] || "一般網頁"}」分類！`,
+      `已辨識網站來源：自動切換至「${catMeta ? catMeta.label : "一般網頁"}」分類！`,
       "bi-magic text-primary",
     );
   } catch (e) {
@@ -9817,7 +9911,7 @@ window.triggerBangumiUserSync = async function (mode = "import") {
         parseInt(item.type, 10) || parseInt(syncType, 10) || 3;
 
       const specificStatusLabel = bgmStatusLabel(statusNum, isBook);
-      const category = isBook ? "resource" : "anime";
+      const category = isBook ? "manga" : "anime";
       const tags = ["Bangumi同步", specificStatusLabel, currentTypeName];
 
       if (isBook) tags.push("書籍", "漫畫", "小說");
@@ -10100,12 +10194,7 @@ window.batchChangeCategory = function (newCategory) {
     return;
   }
 
-  const catNames = {
-    anime: "動畫 (Kazumi)",
-    web: "一般網頁",
-    video: "影片影音",
-    resource: "動漫資源",
-  };
+  if (!BOOKMARK_CATEGORIES.includes(newCategory)) return;
   let count = 0;
 
   state.bookmarks.forEach((b) => {
@@ -10123,7 +10212,7 @@ window.batchChangeCategory = function (newCategory) {
   updateBatchUI();
 
   showToast(
-    `🎉 成功將 ${count} 個項目變更為「${catNames[newCategory] || newCategory}」！`,
+    `🎉 成功將 ${count} 個項目變更為「${BOOKMARK_CATEGORY_META[newCategory].label}」！`,
     "bi-check-circle-fill text-success",
   );
 };
@@ -12031,7 +12120,10 @@ window.handleImportBookmarks = function (event) {
           title: item.title || item.name || "未命名書籤",
           url: item.url,
           cover: item.cover || "",
-          category: item.category || "other",
+          category:
+            item.category ||
+            detectCategoryFromSignals(item.url, item.title, item.tags) ||
+            "other",
           tags: Array.isArray(item.tags) ? item.tags : [],
           desc: item.desc || item.description || "",
           pinned: !!item.pinned,
@@ -13002,7 +13094,7 @@ function populateProfileForm(profileData, savedCustomAvatar) {
 
     const prefCatEl = document.getElementById('profileDefaultCategorySelect');
     if (prefCatEl) {
-        prefCatEl.value = savedCatPref;
+        prefCatEl.value = normalizeCategoryFilter(savedCatPref);
         if (!prefCatEl.value) prefCatEl.value = 'all';
     }
     const selectedAvatarInput = document.getElementById('profileSelectedAvatar');
