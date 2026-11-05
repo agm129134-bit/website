@@ -293,8 +293,6 @@ function loadFromStorage() {
         parsed.some((b) => b.id === "bm_1" && b.title.includes("bootstrap"))
       ) {
         state.bookmarks = [];
-
-        saveToStorage();
       } else {
         state.bookmarks = parsed;
       }
@@ -303,9 +301,8 @@ function loadFromStorage() {
       state.bookmarks = [];
     }
   } else {
+    // 注意：此時還不知道登入者，絕不能 saveToStorage() (會把空清單上傳到預設帳號 jyun)
     state.bookmarks = [];
-
-    saveToStorage();
   }
 
   // 優先讀取登入驗證身分 (currentUser)
@@ -461,7 +458,8 @@ let _isLocalMutationActive = false; // 本地主動修改鎖 (避免 confirm 彈
 async function syncToServer(immediate = false) {
   const user = state.currentUser;
 
-  if (!user || user === "訪客") return;
+  // 訪客 (username "guest") 的收藏只留在 sessionStorage，不寫伺服器
+  if (!user || user === "訪客" || user === "guest") return;
 
   clearTimeout(_cloudSyncDebounceTimer);
 
