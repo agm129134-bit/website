@@ -2265,28 +2265,29 @@ function initDynamicIslandMusic() {
   });
 
   // 取得目前登入使用者名稱 (優先讀取全域狀態與有效 session 會話，杜絕跨帳號串位)
+  // 登入身分 (sessionStorage.currentUser) 優先：模組初始化時 state.currentUser 可能還是預設的 "jyun"
+  // 訪客回傳 null → 音樂庫只留在本頁，不讀寫伺服器
   function getCurrentUser() {
-    if (state && state.currentUser && state.currentUser !== "訪客") {
-      return state.currentUser;
-    }
+    let user = null;
     try {
       const sessionStored = sessionStorage.getItem("currentUser");
-      if (sessionStored) {
-        const u = JSON.parse(sessionStored);
-        if (u && u.username) return u.username;
-      }
       const remStored = localStorage.getItem("rememberedUser");
-      if (remStored) {
-        const rem = JSON.parse(remStored);
-        if (rem && rem.user && rem.user.username) return rem.user.username;
-      }
+      if (sessionStored) user = JSON.parse(sessionStored)?.username;
+      else if (remStored) user = JSON.parse(remStored)?.user?.username;
     } catch (e) {}
-    return "jyun";
+    user = (user || (state && state.currentUser) || "").toLowerCase().trim();
+    return !user || user === "訪客" || user === "guest" ? null : user;
   }
 
   // 1. 自 NeDB 資料庫非同步載入音樂清單 (留白設計，無假歌)
   async function loadMusicFromNeDB() {
     const user = getCurrentUser();
+    if (!user) {
+      userMusicTracks = [];
+      updateIslandUI();
+      renderWatchHoneycomb();
+      return;
+    }
     try {
       const res = await fetch(`/api/user/music?user=${encodeURIComponent(user)}`);
       if (res.ok) {
@@ -2308,6 +2309,7 @@ function initDynamicIslandMusic() {
   // 儲存音樂庫至 NeDB
   async function saveMusicToNeDB(tracksToSave) {
     const user = getCurrentUser();
+    if (!user) return;
     try {
       await fetch("/api/user/music", {
         method: "POST",
@@ -2414,7 +2416,7 @@ function initDynamicIslandMusic() {
       islandCurrentIndex = Math.max(0, userMusicTracks.length - 1);
     }
     try {
-      await fetch(`/api/user/music?user=${encodeURIComponent(user)}&id=${encodeURIComponent(trackId)}`, {
+      if (user) await fetch(`/api/user/music?user=${encodeURIComponent(user)}&id=${encodeURIComponent(trackId)}`, {
         method: "DELETE"
       });
       showIslandNotice(`已自音樂庫移除 [${title || '歌曲'}]`);
@@ -12855,7 +12857,10 @@ const AVATAR_PRESETS = [
 function updateNavUserAvatar(avatar) {
     const wrapper = document.getElementById('navUserAvatarWrapper');
     if (!wrapper) return;
-    const effectiveUser = (sessionStorage.getItem('web_library_user') || 'jyun').toLowerCase().trim();
+    // 登入身分 (sessionStorage.currentUser) 優先，避免剛登入時誤顯示預設帳號 jyun 的頭像
+    let loginUser = null;
+    try { loginUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null')?.username; } catch (e) {}
+    const effectiveUser = (loginUser || state.currentUser || 'jyun').toLowerCase().trim();
     if (!avatar) {
         avatar = sessionStorage.getItem('web_library_custom_avatar_' + effectiveUser) || 'default';
     }
