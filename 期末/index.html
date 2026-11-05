@@ -4514,7 +4514,7 @@
           </div>
 
           <div class="modal-body p-4 bg-dark">
-            <!-- 書源切換按鈕列 (仿 Kazumi 多來源切換: Wenku8 vs Bilinovel) -->
+            <!-- 書源切換按鈕列 (飄天文學 vs 愛下電子書，皆為免登入線上書源) -->
 
             <div
               class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2"
@@ -4532,20 +4532,19 @@
                   <button
                     type="button"
                     class="btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold novel-source-pill"
-                    id="sourcePill-wenku8"
-                    onclick="setNovelSource('wenku8')"
+                    id="sourcePill-piaotia"
+                    onclick="setNovelSource('piaotia')"
                   >
-                    <i class="bi bi-book me-1"></i> 輕小說文庫 (Wenku8)
+                    <i class="bi bi-book me-1"></i> 飄天文學
                   </button>
 
                   <button
                     type="button"
                     class="btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill"
-                    id="sourcePill-bilinovel"
-                    onclick="setNovelSource('bilinovel')"
+                    id="sourcePill-ixdzs"
+                    onclick="setNovelSource('ixdzs')"
                   >
-                    <i class="bi bi-journal-richtext me-1"></i> 嗶哩輕小說
-                    (Bilinovel)
+                    <i class="bi bi-journal-richtext me-1"></i> 愛下電子書
                   </button>
                 </div>
               </div>
@@ -4553,7 +4552,7 @@
               <span
                 class="badge bg-dark border border-secondary text-white-50 small"
                 id="currentNovelSourceBadge"
-                >當前：輕小說文庫</span
+                >當前：飄天文學</span
               >
             </div>
 
@@ -4564,7 +4563,7 @@
                 type="text"
                 id="novelDrawerKeywordInput"
                 class="form-control bg-black border-secondary text-white py-2"
-                placeholder="輸入輕小說名稱或作者..."
+                placeholder="輸入小說名稱或作者..."
                 onkeydown="
                   if (event.key === 'Enter') searchNovelFromDrawer(this.value);
                 "
