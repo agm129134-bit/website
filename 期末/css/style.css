@@ -4407,3 +4407,502 @@ body.dark-theme .carousel-control-next-icon {
   color: #38bdf8 !important;
   transform: scale(1.1);
 }
+
+/* ============================================================
+   極簡設計層 (Minimal Design Layer)
+   放在檔案最後，統一覆蓋前面累積的樣式：
+   - 一組間距 / 字級 / 圓角 / 動畫 token
+   - 單一主色 (墨色) + 單一強調色 (藍，只用在焦點與連結)
+   - 150–250ms ease-out 過渡、去除彈跳與光暈
+   - 清楚的 hover / focus-visible、深淺色一致、375px 可用
+   ============================================================ */
+
+:root {
+  /* 間距 (4px 基準) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  /* 字級 */
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-base: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.5rem;
+  /* 圓角 (前面有引用但未定義的 --radius-pill / --primary 一併補上) */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+  /* 顏色：墨色主按鈕 + 單一藍色強調 */
+  --ink: #0f172a;
+  --ink-hover: #1e293b;
+  --on-ink: #ffffff;
+  --accent: #2563eb;
+  --accent-ring: rgba(37, 99, 235, 0.2);
+  --primary: var(--accent);
+  /* 陰影：只留三層，都很淡 */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 6px 16px -6px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 20px 48px -16px rgba(15, 23, 42, 0.28);
+  /* 動畫 */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 150ms;
+  --dur: 200ms;
+  --dur-slow: 250ms;
+  --transition: background-color var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out),
+    transform var(--dur) var(--ease-out), opacity var(--dur) var(--ease-out);
+}
+
+[data-bs-theme="dark"] {
+  --bg-page: #0b0f19;
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.24);
+  --text-tertiary: #94a3b8;
+  --ink: #f1f5f9;
+  --ink-hover: #ffffff;
+  --on-ink: #0f172a;
+  --accent: #60a5fa;
+  --accent-ring: rgba(96, 165, 250, 0.3);
+  --shadow-md: 0 8px 20px -8px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 24px 56px -16px rgba(0, 0, 0, 0.7);
+}
+
+body {
+  background-color: var(--bg-page);
+}
+
+/* ---------- 焦點：鍵盤操作時清楚可見，滑鼠點擊時不打擾 ---------- */
+
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+.nav-link:focus-visible,
+.tag-chip:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px;
+  box-shadow: none !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.form-check-input:focus {
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+/* ---------- 導覽列：按鈕回歸中性，顏色只留給數字徽章 ---------- */
+
+.navbar {
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: none !important;
+}
+
+.navbar .btn-outline-danger,
+.navbar .btn-outline-primary,
+.navbar .btn-outline-info,
+.navbar .btn-outline-success,
+.navbar .btn-outline-secondary,
+.navbar .btn-outline-dark {
+  --bs-btn-color: var(--text-secondary);
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: var(--border);
+  --bs-btn-hover-color: var(--text-primary);
+  --bs-btn-hover-bg: var(--bg-hover);
+  --bs-btn-hover-border-color: var(--border-strong);
+  --bs-btn-active-color: var(--text-primary);
+  --bs-btn-active-bg: var(--bg-hover);
+  --bs-btn-active-border-color: var(--border-strong);
+  transition: var(--transition);
+}
+
+.navbar .btn-dark,
+a.btn-dark[href="acg.html"] {
+  --bs-btn-color: var(--on-ink);
+  --bs-btn-bg: var(--ink);
+  --bs-btn-border-color: var(--ink);
+  --bs-btn-hover-color: var(--on-ink);
+  --bs-btn-hover-bg: var(--ink-hover);
+  --bs-btn-hover-border-color: var(--ink-hover);
+  --bs-btn-active-color: var(--on-ink);
+  --bs-btn-active-bg: var(--ink-hover);
+  --bs-btn-active-border-color: var(--ink-hover);
+}
+
+.search-input-group {
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  transition: var(--transition);
+}
+
+.search-input-group:hover {
+  background: var(--bg-surface);
+  border-color: var(--border-strong);
+}
+
+.search-input-group:focus-within {
+  background: var(--bg-surface);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+/* 書籤工具列 (批量管理 / 同步 Bangumi)：同樣中性，啟用中的批量模式用墨色 */
+#batchModeBtn.btn-outline-primary,
+#batchModeBtn ~ .btn-outline-success {
+  --bs-btn-color: var(--text-secondary);
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: var(--border);
+  --bs-btn-hover-color: var(--text-primary);
+  --bs-btn-hover-bg: var(--bg-hover);
+  --bs-btn-hover-border-color: var(--border-strong);
+  --bs-btn-active-color: var(--text-primary);
+  --bs-btn-active-bg: var(--bg-hover);
+  --bs-btn-active-border-color: var(--border-strong);
+  transition: var(--transition);
+}
+
+#batchModeBtn.btn-primary {
+  --bs-btn-color: var(--on-ink);
+  --bs-btn-bg: var(--ink);
+  --bs-btn-border-color: var(--ink);
+  --bs-btn-hover-color: var(--on-ink);
+  --bs-btn-hover-bg: var(--ink-hover);
+  --bs-btn-hover-border-color: var(--ink-hover);
+  --bs-btn-active-color: var(--on-ink);
+  --bs-btn-active-bg: var(--ink-hover);
+  --bs-btn-active-border-color: var(--ink-hover);
+}
+
+/* ---------- 統計卡片：手機上三格並排，不再佔滿一整個螢幕 ---------- */
+
+.stat-card:hover {
+  box-shadow: var(--shadow-sm) !important;
+}
+
+[data-bs-theme="dark"] .stat-card,
+body.dark-theme .stat-card {
+  background: var(--bg-surface) !important;
+  box-shadow: none !important;
+}
+
+[data-bs-theme="dark"] .stat-card h3,
+body.dark-theme .stat-card h3 {
+  text-shadow: none;
+}
+
+@media (max-width: 575.98px) {
+  .stat-card .card-body {
+    padding: var(--space-3) !important;
+  }
+  .stat-card .stat-icon {
+    display: none !important;
+  }
+  .stat-card span.fw-semibold {
+    display: block;
+    font-size: var(--fs-xs);
+    line-height: 1.35;
+  }
+  .stat-card h3 {
+    font-size: var(--fs-lg);
+  }
+}
+
+/* ---------- 分類 / 標籤：選中狀態在深色模式反白 ---------- */
+
+.category-pills .nav-link,
+.tag-chip {
+  transition: var(--transition);
+}
+
+.category-pills .nav-link.active,
+.tag-chip.active {
+  background-color: var(--ink);
+  border-color: var(--ink);
+  color: var(--on-ink);
+  box-shadow: none;
+}
+
+[data-bs-theme="dark"] .category-pills .nav-link.active .badge {
+  background-color: rgba(15, 23, 42, 0.12) !important;
+  color: var(--on-ink) !important;
+}
+
+/* ---------- 書籤卡片：一致圓角、輕微上浮、單色聚光 ---------- */
+
+.bookmark-card,
+.spotlight-card {
+  border-radius: var(--radius-lg);
+  transition: var(--transition);
+}
+
+.bookmark-card:hover,
+.spotlight-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md) !important;
+  border-color: var(--border-strong) !important;
+}
+
+.spotlight-card::before {
+  background: radial-gradient(360px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(37, 99, 235, 0.06), transparent 60%);
+  transition: opacity var(--dur) var(--ease-out);
+}
+
+[data-bs-theme="dark"] .spotlight-card::before,
+.bg-dark .spotlight-card::before,
+.game-card-glass::before {
+  background: radial-gradient(360px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(96, 165, 250, 0.08), transparent 60%);
+}
+
+.border-glow::after {
+  background: radial-gradient(240px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(37, 99, 235, 0.45), transparent 70%);
+  transition: opacity var(--dur) var(--ease-out);
+}
+
+[data-bs-theme="dark"] .border-glow::after {
+  background: radial-gradient(240px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(96, 165, 250, 0.5), transparent 70%);
+}
+
+.card-cover-img {
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+
+.cover-zoom-badge {
+  transition: opacity var(--dur) var(--ease-out), transform var(--dur) var(--ease-out);
+}
+
+.card-cover-wrapper:hover .cover-zoom-badge {
+  transform: scale(1);
+}
+
+/* 主要按鈕統一墨色 (深色模式自動反白) */
+.action-jump-btn,
+[data-bs-theme="dark"] .action-jump-btn,
+body.dark-theme .action-jump-btn {
+  background-color: var(--ink) !important;
+  border-color: var(--ink) !important;
+  color: var(--on-ink) !important;
+  transition: var(--transition);
+}
+
+.action-jump-btn:hover,
+[data-bs-theme="dark"] .action-jump-btn:hover,
+body.dark-theme .action-jump-btn:hover {
+  background-color: var(--ink-hover) !important;
+  border-color: var(--ink-hover) !important;
+  color: var(--on-ink) !important;
+}
+
+[data-bs-theme="dark"] .click-counter-badge,
+body.dark-theme .click-counter-badge {
+  background-color: transparent !important;
+  color: var(--text-tertiary) !important;
+  border: none !important;
+}
+
+[data-bs-theme="dark"] .card-tags .badge,
+[data-bs-theme="dark"] .tag-badge,
+body.dark-theme .card-tags .badge,
+body.dark-theme .tag-badge {
+  background-color: var(--bg-hover) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.bgm-anime-card:hover {
+  transform: translateY(-2px);
+}
+
+/* ---------- 批量模式 ---------- */
+
+.bookmark-card.batch-selected {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 0;
+  box-shadow: 0 0 0 4px var(--accent-ring) !important;
+  background-color: #f8faff !important;
+}
+
+[data-bs-theme="dark"] .bookmark-card.batch-selected {
+  background-color: rgba(96, 165, 250, 0.08) !important;
+}
+
+.bookmark-batch-checkbox .form-check-input:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  animation: none;
+}
+
+.batch-action-bar {
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.18);
+  animation-duration: var(--dur-slow);
+  animation-timing-function: var(--ease-out);
+}
+
+/* ---------- 對話框：一致圓角、淡陰影、短距離淡入 ---------- */
+
+.modal {
+  --bs-modal-border-radius: var(--radius-lg);
+  --bs-modal-inner-border-radius: calc(var(--radius-lg) - 1px);
+  --bs-modal-border-color: var(--border);
+}
+
+.modal-content {
+  box-shadow: var(--shadow-lg);
+}
+
+.modal.fade .modal-dialog {
+  transform: translateY(12px);
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+
+.modal.show .modal-dialog {
+  transform: none;
+}
+
+.modal.modal-static .modal-dialog {
+  transform: scale(1.01);
+}
+
+.dropdown-menu {
+  border-color: var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+/* ---------- 音樂靈動島：移到右下角，不再壓住導覽列按鈕 ---------- */
+
+.dynamic-island-container {
+  top: auto;
+  bottom: var(--space-4);
+  left: auto;
+  right: var(--space-4);
+  transform: none;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 對話框開啟時退到遮罩後面，不擋住對話框按鈕 (通知除外) */
+body.modal-open .dynamic-island-container:not(:has(.notifying)) {
+  z-index: 1040;
+}
+
+/* 批量操作列出現時往上讓位 */
+body:has(.batch-action-bar:not(.d-none)) .dynamic-island-container {
+  bottom: 96px;
+}
+
+.dynamic-island,
+.dynamic-island.idle,
+.dynamic-island.paused {
+  transform-origin: bottom right;
+  transition: width var(--dur-slow) var(--ease-out), height var(--dur-slow) var(--ease-out),
+    border-radius var(--dur-slow) var(--ease-out), background-color var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out),
+    opacity var(--dur) var(--ease-out);
+}
+
+.dynamic-island.idle {
+  width: 200px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-md);
+  opacity: 0.85;
+}
+
+.dynamic-island.idle:hover {
+  opacity: 1;
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: var(--shadow-md);
+  transform: none;
+}
+
+.dynamic-island.playing,
+.dynamic-island.paused {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+}
+
+.dynamic-island.expanded {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.6);
+}
+
+.dynamic-island.notifying {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+}
+
+.dynamic-island.swipe-up-dismiss {
+  transform: translateY(8px) !important;
+  transition: transform var(--dur) var(--ease-out), opacity var(--dur) var(--ease-out) !important;
+}
+
+.island-quick-btn:hover {
+  transform: none;
+}
+
+/* 選歌視窗：播放中的泡泡改為靜態外框，不再循環發光 */
+.watch-bubble-item {
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.watch-bubble-item:hover {
+  transform: scale(1.08);
+}
+
+.watch-bubble-item.active .watch-bubble-circle {
+  animation: none;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.7);
+}
+
+.watch-music-content {
+  box-shadow: 0 24px 64px -16px rgba(0, 0, 0, 0.8);
+  animation-duration: var(--dur-slow);
+}
+
+.watch-music-bar .btn:hover,
+.watch-mode-btn:hover {
+  transform: none;
+}
+
+@media (max-width: 576px) {
+  .dynamic-island-container {
+    right: var(--space-3);
+    bottom: var(--space-3);
+  }
+  .dynamic-island.idle {
+    width: 168px;
+  }
+  .dynamic-island.playing,
+  .dynamic-island.paused {
+    width: min(290px, calc(100vw - 24px));
+  }
+  .dynamic-island.expanded,
+  .dynamic-island.notifying {
+    width: calc(100vw - 24px);
+  }
+}
+
+/* ---------- 尊重「減少動態效果」設定 ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

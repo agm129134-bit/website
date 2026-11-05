@@ -13,6 +13,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <!-- GSAP 3 專業動態庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <!-- 尊重系統「減少動態效果」：GSAP 動畫幾乎瞬間完成 -->
+    <script>if (typeof gsap !== "undefined") gsap.matchMedia().add("(prefers-reduced-motion: reduce)", () => { gsap.globalTimeline.timeScale(20); return () => gsap.globalTimeline.timeScale(1); });</script>
     <!-- Custom Style Sheet -->
     <link rel="stylesheet" href="css/style.css">
 
@@ -33,8 +35,8 @@
             max-width: 440px;
             background: #ffffff;
             border: 1px solid #e2e8f0;
-            border-radius: 14px;
-            box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
             padding: 32px 28px;
         }
 
@@ -70,7 +72,7 @@
             font-weight: 600;
             color: #64748b;
             border-radius: 8px;
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: background-color 0.2s ease-out, color 0.2s ease-out, box-shadow 0.2s ease-out;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -81,7 +83,7 @@
         .auth-tab-btn.active {
             background-color: #ffffff;
             color: #0f172a;
-            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
         }
 
         .auth-tab-btn:hover:not(.active) {
@@ -102,13 +104,13 @@
             font-size: 0.95rem;
             padding: 10px 14px;
             border-radius: 8px;
-            transition: all 0.15s ease-in-out;
+            transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
         }
 
         .form-control:focus {
             background-color: #ffffff;
-            border-color: #0f172a;
-            box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
             color: #0f172a !important;
         }
 
@@ -124,32 +126,29 @@
             padding: 11px;
             border-radius: 8px;
             border: none;
-            transition: all 0.2s ease;
+            transition: background-color 0.2s ease-out;
         }
 
         .btn-login:hover {
             background-color: #1e293b;
             color: #ffffff;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
         }
 
+        /* 註冊與登入同為主要動作：統一墨色 */
         .btn-register {
-            background-color: #2563eb;
+            background-color: #0f172a;
             color: #ffffff;
             font-weight: 600;
             font-size: 0.95rem;
             padding: 11px;
             border-radius: 8px;
             border: none;
-            transition: all 0.2s ease;
+            transition: background-color 0.2s ease-out;
         }
 
         .btn-register:hover {
-            background-color: #1d4ed8;
+            background-color: #1e293b;
             color: #ffffff;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
         }
     </style>
 <script>
