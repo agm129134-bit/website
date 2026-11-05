@@ -10,8 +10,13 @@ services:
       # 徹底避開本地正在運行的 node server.js (佔用 8090) 的端口綁定衝突！
       - "8095:8090"
     volumes:
-      # 掛載本地 data 資料夾至容器內部，實現書籤與用戶資料永久持久化
-      - ./data:/app/data
+      # Docker 專用具名 volume (與本機 node server.js 的 ./data 分開)：
+      # NeDB 不支援多個程序同時寫同一份檔案，兩邊共用會互相覆蓋
+      # 備份: docker cp web-library:/app/data ./data-backup
+      - web-library-data:/app/data
     environment:
       - NODE_ENV=production
       - PORT=8090
+
+volumes:
+  web-library-data:
