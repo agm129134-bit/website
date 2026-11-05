@@ -1284,6 +1284,23 @@ body {
 .bookmark-batch-checkbox .form-check-input:checked {
   background-color: #2563eb;
   border-color: #2563eb;
+  animation: batch-check-pop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 批量模式：封面點擊 = 勾選卡片，不再是放大鏡游標 */
+.bookmark-batch-checkbox ~ .card-cover-wrapper {
+  cursor: pointer;
+}
+
+@keyframes batch-check-pop {
+  0% { transform: scale(0.75); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bookmark-batch-checkbox .form-check-input:checked {
+    animation: none;
+  }
 }
 
 /* ============================================================

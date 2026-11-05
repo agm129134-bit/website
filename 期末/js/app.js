@@ -173,7 +173,11 @@ async function seamlessNavigateTo(url, isPopState = false) {
     }
 
     window.scrollTo({ top: 0, behavior: "instant" });
-    showToast(url.includes("acg.html") ? "🚀 已無縫切換至 ACG 專區 (音樂持續播放)" : "📚 已無縫切換至圖書館主頁 (音樂持續播放)", "bi-music-note-beamed text-info");
+    // 只有正在播音樂時才提示「音樂持續播放」；沒播就靜默切換
+    const musicPlaying = typeof islandAudio !== "undefined" && islandAudio.src && !islandAudio.paused && !islandAudio.ended;
+    if (musicPlaying) {
+      showToast(url.includes("acg.html") ? "🚀 已無縫切換至 ACG 專區 (音樂持續播放)" : "📚 已無縫切換至圖書館主頁 (音樂持續播放)", "bi-music-note-beamed text-info");
+    }
   } catch (e) {
     console.warn("[Seamless Nav Error]:", e);
     window.location.href = url;
@@ -1205,13 +1209,18 @@ function renderBookmarks(skipAnimation = false) {
       : "";
     const cardCursorStyle = state.isBatchMode ? 'style="cursor: pointer;"' : "";
 
+    // 批量模式下封面不開大圖：不綁點擊，讓點擊冒泡到卡片 = 勾選這張
+    const coverClickAttr = state.isBatchMode
+      ? ""
+      : `onclick="event.stopPropagation(); openImagePreview('${escapeHtml(coverSrc)}', '${escapeHtml(item.title)}')"`;
+
     col.innerHTML = `
             <div class="card bookmark-card spotlight-card border-glow shadow-sm h-100 position-relative ${batchSelectedClass}" ${cardClickAttr} ${cardCursorStyle}>
                 ${checkboxHtml}
                 <!-- 封面圖區域 (點擊放大查看大圖) -->
-                <div class="card-cover-wrapper" onclick="event.stopPropagation(); openImagePreview('${escapeHtml(coverSrc)}', '${escapeHtml(item.title)}')">
+                <div class="card-cover-wrapper" ${coverClickAttr}>
                     <img src="${escapeHtml(coverSrc)}" class="card-cover-img" alt="${escapeHtml(item.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='${fallbackCover}'">
-                    <div class="cover-zoom-badge" title="點擊放大預覽圖片"><i class="bi bi-arrows-fullscreen"></i></div>
+                    ${state.isBatchMode ? "" : `<div class="cover-zoom-badge" title="點擊放大預覽圖片"><i class="bi bi-arrows-fullscreen"></i></div>`}
                     ${item.pinned ? `<div class="pin-badge"><i class="bi bi-pin-angle-fill"></i> 置頂</div>` : ""}
                     <div class="category-floating-badge ${catBadgeClass}">
                         <i class="bi ${catIcon} me-1"></i>${catLabel}
@@ -6781,6 +6790,13 @@ window.syncBookshelfFromServer = async function(username) {
           window.renderNovelBookshelf();
         }
       }
+      // 漫畫閱讀歷史：伺服器是權威來源 (只寫快取，不回傳伺服器)
+      if (Array.isArray(data.mangaHistory)) {
+        sessionStorage.setItem("web_library_manga_history", JSON.stringify(data.mangaHistory));
+        if (typeof window.renderMangaHistoryStandby === "function") {
+          window.renderMangaHistoryStandby();
+        }
+      }
     }
   } catch (e) {
     console.warn('[Bookshelf Sync] 從伺服器拉取立體書架失敗 (離線屬正常):', e.message);
@@ -9937,7 +9953,17 @@ window.toggleBatchMode = function (forceState) {
 
   updateBatchUI();
 
-  renderBookmarks();
+  // 切換模式只需重畫一次 (加/移除勾選框)，不重播整排卡片的進場動畫，避免整片閃爍
+  renderBookmarks(true);
+
+  // 進入批量模式時讓勾選框輕巧地彈入
+  if (state.isBatchMode && typeof gsap !== "undefined") {
+    gsap.fromTo(
+      "#bookmarkContainer .bookmark-batch-checkbox",
+      { scale: 0.4, opacity: 0 },
+      { scale: 1, opacity: 1, duration: 0.25, stagger: 0.012, ease: "back.out(2)", clearProps: "transform,opacity" },
+    );
+  }
 
   if (state.isBatchMode) {
     showToast(
@@ -9992,8 +10018,19 @@ window.toggleSelectBookmark = function (id, explicitChecked) {
 
   updateBatchUI();
 
-  renderBookmarks();
+  // 只更新被點的那張卡 (原本整排重畫 + 重播進場動畫 → 每點一下全部閃一次)
+  syncCardSelection(id);
 };
+
+// 就地同步單張卡片的勾選外觀；找不到卡片 (不在目前篩選畫面) 則不動
+function syncCardSelection(id) {
+  const checkbox = document.getElementById("check_" + id);
+  const card = checkbox && checkbox.closest(".bookmark-card");
+  if (!card) return;
+  const selected = state.selectedBookmarkIds.has(id);
+  checkbox.checked = selected;
+  card.classList.toggle("batch-selected", selected);
+}
 
 window.batchSelectAll = function (selectAll = true) {
   const currentItems = getFilteredAndSortedBookmarks();
@@ -10006,7 +10043,7 @@ window.batchSelectAll = function (selectAll = true) {
 
   updateBatchUI();
 
-  renderBookmarks();
+  currentItems.forEach((b) => syncCardSelection(b.id));
 };
 
 window.batchChangeCategory = function (newCategory) {
@@ -11799,6 +11836,34 @@ if (whModalEl) {
 }
 
 // 漫畫歷史紀錄系統
+// sessionStorage 只當本分頁快取；登入帳號另存到伺服器 (bookshelf.mangaHistory)，關掉瀏覽器再開仍保留。訪客只留在本分頁。
+const MANGA_HISTORY_KEY = "web_library_manga_history";
+let _mangaHistorySyncTimer = null;
+
+function getMangaHistory() {
+  try {
+    const list = JSON.parse(sessionStorage.getItem(MANGA_HISTORY_KEY) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function setMangaHistory(history) {
+  sessionStorage.setItem(MANGA_HISTORY_KEY, JSON.stringify(history));
+  const user = resolveBookshelfUser();
+  if (!user) return;
+  // 獨立計時器，不與書架同步共用 (共用會互相取消)
+  clearTimeout(_mangaHistorySyncTimer);
+  _mangaHistorySyncTimer = setTimeout(() => {
+    fetch("/api/user/bookshelf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user, mangaHistory: history }),
+    }).catch((e) => console.warn("[Manga History] 同步至伺服器失敗 (離線屬正常):", e.message));
+  }, 300);
+}
+
 window.saveMangaReadHistory = function (
   mangaId,
   title,
@@ -11809,9 +11874,7 @@ window.saveMangaReadHistory = function (
   if (!title || title.trim() === "") return;
 
   try {
-    let history = JSON.parse(
-      sessionStorage.getItem("web_library_manga_history") || "[]",
-    );
+    let history = getMangaHistory();
 
     history = history.filter((h) => h.mangaId !== mangaId && h.title !== title);
 
@@ -11826,7 +11889,7 @@ window.saveMangaReadHistory = function (
 
     if (history.length > 20) history = history.slice(0, 20);
 
-    sessionStorage.setItem("web_library_manga_history", JSON.stringify(history));
+    setMangaHistory(history);
     window.renderMangaHistoryStandby();
   } catch (e) {
     console.error("儲存漫畫閱讀歷史失敗:", e);
@@ -11839,9 +11902,7 @@ window.renderMangaHistoryStandby = function () {
   if (!box) return;
 
   try {
-    const history = JSON.parse(
-      sessionStorage.getItem("web_library_manga_history") || "[]",
-    );
+    const history = getMangaHistory();
 
     if (history.length === 0) {
       box.style.display = "none";
@@ -11890,17 +11951,12 @@ window.renderMangaHistoryStandby = function () {
 
 window.removeMangaHistoryItem = function (idx) {
   try {
-    let history = JSON.parse(
-      sessionStorage.getItem("web_library_manga_history") || "[]",
-    );
+    let history = getMangaHistory();
 
     if (idx >= 0 && idx < history.length) {
       history.splice(idx, 1);
 
-      sessionStorage.setItem(
-        "web_library_manga_history",
-        JSON.stringify(history),
-      );
+      setMangaHistory(history);
       window.renderMangaHistoryStandby();
     }
   } catch (e) {
@@ -11910,9 +11966,7 @@ window.removeMangaHistoryItem = function (idx) {
 
 window.resumeMangaHistory = function (idx = 0) {
   try {
-    const history = JSON.parse(
-      sessionStorage.getItem("web_library_manga_history") || "[]",
-    );
+    const history = getMangaHistory();
     const item = history[idx];
 
     if (!item) return;
@@ -11944,7 +11998,7 @@ window.resumeMangaHistory = function (idx = 0) {
 };
 
 window.clearMangaHistory = function () {
-  sessionStorage.removeItem("web_library_manga_history");
+  setMangaHistory([]);
   window.renderMangaHistoryStandby();
 
   showToast("已清除漫畫閱讀歷史！", "bi-trash text-secondary");

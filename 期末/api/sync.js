@@ -493,6 +493,7 @@ async function handleSyncRoute(req, res) {
                         user: safeUser,
                         manga: [],
                         novel: [],
+                        mangaHistory: [],
                         isNew: true,
                         message: '帳號尚無 NeDB 立體書架存檔'
                     });
@@ -503,6 +504,7 @@ async function handleSyncRoute(req, res) {
                     user: safeUser,
                     manga: Array.isArray(record.manga) ? record.manga : [],
                     novel: Array.isArray(record.novel) ? record.novel : [],
+                    mangaHistory: Array.isArray(record.mangaHistory) ? record.mangaHistory : [],
                     updatedAt: record.updatedAt || null
                 });
             }
@@ -514,11 +516,13 @@ async function handleSyncRoute(req, res) {
                 const existing = await bookshelfDb.findOne({ user: safeUser }) || { manga: [], novel: [] };
                 let manga = Array.isArray(body.manga) ? body.manga : (existing.manga || []);
                 let novel = Array.isArray(body.novel) ? body.novel : (existing.novel || []);
+                // 漫畫閱讀歷史 (最多 20 筆)；沒帶這個欄位的請求保留原值
+                const mangaHistory = Array.isArray(body.mangaHistory) ? body.mangaHistory.slice(0, 20) : (existing.mangaHistory || []);
                 const updatedAt = new Date().toISOString();
 
                 await bookshelfDb.update(
                     { user: safeUser },
-                    { $set: { user: safeUser, manga, novel, updatedAt } },
+                    { $set: { user: safeUser, manga, novel, mangaHistory, updatedAt } },
                     { upsert: true }
                 );
 
