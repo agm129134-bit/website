@@ -292,58 +292,24 @@
             if (card.dataset.gsapHoverBound) return;
             card.dataset.gsapHoverBound = "true";
 
-            const icon = card.querySelector('i.bi');
             const btn = card.querySelector('.btn');
 
             card.addEventListener('mouseenter', () => {
-                gsap.to(card, {
-                    y: -8,
-                    boxShadow: "0 16px 36px rgba(15, 23, 42, 0.14)",
-                    borderColor: "#38bdf8",
-                    duration: 0.3,
-                    ease: "power2.out"
-                });
-                if (icon) {
-                    gsap.to(icon, {
-                        scale: 1.25,
-                        rotate: 8,
-                        duration: 0.35,
-                        ease: "back.out(2)"
-                    });
-                }
+                // 極簡：只輕微上浮，邊框與陰影交給 CSS :hover
+                gsap.to(card, { y: -2, duration: 0.2, ease: "power2.out" });
             });
 
             card.addEventListener('mouseleave', () => {
-                gsap.to(card, {
-                    y: 0,
-                    boxShadow: "0 .125rem .25rem rgba(0,0,0,.075)",
-                    borderColor: "rgba(0,0,0,.125)",
-                    duration: 0.3,
-                    ease: "power2.out"
-                });
-                if (icon) {
-                    gsap.to(icon, {
-                        scale: 1,
-                        rotate: 0,
-                        duration: 0.3,
-                        ease: "power2.out"
-                    });
-                }
+                gsap.to(card, { y: 0, duration: 0.2, ease: "power2.out", clearProps: "transform" });
             });
 
             if (btn) {
-                btn.addEventListener('mouseenter', () => {
-                    gsap.to(btn, { scale: 1.03, duration: 0.2, ease: "power1.out" });
-                });
-                btn.addEventListener('mouseleave', () => {
-                    gsap.to(btn, { scale: 1, duration: 0.2, ease: "power1.out" });
-                });
                 btn.addEventListener('mousedown', () => {
-                    gsap.to(btn, { scale: 0.95, duration: 0.1 });
+                    gsap.to(btn, { scale: 0.98, duration: 0.1, ease: "power2.out" });
                 });
-                btn.addEventListener('mouseup', () => {
-                    gsap.to(btn, { scale: 1.03, duration: 0.15, ease: "back.out(2)" });
-                });
+                ['mouseup', 'mouseleave'].forEach(evt => btn.addEventListener(evt, () => {
+                    gsap.to(btn, { scale: 1, duration: 0.15, ease: "power2.out" });
+                }));
             }
         });
 
@@ -355,8 +321,8 @@
                 const dialog = modal.querySelector('.modal-dialog');
                 if (dialog) {
                     gsap.fromTo(dialog,
-                        { scale: 0.88, opacity: 0, y: -25 },
-                        { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.4)" }
+                        { opacity: 0, y: 8 },
+                        { opacity: 1, y: 0, duration: 0.22, ease: "power2.out" }
                     );
                 }
             });
@@ -371,10 +337,9 @@
                 if (cards.length > 0 && typeof gsap !== 'undefined') {
                     gsap.from(cards, {
                         opacity: 0,
-                        y: 20,
-                        scale: 0.95,
-                        duration: 0.4,
-                        stagger: 0.03,
+                        y: 8,
+                        duration: 0.25,
+                        stagger: 0.02,
                         ease: "power2.out"
                     });
                 }

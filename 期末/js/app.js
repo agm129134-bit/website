@@ -1348,12 +1348,12 @@ function renderBookmarks(skipAnimation = false) {
     if (isList) {
       gsap.fromTo(
         "#bookmarkContainer .bookmark-card",
-        { x: -30, opacity: 0 },
+        { x: -8, opacity: 0 },
         {
           x: 0,
           opacity: 1,
-          duration: 0.32,
-          stagger: 0.025,
+          duration: 0.25,
+          stagger: 0.02,
           ease: "power2.out",
           clearProps: "transform,opacity",
         },
@@ -1361,14 +1361,13 @@ function renderBookmarks(skipAnimation = false) {
     } else {
       gsap.fromTo(
         "#bookmarkContainer .bookmark-card",
-        { y: 22, opacity: 0, scale: 0.96 },
+        { y: 8, opacity: 0 },
         {
           y: 0,
           opacity: 1,
-          scale: 1,
-          duration: 0.38,
-          stagger: 0.03,
-          ease: "back.out(1.3)",
+          duration: 0.25,
+          stagger: 0.02,
+          ease: "power2.out",
           clearProps: "transform,opacity",
         },
       );
@@ -1406,8 +1405,8 @@ window.openImagePreview = function (imgSrc, title = "圖片預覽") {
   if (typeof gsap !== "undefined") {
     gsap.fromTo(
       "#imagePreviewImg",
-      { scale: 0.88, opacity: 0 },
-      { scale: 1, opacity: 1, duration: 0.28, ease: "back.out(1.4)" },
+      { scale: 0.98, opacity: 0 },
+      { scale: 1, opacity: 1, duration: 0.2, ease: "power2.out" },
     );
   }
 };

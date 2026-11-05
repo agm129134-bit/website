@@ -59,7 +59,7 @@
 
     <!-- Custom Styles -->
 
-    <link rel="stylesheet" href="css/style.css?v=20261028_fix_overlap_v3" />
+    <link rel="stylesheet" href="css/style.css?v=20261105_minimal" />
 
     <!-- JSZip for EPUB Ebook Parsing -->
 
@@ -647,8 +647,8 @@
     <main class="container-fluid px-lg-4 py-4">
       <!-- 頂部資訊與統計面板 (極簡邊框微質感) -->
 
-      <header class="row g-3 mb-4">
-        <div class="col-12 col-md-4">
+      <header class="row g-2 g-sm-3 mb-4">
+        <div class="col-4">
           <div class="card stat-card bg-gradient-web">
             <div
               class="card-body d-flex align-items-center justify-content-between p-3"
@@ -666,7 +666,7 @@
           </div>
         </div>
 
-        <div class="col-12 col-md-4">
+        <div class="col-4">
           <div class="card stat-card bg-gradient-video">
             <div
               class="card-body d-flex align-items-center justify-content-between p-3"
@@ -684,7 +684,7 @@
           </div>
         </div>
 
-        <div class="col-12 col-md-4">
+        <div class="col-4">
           <div class="card stat-card bg-gradient-res">
             <div
               class="card-body d-flex align-items-center justify-content-between p-3"
@@ -5091,6 +5091,8 @@
     <!-- GSAP 3 物理動態引擎 (微互動與流暢彈入動畫) -->
 
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <!-- 尊重系統「減少動態效果」：GSAP 動畫幾乎瞬間完成 -->
+    <script>if (window.gsap && window.matchMedia("(prefers-reduced-motion: reduce)").matches) gsap.globalTimeline.timeScale(20);</script>
 
     <!-- Hls.js for native m3u8 playback in Chrome/Edge -->
 
