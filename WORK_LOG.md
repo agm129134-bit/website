@@ -82,12 +82,19 @@ node -c js/app.js && node -c js/acg.js && node -c server.js
 - **🟠 404 頁面把網址原樣塞進 HTML**（反射型 XSS）→ 已跳脫。
 - **🟠 音樂庫與頭像也有「預設 jyun」問題**：訪客或其他帳號登入會讀到 jyun 的音樂，之後一存檔就把 jyun 的歌複製進自己帳號 → 改為以登入身分為準，訪客音樂只留在本頁。
 
+### 8. 個人偏好重整後重置、頭像選單不見（PR #7）
+- **原因 1（我在 PR #2 造成的）**：個人資料視窗用 `sessionStorage.web_library_user` 判斷帳號、找不到就當 `admin`；PR #2 拿掉了初始化時寫入它的那段，於是 jyun 的修改被存進一個新建的 `admin` 帳號。
+- **原因 2**：伺服器忽略 `defaultSort` / `defaultCategory`，偏好只存在 sessionStorage，新分頁就沒了。
+- **修正**：初始化時記下已解析的登入身分；視窗用 `state.currentUser`；伺服器儲存並回傳 `defaultSort`、`defaultCategory`、`spotlightPref`，新分頁從伺服器載回；伺服器上的自訂頭像也會出現在下方頭像選單。
+- **後續**：8090 要重啟 `node server.js` 才會用新的 `api/sync.js`；重啟後用 jyun 再存一次偏好。本機資料裡多了一個 08:44 被誤建、沒有密碼的 `admin` 帳號（待決定是否刪除）。
+
 ---
 
 ## 三、還沒做 / 待決定
 
-- [ ] 8090 本機 server 目前沒開；重新 `node server.js` 後就會是修好的版本。
-- [ ] 更新 Chrome 篡改猴腳本到 1.6.3。
+- [ ] 重啟 8090 的 `node server.js`（PR #7 改了 `api/sync.js`），再用 jyun 存一次偏好。
+- [ ] 決定是否刪除本機 8090 資料裡被誤建的 `admin` 帳號（無密碼，頭像複製自 jyun）。
+- [x] 更新 Chrome 篡改猴腳本到 1.6.3。
 - [ ] 明文密碼仍留在 git 歷史（repo 已私人化）。若這些密碼在別處也有用，**建議更換**。
 - [ ] 若要給老師 / 同學看 repo：Settings → Collaborators 加人。
 - [ ] 可清理的死碼：`searchKazumiAnime` 等 Kazumi 搜尋函式（對應的 UI 已移除，目前沒有呼叫點）。
@@ -112,3 +119,5 @@ node -c js/app.js && node -c js/acg.js && node -c server.js
 | #3 | Docker 改用獨立具名 volume | ✅ 已合併 |
 | #4 | 篡改猴優先送 8090 | ✅ 已合併 |
 | #5 | 伺服器檔案外洩 / 崩潰 / XSS + 音樂頭像身分修正 + 本日誌 | ✅ 已合併 |
+| #6 | 日誌狀態更新 | ✅ 已合併 |
+| #7 | 個人資料視窗改錯帳號 + 偏好存到伺服器 + 頭像選單 | ✅ 已合併 |
