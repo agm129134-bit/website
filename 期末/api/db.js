@@ -88,9 +88,12 @@ async function autoMigrate() {
             }
             console.log(`[NeDB] 成功自動遷移 ${accounts.length} 筆帳號至 accounts.db (密碼全面升級加鹽加密)`);
         } else if (accountsCount === 0) {
+            // 首次啟動的預設帳號：密碼由環境變數提供，未提供則隨機產生並只印在伺服器 log
+            const initPwd = process.env.DEFAULT_ADMIN_PASSWORD || crypto.randomBytes(6).toString('hex');
             await accountsDb.insert([
-                { username: 'jyun', password: hashPassword('***REMOVED***'), name: 'Jyun', role: '核心開發者', avatar: 'default', bio: '專案核心作者' }
+                { username: 'jyun', password: hashPassword(initPwd), name: 'Jyun', role: '核心開發者', avatar: 'default', bio: '專案核心作者' }
             ]);
+            if (!process.env.DEFAULT_ADMIN_PASSWORD) console.log(`[NeDB] 已建立預設帳號 jyun，初始密碼: ${initPwd}`);
         }
 
         // 2. 遷移書籤 bookmarks_*.json
