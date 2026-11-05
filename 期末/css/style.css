@@ -4883,6 +4883,54 @@ body.modal-open .dynamic-island-container:not(:has(.notifying)) {
   }
 }
 
+/* ==========================================================================
+   iPhone Duo 摺疊螢幕適配
+   內螢幕 1878x2670 px @430ppi，換算 CSS 約 626x890 (DPR 3)；外螢幕約 466x678，沿用一般手機版面。
+   只用寬度 + 比例 + 觸控判斷「展開狀態」，桌機縮小視窗 (pointer: fine) 不會誤觸；
+   iPad mini (744 / 1133 寬) 落在範圍外。其他比例相近的摺疊機也會一起受惠。
+   ========================================================================== */
+
+/* 展開・直向 (約 626 寬，接近方形)：一般手機是單欄，這裡改成雙欄善用寬度 */
+@media (pointer: coarse) and (min-width: 590px) and (max-width: 720px) and (min-aspect-ratio: 3/5) and (max-aspect-ratio: 1/1) {
+  #bookmarkContainer > .bookmark-col.col-md-6 {
+    flex: 0 0 auto;
+    width: 50%;
+  }
+
+  /* 對話框用滿展開後的寬度，左右各留 16px */
+  .modal-dialog:not(.modal-fullscreen):not(.modal-sm) {
+    max-width: calc(100vw - 32px);
+  }
+
+  /* 小說：稍大字級、控制行長，像在讀一本書 */
+  #novelArticleContent {
+    font-size: 19px !important;
+    max-width: 36em !important;
+    padding-inline: 8px;
+  }
+}
+
+/* 展開・橫向 (約 890 寬、高度較矮)：書籤三欄、輪播不佔滿整個畫面 */
+@media (pointer: coarse) and (min-width: 840px) and (max-width: 960px) and (min-aspect-ratio: 6/5) and (max-aspect-ratio: 2/1) {
+  #bookmarkContainer > .bookmark-col.col-md-6 {
+    flex: 0 0 auto;
+    width: 33.333333%;
+  }
+
+  .acg-carousel-container .acg-carousel-item {
+    height: max(340px, min(420px, 68dvh));
+  }
+
+  .modal-dialog:not(.modal-fullscreen):not(.modal-sm):not(.modal-xl) {
+    max-width: min(760px, calc(100vw - 48px));
+  }
+
+  #novelArticleContent {
+    font-size: 19px !important;
+    max-width: 38em !important;
+  }
+}
+
 /* ---------- 尊重「減少動態效果」設定 ---------- */
 
 @media (prefers-reduced-motion: reduce) {
