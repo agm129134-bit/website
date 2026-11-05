@@ -160,6 +160,8 @@ async function seamlessNavigateTo(url, isPopState = false) {
       if (typeof window.initAcgGsapAnimations === "function") window.initAcgGsapAnimations();
       if (typeof window.syncBookshelfFromServer === "function") window.syncBookshelfFromServer();
     } else {
+      // 首頁的 DOM 是新換上的，原本綁在舊元素上的事件 (分類、搜尋、排序、視圖切換…) 都已失效，必須重綁
+      if (document.getElementById("categoryNav") && typeof setupEventListeners === "function") setupEventListeners();
       // 切回首頁時完整更新 UI (包含統計計數 updateStats、標籤 renderTagChips、卡片 renderBookmarks、右上角使用者名稱與自訂頭像)
       if (typeof updateUI === "function") {
         updateUI();
@@ -1475,18 +1477,23 @@ function setupEventListeners() {
     }
   }
 
-  // 按 '/' 快捷鍵聚焦搜尋框
-  window.addEventListener("keydown", (e) => {
-    if (
-      e.key === "/" &&
-      document.activeElement !== searchInput &&
-      !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)
-    ) {
-      e.preventDefault();
+  // 按 '/' 快捷鍵聚焦搜尋框 (window 層只綁一次；SPA 切回首頁重綁時不重複，並即時取最新的搜尋框)
+  if (!window._slashSearchBound) {
+    window._slashSearchBound = true;
+    window.addEventListener("keydown", (e) => {
+      const input = document.getElementById("searchInput");
+      if (
+        input &&
+        e.key === "/" &&
+        document.activeElement !== input &&
+        !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)
+      ) {
+        e.preventDefault();
 
-      searchInput.focus();
-    }
-  });
+        input.focus();
+      }
+    });
+  }
 
   // 3. 排序切換
   document.getElementById("sortSelect").addEventListener("change", (e) => {
