@@ -23,9 +23,48 @@ const WATCH_STATUS_TAGS = new Set([
   "想看", "在看", "看過", "已看", "已看過", "已在看",
   "想讀", "在讀", "讀過", "已讀", "已讀過", "已在讀",
   "在看/在讀", "看過/讀過", "想看/想讀", "#在看/在讀", "#看過/讀過", "#想看/想讀",
+  "擱置", "拋棄",
 ]);
 function stripWatchStatusTags(tags) {
   return tags.filter((t) => !WATCH_STATUS_TAGS.has(t));
+}
+
+// Bangumi 收藏狀態代碼 (v0 API CollectionType)：1 想看, 2 看過, 3 在看, 4 擱置, 5 拋棄
+// 動畫用「看」、書籍 (漫畫/小說, subject_type=1) 用「讀」
+const BGM_STATUS_LABELS = {
+  watch: { 1: "想看", 2: "已看過", 3: "已在看", 4: "擱置", 5: "拋棄" },
+  read: { 1: "想讀", 2: "已讀過", 3: "已在讀", 4: "擱置", 5: "拋棄" },
+};
+function bgmStatusLabel(type, isBook) {
+  return BGM_STATUS_LABELS[isBook ? "read" : "watch"][parseInt(type, 10)] || "";
+}
+function bgmStatusClass(type) {
+  const t = parseInt(type, 10);
+  if (t === 3) return "text-success fw-bold";
+  if (t === 2) return "text-primary fw-bold";
+  if (t === 1) return "text-danger fw-bold";
+  if (t === 4) return "text-warning fw-bold";
+  if (t === 5) return "text-secondary fw-bold";
+  return "text-white-50";
+}
+// 由標籤推斷收藏狀態代碼 (無 bangumiStatus 的舊資料用)，找不到回傳 0
+function bgmStatusFromTags(tags) {
+  if (!Array.isArray(tags)) return 0;
+  const has = (re) => tags.some((t) => typeof t === "string" && re.test(t));
+  if (has(/拋棄|抛弃/)) return 5;
+  if (has(/擱置|搁置/)) return 4;
+  if (has(/在看|在讀|在读/)) return 3;
+  if (has(/看過|看过|已看|讀過|读过|已讀/)) return 2;
+  if (has(/想看|想讀|想读/)) return 1;
+  return 0;
+}
+
+// 從書籤取得已綁定的 Bangumi subject ID (bangumiSubjectId 或 bgm.tv / bangumi.tv / chii.in 條目網址)
+function bgmBoundSubjectId(b) {
+  if (!b) return "";
+  if (b.bangumiSubjectId) return String(b.bangumiSubjectId);
+  const m = /(?:bgm\.tv|bangumi\.tv|chii\.in)\/subject\/(\d+)/i.exec(b.url || "");
+  return m ? m[1] : "";
 }
 
 // 產生唯一 ID：<prefix>_<timestamp>_<隨機碼>
@@ -755,6 +794,7 @@ window.syncStatusToBangumi = async function (
   statusType = 3,
   rating = null,
   comment = null,
+  isBook = false,
 ) {
   const token = window.getBangumiToken();
 
@@ -781,16 +821,8 @@ window.syncStatusToBangumi = async function (
     const data = await res.json();
 
     if (data.success) {
-      const statusNames = {
-        1: "想看",
-        2: "看過",
-        3: "在看",
-        4: "擱置",
-        5: "拋棄",
-      };
-
       showToast(
-        `🎉 已成功同步回寫 Bangumi：狀態改為「${statusNames[statusType] || "在看"}」！`,
+        `🎉 已成功同步回寫 Bangumi：狀態改為「${bgmStatusLabel(statusType, isBook) || "已收藏"}」！`,
         "bi-cloud-check-fill text-success",
       );
       return true;
@@ -9711,26 +9743,37 @@ window.triggerBangumiUserSync = async function (mode = "import") {
       subjectType === "all" ? [2, 1] : [parseInt(subjectType, 10)];
     let allItems = [];
 
+    // v0 API 每頁上限 50 筆，需依 total/offset 逐頁取回 (最多 20 頁，避免無限迴圈)
+    const PAGE_LIMIT = 50;
+    const MAX_PAGES = 20;
+
     for (const sType of typesToFetch) {
-      const apiUrl = `https://api.bgm.tv/v0/users/${encodeURIComponent(username)}/collections?subject_type=${sType}&type=${syncType}&limit=30`;
-
       try {
-        const res = await fetch(apiUrl, {
-          headers: { Accept: "application/json" },
-        });
+        for (let page = 0; page < MAX_PAGES; page++) {
+          const offset = page * PAGE_LIMIT;
+          const apiUrl = `https://api.bgm.tv/v0/users/${encodeURIComponent(username)}/collections?subject_type=${sType}&type=${syncType}&limit=${PAGE_LIMIT}&offset=${offset}`;
+          const res = await fetch(apiUrl, {
+            headers: { Accept: "application/json" },
+          });
 
-        if (res.ok) {
-          const data = await res.json();
-
-          if (Array.isArray(data.data)) {
-            allItems = allItems.concat(
-              data.data.map((d) => ({ ...d, requestedSubjectType: sType })),
-            );
+          if (!res.ok) {
+            if (res.status === 404 && page === 0 && typesToFetch.length === 1) {
+              throw new Error(
+                `找不到使用者【${username}】，請檢查使用者名稱或數字 UID 是否正確。`,
+              );
+            }
+            break;
           }
-        } else if (res.status === 404 && typesToFetch.length === 1) {
-          throw new Error(
-            `找不到使用者【${username}】，請檢查使用者名稱或數字 UID 是否正確。`,
+
+          const data = await res.json();
+          const pageItems = Array.isArray(data.data) ? data.data : [];
+
+          allItems = allItems.concat(
+            pageItems.map((d) => ({ ...d, requestedSubjectType: sType })),
           );
+
+          const total = parseInt(data.total, 10) || 0;
+          if (pageItems.length < PAGE_LIMIT || offset + pageItems.length >= total) break;
         }
       } catch (fetchErr) {
         if (typesToFetch.length === 1) throw fetchErr;
@@ -9769,34 +9812,33 @@ window.triggerBangumiUserSync = async function (mode = "import") {
       let currentEp = item.ep_status || 0;
       const totalEps = subject.eps || subject.total_episodes || "?";
       const scoreStr = subject.score ? `⭐ 評分 ${subject.score}` : "";
-      const statusNum = parseInt(syncType, 10) || 3;
+      // 以 API 回傳的實際收藏狀態為準 (1 想看, 2 看過, 3 在看, 4 擱置, 5 拋棄)
+      const statusNum =
+        parseInt(item.type, 10) || parseInt(syncType, 10) || 3;
 
-      const specificStatusLabel = isBook
-        ? statusNum === 1
-          ? "想讀"
-          : statusNum === 2
-            ? "已讀過"
-            : "已在讀"
-        : statusNum === 1
-          ? "想看"
-          : statusNum === 2
-            ? "已看過"
-            : "已在看";
+      const specificStatusLabel = bgmStatusLabel(statusNum, isBook);
       const category = isBook ? "resource" : "anime";
       const tags = ["Bangumi同步", specificStatusLabel, currentTypeName];
 
       if (isBook) tags.push("書籍", "漫畫", "小說");
       else tags.push("動畫");
 
-      // 檢查圖書館中是否已存在
-      const existingIdx = state.bookmarks.findIndex(
-        (b) =>
-          b.url === bgmUrl ||
-          (b.title === title &&
-            (b.category === category ||
-              b.category === "anime" ||
-              b.category === "resource")),
+      // 檢查圖書館中是否已存在：優先以 subject ID 比對；
+      // 僅在同為動畫/同為書籍、且尚未綁定其他條目時才以標題比對
+      // (避免同名的動畫與漫畫/小說互相覆蓋狀態)
+      const boundSubjectId = bgmBoundSubjectId;
+      let existingIdx = state.bookmarks.findIndex(
+        (b) => b.url === bgmUrl || boundSubjectId(b) === String(subjectId),
       );
+      if (existingIdx === -1) {
+        existingIdx = state.bookmarks.findIndex(
+          (b) =>
+            b.title === title &&
+            !boundSubjectId(b) &&
+            ["anime", "resource", "manga", "novel"].includes(b.category) &&
+            isMangaItem(b) === isBook,
+        );
+      }
 
       if (existingIdx !== -1) {
         const existing = state.bookmarks[existingIdx];
@@ -9837,6 +9879,7 @@ window.triggerBangumiUserSync = async function (mode = "import") {
         existing.category = category;
         existing.bangumiStatus = statusNum;
         existing.bangumiSubjectId = subjectId;
+        existing.bangumiSubjectType = isBook ? 1 : 2;
 
         if (!Array.isArray(existing.tags)) existing.tags = [];
 
@@ -9869,6 +9912,7 @@ window.triggerBangumiUserSync = async function (mode = "import") {
           desc: desc,
           bangumiStatus: statusNum,
           bangumiSubjectId: subjectId,
+          bangumiSubjectType: isBook ? 1 : 2,
           pinned: false,
           clicks: 0,
           createdAt: new Date().toISOString(),
@@ -10679,13 +10723,24 @@ document.addEventListener("DOMContentLoaded", () => {
 function isMangaItem(item) {
   if (!item) return false;
 
+  // Bangumi 匯入時記錄的 subject_type：1 = 書籍 (漫畫/小說)、2 = 動畫
+  const st = parseInt(item.bangumiSubjectType, 10);
+  if (st === 1) return true;
+  if (st === 2) return false;
+
   return (
     item.category === "manga" ||
+    item.category === "novel" ||
     item.category === "resource" ||
     (Array.isArray(item.tags) &&
       item.tags.some(
         (t) =>
-          t.includes("漫畫") || t.includes("条漫") || t.includes("Tachimanga"),
+          typeof t === "string" &&
+          (t.includes("漫畫") ||
+            t.includes("条漫") ||
+            t.includes("Tachimanga") ||
+            t.includes("小說") ||
+            t.includes("書籍")),
       ))
   );
 }
@@ -10694,67 +10749,23 @@ window.getBookmarkWatchStatusLabel = function (item) {
   if (!item) return "狀態";
   const isManga = isMangaItem(item);
 
-  // 1. 優先檢查 bangumiStatus 數值 (3: 已在看/已在讀, 2: 已看過/已讀過, 1: 想看/想讀)
-  if (item.bangumiStatus !== undefined && item.bangumiStatus !== null) {
-    const s = parseInt(item.bangumiStatus, 10);
+  // 1. 優先檢查 bangumiStatus 數值 (1 想看, 2 看過, 3 在看, 4 擱置, 5 拋棄)
+  const fromField = bgmStatusLabel(item.bangumiStatus, isManga);
+  if (fromField) return fromField;
 
-    if (s === 3) return isManga ? "已在讀" : "已在看";
+  // 2. 檢查 tags 標籤陣列 (支援複合標籤如「在看/在讀」、「#已看」等)
+  const fromTags = bgmStatusLabel(bgmStatusFromTags(item.tags), isManga);
+  if (fromTags) return fromTags;
 
-    if (s === 2) return isManga ? "已讀過" : "已看過";
+  // 3. 檢查快取 (以 subject ID 或「類型 + 完整標題」為鍵，避免不同季/同名動畫漫畫混用)
+  const cache = window.bangumiSubjectStatusCache || {};
+  const cached =
+    (item.bangumiSubjectId && cache[bgmSubjectCacheKey(item.bangumiSubjectId)]) ||
+    (item.title && cache[bgmTitleCacheKey(item.title, isManga ? 1 : 2)]);
 
-    if (s === 1) return isManga ? "想讀" : "想看";
-  }
-
-  // 2. 檢查 tags 標籤陣列 (支援模糊匹配、複合標籤如「在看/在讀」、「#在看/在讀」、「#已看」等)
-  if (Array.isArray(item.tags)) {
-    if (
-      item.tags.some(
-        (t) =>
-          typeof t === "string" && (t.includes("在看") || t.includes("在讀")),
-      )
-    ) {
-      return isManga ? "已在讀" : "已在看";
-    }
-
-    if (
-      item.tags.some(
-        (t) =>
-          typeof t === "string" &&
-          (t.includes("看過") ||
-            t.includes("已看") ||
-            t.includes("讀過") ||
-            t.includes("已讀")),
-      )
-    ) {
-      return isManga ? "已讀過" : "已看過";
-    }
-
-    if (
-      item.tags.some(
-        (t) =>
-          typeof t === "string" && (t.includes("想看") || t.includes("想讀")),
-      )
-    ) {
-      return isManga ? "想讀" : "想看";
-    }
-  }
-
-  // 3. 檢查快取
-  if (item.title) {
-    const cleanTitle = cleanBangumiQueryTitle(item.title);
-
-    const cached =
-      window.bangumiSubjectStatusCache &&
-      (window.bangumiSubjectStatusCache[cleanTitle] ||
-        window.bangumiSubjectStatusCache[item.title]);
-
-    if (cached && cached.type > 0) {
-      if (cached.type === 3) return isManga ? "已在讀" : "已在看";
-
-      if (cached.type === 2) return isManga ? "已讀過" : "已看過";
-
-      if (cached.type === 1) return isManga ? "想讀" : "想看";
-    }
+  if (cached && cached.type > 0) {
+    const fromCache = bgmStatusLabel(cached.type, isManga);
+    if (fromCache) return fromCache;
   }
 
   return "標記狀態";
@@ -10766,17 +10777,8 @@ window.updateCardWatchStatus = async function (bookmarkId, newType) {
   if (!item) return;
   const isManga = isMangaItem(item);
 
-  const typeLabel = isManga
-    ? newType === 1
-      ? "想讀"
-      : newType === 2
-        ? "已讀過"
-        : "已在讀"
-    : newType === 1
-      ? "想看"
-      : newType === 2
-        ? "已看過"
-        : "已在看";
+  const typeLabel = bgmStatusLabel(newType, isManga);
+  if (!typeLabel) return;
 
   if (!Array.isArray(item.tags)) item.tags = [];
 
@@ -10819,7 +10821,7 @@ window.updateCardWatchStatus = async function (bookmarkId, newType) {
     }
 
     if (subjectId) {
-      await window.syncStatusToBangumi(subjectId, newType);
+      await window.syncStatusToBangumi(subjectId, newType, null, null, isManga);
     } else {
       showToast(
         "已更新本地標記（未找到對應 Bangumi 作品 ID）",
@@ -10901,148 +10903,135 @@ function cleanBangumiQueryTitle(rawTitle) {
   return t;
 }
 
+// 標題正規化：只去除空白與標點、統一大小寫；保留季數/篇章等資訊，避免不同季別被視為同一作品
+function bgmNormTitle(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[\s　·・:：;；!！?？。.,，、~～\-_'"‘’“”「」『』()（）\[\]【】<>《》〈〉♪☆★♥♡]/g, "");
+}
+// 快取鍵：以「條目類型 (1 書籍 / 2 動畫) + 完整標題」或 subject ID 區分，避免同名動畫與漫畫/小說互相覆蓋
+function bgmTitleCacheKey(title, typeId) {
+  return `t${parseInt(typeId, 10) === 1 ? 1 : 2}|${bgmNormTitle(title)}`;
+}
+function bgmSubjectCacheKey(subjectId) {
+  return `id|${subjectId}`;
+}
+// 含季數/篇章標記的標題不可退回「去除季數後」的模糊搜尋，否則會對到第一季等其他條目
+const BGM_SEASON_RE =
+  /第[0-9一二三四五六七八九十百]+[季期部]|Season\s*\d+|\bS\d+\b|Part\s*\d+|劇場版|剧场版|特別篇|OVA|OAD/i;
+
 window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
-  const cleanTitle = cleanBangumiQueryTitle(title);
+  const rawTitle = String(title || "").trim();
+  if (!rawTitle) return null;
 
-  if (!cleanTitle && !title) return null;
-  const queryKey = cleanTitle || title.trim();
+  const isBook = parseInt(typeId, 10) === 1;
+  const subjectType = isBook ? 1 : 2;
+  const cache = window.bangumiSubjectStatusCache;
+  const titleKey = bgmTitleCacheKey(rawTitle, subjectType);
 
-  if (window.bangumiSubjectStatusCache[queryKey]) {
-    return window.bangumiSubjectStatusCache[queryKey];
-  }
-
-  if (window.bangumiSubjectStatusCache[title]) {
-    return window.bangumiSubjectStatusCache[title];
-  }
+  if (cache[titleKey]) return cache[titleKey];
 
   const token = window.getBangumiToken ? window.getBangumiToken() : "";
+  const norm = bgmNormTitle(rawTitle) || rawTitle;
 
-  // 檢查本地現有書籤庫是否已綁定 subjectId 或具備狀態標籤
+  // 檢查本地書籤庫：只接受「完整標題相同」且「同為動畫 / 同為書籍」的書籤
   let knownSubjectId = null;
   let localColType = 0;
 
-  const existingBm = (state.bookmarks || []).find((b) => {
-    if (!b) return false;
-
-    if (b.title === title || b.title === queryKey) return true;
-    const bClean = cleanBangumiQueryTitle(b.title);
-    return bClean && (bClean === queryKey || bClean === title);
-  });
+  const existingBm = (state.bookmarks || []).find(
+    (b) =>
+      b &&
+      b.title &&
+      (bgmNormTitle(b.title) || b.title.trim()) === norm &&
+      isMangaItem(b) === isBook,
+  );
 
   if (existingBm) {
-    if (existingBm.bangumiSubjectId) {
-      knownSubjectId = existingBm.bangumiSubjectId;
-    } else if (
-      existingBm.url &&
-      /bgm\.tv\/subject\/(\d+)/.test(existingBm.url)
-    ) {
-      knownSubjectId = existingBm.url.match(/bgm\.tv\/subject\/(\d+)/)[1];
-    }
+    knownSubjectId = bgmBoundSubjectId(existingBm) || null;
 
-    if (existingBm.bangumiStatus) {
-      localColType = parseInt(existingBm.bangumiStatus, 10) || 0;
-    } else if (Array.isArray(existingBm.tags)) {
-      if (
-        existingBm.tags.some(
-          (t) =>
-            typeof t === "string" && (t.includes("在看") || t.includes("在讀")),
-        )
-      )
-        localColType = 3;
-      else if (
-        existingBm.tags.some(
-          (t) =>
-            typeof t === "string" &&
-            (t.includes("看過") ||
-              t.includes("已看") ||
-              t.includes("讀過") ||
-              t.includes("已讀")),
-        )
-      )
-        localColType = 2;
-      else if (
-        existingBm.tags.some(
-          (t) =>
-            typeof t === "string" && (t.includes("想看") || t.includes("想讀")),
-        )
-      )
-        localColType = 1;
-    }
+    localColType =
+      parseInt(existingBm.bangumiStatus, 10) ||
+      bgmStatusFromTags(existingBm.tags);
+    if (!(localColType >= 1 && localColType <= 5)) localColType = 0;
   }
+
+  const searchSubjects = async (q) => {
+    const r = await fetch(
+      `/api/bangumi/search?q=${encodeURIComponent(q)}&type=${subjectType}${token ? `&token=${encodeURIComponent(token)}` : ""}`,
+    );
+    const d = await r.json();
+    const list =
+      d && d.success && d.data && Array.isArray(d.data.data) ? d.data.data : [];
+    // 只保留同類型條目 (1 書籍 / 2 動畫)
+    return list.filter(
+      (s) => s && s.id && (!s.type || parseInt(s.type, 10) === subjectType),
+    );
+  };
+  const exactMatch = (list, n) =>
+    list.find(
+      (s) =>
+        (s.name_cn && bgmNormTitle(s.name_cn) === n) ||
+        (s.name && bgmNormTitle(s.name) === n),
+    );
 
   try {
     let subjectId = knownSubjectId;
-    let subjectTitle = queryKey;
+    let subjectTitle = rawTitle;
 
-    // 若尚未知曉 subjectId，則向後端 Bangumi Search 檢索
+    // 若尚未知曉 subjectId，則向後端 Bangumi Search 檢索 (先用完整標題)
     if (!subjectId) {
-      const searchRes = await fetch(
-        `/api/bangumi/search?q=${encodeURIComponent(queryKey)}&type=${typeId}${token ? `&token=${encodeURIComponent(token)}` : ""}`,
-      );
-      const searchData = await searchRes.json();
+      let list = await searchSubjects(rawTitle);
+      let picked = exactMatch(list, norm) || list[0] || null;
 
-      if (
-        searchData.success &&
-        searchData.data &&
-        Array.isArray(searchData.data.data) &&
-        searchData.data.data.length > 0
-      ) {
-        const candidates = searchData.data.data;
+      if (!picked) {
+        const cleaned = cleanBangumiQueryTitle(rawTitle);
 
-        const matchedSubject =
-          candidates.find(
-            (s) =>
-              (s.name_cn &&
-                (s.name_cn.trim() === queryKey ||
-                  s.name_cn.trim() === title)) ||
-              (s.name &&
-                (s.name.trim() === queryKey || s.name.trim() === title)),
-          ) ||
-          candidates.find(
-            (s) =>
-              (s.name_cn &&
-                (s.name_cn.includes(queryKey) ||
-                  queryKey.includes(s.name_cn))) ||
-              (s.name &&
-                (s.name.includes(queryKey) || queryKey.includes(s.name))),
-          ) ||
-          candidates[0];
-
-        if (matchedSubject && matchedSubject.id) {
-          subjectId = matchedSubject.id;
-
-          subjectTitle =
-            matchedSubject.name_cn || matchedSubject.name || queryKey;
+        if (cleaned && cleaned !== rawTitle && !BGM_SEASON_RE.test(rawTitle)) {
+          list = await searchSubjects(cleaned);
+          picked = exactMatch(list, bgmNormTitle(cleaned)) || null;
         }
+      }
+
+      if (picked) {
+        subjectId = String(picked.id);
+        subjectTitle = picked.name_cn || picked.name || rawTitle;
       }
     }
 
     if (subjectId) {
       let colType = 0; // 0 = 未收藏
+      let remoteKnown = false;
 
       if (token) {
-        const colRes = await fetch(
-          `/api/bangumi/collection?subjectId=${subjectId}&token=${encodeURIComponent(token)}`,
-        );
-        const colData = await colRes.json();
+        try {
+          const colRes = await fetch(
+            `/api/bangumi/collection?subjectId=${encodeURIComponent(subjectId)}&token=${encodeURIComponent(token)}`,
+          );
+          const colData = await colRes.json();
 
-        if (
-          colData.success &&
-          colData.data &&
-          typeof colData.data.type !== "undefined"
-        ) {
-          colType = parseInt(colData.data.type, 10) || 0;
+          if (
+            colData.success &&
+            colData.data &&
+            typeof colData.data.type !== "undefined"
+          ) {
+            colType = parseInt(colData.data.type, 10) || 0;
+            remoteKnown = true;
+          }
+        } catch (colErr) {
+          console.warn("查詢 Bangumi 收藏狀態失敗:", colErr.message);
         }
       }
 
-      // 若 Bangumi 未查詢到或未收藏但本地書籤已有標記，優先回退本地標記
-      if (colType === 0 && localColType > 0) {
+      // Bangumi 查詢失敗 / 未綁定 Token，或使用者設定「本地優先」時，採用本地書籤標記
+      const preferLocal =
+        (window.getBgmPriority ? window.getBgmPriority() : "bangumi") === "local";
+      if (localColType > 0 && (!remoteKnown || preferLocal)) {
         colType = localColType;
       }
 
       const resObj = { subjectId, type: colType, title: subjectTitle };
-      window.bangumiSubjectStatusCache[queryKey] = resObj;
-      window.bangumiSubjectStatusCache[title] = resObj;
+      cache[titleKey] = resObj;
+      cache[bgmSubjectCacheKey(subjectId)] = resObj;
 
       if (existingBm && !existingBm.bangumiSubjectId) {
         existingBm.bangumiSubjectId = subjectId;
@@ -11062,9 +11051,9 @@ window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
     const fallbackObj = {
       subjectId: knownSubjectId,
       type: localColType,
-      title: queryKey,
+      title: rawTitle,
     };
-    window.bangumiSubjectStatusCache[queryKey] = fallbackObj;
+    cache[titleKey] = fallbackObj;
     return fallbackObj;
   }
 
@@ -11075,7 +11064,7 @@ window.checkAndRenderBangumiStatus = async function (title, typeId, elementId) {
   const el = document.getElementById(elementId);
 
   if (!el) return;
-  const isManga = typeId === 1;
+  const isManga = parseInt(typeId, 10) === 1;
   const info = await window.fetchBangumiSubjectStatus(title, typeId);
 
   if (!info) {
@@ -11085,21 +11074,11 @@ window.checkAndRenderBangumiStatus = async function (title, typeId, elementId) {
     return;
   }
 
-  const type = info.type;
+  const label = bgmStatusLabel(info.type, isManga);
 
-  const mapLabels = isManga
-    ? { 1: "想讀", 2: "已讀過", 3: "已在讀", 4: "擱置", 5: "拋棄" }
-    : { 1: "想看", 2: "已看過", 3: "已在看", 4: "擱置", 5: "拋棄" };
-
-  if (mapLabels[type]) {
-    el.textContent = mapLabels[type];
-
-    el.className =
-      type === 3
-        ? "text-success fw-bold"
-        : type === 2
-          ? "text-primary fw-bold"
-          : "text-danger fw-bold";
+  if (label) {
+    el.textContent = label;
+    el.className = bgmStatusClass(info.type);
   } else {
     el.textContent = "未收藏";
     el.className = "text-white-50";
@@ -11134,34 +11113,36 @@ window.applyBangumiStatusChange = async function (
     return;
   }
 
-  const success = await window.syncStatusToBangumi(info.subjectId, statusType);
+  const success = await window.syncStatusToBangumi(
+    info.subjectId,
+    statusType,
+    null,
+    null,
+    isManga,
+  );
 
   if (success) {
     info.type = statusType;
-    const cleanTitle = cleanBangumiQueryTitle(title);
-    window.bangumiSubjectStatusCache[cleanTitle] = info;
-    window.bangumiSubjectStatusCache[title] = info;
+    window.bangumiSubjectStatusCache[bgmTitleCacheKey(title, isManga ? 1 : 2)] =
+      info;
+    window.bangumiSubjectStatusCache[bgmSubjectCacheKey(info.subjectId)] = info;
 
-    // 同步更新本地書籤庫中匹配作品的狀態標記與卡片
-    const typeLabel = isManga
-      ? statusType === 1
-        ? "想讀"
-        : statusType === 2
-          ? "已讀過"
-          : "已在讀"
-      : statusType === 1
-        ? "想看"
-        : statusType === 2
-          ? "已看過"
-          : "已在看";
+    // 同步更新本地書籤庫中「同一條目」的狀態標記與卡片
+    const typeLabel = bgmStatusLabel(statusType, isManga);
+    const norm = bgmNormTitle(title);
     let updatedAnyBookmark = false;
 
     (state.bookmarks || []).forEach((bm) => {
-      if (
-        bm.title === title ||
-        bm.title === cleanTitle ||
-        bm.bangumiSubjectId === info.subjectId
-      ) {
+      if (!bm) return;
+      const bound = bgmBoundSubjectId(bm);
+      const sameSubject = bound && bound === String(info.subjectId);
+      const sameTitleUnbound =
+        !bound &&
+        bm.title &&
+        bgmNormTitle(bm.title) === norm &&
+        isMangaItem(bm) === !!isManga;
+
+      if (sameSubject || sameTitleUnbound) {
         bm.bangumiSubjectId = info.subjectId;
         bm.bangumiStatus = statusType;
 
@@ -11169,7 +11150,7 @@ window.applyBangumiStatusChange = async function (
 
         bm.tags = stripWatchStatusTags(bm.tags);
 
-        bm.tags.push(typeLabel);
+        if (typeLabel) bm.tags.push(typeLabel);
         updatedAnyBookmark = true;
       }
     });
@@ -11184,17 +11165,8 @@ window.applyBangumiStatusChange = async function (
       const el = document.getElementById(elementId);
 
       if (el) {
-        const mapLabels = isManga
-          ? { 1: "想讀", 2: "已讀過", 3: "已在讀" }
-          : { 1: "想看", 2: "已看過", 3: "已在看" };
-        el.textContent = mapLabels[statusType] || "已收藏";
-
-        el.className =
-          statusType === 3
-            ? "text-success fw-bold"
-            : statusType === 2
-              ? "text-primary fw-bold"
-              : "text-danger fw-bold";
+        el.textContent = typeLabel || "已收藏";
+        el.className = bgmStatusClass(statusType);
       }
     }
   }
