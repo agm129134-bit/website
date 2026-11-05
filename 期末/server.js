@@ -43,13 +43,28 @@ const API_ROUTES = [
     [['/api/docker'], handleDockerRoute]  // 容器管理與一鍵部署
 ];
 
+// 只對外提供前端資源：根目錄的 html/ico/svg 與下列資料夾；data/、api/、server.js 等一律不給
+const PUBLIC_DIRS = ['css', 'js', 'images', 'tampermonkey'];
+function isPublicFile(rel) {
+    const parts = rel.split('/');
+    return parts.length === 1 ? /\.(html|ico|svg)$/i.test(rel) : PUBLIC_DIRS.includes(parts[0]);
+}
+
+const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 const server = http.createServer((req, res) => {
     for (const [prefixes, handler] of API_ROUTES) {
         if (prefixes.some(p => req.url.startsWith(p))) return handler(req, res);
     }
 
-    // 取得乾淨路徑並防止目錄穿越漏洞
-    const reqUrl = decodeURI(req.url.split('?')[0]);
+    // 取得乾淨路徑並防止目錄穿越漏洞 (格式錯誤的 %xx 會讓 decodeURI 拋錯，必須攔下否則整個伺服器崩潰)
+    let reqUrl;
+    try {
+        reqUrl = decodeURI(req.url.split('?')[0]);
+    } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+        return res.end('400 Bad Request');
+    }
     let safePath = path.normalize(reqUrl).replace(/^(\.\.[\/\\])+/, '');
     
     // 首頁預設導向 login.html（第一頁：必須先登入才能進主頁）
@@ -66,9 +81,11 @@ const server = http.createServer((req, res) => {
     }
 
     const filePath = path.join(ROOT_DIR, safePath);
+    const relPath = path.relative(ROOT_DIR, filePath).split(path.sep).join('/');
+    const isPublic = !relPath.startsWith('..') && isPublicFile(relPath);
 
     fs.stat(filePath, (err, stats) => {
-        if (err || !stats.isFile()) {
+        if (!isPublic || err || !stats.isFile()) {
             res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
             res.end(`
                 <!DOCTYPE html>
@@ -76,7 +93,7 @@ const server = http.createServer((req, res) => {
                 <head><meta charset="UTF-8"><title>404 找不到檔案</title></head>
                 <body style="font-family: sans-serif; text-align: center; padding: 50px;">
                     <h2>404 找不到該頁面或資源</h2>
-                    <p style="color: #64748b;">請求路徑: <code>${reqUrl}</code></p>
+                    <p style="color: #64748b;">請求路徑: <code>${escapeHtml(reqUrl)}</code></p>
                     <a href="/" style="color: #2563eb; text-decoration: none;">← 回到圖書館首頁</a>
                 </body>
                 </html>
