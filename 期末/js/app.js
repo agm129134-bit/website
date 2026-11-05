@@ -146,6 +146,13 @@ async function seamlessNavigateTo(url, isPopState = false) {
       document.body.appendChild(document.importNode(node, true));
     });
 
+    // 舊頁面節點已移除：清掉仍在跑、但目標已脫離畫面的 GSAP 動畫
+    if (typeof gsap !== "undefined") {
+      gsap.globalTimeline.getChildren(true, true, false).forEach((tween) => {
+        if (tween.targets().some((t) => t instanceof Element && !t.isConnected)) tween.kill();
+      });
+    }
+
     document.title = newDoc.title;
     if (!isPopState) {
       history.pushState({ url }, newDoc.title, url);
@@ -1130,6 +1137,7 @@ function renderBookmarks(skipAnimation = false) {
       else resetBtn.classList.add("d-none");
     }
 
+    container._renderedIds = new Set();
     return;
   }
 
@@ -1341,32 +1349,35 @@ function renderBookmarks(skipAnimation = false) {
     container.appendChild(col);
   });
 
-  // GSAP 3 物理交錯彈入動畫 (Stagger In & Smooth Damping)
-  if (!skipAnimation && typeof gsap !== "undefined") {
-    const isList = state.viewMode === "list";
+  // 進場動畫只給「這次新出現」的卡片 (首次載入、切換分類/搜尋後新符合的卡片)。
+  // 點擊次數、置頂、批量勾選、狀態變更等原地重繪不再整片重播，避免閃爍。
+  const prevIds = container._renderedIds;
+  const viewChanged = container._renderedView !== state.viewMode;
+  container._renderedIds = new Set(items.map((it) => it.id));
+  container._renderedView = state.viewMode;
 
-    if (isList) {
+  if (!skipAnimation && typeof gsap !== "undefined") {
+    const cols = container.children;
+    const freshCards = items
+      .map((it, i) =>
+        !prevIds || viewChanged || !prevIds.has(it.id)
+          ? cols[i] && cols[i].querySelector(".bookmark-card")
+          : null,
+      )
+      .filter(Boolean);
+
+    if (freshCards.length > 0) {
+      const isList = state.viewMode === "list";
       gsap.fromTo(
-        "#bookmarkContainer .bookmark-card",
-        { x: -8, opacity: 0 },
+        freshCards,
+        isList ? { x: -8, opacity: 0 } : { y: 8, opacity: 0 },
         {
           x: 0,
-          opacity: 1,
-          duration: 0.25,
-          stagger: 0.02,
-          ease: "power2.out",
-          clearProps: "transform,opacity",
-        },
-      );
-    } else {
-      gsap.fromTo(
-        "#bookmarkContainer .bookmark-card",
-        { y: 8, opacity: 0 },
-        {
           y: 0,
           opacity: 1,
           duration: 0.25,
-          stagger: 0.02,
+          // 總錯開時間上限 0.3s，卡片再多也不會拖長
+          stagger: Math.min(0.02, 0.3 / freshCards.length),
           ease: "power2.out",
           clearProps: "transform,opacity",
         },
@@ -9959,8 +9970,8 @@ window.toggleBatchMode = function (forceState) {
   if (state.isBatchMode && typeof gsap !== "undefined") {
     gsap.fromTo(
       "#bookmarkContainer .bookmark-batch-checkbox",
-      { scale: 0.4, opacity: 0 },
-      { scale: 1, opacity: 1, duration: 0.25, stagger: 0.012, ease: "back.out(2)", clearProps: "transform,opacity" },
+      { scale: 0.8, opacity: 0 },
+      { scale: 1, opacity: 1, duration: 0.2, stagger: 0.01, ease: "power2.out", clearProps: "transform,opacity" },
     );
   }
 

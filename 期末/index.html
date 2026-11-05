@@ -5092,7 +5092,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
     <!-- 尊重系統「減少動態效果」：GSAP 動畫幾乎瞬間完成 -->
-    <script>if (window.gsap && window.matchMedia("(prefers-reduced-motion: reduce)").matches) gsap.globalTimeline.timeScale(20);</script>
+    <script>if (typeof gsap !== "undefined") gsap.matchMedia().add("(prefers-reduced-motion: reduce)", () => { gsap.globalTimeline.timeScale(20); return () => gsap.globalTimeline.timeScale(1); });</script>
 
     <!-- Hls.js for native m3u8 playback in Chrome/Edge -->
 

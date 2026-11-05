@@ -1935,7 +1935,7 @@
     <!-- GSAP 3 高效能專業動畫庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
     <!-- 尊重系統「減少動態效果」：GSAP 動畫幾乎瞬間完成 -->
-    <script>if (window.gsap && window.matchMedia("(prefers-reduced-motion: reduce)").matches) gsap.globalTimeline.timeScale(20);</script>
+    <script>if (typeof gsap !== "undefined") gsap.matchMedia().add("(prefers-reduced-motion: reduce)", () => { gsap.globalTimeline.timeScale(20); return () => gsap.globalTimeline.timeScale(1); });</script>
     <!-- Bootstrap 5 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- App Logic JS -->
