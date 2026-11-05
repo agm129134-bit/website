@@ -8348,20 +8348,20 @@ window.openNovelSearchModal = function (defaultKeyword = "") {
 };
 
 // ============================================================
-// 小說線上書源切換與檢索核心 (飄天文學 piaotia vs 愛下電子書 ixdzs)
+// 小說線上書源切換與檢索核心 (只收日本小說：小説家になろう syosetu / カクヨム kakuyomu)
 // ============================================================
 
 const NOVEL_SOURCES = {
-  piaotia: { name: "飄天文學", badge: "📖 飄天" },
-  ixdzs: { name: "愛下電子書", badge: "📚 愛下" },
+  syosetu: { name: "小説家になろう", badge: "📖 なろう" },
+  kakuyomu: { name: "カクヨム", badge: "📚 カクヨム" },
 };
 
-// 舊版 wenku8 / bilinovel 已失效，sessionStorage 若存舊值則改回預設書源
+// 舊書源 (wenku8 / bilinovel / piaotia / ixdzs) 已移除，sessionStorage 若存舊值則改回預設書源
 let currentNovelSource = NOVEL_SOURCES[
   sessionStorage.getItem("novel_preferred_source")
 ]
   ? sessionStorage.getItem("novel_preferred_source")
-  : "piaotia";
+  : "syosetu";
 
 // 產生可安全放進 onclick="fn(...)" 的 JS 字串參數 (避免標題含引號時破壞屬性)
 function novelJsArg(value) {
@@ -8417,7 +8417,7 @@ function updateNovelSourcePills() {
 }
 
 window.setNovelSource = function (src) {
-  currentNovelSource = NOVEL_SOURCES[src] ? src : "piaotia";
+  currentNovelSource = NOVEL_SOURCES[src] ? src : "syosetu";
 
   sessionStorage.setItem("novel_preferred_source", currentNovelSource);
 
@@ -8434,7 +8434,7 @@ window.setNovelSource = function (src) {
 
   searchNovelFromDrawer(kw);
 };
-// 在抽屜中進行小說檢索（飄天文學 / 愛下電子書）
+// 在抽屜中進行小說檢索（小説家になろう / カクヨム）
 window.searchNovelFromDrawer = async function (keyword) {
   const q = (
     keyword !== undefined && keyword !== null
@@ -8459,7 +8459,7 @@ window.searchNovelFromDrawer = async function (keyword) {
     renderNovelNotice(
       container,
       "請輸入小說名稱或作者",
-      `目前書源：${sourceName}，例如「诡秘之主」、「斗破苍穹」。`,
+      `目前書源：${sourceName}（日文原版），可用日文或漢字搜尋，例如「転生」、「薬屋のひとりごと」。`,
       false,
     );
 

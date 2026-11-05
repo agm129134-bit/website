@@ -1,10 +1,10 @@
 /**
  * Web Library - 小說線上書源後端 (/api/novel)
  *
- * 舊版只讀 data/novels_wenku8.json 與 data/novels_bilinovel.json，兩檔皆為空陣列，
- * 且 Wenku8 搜尋需登入、Bilinovel(linovelib) 搜尋被擋，因此改為即時爬取兩個免登入書源：
- *   - piaotia : 飄天文學 www.piaotia.com (GBK 編碼，搜尋需以 GBK 送出關鍵字)
- *   - ixdzs   : 愛下電子書 ixdzs8.com   (UTF-8，章節目錄走 JSON API)
+ * 只提供日本小說，兩個書源皆為作者自行免費公開、免登入：
+ *   - syosetu  : 小説家になろう (官方 API 搜尋 + ncode.syosetu.com 公開頁面)
+ *   - kakuyomu : カクヨム (kakuyomu.jp 頁面內嵌的 Next.js 公開資料)
+ * 先前的中國網文書源 (飄天文學 / 愛下電子書) 已移除。
  *
  * 端點：
  *   GET /api/novel/search?q=&source=
@@ -15,7 +15,7 @@
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
 const TIMEOUT_MS = 10000;
-const DEFAULT_SOURCE = 'piaotia';
+const DEFAULT_SOURCE = 'syosetu';
 
 // ---------- 共用工具 ----------
 
@@ -68,6 +68,7 @@ const stripTags = s => decodeEntities(String(s || '').replace(/<[^>]*>/g, '')).t
 function toParagraphs(html) {
     return String(html || '')
         .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<rp>[\s\S]*?<\/rp>|<rt>[\s\S]*?<\/rt>/gi, '') // 去掉振假名，只留漢字本體
         .split(/<br\s*\/?>|<\/p>/i)
         .map(stripTags)
         .map(s => s.replace(/^[\s　]+|[\s　]+$/g, ''))
@@ -87,174 +88,153 @@ async function cached(key, loader) {
     return v;
 }
 
-// GBK 編碼表：以內建 TextDecoder('gbk') 反推，免安裝 iconv 套件
-let gbkMap = null;
-function encodeGbkURIComponent(str) {
-    if (!gbkMap) {
-        gbkMap = new Map();
-        const dec = new TextDecoder('gbk');
-        for (let a = 0x81; a <= 0xfe; a++) {
-            for (let b = 0x40; b <= 0xfe; b++) {
-                if (b === 0x7f) continue;
-                const ch = dec.decode(Uint8Array.of(a, b));
-                if (ch.length === 1 && ch !== '�' && !gbkMap.has(ch)) gbkMap.set(ch, [a, b]);
-            }
-        }
+// Next.js 頁面內嵌的 Apollo 快取 (カクヨム 使用)
+function readApolloState(html) {
+    const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+    if (!m) throw new SourceError('頁面格式異常');
+    try {
+        return JSON.parse(m[1]).props.pageProps.__APOLLO_STATE__ || {};
+    } catch {
+        throw new SourceError('頁面資料解析失敗');
     }
-    let out = '';
-    for (const ch of str) {
-        if (ch.charCodeAt(0) < 0x80) { out += encodeURIComponent(ch); continue; }
-        const bytes = gbkMap.get(ch);
-        if (bytes) out += bytes.map(x => '%' + x.toString(16).toUpperCase()).join('');
-        // 無法以 GBK 表示的字元 (如 emoji) 直接略過
-    }
-    return out;
 }
 
-// ---------- 書源：飄天文學 piaotia (GBK) ----------
-// novelId 形如 "9/9459"，chapterId 為純數字
+// ---------- 書源：小説家になろう syosetu (官方 API + 公開頁面) ----------
+// novelId 為 ncode (如 n0147mz)；chapterId 為話數，短篇以 "0" 表示整篇
 
-const PIAOTIA = 'https://www.piaotia.com';
-const piaotia = {
-    name: '飄天文學',
-    validNovelId: id => /^\d{1,4}\/\d{1,8}$/.test(id),
-
-    cover(id) {
-        const [, bid] = id.split('/');
-        return `${PIAOTIA}/files/article/image/${id}/${bid}s.jpg`;
-    },
+const SYOSETU_API = 'https://api.syosetu.com/novelapi/api/';
+const SYOSETU = 'https://ncode.syosetu.com';
+const SYOSETU_GENRES = {
+    101: '異世界〔恋愛〕', 102: '現実世界〔恋愛〕', 201: 'ハイファンタジー', 202: 'ローファンタジー',
+    301: '純文学', 302: 'ヒューマンドラマ', 303: '歴史', 304: '推理', 305: 'ホラー', 306: 'アクション', 307: 'コメディー',
+    401: 'VRゲーム', 402: '宇宙', 403: '空想科学', 404: 'パニック', 9901: '童話', 9902: '詩', 9903: 'エッセイ', 9904: 'リプレイ', 9999: 'その他'
+};
+const syosetu = {
+    name: '小説家になろう',
+    validNovelId: id => /^n\d{4}[a-z]{1,3}$/.test(id),
 
     async search(q) {
-        const kw = encodeGbkURIComponent(q);
-        if (!kw) return [];
-        const { url, text } = await fetchRemote(`${PIAOTIA}/modules/article/search.php`, {
-            method: 'POST',
-            encoding: 'gbk',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded', Referer: PIAOTIA + '/' },
-            body: `searchtype=articlename&searchkey=${kw}&action=login&submit=`
+        // 依總合評價排序，只比對標題 / 作者 / 關鍵字，減少雜訊
+        const params = new URLSearchParams({
+            out: 'json', lim: '30', order: 'hyoka', word: q,
+            title: '1', wname: '1', keyword: '1', of: 't-n-w-s-g-nt-e-ga'
         });
-
-        // 完全吻合時網站會直接 302 到書籍資訊頁
-        const direct = url.match(/\/bookinfo\/(\d+\/\d+)\.html/);
-        if (direct) {
-            const id = direct[1];
-            const title = stripTags((text.match(/<h1>([\s\S]*?)<\/h1>/i) || [])[1]) || q;
-            const author = stripTags((text.match(/作\s*(?:&nbsp;)*\s*者：([^<]+)/) || [])[1]);
-            const category = stripTags((text.match(/类(?:&nbsp;|\s)*别：([^<]+)/) || [])[1]);
-            const introHtml = (text.match(/内容简介：<\/span>([\s\S]*?)<\/td>/) || [])[1];
-            return [{
-                id, title, author, category,
-                status: /连载/.test(text.match(/文章状态：([^<]+)/)?.[1] || '') ? '連載' : '完結',
-                cover: this.cover(id),
-                intro: toParagraphs(introHtml).join(' ')
-            }];
-        }
-
-        const results = [];
-        const rowRe = /<tr>\s*<td class="odd"><a href="[^"]*\/bookinfo\/(\d+\/\d+)\.html">([^<]+)<\/a><\/td>\s*<td class="even">[\s\S]*?<\/td>\s*<td class="odd">([^<]*)<\/td>\s*<td class="even">[^<]*<\/td>\s*<td class="odd"[^>]*>[^<]*<\/td>\s*<td class="even"[^>]*>([^<]*)<\/td>/g;
-        let m;
-        while ((m = rowRe.exec(text)) && results.length < 30) {
-            results.push({
-                id: m[1],
-                title: stripTags(m[2]),
-                author: stripTags(m[3]),
-                category: '',
-                status: m[4].includes('连载') ? '連載' : '完結',
-                cover: this.cover(m[1]),
-                intro: ''
-            });
-        }
-        return results;
+        const { text } = await fetchRemote(`${SYOSETU_API}?${params}`, { headers: { 'Accept-Language': 'ja' } });
+        let list;
+        try { list = JSON.parse(text); } catch { throw new SourceError('搜尋結果格式異常'); }
+        if (!Array.isArray(list)) throw new SourceError('搜尋結果格式異常');
+        return list.slice(1).filter(n => n && n.ncode).map(n => ({
+            id: String(n.ncode).toLowerCase(),
+            title: n.title || '',
+            author: n.writer || '',
+            category: SYOSETU_GENRES[n.genre] || '',
+            status: n.noveltype === 2 ? '短篇' : (n.end === 0 ? '完結' : '連載'),
+            cover: '',
+            intro: String(n.story || '').replace(/\s+/g, ' ').slice(0, 200),
+            chapterCount: n.noveltype === 2 ? 1 : n.general_all_no
+        }));
     },
 
     async chapters(id) {
-        return cached(`piaotia:${id}`, async () => {
-            const { text } = await fetchRemote(`${PIAOTIA}/html/${id}/index.html`, { encoding: 'gbk' });
+        return cached(`syosetu:${id}`, async () => {
+            const first = (await fetchRemote(`${SYOSETU}/${id}/`)).text;
+            // 短篇沒有目錄，整篇就在作品頁
+            if (!first.includes('p-eplist__subtitle')) {
+                const title = stripTags((first.match(/<h1 class="p-novel__title[^"]*">([\s\S]*?)<\/h1>/) || [])[1]) || '本文';
+                return [{ id: '0', title }];
+            }
+            // 目錄每頁 100 話，最多讀 30 頁 (3000 話)
+            const lastPage = Math.min(30, Number((first.match(/href="\/[a-z0-9]+\/\?p=(\d+)" class="c-pager__item c-pager__item--last"/) || [])[1]) || 1);
+            const pages = [first];
+            for (let p = 2; p <= lastPage; p++) pages.push((await fetchRemote(`${SYOSETU}/${id}/?p=${p}`)).text);
+
             const chapters = [];
-            const re = /<li><a href="(\d+)\.html">([^<]+)<\/a><\/li>/g;
-            let m;
-            while ((m = re.exec(text))) chapters.push({ id: m[1], title: stripTags(m[2]) });
+            let volumeTitle = '';
+            for (const html of pages) {
+                const re = /<div class="p-eplist__chapter-title">([\s\S]*?)<\/div>|<a href="\/[a-z0-9]+\/(\d+)\/" class="p-eplist__subtitle">([\s\S]*?)<\/a>/g;
+                let m;
+                while ((m = re.exec(html))) {
+                    if (m[1] !== undefined) volumeTitle = stripTags(m[1]);
+                    else chapters.push({ id: m[2], title: stripTags(m[3]), volumeTitle });
+                }
+            }
             return chapters;
         });
     },
 
     async content(id, chapterId) {
-        const { text } = await fetchRemote(`${PIAOTIA}/html/${id}/${chapterId}.html`, { encoding: 'gbk' });
-        const h1 = (text.match(/<h1>([\s\S]*?)<\/h1>/i) || [])[1] || '';
-        // 標題去掉前面的書名連結
-        const title = stripTags(h1.replace(/<a[\s\S]*?<\/a>/i, ''));
-        const endIdx = text.indexOf('<!-- 翻页上AD开始 -->');
-        let body = endIdx > 0 ? text.slice(0, endIdx) : text;
-        body = body.slice(body.lastIndexOf('</table>') + '</table>'.length);
-        body = body.replace(/<\/div>\s*$/, '');
+        const url = chapterId === '0' ? `${SYOSETU}/${id}/` : `${SYOSETU}/${id}/${chapterId}/`;
+        const { text } = await fetchRemote(url);
+        const title = stripTags((text.match(/<h1 class="p-novel__title[^"]*">([\s\S]*?)<\/h1>/) || [])[1]);
+        // 前書き / 本文 / 後書き 各是一個 js-novel-text 區塊
+        const blocks = [...text.matchAll(/<div class="js-novel-text p-novel__text[^"]*">([\s\S]*?)<\/div>/g)].map(m => m[1]);
+        return { title, paragraphs: blocks.flatMap(toParagraphs) };
+    }
+};
+
+// ---------- 書源：カクヨム kakuyomu (頁面內嵌的公開資料) ----------
+// novelId 為作品 ID，chapterId 為 episode ID (皆為長數字)
+
+const KAKUYOMU = 'https://kakuyomu.jp';
+const KAKUYOMU_GENRES = {
+    FANTASY: '異世界ファンタジー', ACTION: '現代ファンタジー', SF: 'SF', LOVE_STORY: '恋愛', ROMANCE: 'ラブコメ',
+    DRAMA: '現代ドラマ', HORROR: 'ホラー', MYSTERY: 'ミステリー', HISTORY: '歴史・時代・伝奇',
+    NONFICTION: 'エッセイ・ノンフィクション', CRITICISM: '創作論・評論', OTHERS: '詩・童話・その他'
+};
+const kakuyomu = {
+    name: 'カクヨム',
+    validNovelId: id => /^\d{6,20}$/.test(id),
+
+    async search(q) {
+        const { text } = await fetchRemote(`${KAKUYOMU}/search?q=${encodeURIComponent(q)}`, { headers: { 'Accept-Language': 'ja' } });
+        const state = readApolloState(text);
+        const ref = r => (r && r.__ref ? state[r.__ref] : r) || {};
+        // 依搜尋結果的排序取作品，取不到就退回快取中所有作品
+        const root = state.ROOT_QUERY || {};
+        const rootKey = Object.keys(root).find(k => k.startsWith('searchWorks'));
+        const nodes = rootKey && root[rootKey] && Array.isArray(root[rootKey].nodes) ? root[rootKey].nodes.map(ref) : [];
+        const works = nodes.length ? nodes : Object.keys(state).filter(k => k.startsWith('Work:')).map(k => state[k]);
+        return works.filter(w => w && w.id && w.title).slice(0, 30).map(w => ({
+            id: String(w.id),
+            title: w.title,
+            author: w.alternateAuthorName || ref(w.author).activityName || '',
+            category: KAKUYOMU_GENRES[w.genre] || '',
+            status: w.serialStatus === 'COMPLETED' ? '完結' : '連載',
+            cover: w.adminCoverImageUrl || '',
+            intro: [w.catchphrase, w.introduction].filter(Boolean).join('｜').replace(/\s+/g, ' ').slice(0, 200),
+            chapterCount: w.publicEpisodeCount
+        }));
+    },
+
+    async chapters(id) {
+        return cached(`kakuyomu:${id}`, async () => {
+            const { text } = await fetchRemote(`${KAKUYOMU}/works/${id}`);
+            const state = readApolloState(text);
+            const work = state[`Work:${id}`];
+            if (!work) throw new SourceError('找不到這部作品');
+            const ref = r => (r && r.__ref ? state[r.__ref] : r) || {};
+            const chapters = [];
+            for (const tocRef of work.tableOfContentsV2 || []) {
+                const toc = ref(tocRef);
+                const volumeTitle = ref(toc.chapter).title || '';
+                for (const epRef of toc.episodeUnions || []) {
+                    const ep = ref(epRef);
+                    if (ep.id) chapters.push({ id: String(ep.id), title: ep.title || '', volumeTitle });
+                }
+            }
+            return chapters;
+        });
+    },
+
+    async content(id, chapterId) {
+        const { text } = await fetchRemote(`${KAKUYOMU}/works/${id}/episodes/${chapterId}`);
+        const title = stripTags((text.match(/<p class="widget-episodeTitle[^"]*">([\s\S]*?)<\/p>/) || [])[1]);
+        const body = (text.match(/<div class="widget-episodeBody[^"]*"[^>]*>([\s\S]*?)<\/div>/) || [])[1] || '';
         return { title, paragraphs: toParagraphs(body) };
     }
 };
 
-// ---------- 書源：愛下電子書 ixdzs (UTF-8) ----------
-// novelId 為純數字 bid，chapterId 為 ordernum
-
-const IXDZS = 'https://ixdzs8.com';
-const ixdzs = {
-    name: '愛下電子書',
-    validNovelId: id => /^\d{1,9}$/.test(id),
-
-    async search(q) {
-        const { text } = await fetchRemote(`${IXDZS}/bsearch?q=${encodeURIComponent(q)}`);
-        const results = [];
-        const items = text.split('<li class="burl"').slice(1);
-        for (const item of items) {
-            const id = (item.match(/data-url="\/read\/(\d+)\/"/) || [])[1];
-            if (!id) continue;
-            results.push({
-                id,
-                title: stripTags((item.match(/<h3 class="bname"><a[^>]*>([\s\S]*?)<\/a>/) || [])[1]),
-                author: stripTags((item.match(/class="bauthor"><a[^>]*>([\s\S]*?)<\/a>/) || [])[1]),
-                category: '',
-                status: /连载/.test(item.match(/class="lz">([^<]*)/)?.[1] || '') ? '連載' : '完結',
-                cover: (item.match(/<img src="([^"]+)"/) || [])[1] || '',
-                intro: stripTags((item.match(/class="l-p2">([\s\S]*?)<\/p>/) || [])[1])
-            });
-            if (results.length >= 30) break;
-        }
-        return results;
-    },
-
-    async chapters(id) {
-        return cached(`ixdzs:${id}`, async () => {
-            const { text } = await fetchRemote(`${IXDZS}/novel/clist/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    Referer: `${IXDZS}/read/${id}/`
-                },
-                body: `bid=${id}`
-            });
-            let json;
-            try { json = JSON.parse(text); } catch { throw new SourceError('章節目錄格式異常'); }
-            const list = Array.isArray(json && json.data) ? json.data : [];
-            const chapters = [];
-            let volumeTitle = '';
-            for (const c of list) {
-                if (String(c.ctype) !== '0') { volumeTitle = stripTags(c.title); continue; } // 分卷標題
-                if (!/^\d+$/.test(String(c.ordernum))) continue;
-                chapters.push({ id: String(c.ordernum), title: stripTags(c.title), volumeTitle });
-            }
-            return chapters;
-        });
-    },
-
-    async content(id, chapterId) {
-        const { text } = await fetchRemote(`${IXDZS}/read/${id}/p${chapterId}.html`);
-        const article = (text.match(/<article class="page-content">([\s\S]*?)<\/article>/) || [])[1] || '';
-        const title = stripTags((article.match(/<h3>([\s\S]*?)<\/h3>/) || [])[1]);
-        const section = (article.match(/<section>([\s\S]*?)<\/section>/) || [])[1] || '';
-        return { title, paragraphs: toParagraphs(section) };
-    }
-};
-
-const SOURCES = { piaotia, ixdzs };
+const SOURCES = { syosetu, kakuyomu };
 
 // ---------- 路由 ----------
 
@@ -294,7 +274,7 @@ async function handleNovelRoute(req, res) {
         }
 
         if (pathname === '/api/novel/content') {
-            if (!src.validNovelId(novelId) || !/^\d{1,10}$/.test(chapterId)) {
+            if (!src.validNovelId(novelId) || !/^\d{1,20}$/.test(chapterId)) {
                 return sendJson(res, 400, { success: false, error: '章節編號格式錯誤' });
             }
             const { title, paragraphs } = await src.content(novelId, chapterId);
