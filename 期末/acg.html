@@ -1741,25 +1741,25 @@
                     <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="關閉"></button>
                 </div>
                 <div class="modal-body p-4 bg-dark">
-                    <!-- 書源切換按鈕列 (飄天文學 vs 愛下電子書，皆為免登入線上書源) -->
+                    <!-- 書源切換按鈕列 (日本小說：小説家になろう vs カクヨム，皆為免登入線上書源) -->
                     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                         <div class="d-flex align-items-center gap-2 flex-wrap">
                             <span class="small text-white-50 fw-semibold"><i class="bi bi-hdd-network"></i> 小說書源：</span>
                             <div class="d-flex align-items-center gap-2" role="group" aria-label="小說書源切換">
-                                <button type="button" class="btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold novel-source-pill" id="sourcePill-piaotia" onclick="setNovelSource('piaotia')">
-                                    <i class="bi bi-book me-1"></i> 飄天文學
+                                <button type="button" class="btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold novel-source-pill" id="sourcePill-syosetu" onclick="setNovelSource('syosetu')">
+                                    <i class="bi bi-book me-1"></i> 小説家になろう
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill" id="sourcePill-ixdzs" onclick="setNovelSource('ixdzs')">
-                                    <i class="bi bi-journal-richtext me-1"></i> 愛下電子書
+                                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill" id="sourcePill-kakuyomu" onclick="setNovelSource('kakuyomu')">
+                                    <i class="bi bi-journal-richtext me-1"></i> カクヨム
                                 </button>
                             </div>
                         </div>
-                        <span class="badge bg-dark border border-secondary text-white-50 small" id="currentNovelSourceBadge">當前：飄天文學</span>
+                        <span class="badge bg-dark border border-secondary text-white-50 small" id="currentNovelSourceBadge">當前：小説家になろう</span>
                     </div>
 
                     <!-- 獨立檢索列：無寬度限制、直覺、防文字截斷 -->
                     <div class="input-group mb-3">
-                        <input type="text" id="novelDrawerKeywordInput" class="form-control bg-black border-secondary text-white py-2" placeholder="輸入小說名稱或作者..." onkeydown="if(event.key==='Enter') searchNovelFromDrawer(this.value)">
+                        <input type="text" id="novelDrawerKeywordInput" class="form-control bg-black border-secondary text-white py-2" placeholder="輸入日本小說名稱或作者（日文 / 漢字）..." onkeydown="if(event.key==='Enter') searchNovelFromDrawer(this.value)">
                         <button class="btn btn-success px-4 fw-semibold" type="button" onclick="searchNovelFromDrawer(document.getElementById('novelDrawerKeywordInput').value)">
                             <i class="bi bi-search me-1"></i> 檢索小說
                         </button>
