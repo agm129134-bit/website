@@ -93,7 +93,7 @@ node -c js/app.js && node -c js/acg.js && node -c server.js
 ## 三、還沒做 / 待決定
 
 - [ ] 重啟 8090 的 `node server.js`（PR #7 改了 `api/sync.js`），再用 jyun 存一次偏好。
-- [ ] 決定是否刪除本機 8090 資料裡被誤建的 `admin` 帳號（無密碼，頭像複製自 jyun）。
+- [x] 刪除本機 8090 資料裡被誤建的 `admin` 帳號（已刪，jyun 未受影響；備份在 `%TEMP%\accounts-before-admin-delete-085538.db`）。
 - [x] 更新 Chrome 篡改猴腳本到 1.6.3。
 - [ ] 明文密碼仍留在 git 歷史（repo 已私人化）。若這些密碼在別處也有用，**建議更換**。
 - [ ] 若要給老師 / 同學看 repo：Settings → Collaborators 加人。
