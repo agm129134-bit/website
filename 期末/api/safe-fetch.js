@@ -167,6 +167,36 @@ function safeFetchText(urlStr, opts = {}) {
     });
 }
 
+/**
+ * 安全開啟串流 (給影片 / 圖片代理用)：不讀進記憶體，回傳上游回應讓呼叫端 pipe。
+ * 每一跳轉址都重新檢查網址，且連線時由 safeLookup 檢查 DNS 結果。
+ * headersFor(url) 可依每一跳的主機決定標頭 (例如 B 站要帶 Referer)。
+ * @returns {Promise<{ upstream: import('http').IncomingMessage, request: import('http').ClientRequest, url: string }>}
+ */
+function safeRequestStream(urlStr, { headersFor = () => ({}), timeoutMs = 15000, maxRedirects = 5 } = {}) {
+    return new Promise((resolve, reject) => {
+        let u;
+        try { u = assertUrlShape(urlStr); } catch (e) { return reject(e); }
+        const client = u.protocol === 'https:' ? https : http;
+        const request = client.request(u, { method: 'GET', headers: headersFor(u), lookup: safeLookup, timeout: timeoutMs }, (upstream) => {
+            const status = upstream.statusCode || 0;
+            if (status >= 300 && status < 400 && upstream.headers.location) {
+                upstream.resume();
+                if (maxRedirects <= 0) return reject(new Error('轉址次數過多'));
+                let next;
+                try { next = new URL(upstream.headers.location, u).toString(); } catch (e) { return reject(new UnsafeUrlError('轉址網址格式無效')); }
+                return resolve(safeRequestStream(next, { headersFor, timeoutMs, maxRedirects: maxRedirects - 1 }));
+            }
+            // 連上之後就不限時 (影片串流可能很久)，只限制建立連線 / 等待回應的時間
+            request.setTimeout(0);
+            resolve({ upstream, request, url: u.toString() });
+        });
+        request.on('timeout', () => request.destroy(new Error(`連線逾時 (${Math.round(timeoutMs / 1000)} 秒)`)));
+        request.on('error', reject);
+        request.end();
+    });
+}
+
 // 讀取 POST JSON body (自訂規則請求很小，上限 256 KB)
 function readJsonBody(req, limit = 256 * 1024) {
     return new Promise((resolve, reject) => {
@@ -186,4 +216,4 @@ function readJsonBody(req, limit = 256 * 1024) {
     });
 }
 
-module.exports = { safeFetchText, assertPublicUrl, assertUrlShape, isPrivateIp, safeLookup, readJsonBody, UnsafeUrlError, DEFAULT_UA };
+module.exports = { safeFetchText, safeRequestStream, assertPublicUrl, assertUrlShape, isPrivateIp, safeLookup, readJsonBody, UnsafeUrlError, DEFAULT_UA };

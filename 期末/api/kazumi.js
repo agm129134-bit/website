@@ -3,12 +3,11 @@
  * 採用 Node.js 原生環境 (CommonJS, global fetch, stream, url)
  * 零依賴、免裝 npm 套件！支援載入 KazumiRules 外部規則爬蟲！
  */
-const { Readable } = require('node:stream');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const customRules = require('./custom-rules');
-const { readJsonBody, assertPublicUrl, UnsafeUrlError } = require('./safe-fetch');
+const { readJsonBody, assertPublicUrl, safeRequestStream, UnsafeUrlError } = require('./safe-fetch');
 
 // 統一設置 CORS 與 JSON 回應
 function sendJson(res, statusCode, payload) {
@@ -22,17 +21,28 @@ function sendJson(res, statusCode, payload) {
 }
 
 // 原生 fetch 封裝（自帶超時防護與 AbortController）
+// 轉址改為手動跟隨 (最多 5 次)，每一跳都檢查不是本機 / 內網，避免公網網址 302 到 127.0.0.1 繞過 SSRF 防護
 async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-        const response = await fetch(url, { ...options, signal: controller.signal });
+        let current = url;
+        for (let hop = 0; hop <= 5; hop++) {
+            await assertPublicUrl(current);
+            const response = await fetch(current, { ...options, redirect: 'manual', signal: controller.signal });
+            const location = response.status >= 300 && response.status < 400 ? response.headers.get('location') : null;
+            if (!location) return response;
+            current = new URL(location, current).toString();
+        }
+        throw new Error('轉址次數過多');
+    } finally {
         clearTimeout(timer);
-        return response;
-    } catch (error) {
-        clearTimeout(timer);
-        throw error;
     }
+}
+
+// 內網阻擋錯誤 (有些爬蟲會把錯誤重新包一層，所以也比對訊息)
+function isUnsafeUrlError(err) {
+    return err instanceof UnsafeUrlError || /本機或內網|內網位址/.test((err && err.message) || '');
 }
 
 // 取得 URL 查詢參數安全輔助函數
@@ -1168,84 +1178,57 @@ async function handleKazumiRoute(req, res) {
             if (parsedTarget.protocol !== 'http:' && parsedTarget.protocol !== 'https:') {
                 return sendJson(res, 400, { success: false, error: '僅支援 HTTP / HTTPS 串流協定' });
             }
-            try {
-                await assertPublicUrl(targetUrl); // 代理不可被拿來打本機 / 內網
-            } catch (e) {
-                return sendJson(res, 403, { success: false, error: e.message });
-            }
-
-            const proxyHeaders = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                'Accept': '*/*'
+            // 代理不可被拿來打本機 / 內網：用 safeRequestStream，每一跳轉址都重新檢查，
+            // 連線時再檢查 DNS 結果 (防 DNS rebinding)；fetch 預設自動跟轉址會繞過檢查，所以不用 fetch
+            const isBilibiliHost = (h) => h.includes('bilibili') || h.includes('hdslb') || h.includes('akamaized.net') || h.includes('bilivideo');
+            const headersFor = (u) => {
+                const h = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                    'Accept': '*/*'
+                };
+                if (req.headers.range) h['Range'] = req.headers.range;
+                if (isBilibiliHost(u.hostname)) h['Referer'] = 'https://www.bilibili.com/';
+                return h;
             };
 
-            if (req.headers.range) {
-                proxyHeaders['Range'] = req.headers.range;
-            }
-
-            if (parsedTarget.hostname.includes('bilibili') || parsedTarget.hostname.includes('hdslb') || parsedTarget.hostname.includes('akamaized.net') || parsedTarget.hostname.includes('bilivideo')) {
-                proxyHeaders['Referer'] = 'https://www.bilibili.com/';
-            }
-
-            const controller = new AbortController();
+            let upstreamReq = null;
             let isAborted = false;
-
             const cleanupStream = () => {
                 if (isAborted) return;
                 isAborted = true;
-                try {
-                    controller.abort();
-                } catch (e) {}
+                try { if (upstreamReq) upstreamReq.destroy(); } catch (e) {}
             };
-
             req.on('close', cleanupStream);
             res.on('close', cleanupStream);
 
             try {
-                const proxyRes = await fetch(targetUrl, {
-                    method: 'GET',
-                    headers: proxyHeaders,
-                    signal: controller.signal
-                });
+                const { upstream, request } = await safeRequestStream(targetUrl, { headersFor });
+                upstreamReq = request;
+                if (isAborted) { request.destroy(); return; }
 
-                res.statusCode = proxyRes.status;
+                res.statusCode = upstream.statusCode || 502;
                 res.setHeader('Access-Control-Allow-Origin', '*');
                 res.setHeader('Access-Control-Allow-Headers', 'Range');
                 res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
 
-                const headersToPass = ['content-type', 'content-length', 'content-range', 'accept-ranges', 'cache-control'];
+                const headersToPass = ['content-type', 'content-length', 'content-range', 'accept-ranges', 'cache-control', 'content-encoding'];
                 for (const h of headersToPass) {
-                    const val = proxyRes.headers.get(h);
+                    const val = upstream.headers[h];
                     if (val) res.setHeader(h, val);
                 }
 
-                if (!proxyRes.body) {
-                    return res.end();
-                }
-
-                const nodeStream = Readable.fromWeb(proxyRes.body);
-
-                // 關鍵加固：徹底攔截並靜默處理串流的 error 事件，防止 AbortError 觸發 Node.js Unhandled 'error' event 導致伺服器崩潰！
-                nodeStream.on('error', (streamErr) => {
-                    // 客戶端中斷、換源、拖曳時間軸或關閉劇院產生的 AbortError / ECONNRESET 屬於正常連線中斷
-                    try {
-                        if (!nodeStream.destroyed) nodeStream.destroy();
-                    } catch (e) {}
-                    if (!res.writableEnded) {
-                        try { res.end(); } catch (e) {}
-                    }
+                // 客戶端中斷、換源、拖曳時間軸產生的 ECONNRESET 屬於正常中斷，靜默處理避免 unhandled 'error' 讓伺服器崩潰
+                upstream.on('error', () => {
+                    if (!res.writableEnded) { try { res.end(); } catch (e) {} }
                 });
+                res.on('error', () => cleanupStream());
 
-                res.on('error', (resErr) => {
-                    cleanupStream();
-                    try {
-                        if (!nodeStream.destroyed) nodeStream.destroy();
-                    } catch (e) {}
-                });
-
-                nodeStream.pipe(res);
+                upstream.pipe(res);
             } catch (err) {
-                if (err.name === 'AbortError' || err.code === 'ABORT_ERR' || isAborted) return;
+                if (isAborted) return;
+                if (err instanceof UnsafeUrlError) {
+                    return sendJson(res, 403, { success: false, error: err.message });
+                }
                 console.error('[Kazumi Stream Proxy Error]:', err.message);
                 if (!res.headersSent) {
                     sendJson(res, 502, { success: false, error: '串流代理傳輸失敗：' + err.message });
@@ -1319,7 +1302,7 @@ async function handleKazumiRoute(req, res) {
                 });
             } catch (err) {
                 console.error('[Kazumi Rule Episodes Error]:', err.message);
-                return sendJson(res, 500, { success: false, error: '取得選集失敗：' + err.message });
+                return sendJson(res, isUnsafeUrlError(err) ? 403 : 500, { success: false, error: '取得選集失敗：' + err.message });
             }
         }
 
@@ -1376,7 +1359,7 @@ async function handleKazumiRoute(req, res) {
                 });
             } catch (err) {
                 console.error('[Kazumi Rule Play Error]:', err.message);
-                return sendJson(res, 500, { success: false, error: '解析播放器失敗：' + err.message });
+                return sendJson(res, isUnsafeUrlError(err) ? 403 : 500, { success: false, error: '解析播放器失敗：' + err.message });
             }
         }
 

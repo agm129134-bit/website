@@ -49,7 +49,8 @@ function absUrl(href, base) {
 }
 
 async function fetchDoc(url, rule, extra = {}) {
-    const res = await safeFetchText(url, { headers: { ...requestHeaders(rule), ...(extra.headers || {}) }, ...extra });
+    // extra 放前面：extra.headers (例如 usePost 的 Content-Type) 要和規則的 UA / Referer 合併，不能整個蓋掉
+    const res = await safeFetchText(url, { ...extra, headers: { ...requestHeaders(rule), ...(extra.headers || {}) } });
     if (res.status >= 400) throw new Error(`目標網站回應 HTTP ${res.status}`);
     return { doc: parseHtml(res.text), url: res.url, html: res.text };
 }

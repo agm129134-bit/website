@@ -6,7 +6,7 @@ const https = require('https');
 const http = require('http');
 const url = require('url');
 const customRules = require('./custom-rules');
-const { readJsonBody, assertUrlShape, safeLookup, UnsafeUrlError } = require('./safe-fetch');
+const { readJsonBody, assertUrlShape, safeLookup, safeFetchText, UnsafeUrlError } = require('./safe-fetch');
 
 const COPYMANGA_HOSTS = [
     'api.manga2025.com',
@@ -247,12 +247,13 @@ async function getBaoziChapters(rawId) {
 // 3. 包子漫畫單話全頁圖片解析
 async function getBaoziPages(pageDirectUrl) {
     const fullUrl = pageDirectUrl.startsWith('http') ? pageDirectUrl : `https://www.webmota.com${pageDirectUrl}`;
-    const res = await fetch(fullUrl, {
+    // chapterId 來自前端，可能是任意網址：走 safeFetchText (擋內網、逐跳檢查轉址、限制大小)
+    const res = await safeFetchText(fullUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-        signal: AbortSignal.timeout(12000)
+        timeoutMs: 12000
     });
-    if (!res.ok) throw new Error('讀取章節圖片頁面失敗: ' + res.status);
-    const html = await res.text();
+    if (res.status >= 400) throw new Error('讀取章節圖片頁面失敗: ' + res.status);
+    const html = res.text;
     const regex = /<amp-img[^>]+src="([^"]+)"/gi;
     let m;
     const pages = [];
@@ -502,7 +503,8 @@ async function handleMangaRoute(req, res) {
         }
     } catch (err) {
         console.error('[Manga API Error]:', err.message);
-        return sendJson(res, 500, { success: false, error: err.message });
+        const blocked = err instanceof UnsafeUrlError || /本機或內網|內網位址/.test(err.message || '');
+        return sendJson(res, blocked ? 403 : 500, { success: false, error: err.message });
     }
 }
 
