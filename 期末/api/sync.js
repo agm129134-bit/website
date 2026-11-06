@@ -538,6 +538,37 @@ async function handleSyncRoute(req, res) {
         }
 
         // ==========================================
+        // 0.92 ACG 自訂來源規則 (動畫 Kazumi 規則 / 漫畫 XPath 規則 / 搜尋跳轉) /api/user/custom-rules
+        // 存在 bookshelf.db 同一筆使用者紀錄的 customRules 欄位，不影響既有書架資料
+        // ==========================================
+        if (pathname === '/api/user/custom-rules') {
+            if (req.method === 'GET') {
+                const safeUser = await resolveRequestUser(query.user || query.username);
+                const record = await bookshelfDb.findOne({ user: safeUser });
+                return sendJson(res, 200, {
+                    success: true,
+                    user: safeUser,
+                    rules: record && Array.isArray(record.customRules) ? record.customRules : [],
+                    updatedAt: (record && record.customRulesUpdatedAt) || null
+                });
+            }
+            if (req.method === 'POST') {
+                const body = await parseRequestBody(req);
+                const safeUser = await resolveRequestUser(body.user || body.username || query.user);
+                if (!Array.isArray(body.rules)) return sendJson(res, 400, { success: false, error: 'rules 必須是陣列' });
+                if (body.rules.length > 200) return sendJson(res, 400, { success: false, error: '自訂規則最多 200 條' });
+                const rules = body.rules.filter(r => r && typeof r === 'object' && JSON.stringify(r).length <= 16 * 1024);
+                const updatedAt = typeof body.updatedAt === 'string' ? body.updatedAt : new Date().toISOString();
+                await bookshelfDb.update(
+                    { user: safeUser },
+                    { $set: { user: safeUser, customRules: rules, customRulesUpdatedAt: updatedAt } },
+                    { upsert: true }
+                );
+                return sendJson(res, 200, { success: true, user: safeUser, count: rules.length, updatedAt });
+            }
+        }
+
+        // ==========================================
         // 0.95 個人 Apple Watch 音樂庫管理 /api/user/music (NeDB 存取)
         // ==========================================
         if (pathname === '/api/user/music' || pathname === '/api/music') {

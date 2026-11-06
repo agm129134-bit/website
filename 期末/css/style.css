@@ -5156,3 +5156,71 @@ body.modal-open .dynamic-island-container:not(:has(.notifying)) {
     scroll-behavior: auto !important;
   }
 }
+
+/* ==================== ACG 自訂來源規則 (js/custom-rules.js) ==================== */
+.custom-jump-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  border-radius: 0.6rem;
+  background: rgba(0, 0, 0, 0.25);
+}
+.custom-jump-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin-right: 0.15rem;
+}
+.custom-jump-hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  flex: 1 1 12rem;
+}
+.custom-jump-btn {
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.custom-jump-manage {
+  margin-left: auto;
+}
+.custom-rules-modal {
+  z-index: 1075;
+}
+.modal-backdrop.custom-rules-backdrop {
+  z-index: 1070;
+}
+.custom-rule-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.6rem;
+  background: rgba(0, 0, 0, 0.3);
+}
+.custom-rule-row.is-disabled {
+  opacity: 0.55;
+}
+.custom-rule-test {
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.6rem;
+  background: rgba(14, 165, 233, 0.08);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  word-break: break-all;
+}
+.custom-rule-thumb {
+  width: 56px;
+  height: 76px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #0b0f19;
+}
+.custom-rules-modal .form-control::placeholder {
+  color: #64748b;
+}

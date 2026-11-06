@@ -5,6 +5,8 @@
 const https = require('https');
 const http = require('http');
 const url = require('url');
+const customRules = require('./custom-rules');
+const { readJsonBody, assertUrlShape, safeLookup, UnsafeUrlError } = require('./safe-fetch');
 
 const COPYMANGA_HOSTS = [
     'api.manga2025.com',
@@ -107,20 +109,22 @@ function sendJson(res, statusCode, data) {
 }
 
 // 代理圖片傳輸 (繞過防盜鏈或證書問題)
-function proxyImage(imgUrl, res) {
+function proxyImage(imgUrl, res, customReferer = '') {
     if (!imgUrl) {
         res.writeHead(400, { 'Content-Type': 'text/plain' });
         return res.end('請提供 imgUrl');
     }
 
     try {
-        const parsed = new URL(imgUrl);
+        const parsed = assertUrlShape(imgUrl); // 擋掉 localhost / 內網 (DNS 結果由 safeLookup 在連線時檢查)
         const client = parsed.protocol === 'https:' ? https : http;
         let referer = '';
         if (parsed.hostname.includes('bzcdn.net') || parsed.hostname.includes('baozimh')) {
             referer = 'https://www.webmota.com/';
         } else if (parsed.hostname.includes('mangafunb') || parsed.hostname.includes('copymanga')) {
             referer = 'https://www.mangacopy.com/';
+        } else if (/^https?:\/\//i.test(customReferer)) {
+            referer = customReferer; // 自訂規則的圖片：用來源站當 Referer 繞過防盜鏈
         }
 
         const req = client.request(parsed, {
@@ -128,8 +132,16 @@ function proxyImage(imgUrl, res) {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                 'Referer': referer
             },
+            lookup: safeLookup,
             timeout: 15000
         }, (imgRes) => {
+            // 只轉送圖片，避免代理被拿來在本站網域下輸出任意 HTML
+            const type = String(imgRes.headers['content-type'] || '');
+            if (type && !/^(image\/|application\/octet-stream|binary\/octet-stream)/i.test(type)) {
+                imgRes.resume();
+                res.writeHead(415, { 'Content-Type': 'text/plain; charset=utf-8' });
+                return res.end('目標不是圖片');
+            }
             res.writeHead(imgRes.statusCode, {
                 'Content-Type': imgRes.headers['content-type'] || 'image/jpeg',
                 'Cache-Control': 'public, max-age=86400',
@@ -456,7 +468,33 @@ async function handleMangaRoute(req, res) {
         // 4. 圖片反向代理: /api/manga/proxy?url=xxx
         else if (pathname === '/api/manga/proxy') {
             const imgUrl = query.url;
-            return proxyImage(imgUrl, res);
+            return proxyImage(imgUrl, res, query.ref || '');
+        }
+
+        // 5. 使用者自訂漫畫規則 (POST，body 帶 { rule, q | detailUrl | chapterUrl })
+        else if (pathname.startsWith('/api/manga/custom-')) {
+            if (req.method !== 'POST') return sendJson(res, 405, { success: false, error: '請使用 POST' });
+            const action = pathname.slice('/api/manga/custom-'.length);
+            try {
+                const body = await readJsonBody(req);
+                if (action === 'search') {
+                    const q = String(body.q || '').trim();
+                    if (!q) return sendJson(res, 400, { success: false, error: '請提供搜尋關鍵字 "q"' });
+                    const { results, matched } = await customRules.mangaSearch(body.rule, q);
+                    return sendJson(res, 200, { success: true, count: results.length, matched, results });
+                }
+                if (action === 'chapters') {
+                    const chapters = await customRules.mangaChapters(body.rule, String(body.detailUrl || ''));
+                    return sendJson(res, 200, { success: true, count: chapters.length, chapters });
+                }
+                if (action === 'pages') {
+                    const pages = await customRules.mangaPages(body.rule, String(body.chapterUrl || ''));
+                    return sendJson(res, 200, { success: true, count: pages.length, pages });
+                }
+                return sendJson(res, 404, { success: false, error: '未知的自訂規則操作' });
+            } catch (err) {
+                return sendJson(res, err instanceof UnsafeUrlError ? 403 : 502, { success: false, error: err.message });
+            }
         }
 
         else {

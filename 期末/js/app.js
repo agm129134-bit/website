@@ -3087,6 +3087,15 @@ const KAZUMI_SOURCES = [
   },
 ];
 
+// 內建來源 + 使用者自訂的 Kazumi XPath 規則 (js/custom-rules.js)
+function getKazumiSources() {
+  const custom =
+    window.CustomRules && typeof window.CustomRules.animeSources === "function"
+      ? window.CustomRules.animeSources()
+      : [];
+  return KAZUMI_SOURCES.concat(custom);
+}
+
 let kazumiState = {
   title: "",
   cover: "",
@@ -3293,11 +3302,13 @@ window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
   if (title) {
     if (titleEl) titleEl.textContent = title;
 
+    const sources = getKazumiSources();
+
     if (summaryEl)
-      summaryEl.textContent = `${KAZUMI_SOURCES.length} 個來源 · 正在檢索...`;
+      summaryEl.textContent = `${sources.length} 個來源 · 正在檢索...`;
 
     kazumiState.sources = new Map(
-      KAZUMI_SOURCES.map((s) => [
+      sources.map((s) => [
         s.id,
         { status: "loading", results: [], expanded: false, episodes: {} },
       ]),
@@ -3306,14 +3317,14 @@ window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
     renderSourceList();
 
     // 同步並發向後端請求各來源
-    KAZUMI_SOURCES.forEach((s) => fetchRuleSearch(s.id, title));
+    sources.forEach((s) => fetchRuleSearch(s.id, title));
   } else {
     if (titleEl) titleEl.textContent = "動漫播放來源檢索";
 
     if (summaryEl) summaryEl.textContent = "請輸入動漫片名檢索播放來源";
 
     kazumiState.sources = new Map(
-      KAZUMI_SOURCES.map((s) => [
+      getKazumiSources().map((s) => [
         s.id,
         { status: "empty", results: [], expanded: false, episodes: {} },
       ]),
@@ -3321,6 +3332,9 @@ window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
 
     renderSourceList();
   }
+
+  // 自訂「搜尋跳轉」規則：在來源清單上方多一排一鍵跳轉按鈕
+  if (window.CustomRules) window.CustomRules.onAnimeSearch(title);
 
   const modalEl = document.getElementById("kazumiSourceModal");
 
@@ -3338,12 +3352,18 @@ async function fetchRuleSearch(sourceId, title) {
   renderSourceList();
 
   try {
-    const res = await fetch(
-      `/api/kazumi/rule-search?q=${encodeURIComponent(title)}&source=${sourceId}`,
-    );
+    let data;
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    if (window.CustomRules && window.CustomRules.isCustomSource(sourceId)) {
+      data = await window.CustomRules.animeSearch(sourceId, title);
+    } else {
+      const res = await fetch(
+        `/api/kazumi/rule-search?q=${encodeURIComponent(title)}&source=${sourceId}`,
+      );
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      data = await res.json();
+    }
 
     const results = Array.isArray(data.results)
       ? data.results
@@ -3371,7 +3391,7 @@ function updateSourceSummary() {
   const summaryEl = document.getElementById("kazumiSourceSummary");
 
   if (!summaryEl) return;
-  const total = KAZUMI_SOURCES.length;
+  const total = getKazumiSources().length;
 
   const loading = [...kazumiState.sources.values()].some(
     (s) => s.status === "loading",
@@ -3394,7 +3414,7 @@ function renderSourceList() {
   if (!list) return;
   list.innerHTML = "";
 
-  KAZUMI_SOURCES.forEach((source) => {
+  getKazumiSources().forEach((source) => {
     const state = kazumiState.sources.get(source.id) || {
       status: "loading",
       results: [],
@@ -3561,12 +3581,18 @@ async function loadEpisodesForSource(sourceId, rIdx, item, epContainer, btn) {
   btn.disabled = true;
 
   try {
-    const res = await fetch(
-      `/api/kazumi/rule-episodes?detailUrl=${encodeURIComponent(item.detailUrl)}`,
-    );
+    let data;
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    if (window.CustomRules && window.CustomRules.isCustomSource(sourceId)) {
+      data = await window.CustomRules.animeEpisodes(sourceId, item.detailUrl);
+    } else {
+      const res = await fetch(
+        `/api/kazumi/rule-episodes?detailUrl=${encodeURIComponent(item.detailUrl)}`,
+      );
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      data = await res.json();
+    }
     const eps = Array.isArray(data.episodes) ? data.episodes : [];
     const state = kazumiState.sources.get(sourceId);
 
@@ -3674,10 +3700,18 @@ async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
   );
 
   try {
-    const res = await fetch(
-      `/api/kazumi/rule-play?playUrl=${encodeURIComponent(episode.playUrl)}`,
-    );
-    const data = await res.json();
+    // 劇院選集抽屜換集時 sourceId 是空的，自訂規則的集數身上會帶 customSourceId
+    const customId = sourceId || episode.customSourceId || "";
+    let data;
+
+    if (window.CustomRules && window.CustomRules.isCustomSource(customId)) {
+      data = await window.CustomRules.animePlay(customId, episode.playUrl);
+    } else {
+      const res = await fetch(
+        `/api/kazumi/rule-play?playUrl=${encodeURIComponent(episode.playUrl)}`,
+      );
+      data = await res.json();
+    }
 
     if (data.success && data.playerUrl) {
       const sourceModal = bootstrap.Modal.getInstance(
@@ -7757,12 +7791,19 @@ window.searchMangaFromDrawer = async function (keyword) {
         `;
   }
 
+  // 自訂「搜尋跳轉」規則按鈕列
+  if (window.CustomRules) window.CustomRules.onMangaSearch(q);
+
   try {
+    // 內建來源與使用者自訂 XPath 規則同時搜尋，自訂規則失敗不影響內建結果
+    const customPromise = window.CustomRules
+      ? window.CustomRules.mangaSearchAll(q).catch(() => [])
+      : Promise.resolve([]);
     const res = await fetch(`/api/manga/search?q=${encodeURIComponent(q)}`);
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    mangaState.searchResults = data.results || [];
+    mangaState.searchResults = (data.results || []).concat(await customPromise);
 
     renderMangaSearchResults(mangaState.searchResults, q);
   } catch (err) {
@@ -7806,9 +7847,12 @@ function renderMangaSearchResults(results, q) {
 
     const isCopy =
       m.source === "CopyManga" || (m.id && m.id.startsWith("copy_"));
+    const isCustom = m.id && m.id.startsWith("crule:");
     const sourceName = m.source || (isCopy ? "CopyManga" : "包子漫畫");
 
-    const sourceBadgeHtml = isCopy
+    const sourceBadgeHtml = isCustom
+      ? `<span class="badge bg-info bg-opacity-75 text-dark px-2 py-0 border border-info border-opacity-50" style="font-size: 0.72rem; vertical-align: middle;"><i class="bi bi-sliders me-1"></i>${escapeHtml(sourceName)}</span>`
+      : isCopy
       ? `<span class="badge bg-primary bg-opacity-75 text-light px-2 py-0 border border-primary border-opacity-50" style="font-size: 0.72rem; vertical-align: middle;"><i class="bi bi-c-circle me-1"></i>CopyManga</span>`
       : `<span class="badge bg-warning bg-opacity-75 text-dark px-2 py-0 border border-warning border-opacity-50" style="font-size: 0.72rem; vertical-align: middle;"><i class="bi bi-box-seam me-1"></i>包子漫畫</span>`;
 
@@ -7891,8 +7935,11 @@ window.selectManga = async function (
 
   const isCopy =
     source === "CopyManga" || (mangaId && mangaId.startsWith("copy_"));
+  const isCustom = mangaId && mangaId.startsWith("crule:");
 
-  const badgeHtml = isCopy
+  const badgeHtml = isCustom
+    ? `<span class="badge bg-info bg-opacity-75 text-dark px-2 py-0 border border-info border-opacity-50" style="font-size: 0.72rem; vertical-align: middle;"><i class="bi bi-sliders me-1"></i>${escapeHtml(source || "自訂規則")}</span>`
+    : isCopy
     ? `<span class="badge bg-primary bg-opacity-75 text-light px-2 py-0 border border-primary border-opacity-50" style="font-size: 0.72rem; vertical-align: middle;"><i class="bi bi-c-circle me-1"></i>CopyManga</span>`
     : `<span class="badge bg-warning bg-opacity-75 text-dark px-2 py-0 border border-warning border-opacity-50" style="font-size: 0.72rem; vertical-align: middle;"><i class="bi bi-box-seam me-1"></i>包子漫畫</span>`;
 
@@ -7920,12 +7967,18 @@ window.selectManga = async function (
   }
 
   try {
-    const res = await fetch(
-      `/api/manga/chapters?mangaId=${encodeURIComponent(mangaId)}&title=${encodeURIComponent(title || "")}&alias=${encodeURIComponent(alias || "")}`,
-    );
+    let data;
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    if (isCustom && window.CustomRules) {
+      data = await window.CustomRules.mangaChapters(mangaId);
+    } else {
+      const res = await fetch(
+        `/api/manga/chapters?mangaId=${encodeURIComponent(mangaId)}&title=${encodeURIComponent(title || "")}&alias=${encodeURIComponent(alias || "")}`,
+      );
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      data = await res.json();
+    }
     mangaState.chapters = data.chapters || [];
     const countBadge = document.getElementById("mangaSelectedChapterCount");
 
@@ -8058,12 +8111,18 @@ window.loadMangaChapter = async function (
   updateMangaNavButtons();
 
   try {
-    const res = await fetch(
-      `/api/manga/pages?mangaId=${encodeURIComponent(mangaId)}&chapterId=${encodeURIComponent(chapterId)}`,
-    );
+    let data;
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    if (String(mangaId).startsWith("crule:") && window.CustomRules) {
+      data = await window.CustomRules.mangaPages(mangaId, chapterId);
+    } else {
+      const res = await fetch(
+        `/api/manga/pages?mangaId=${encodeURIComponent(mangaId)}&chapterId=${encodeURIComponent(chapterId)}`,
+      );
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      data = await res.json();
+    }
     mangaState.pages = data.pages || [];
 
     renderMangaWaterfall(mangaState.pages);

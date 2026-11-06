@@ -7,6 +7,8 @@ const { Readable } = require('node:stream');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const customRules = require('./custom-rules');
+const { readJsonBody, assertPublicUrl, UnsafeUrlError } = require('./safe-fetch');
 
 // 統一設置 CORS 與 JSON 回應
 function sendJson(res, statusCode, payload) {
@@ -1166,6 +1168,11 @@ async function handleKazumiRoute(req, res) {
             if (parsedTarget.protocol !== 'http:' && parsedTarget.protocol !== 'https:') {
                 return sendJson(res, 400, { success: false, error: '僅支援 HTTP / HTTPS 串流協定' });
             }
+            try {
+                await assertPublicUrl(targetUrl); // 代理不可被拿來打本機 / 內網
+            } catch (e) {
+                return sendJson(res, 403, { success: false, error: e.message });
+            }
 
             const proxyHeaders = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -1294,6 +1301,7 @@ async function handleKazumiRoute(req, res) {
             if (!detailUrl) {
                 return sendJson(res, 400, { success: false, error: '缺少 detailUrl 參數' });
             }
+            try { await assertPublicUrl(detailUrl); } catch (e) { return sendJson(res, 403, { success: false, error: e.message }); }
 
             try {
                 let episodes = [];
@@ -1321,6 +1329,7 @@ async function handleKazumiRoute(req, res) {
             if (!playUrl) {
                 return sendJson(res, 400, { success: false, error: '缺少 playUrl 參數' });
             }
+            try { await assertPublicUrl(playUrl); } catch (e) { return sendJson(res, 403, { success: false, error: e.message }); }
 
             try {
                 let playerUrl = null;
@@ -1371,7 +1380,33 @@ async function handleKazumiRoute(req, res) {
             }
         }
 
-        // 10. 未知 Kazumi 路由
+        // 10. 使用者自訂 Kazumi 規則 (POST，body 帶 { rule, q | detailUrl | playUrl })
+        else if (pathname.startsWith('/api/kazumi/custom-')) {
+            if (req.method !== 'POST') return sendJson(res, 405, { success: false, error: '請使用 POST' });
+            const action = pathname.slice('/api/kazumi/custom-'.length);
+            try {
+                const body = await readJsonBody(req);
+                if (action === 'search') {
+                    const q = String(body.q || '').trim();
+                    if (!q) return sendJson(res, 400, { success: false, error: '請提供搜尋關鍵字 "q"' });
+                    const { results, matched } = await customRules.animeSearch(body.rule, q);
+                    return sendJson(res, 200, { success: true, source: body.rule && body.rule.name, count: results.length, matched, results });
+                }
+                if (action === 'episodes') {
+                    const episodes = await customRules.animeEpisodes(body.rule, String(body.detailUrl || ''));
+                    return sendJson(res, 200, { success: true, count: episodes.length, episodes });
+                }
+                if (action === 'play') {
+                    const result = await customRules.animePlay(body.rule, String(body.playUrl || ''));
+                    return sendJson(res, 200, { success: true, ...result });
+                }
+                return sendJson(res, 404, { success: false, error: '未知的自訂規則操作' });
+            } catch (err) {
+                return sendJson(res, err instanceof UnsafeUrlError ? 403 : 502, { success: false, error: err.message });
+            }
+        }
+
+        // 11. 未知 Kazumi 路由
         else {
             sendJson(res, 404, { success: false, error: '找不到該 Kazumi API 路由: ' + pathname });
         }
