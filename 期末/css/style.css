@@ -5171,3 +5171,71 @@ body.modal-open .dynamic-island-container:not(:has(.notifying)) {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------- 回到頂端浮動按鈕 (主頁 / ACG 專區外層頁面) ----------
+   捲動超過約一個畫面高度才由 js/app.js 加上 .is-visible 淡入。
+   放右下角：避開上方置中的音樂靈動島，並保留 safe-area 內距。 */
+.back-to-top {
+  position: fixed;
+  right: max(20px, calc(env(safe-area-inset-right) + 12px));
+  bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px));
+  z-index: 1035; /* 高於導覽列 (1030)，低於批次列、對話框與靈動島 */
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--ink, #0f172a);
+  color: var(--on-ink, #fff);
+  font-size: 1.125rem;
+  line-height: 1;
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity var(--dur, 200ms) var(--ease-out, ease), transform var(--dur, 200ms) var(--ease-out, ease),
+    background-color var(--dur, 200ms) var(--ease-out, ease), visibility 0s linear var(--dur, 200ms);
+}
+
+.back-to-top.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: 0s;
+}
+
+.back-to-top:hover {
+  background: var(--ink-hover, #1e293b);
+}
+
+.back-to-top:active {
+  transform: scale(0.94);
+}
+
+/* 進入內頁 (閱讀器、播放器、詳情等 Bootstrap 對話框)、全螢幕選歌頁、批次操作列出現時隱藏 */
+body.modal-open .back-to-top,
+body:has(#watchMusicModal[aria-hidden="false"]) .back-to-top,
+body:has(.batch-action-bar:not(.d-none)) .back-to-top {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* iPhone Duo 展開：導覽列在右側功能列，按鈕移到功能列左邊 (條件同上方功能列區塊) */
+@media (pointer: coarse) and (min-width: 590px) and (max-width: 720px) and (min-aspect-ratio: 3/5) and (max-aspect-ratio: 1/1),
+       (pointer: coarse) and (min-width: 840px) and (max-width: 960px) and (min-aspect-ratio: 6/5) and (max-aspect-ratio: 2/1) {
+  .back-to-top {
+    right: calc(var(--duo-rail-w, 72px) + 16px);
+  }
+}
+
+@media (max-width: 575.98px) {
+  .back-to-top {
+    right: max(16px, calc(env(safe-area-inset-right) + 12px));
+    bottom: max(16px, calc(env(safe-area-inset-bottom) + 12px));
+  }
+}
