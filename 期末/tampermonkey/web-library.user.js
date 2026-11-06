@@ -26,6 +26,8 @@
 
 // @grant        GM_getValue
 
+// @grant        GM_deleteValue
+
 // @grant        GM_registerMenuCommand
 
 // @connect      localhost
@@ -291,10 +293,6 @@
 
         set serverUrl(v) { GM_setValue("wl_server_url", v); },
 
-        get apiToken() { return GM_getValue("wl_api_token", ""); },
-
-        set apiToken(v) { GM_setValue("wl_api_token", v); },
-
         get showFab() { return GM_getValue("wl_show_fab", true); },
 
         set showFab(v) { GM_setValue("wl_show_fab", v); },
@@ -304,6 +302,10 @@
         set fabPos(v) { GM_setValue("wl_fab_pos", v); }
 
     };
+
+    // 舊版「個人 API Token」後端從未驗證，已移除；順手清掉殘留的設定值
+
+    GM_deleteValue("wl_api_token");
 
 
 
@@ -987,7 +989,7 @@
 
         setBtn.textContent = "⚙️";
 
-        setBtn.title = "設定 API Token 與懸浮球開關";
+        setBtn.title = "設定伺服器位址與懸浮球開關";
 
         setBtn.style.cssText = "background: transparent; border: none; color: #94a3b8; font-size: 16px; cursor: pointer; padding: 2px 4px;";
 
@@ -1013,7 +1015,7 @@
 
 
 
-        // --- 抽屜 Drawer (含 API Token 與懸浮按鈕開關) ---
+        // --- 抽屜 Drawer (含伺服器位址與懸浮按鈕開關) ---
 
         const drawer = document.createElement("div");
 
@@ -1082,28 +1084,6 @@
         });
 
         drawer.appendChild(resetPosBtn);
-
-
-
-        const tokLabel = document.createElement("label");
-
-        tokLabel.textContent = "個人 API Token (權杖)";
-
-        tokLabel.style.cssText = "display: block; font-weight: 600; margin-bottom: 4px;";
-
-        drawer.appendChild(tokLabel);
-
-
-
-        const tokInput = document.createElement("input");
-
-        tokInput.id = "wl-cfg-token";
-
-        tokInput.value = config.apiToken;
-
-        tokInput.style.cssText = "width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: monospace; font-size: 12px; margin-bottom: 8px; background: #ffffff !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important;";
-
-        drawer.appendChild(tokInput);
 
 
 
@@ -1419,8 +1399,6 @@
 
         saveCfgBtn.addEventListener("click", () => {
 
-            config.apiToken = tokInput.value.trim();
-
             config.serverUrl = urlInput.value.trim();
 
             config.showFab = showFabCheckbox.checked;
@@ -1586,7 +1564,6 @@
             GM_xmlhttpRequest({
                 method: "GET",
                 url: currentUrl,
-                headers: { "Authorization": `Bearer ${config.apiToken}` },
                 timeout: 2000,
                 onload: function(getRes) {
                     if (getRes.status >= 200 && getRes.status < 300) {
@@ -1616,8 +1593,7 @@
                 method: "POST",
                 url: url,
                 headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${config.apiToken}`
+                    "Content-Type": "application/json"
                 },
                 data: JSON.stringify(postBody),
                 timeout: 3000,

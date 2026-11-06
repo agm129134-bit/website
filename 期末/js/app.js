@@ -248,7 +248,6 @@ const state = {
   sortMode: "newest",
   viewMode: sessionStorage.getItem("web_library_view_mode") || "grid", // 'grid' | 'list' (持久化視圖偏好)
   currentUser: sessionStorage.getItem("web_library_user") || "jyun",
-  apiToken: "usr_tok_" + Math.random().toString(36).substring(2, 12),
   isBatchMode: false,
   selectedBookmarkIds: new Set(),
 };
@@ -414,10 +413,6 @@ function loadFromStorage() {
 
   // 記下已解析的登入身分 (只寫身分，不觸發伺服器同步)；個人資料視窗等處依此判斷帳號
   sessionStorage.setItem("web_library_user", state.currentUser);
-
-  const savedToken = sessionStorage.getItem("web_library_token");
-
-  if (savedToken) state.apiToken = savedToken;
 }
 
 // 帳號登出函數
@@ -504,8 +499,6 @@ window.confirmDeleteCurrentAccount = async function () {
     sessionStorage.removeItem("web_library_user");
 
     sessionStorage.removeItem("web_library_bookmarks");
-
-    sessionStorage.removeItem("web_library_token");
 
     showToast(
       `帳號【${user}】已永久刪除，正在返回登入頁面...`,
@@ -650,8 +643,6 @@ function saveToStorage(immediate = false) {
   );
 
   sessionStorage.setItem("web_library_user", state.currentUser);
-
-  sessionStorage.setItem("web_library_token", state.apiToken);
 
   // 自動觸發跨電腦伺服器端同步備份
   syncToServer(immediate);
@@ -913,10 +904,6 @@ function updateUI() {
   }
 
   updateNavUserAvatar();
-
-  const userApiTokenInput = document.getElementById("userApiTokenInput");
-
-  if (userApiTokenInput) userApiTokenInput.value = state.apiToken;
 }
 
 // ==========================================
@@ -1790,19 +1777,6 @@ function setupEventListeners() {
       `<i class="bi bi-bookmark-plus-fill text-primary"></i> <span>新增網頁收藏</span>`;
   });
 
-  // 6. 複製 Token 按鈕
-  const copyBtn = document.getElementById("copyTokenBtn");
-  if (copyBtn) {
-    copyBtn.addEventListener("click", () => {
-      navigator.clipboard.writeText(state.apiToken).then(() => {
-        showToast(
-          "API Token 已複製到剪貼簿！",
-          "bi-clipboard-check text-success",
-        );
-      });
-    });
-  }
-
   // 下載 / 檢視 Userscript 腳本
   document
     .getElementById("downloadUserscriptBtn")
@@ -1913,12 +1887,8 @@ function setupEventListeners() {
       if (username) {
         state.currentUser = username;
 
-        state.apiToken =
-          "usr_tok_" + Math.random().toString(36).substring(2, 12);
-
         sessionStorage.setItem("web_library_user", username);
 
-        sessionStorage.setItem("web_library_token", state.apiToken);
         const modalEl = document.getElementById("authModal");
 
         if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
