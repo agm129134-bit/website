@@ -70,7 +70,7 @@ async function autoMigrate() {
             for (const acc of accounts) {
                 if (acc.username) {
                     const u = acc.username.toLowerCase().trim();
-                    const rawPwd = acc.password || '***REMOVED***';
+                    const rawPwd = acc.password || crypto.randomBytes(12).toString('hex');
                     const securedPwd = rawPwd.startsWith('scrypt:') ? rawPwd : hashPassword(rawPwd);
                     await accountsDb.insert({
                         username: u,

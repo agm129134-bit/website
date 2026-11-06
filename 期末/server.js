@@ -6,6 +6,9 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+
+// 讀取 .env（若存在）。機密一律放 .env / 環境變數，不寫進原始碼
+try { process.loadEnvFile(path.join(__dirname, '.env')); } catch { /* 沒有 .env 就用系統環境變數 */ }
 const { handleKazumiRoute } = require('./api/kazumi');
 const { handleMangaRoute } = require('./api/manga');
 const { handleNovelRoute } = require('./api/novel');

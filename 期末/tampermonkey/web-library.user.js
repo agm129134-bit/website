@@ -291,7 +291,7 @@
 
         set serverUrl(v) { GM_setValue("wl_server_url", v); },
 
-        get apiToken() { return GM_getValue("wl_api_token", "usr_tok_REMOVED"); },
+        get apiToken() { return GM_getValue("wl_api_token", ""); },
 
         set apiToken(v) { GM_setValue("wl_api_token", v); },
 

@@ -248,7 +248,7 @@ const state = {
   sortMode: "newest",
   viewMode: sessionStorage.getItem("web_library_view_mode") || "grid", // 'grid' | 'list' (持久化視圖偏好)
   currentUser: sessionStorage.getItem("web_library_user") || "jyun",
-  apiToken: "usr_tok_REMOVED",
+  apiToken: "usr_tok_" + Math.random().toString(36).substring(2, 12),
   isBatchMode: false,
   selectedBookmarkIds: new Set(),
 };

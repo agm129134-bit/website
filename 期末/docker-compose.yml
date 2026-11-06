@@ -17,6 +17,11 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=8090
+      # 機密從同資料夾的 .env 帶入（見 .env.example），沒設定就是空值
+      - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:-}
+      - DANDANPLAY_APP_ID=${DANDANPLAY_APP_ID:-}
+      - DANDANPLAY_APP_SECRET=${DANDANPLAY_APP_SECRET:-}
+      - COPYMANGA_TOKEN=${COPYMANGA_TOKEN:-}
 
 volumes:
   web-library-data:

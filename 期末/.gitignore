@@ -7,3 +7,8 @@ data/test_docker.txt
 
 # 本機開發設定
 .claude/
+
+# 機密設定（範本見 .env.example）
+.env
+.env.*
+!.env.example
