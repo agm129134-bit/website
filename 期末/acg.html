@@ -789,9 +789,14 @@
                         </div>
                         <h5 class="fw-bold mb-1">🎬 動漫劇院播放器</h5>
                         <p class="text-muted small mb-4">支援 HLS (.m3u8) 串流、B站與 YouTube 高清無廣告內嵌播放，具備選集抽屜與即時發射彈幕系統。</p>
-                        <button class="btn btn-danger w-100 mt-auto rounded-2" onclick="openKazumiPlayer()">
-                            <i class="bi bi-play-fill"></i> 開啟動漫劇院
-                        </button>
+                        <div class="mt-auto d-grid gap-2">
+                            <button class="btn btn-danger w-100 rounded-2" onclick="openKazumiPlayer()">
+                                <i class="bi bi-play-fill"></i> 開啟動漫劇院
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm w-100 rounded-2" data-custom-rules-open="anime">
+                                <i class="bi bi-sliders"></i> 自訂動畫來源規則
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -805,9 +810,14 @@
                         </div>
                         <h5 class="fw-bold mb-1">🖼️ 條漫閱覽器</h5>
                         <p class="text-muted small mb-4">Webtoon 垂直瀑布流連續長圖無縫滑動，原生防盜鏈穿透，即時計算頁碼與雙擊縮放。</p>
-                        <button class="btn btn-primary w-100 mt-auto rounded-2" onclick="openTachimangaReader()">
-                            <i class="bi bi-book"></i> 開啟條漫閱覽
-                        </button>
+                        <div class="mt-auto d-grid gap-2">
+                            <button class="btn btn-primary w-100 rounded-2" onclick="openTachimangaReader()">
+                                <i class="bi bi-book"></i> 開啟條漫閱覽
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm w-100 rounded-2" data-custom-rules-open="manga">
+                                <i class="bi bi-sliders"></i> 自訂漫畫來源規則
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
