@@ -3748,9 +3748,10 @@ body.dark-theme .carousel-control-next-icon {
 
 /* 4. 通知彈窗 (Notifying) - 靈動島提示 */
 .dynamic-island.notifying {
-  width: 330px;
-  height: 44px;
-  border-radius: 9999px;
+  /* 尺寸由 js/app.js sizeIslandNotification() 依文字量測後寫入 */
+  width: var(--island-notif-w, 330px);
+  height: var(--island-notif-h, 44px);
+  border-radius: var(--island-notif-radius, 9999px);
   background: rgba(15, 23, 42, 0.96);
   backdrop-filter: blur(26px);
   border: 1px solid rgba(52, 211, 153, 0.5);
@@ -3970,16 +3971,31 @@ body.dark-theme .carousel-control-next-icon {
   font-size: 1.15rem;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
+/* 長訊息自動換行，不截斷 */
 .island-notif-text {
+  min-width: 0;
   font-size: 0.85rem;
   font-weight: 600;
+  line-height: 1.4;
   color: #ffffff;
   letter-spacing: 0.2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* 量測用的隱形副本 (見 sizeIslandNotification) */
+.island-notification.island-notification-probe {
+  display: flex;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  height: auto;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* ==========================================================================
@@ -4877,8 +4893,7 @@ body.modal-open .dynamic-island-container:not(:has(.notifying)) {
   .dynamic-island.paused {
     width: min(290px, calc(100vw - 24px));
   }
-  .dynamic-island.expanded,
-  .dynamic-island.notifying {
+  .dynamic-island.expanded {
     width: calc(100vw - 24px);
   }
 }
