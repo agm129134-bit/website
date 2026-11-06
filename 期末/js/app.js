@@ -13933,3 +13933,46 @@ if (document.readyState === "loading") {
 } else {
   initSeamlessPageTransitions();
 }
+
+// ==========================================
+// 回到頂端浮動按鈕 (主頁 / ACG 專區外層頁面)
+// 按鈕寫在兩個頁面的 HTML 裡，無縫切換頁面時會被換成新頁面的那顆，
+// 所以每次都用 id 重新取得，事件用 document / window 層級監聽。
+// 內頁 (Bootstrap 對話框、選歌頁、批次模式) 的隱藏條件寫在 CSS。
+// ==========================================
+(function initBackToTop() {
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let ticking = false;
+
+  const update = () => {
+    ticking = false;
+    const btn = document.getElementById("backToTopBtn");
+    if (btn) btn.classList.toggle("is-visible", window.scrollY > window.innerHeight * 0.9);
+  };
+  const schedule = () => {
+    if (!ticking) {
+      ticking = true;
+      requestAnimationFrame(update);
+    }
+  };
+
+  window.addEventListener("scroll", schedule, { passive: true });
+  window.addEventListener("resize", schedule, { passive: true });
+  window.addEventListener("popstate", schedule);
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#backToTopBtn")) return;
+    window.scrollTo({ top: 0, behavior: reduceMotion.matches ? "auto" : "smooth" });
+    // 鍵盤觸發 (Enter / 空白鍵) 時把焦點移到頁首，避免焦點停在即將隱藏的按鈕上
+    if (e.detail === 0) {
+      const first = document.querySelector("nav.navbar a[href], nav.navbar button");
+      if (first) first.focus({ preventScroll: true });
+    }
+  });
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", update);
+  } else {
+    update();
+  }
+})();
