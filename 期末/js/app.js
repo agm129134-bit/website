@@ -2241,28 +2241,75 @@ function showToast(message, iconClass = "bi-check-circle-fill text-success") {
   const notifText = document.getElementById("islandNotifText");
 
   if (island && notifIcon && notifText) {
-    if (_islandNotifTimer) clearTimeout(_islandNotifTimer);
-
     notifIcon.innerHTML = `<i class="bi ${iconClass}"></i>`;
     notifText.innerHTML = message;
-
-    // 觸發靈動島形變提示
-    island.className = "dynamic-island notifying";
-
-    _islandNotifTimer = setTimeout(() => {
-      // 展示完畢後，平滑回彈至原本狀態
-      if (islandMusicState.isExpanded) {
-        island.className = "dynamic-island expanded";
-      } else if (islandMusicState.isPlaying) {
-        island.className = "dynamic-island playing";
-      } else {
-        island.className = "dynamic-island idle";
-      }
-    }, 2800);
+    presentIslandNotification(island);
     return;
   }
 
   console.log(`[Toast Fallback] ${message}`);
+}
+
+// 依通知文字量測靈動島尺寸：寬度隨文字伸展 (上限為可用寬度減邊距)，超過一行自動換行並長高
+function sizeIslandNotification(island) {
+  const notifEl = document.getElementById("islandNotification");
+  const container = island.parentElement;
+  if (!notifEl || !container) return;
+
+  // 可用寬度以靈動島容器中心點為準，自動扣掉 iPhone Duo 右側功能列與捲軸
+  const viewportW = document.documentElement.clientWidth || window.innerWidth;
+  const rect = container.getBoundingClientRect();
+  const centerX = rect.width ? rect.left + rect.width / 2 : viewportW / 2;
+  const available = 2 * Math.min(centerX, viewportW - centerX);
+  const maxW = Math.max(200, Math.min(560, available - 24));
+
+  // 在容器內放一份隱形副本量測自然尺寸 (不能放進靈動島本體，它有 overflow: hidden)
+  const probe = notifEl.cloneNode(true);
+  probe.removeAttribute("id");
+  probe.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
+  probe.classList.add("island-notification-probe");
+  probe.style.maxWidth = `${maxW - 2}px`; // 扣掉靈動島 1px 邊框
+  container.appendChild(probe);
+  const probeText = probe.querySelector(".island-notif-text");
+  const w = Math.ceil(probe.getBoundingClientRect().width) + 2;
+  const textH = probeText ? Math.ceil(probeText.getBoundingClientRect().height) : 0;
+  probe.remove();
+
+  // 單行維持原本 44px 膠囊；多行時上下各留約 11px
+  const width = Math.min(maxW, Math.max(220, w));
+  const height = Math.max(44, textH + 24);
+  island.style.setProperty("--island-notif-w", `${width}px`);
+  island.style.setProperty("--island-notif-h", `${height}px`);
+  island.style.setProperty("--island-notif-radius", height > 44 ? "22px" : "9999px");
+}
+
+// 通知結束後回到原本狀態 (expanded / playing / paused / idle)
+function restoreIslandAfterNotification(island) {
+  island.className = "dynamic-island idle";
+  if (typeof window.updateIslandUI === "function") {
+    window.updateIslandUI();
+  } else if (typeof islandMusicState !== "undefined" && islandMusicState.isExpanded) {
+    island.className = "dynamic-island expanded";
+  } else if (typeof islandMusicState !== "undefined" && islandMusicState.isPlaying) {
+    island.className = "dynamic-island playing";
+  }
+}
+
+// 以形變動畫展開通知；顯示時間依字數略延長 (基礎 2.8 秒，每字 +50ms，最多 8 秒)
+function presentIslandNotification(island) {
+  if (_islandNotifTimer) clearTimeout(_islandNotifTimer);
+
+  sizeIslandNotification(island);
+  island.className = "dynamic-island notifying";
+
+  const textEl = document.getElementById("islandNotifText");
+  const len = textEl ? textEl.textContent.trim().length : 0;
+  const duration = Math.min(8000, 2800 + Math.max(0, len - 20) * 50);
+
+  _islandNotifTimer = setTimeout(() => {
+    _islandNotifTimer = null;
+    restoreIslandAfterNotification(island);
+  }, duration);
 }
 
 // 靈動島通知手勢滑動 / 點擊快速清除 (恢復音樂膠囊或待命狀態)
@@ -2277,13 +2324,7 @@ window.dismissIslandNotification = function () {
   island.classList.add("swipe-up-dismiss");
   setTimeout(() => {
     island.classList.remove("swipe-up-dismiss");
-    if (typeof islandMusicState !== "undefined" && islandMusicState.isExpanded) {
-      island.className = "dynamic-island expanded";
-    } else if (typeof islandMusicState !== "undefined" && islandMusicState.isPlaying) {
-      island.className = "dynamic-island playing";
-    } else {
-      island.className = "dynamic-island idle";
-    }
+    restoreIslandAfterNotification(island);
   }, 200);
 };
 
@@ -2976,10 +3017,7 @@ function initDynamicIslandMusic() {
     if (!island) return;
     const notifText = document.getElementById("islandNotifText");
     if (notifText) notifText.textContent = text;
-    island.className = "dynamic-island notifying";
-    setTimeout(() => {
-      updateIslandUI();
-    }, 2800);
+    presentIslandNotification(island);
   }
 
   // 10. 音訊時間軸與真實狀態雙向同步 (Single Source of Truth)
