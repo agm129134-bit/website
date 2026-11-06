@@ -402,6 +402,23 @@ body {
   border: 1px solid var(--cat-web-border);
 }
 
+.badge-cat-note {
+  background: rgba(217, 119, 6, 0.92);
+  color: #ffffff;
+  border: 1px solid rgba(180, 83, 9, 0.8);
+}
+
+/* 快捷記事本筆記：保留換行並顯示全文 (過長時卡片內捲動) */
+.card-desc-text.note-desc-text {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
 .badge-cat-anime {
   background: rgba(220, 38, 38, 0.9);
   color: #ffffff;

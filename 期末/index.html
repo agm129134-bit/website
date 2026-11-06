@@ -851,6 +851,24 @@
                   >
                 </button>
               </li>
+
+              <li class="nav-item">
+                <button
+                  class="nav-link rounded-pill d-flex align-items-center gap-1"
+                  data-category="note"
+                  title="篡改猴 Alt+N 快捷記事本存進來的筆記"
+                >
+                  <i class="bi bi-journal-text text-warning"></i>
+
+                  <span>筆記</span>
+
+                  <span
+                    class="badge bg-warning-subtle text-warning-emphasis rounded-pill ms-1"
+                    id="badgeNoteCount"
+                    >0</span
+                  >
+                </button>
+              </li>
             </ul>
 
             <!-- 右側排序、視圖切換與批量管理 -->
@@ -1108,6 +1126,10 @@
 
                     <option value="other">
                       📦 資源 / 其他 (網盤 / 載點 / 未分類)
+                    </option>
+
+                    <option value="note">
+                      📝 筆記 (篡改猴 Alt+N 快捷記事本)
                     </option>
                   </select>
                 </div>
@@ -1510,6 +1532,7 @@
                         <option value="video">影片串流 (B站/YT)</option>
                         <option value="manga">漫畫 / 小說 (Manga)</option>
                         <option value="other">資源 / 其他 (Other)</option>
+                        <option value="note">筆記 (Note)</option>
                       </select>
                     </div>
                     <div class="col-12">

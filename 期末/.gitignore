@@ -12,3 +12,4 @@ data/test_docker.txt
 .env
 .env.*
 !.env.example
+data/uploads/
