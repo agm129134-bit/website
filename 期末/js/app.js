@@ -914,7 +914,7 @@ function updateUI() {
 //   2. 舊值 (resource / 空值 / 未知值) → 依網域清單 + 關鍵字推斷，推斷不出則歸 other
 //   推斷只在讀取時進行，不會改寫使用者資料
 // ==========================================
-const BOOKMARK_CATEGORIES = ["anime", "manga", "video", "web", "other"];
+const BOOKMARK_CATEGORIES = ["anime", "manga", "video", "web", "other", "note"];
 
 const BOOKMARK_CATEGORY_META = {
   anime: { label: "動畫", icon: "bi-broadcast", badge: "badge-cat-anime" },
@@ -922,6 +922,8 @@ const BOOKMARK_CATEGORY_META = {
   video: { label: "影片影音", icon: "bi-play-btn-fill", badge: "badge-cat-video" },
   web: { label: "一般網頁", icon: "bi-globe2", badge: "badge-cat-web" },
   other: { label: "資源 / 其他", icon: "bi-box-seam-fill", badge: "badge-cat-resource" },
+  // 篡改猴 Alt+N 快捷記事本存進來的筆記 (desc 為全文、cover 為可選的畫面截圖)
+  note: { label: "筆記", icon: "bi-journal-text", badge: "badge-cat-note" },
 };
 
 // 舊分類值 → 新分類 (resource 為舊版「動漫與資源」，需再依內容細分)
@@ -1030,7 +1032,7 @@ function updateStats() {
 
   if (!statWeb) return;
   // 每個書籤只計入一個分類，按鈕數字與篩選結果一致
-  const catCounts = { anime: 0, manga: 0, video: 0, web: 0, other: 0 };
+  const catCounts = { anime: 0, manga: 0, video: 0, web: 0, other: 0, note: 0 };
 
   state.bookmarks.forEach((b) => {
     catCounts[getBookmarkCategory(b)]++;
@@ -1055,6 +1057,9 @@ function updateStats() {
   const bOther = document.getElementById("badgeOtherCount");
 
   if (bOther) bOther.textContent = otherCount;
+  const bNote = document.getElementById("badgeNoteCount");
+
+  if (bNote) bNote.textContent = catCounts.note;
   const bAll = document.getElementById("badgeAllCount");
 
   if (bAll) bAll.textContent = totalCount;
@@ -1311,6 +1316,7 @@ function renderBookmarks(skipAnimation = false) {
 
     const coverSrc =
       item.cover && item.cover.trim() !== "" ? item.cover : fallbackCover;
+    const isNote = itemCat === "note";
 
     // 批量選取狀態
     const isSelected = state.selectedBookmarkIds.has(item.id);
@@ -1363,9 +1369,7 @@ function renderBookmarks(skipAnimation = false) {
                         ${escapeHtml(item.title)}
                     </h6>
                     <!-- 描述備註 -->
-                    <p class="card-desc-text">
-                        ${escapeHtml(item.desc || "暫無備註資訊。")}
-                    </p>
+                    <p class="card-desc-text${isNote ? " note-desc-text" : ""}">${escapeHtml(item.desc || (isNote ? "（空白筆記）" : "暫無備註資訊。"))}</p>
                     <!-- 標籤列表 -->
                     <div class="card-tags">
                         ${tagsHtml}

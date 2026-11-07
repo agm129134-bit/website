@@ -4,9 +4,9 @@
 
 // @namespace    http://tampermonkey.net/
 
-// @version      1.6.4
+// @version      1.7.0
 
-// @description  完美相容 YouTube、Bangumi、動漫劇院全域影片/彈幕雙向秒級同步橋樑 (解決跨域 iframe 暫停/跳轉割裂)、自由拖曳移動位置、開關懸浮球與 Alt + B 快捷鍵收藏！
+// @description  完美相容 YouTube、Bangumi、動漫劇院全域影片/彈幕雙向秒級同步橋樑 (解決跨域 iframe 暫停/跳轉割裂)、自由拖曳移動位置、開關懸浮球與 Alt + B 快捷鍵收藏！Alt + N 開啟快捷記事本 (可附畫面截圖) 一鍵存進圖書館。
 
 // @author       Web System Design Student
 
@@ -17,6 +17,8 @@
 // @match        file:///*
 
 // @include      *
+
+// @require      https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js
 
 // @run-at       document-idle
 
@@ -970,6 +972,11 @@
         const titleSpan = document.createElement("span");
 
         titleSpan.textContent = "📚 收藏至 Web Library";
+        titleSpan.title = "Alt + B：收藏本頁 ｜ Alt + N：快捷記事本";
+        const noteHint = document.createElement("small");
+        noteHint.textContent = "  Alt+N 記事本";
+        noteHint.style.cssText = "color: #94a3b8 !important; font-weight: 400; font-size: 11px; margin-left: 6px;";
+        titleSpan.appendChild(noteHint);
 
         titleSpan.style.cssText = "font-weight: 600; font-size: 15px;";
 
@@ -1715,6 +1722,286 @@
 
         });
 
+    }
+
+
+
+    // ==========================================================
+    // 10. 快捷記事本 (Alt + N)：隨手記下標題與內容，可附當前畫面截圖，一鍵存進圖書館
+    //     獨立區塊：自帶 Shadow DOM 樣式與儲存流程，不動上面的收藏面板程式
+    // ==========================================================
+    const WL_NOTE_DRAFT_KEY = "wl_note_draft";
+    const WL_NOTE_SHOT_MAX_W = 1280;
+    let wlNoteHost = null;
+    let wlNoteUi = null;
+
+    function wlNoteLoadDraft() {
+        try {
+            const d = JSON.parse(GM_getValue(WL_NOTE_DRAFT_KEY, "{}") || "{}");
+            return { title: d.title || "", content: d.content || "", shot: !!d.shot };
+        } catch (e) {
+            return { title: "", content: "", shot: false };
+        }
+    }
+
+    function wlNoteSaveDraft() {
+        if (!wlNoteUi) return;
+        GM_setValue(WL_NOTE_DRAFT_KEY, JSON.stringify({
+            title: wlNoteUi.title.value,
+            content: wlNoteUi.content.value,
+            shot: wlNoteUi.shot.checked
+        }));
+    }
+
+    function wlNoteIsOpen() {
+        return !!(wlNoteHost && wlNoteHost.style.display !== "none");
+    }
+
+    function wlNoteBuild() {
+        wlNoteHost = document.createElement("div");
+        wlNoteHost.id = "wl-quick-note-host";
+        wlNoteHost.style.cssText = "position:fixed!important;right:24px!important;bottom:96px!important;z-index:2147483646!important;display:none;";
+        const root = wlNoteHost.attachShadow({ mode: "open" });
+        root.innerHTML = `
+            <style>
+                :host { all: initial; }
+                .box { width: 360px; max-width: calc(100vw - 32px); background: #ffffff; color: #0f172a; border-radius: 12px;
+                       box-shadow: 0 16px 40px rgba(15,23,42,.35); font: 13px/1.5 system-ui, -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif; overflow: hidden; }
+                .hd { background: #0f172a; color: #fff; padding: 10px 14px; display: flex; align-items: center; gap: 8px; }
+                .hd b { font-size: 14px; font-weight: 600; flex: 1; }
+                .hd small { color: #94a3b8; }
+                .x { background: none; border: 0; color: #94a3b8; font-size: 18px; cursor: pointer; line-height: 1; padding: 0 2px; }
+                .bd { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+                input[type=text], textarea { box-sizing: border-box; width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 9px;
+                       font: inherit; color: #0f172a; background: #f8fafc; outline: none; }
+                input[type=text]:focus, textarea:focus { border-color: #2563eb; background: #fff; }
+                textarea { min-height: 150px; resize: vertical; }
+                label { display: flex; align-items: center; gap: 6px; color: #334155; cursor: pointer; user-select: none; }
+                .ft { display: flex; gap: 8px; align-items: center; }
+                .ft span { flex: 1; color: #64748b; font-size: 12px; }
+                button.ghost { background: #f1f5f9; color: #334155; border: 0; border-radius: 8px; padding: 7px 12px; cursor: pointer; font: inherit; }
+                button.save { background: #2563eb; color: #fff; border: 0; border-radius: 8px; padding: 7px 14px; cursor: pointer; font: inherit; font-weight: 600; }
+                button:disabled { opacity: .6; cursor: wait; }
+            </style>
+            <div class="box" role="dialog" aria-label="快捷記事本">
+                <div class="hd"><b>📝 快捷記事本</b><small>Alt+N 開關 · Esc 關閉</small><button class="x" title="關閉 (草稿會保留)">✕</button></div>
+                <div class="bd">
+                    <input type="text" class="t" placeholder="標題（留空則取內容第一行）" maxlength="200">
+                    <textarea class="c" placeholder="記點什麼…（內容會自動暫存，誤關也不會遺失）"></textarea>
+                    <label><input type="checkbox" class="s"> 附上當前畫面截圖</label>
+                    <div class="ft">
+                        <span class="st">草稿已自動暫存</span>
+                        <button class="ghost clr" title="清空草稿">清空</button>
+                        <button class="save">存進圖書館</button>
+                    </div>
+                </div>
+            </div>`;
+        wlNoteUi = {
+            title: root.querySelector(".t"),
+            content: root.querySelector(".c"),
+            shot: root.querySelector(".s"),
+            status: root.querySelector(".st"),
+            save: root.querySelector(".save")
+        };
+        [wlNoteUi.title, wlNoteUi.content, wlNoteUi.shot].forEach(el => el.addEventListener("input", wlNoteSaveDraft));
+        wlNoteUi.shot.addEventListener("change", wlNoteSaveDraft);
+        root.querySelector(".x").addEventListener("click", wlNoteClose);
+        root.querySelector(".clr").addEventListener("click", () => {
+            if ((wlNoteUi.title.value || wlNoteUi.content.value) && !confirm("確定清空這則筆記草稿？")) return;
+            wlNoteUi.title.value = "";
+            wlNoteUi.content.value = "";
+            wlNoteSaveDraft();
+            wlNoteUi.content.focus();
+        });
+        wlNoteUi.save.addEventListener("click", wlNoteSubmit);
+        // 輸入時不讓網頁自己的快捷鍵 (例如 YouTube 的 k / f / 空白鍵) 搶走按鍵
+        ["keydown", "keyup", "keypress"].forEach(type => wlNoteHost.addEventListener(type, e => {
+            if (!(e.altKey && e.code === "KeyN")) e.stopPropagation();
+        }));
+        (document.documentElement || document.body).appendChild(wlNoteHost);
+    }
+
+    function wlNoteOpen() {
+        if (!wlNoteHost || !wlNoteHost.isConnected) wlNoteBuild();
+        const d = wlNoteLoadDraft();
+        wlNoteUi.title.value = d.title;
+        wlNoteUi.content.value = d.content;
+        wlNoteUi.shot.checked = d.shot;
+        wlNoteUi.status.textContent = "草稿已自動暫存";
+        wlNoteHost.style.display = "block";
+        setTimeout(() => (d.title ? wlNoteUi.content : wlNoteUi.title).focus(), 0);
+    }
+
+    function wlNoteClose() {
+        if (!wlNoteHost) return;
+        wlNoteSaveDraft();
+        wlNoteHost.style.display = "none";
+    }
+
+    function wlNoteToggle() {
+        wlNoteIsOpen() ? wlNoteClose() : wlNoteOpen();
+    }
+
+    // 擷取當前可視畫面 (截圖前先藏起記事本本身)，縮到寬度 1280 內並轉 JPEG 0.7
+    async function wlNoteCaptureViewport() {
+        if (typeof html2canvas !== "function") throw new Error("html2canvas 未載入");
+        wlNoteHost.style.display = "none";
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        try {
+            const vw = document.documentElement.clientWidth || window.innerWidth;
+            const vh = window.innerHeight;
+            const canvas = await html2canvas(document.documentElement, {
+                x: window.scrollX, y: window.scrollY, width: vw, height: vh,
+                windowWidth: vw, windowHeight: vh,
+                scale: Math.min(1, WL_NOTE_SHOT_MAX_W / vw),
+                useCORS: true, logging: false, backgroundColor: "#ffffff",
+                ignoreElements: el => el === wlNoteHost
+            });
+            let out = canvas;
+            if (canvas.width > WL_NOTE_SHOT_MAX_W) {
+                out = document.createElement("canvas");
+                out.width = WL_NOTE_SHOT_MAX_W;
+                out.height = Math.round(canvas.height * WL_NOTE_SHOT_MAX_W / canvas.width);
+                out.getContext("2d").drawImage(canvas, 0, 0, out.width, out.height);
+            }
+            let dataUrl = out.toDataURL("image/jpeg", 0.7);
+            if (dataUrl.length > 3.5 * 1024 * 1024) dataUrl = out.toDataURL("image/jpeg", 0.5);
+            return dataUrl;
+        } finally {
+            wlNoteHost.style.display = "block";
+        }
+    }
+
+    function wlNoteRequest(opts) {
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                timeout: 3000,
+                ...opts,
+                onload: r => (r.status >= 200 && r.status < 300 ? resolve(r) : reject(new Error("HTTP " + r.status))),
+                onerror: () => reject(new Error("連線失敗")),
+                ontimeout: () => reject(new Error("逾時"))
+            });
+        });
+    }
+
+    async function wlNoteSubmit() {
+        const content = wlNoteUi.content.value.trim();
+        const firstLine = content.split("\n")[0].trim().slice(0, 60);
+        const title = wlNoteUi.title.value.trim() || firstLine;
+        if (!title && !content) {
+            wlNoteUi.status.textContent = "請先輸入標題或內容";
+            return;
+        }
+
+        wlNoteUi.save.disabled = true;
+        let shot = "";
+        if (wlNoteUi.shot.checked) {
+            wlNoteUi.status.textContent = "擷取畫面中…";
+            try {
+                shot = await wlNoteCaptureViewport();
+            } catch (e) {
+                showNotice("⚠️ 截圖失敗，筆記將不附截圖：" + e.message);
+            }
+        }
+
+        // 每則筆記有自己的 id，url 加上 #wl-note_<id>：同一頁記多則也不會被「同網址去重」互相覆蓋
+        const id = "note_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        const payload = {
+            id,
+            title: title || "未命名筆記",
+            url: location.href.split("#")[0] + "#wl-" + id,
+            category: "note",
+            tags: ["筆記"],
+            desc: content,
+            cover: "",
+            pinned: false,
+            clicks: 0,
+            createdAt: new Date().toISOString()
+        };
+
+        // 與收藏面板相同的候選端點順序：本機 8090 → Docker 8095 (設定面板的自訂網址優先)
+        const defaultUrls = [
+            "http://localhost:8090/api/user/bookmarks",
+            "http://localhost:8095/api/user/bookmarks",
+            "http://127.0.0.1:8090/api/user/bookmarks",
+            "http://127.0.0.1:8095/api/user/bookmarks"
+        ];
+        const customUrl = config.serverUrl;
+        const candidates = customUrl && !defaultUrls.includes(customUrl) ? [customUrl, ...defaultUrls] : defaultUrls;
+
+        wlNoteUi.status.textContent = "傳送中…";
+        for (const apiUrl of candidates) {
+            let existing = [];
+            let username = "jyun";
+            try {
+                const getRes = await wlNoteRequest({ method: "GET", url: apiUrl, timeout: 2000 });
+                const json = JSON.parse(getRes.responseText);
+                if (Array.isArray(json.bookmarks)) existing = json.bookmarks;
+                if (json.user && json.user !== "default" && json.user !== "期末展示學生") username = json.user;
+            } catch (e) {
+                continue; // 這台伺服器連不上，換下一個
+            }
+
+            // 截圖上傳到同一台伺服器，存成檔案後只把網址寫進書籤 cover
+            let shotFailed = false;
+            if (shot) {
+                try {
+                    const upRes = await wlNoteRequest({
+                        method: "POST",
+                        url: new URL(apiUrl).origin + "/api/bookmarks/screenshot",
+                        headers: { "Content-Type": "application/json" },
+                        data: JSON.stringify({ image: shot }),
+                        timeout: 15000
+                    });
+                    payload.cover = JSON.parse(upRes.responseText).path || "";
+                } catch (e) {
+                    shotFailed = true;
+                }
+            }
+
+            const merged = [payload, ...existing.filter(b => b.id !== payload.id && b.url !== payload.url)];
+            try {
+                await wlNoteRequest({
+                    method: "POST",
+                    url: apiUrl,
+                    headers: { "Content-Type": "application/json" },
+                    data: JSON.stringify({ user: username, bookmark: payload, bookmarks: merged })
+                });
+            } catch (e) {
+                continue;
+            }
+
+            const portLabel = apiUrl.includes(":8095/") ? "Docker 8095" : apiUrl.includes(":8090/") ? "Port 8090" : new URL(apiUrl).host;
+            showNotice(shotFailed ? `📝 筆記已存 (${portLabel})，但截圖上傳失敗` : `📝 筆記已存進 Web Library！(${portLabel})`);
+            GM_setValue(WL_NOTE_DRAFT_KEY, JSON.stringify({ title: "", content: "", shot: wlNoteUi.shot.checked }));
+            wlNoteUi.title.value = "";
+            wlNoteUi.content.value = "";
+            wlNoteUi.save.disabled = false;
+            wlNoteHost.style.display = "none";
+            return;
+        }
+
+        // 所有伺服器都連不上：草稿保留在記事本裡，另把筆記 JSON (不含截圖) 複製到剪貼簿
+        wlNoteUi.save.disabled = false;
+        wlNoteUi.status.textContent = "伺服器未開啟，草稿已保留";
+        try { navigator.clipboard.writeText(JSON.stringify(payload)); } catch (e) {}
+        showNotice("✨ 伺服器未開啟，筆記草稿已保留並複製到剪貼簿，開啟伺服器後再按一次存檔即可。");
+    }
+
+    window.addEventListener("keydown", (e) => {
+        if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.code === "KeyN") {
+            e.preventDefault();
+            e.stopPropagation();
+            wlNoteToggle();
+        } else if (e.key === "Escape" && wlNoteIsOpen()) {
+            e.preventDefault();
+            e.stopPropagation();
+            wlNoteClose();
+        }
+    }, true);
+
+    if (typeof GM_registerMenuCommand !== "undefined") {
+        GM_registerMenuCommand("開啟快捷記事本 (Alt+N)", wlNoteToggle);
     }
 
 

@@ -4,6 +4,9 @@
  * 支援多帳號伺服器端資料庫持久化、無明文密碼儲存與即時雙向狀態同步
  */
 const https = require('https');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const {
     accountsDb,
     bookmarksDb,
@@ -44,6 +47,88 @@ function parseRequestBody(req) {
             }
         });
         req.on('error', reject);
+    });
+}
+
+// ==========================================
+// 快捷記事本截圖存檔 (data/uploads/)
+// 只接受 JPEG / PNG / WebP (以檔頭魔術數字判斷，不信任宣告的 MIME)，解碼後上限 3MB
+// 檔名由伺服器隨機產生，讀取時以白名單正規式比對，杜絕路徑穿越
+// ==========================================
+const SCREENSHOT_DIR = path.join(__dirname, '..', 'data', 'uploads');
+const SCREENSHOT_MAX_BYTES = 3 * 1024 * 1024;
+const SCREENSHOT_NAME_RE = /^[a-f0-9]{32}\.(jpg|png|webp)$/;
+const SCREENSHOT_MIME = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+
+function detectImageExt(buf) {
+    if (buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpg';
+    if (buf.length > 8 && buf.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png';
+    if (buf.length > 12 && buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return 'webp';
+    return null;
+}
+
+async function handleScreenshotUpload(req, res) {
+    // base64 約膨脹 4/3，再留一點 JSON 外殼空間；超過就直接斷線，不讀進記憶體
+    const maxBody = Math.ceil(SCREENSHOT_MAX_BYTES * 4 / 3) + 4096;
+    let raw = '';
+    try {
+        raw = await new Promise((resolve, reject) => {
+            let size = 0;
+            const chunks = [];
+            req.on('data', chunk => {
+                size += chunk.length;
+                if (size > maxBody) {
+                    // 停止讀取，先回 413 再斷線 (立即 destroy 會讓客戶端收不到錯誤訊息)
+                    req.pause();
+                    req.removeAllListeners('data');
+                    reject(new Error('too_large'));
+                    return;
+                }
+                chunks.push(chunk);
+            });
+            req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+            req.on('error', reject);
+        });
+    } catch (e) {
+        res.setHeader('Connection', 'close');
+        res.on('finish', () => req.destroy());
+        return sendJson(res, 413, { success: false, error: '截圖超過 3MB 上限' });
+    }
+
+    let body;
+    try { body = JSON.parse(raw || '{}'); } catch (e) {
+        return sendJson(res, 400, { success: false, error: 'JSON 格式錯誤' });
+    }
+    const m = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));
+    if (!m) return sendJson(res, 400, { success: false, error: '只接受 JPEG / PNG / WebP 的 base64 dataURL' });
+
+    const buf = Buffer.from(m[2], 'base64');
+    if (buf.length === 0 || buf.length > SCREENSHOT_MAX_BYTES) {
+        return sendJson(res, 413, { success: false, error: '截圖超過 3MB 上限' });
+    }
+    const ext = detectImageExt(buf);
+    if (!ext) return sendJson(res, 400, { success: false, error: '檔案內容不是有效的圖片' });
+
+    const name = crypto.randomBytes(16).toString('hex') + '.' + ext;
+    await fs.promises.mkdir(SCREENSHOT_DIR, { recursive: true });
+    await fs.promises.writeFile(path.join(SCREENSHOT_DIR, name), buf);
+    // 回傳相對路徑：網站與 API 同源，本機 8090 與 Docker 8095 都能直接顯示
+    return sendJson(res, 200, { success: true, path: '/api/bookmarks/screenshot/' + name, bytes: buf.length });
+}
+
+function serveScreenshot(name, res) {
+    if (!SCREENSHOT_NAME_RE.test(name)) return sendJson(res, 404, { success: false, error: '找不到截圖' });
+    const file = path.join(SCREENSHOT_DIR, name);
+    fs.stat(file, (err, st) => {
+        if (err || !st.isFile()) return sendJson(res, 404, { success: false, error: '找不到截圖' });
+        res.writeHead(200, {
+            'Content-Type': SCREENSHOT_MIME[name.split('.').pop()],
+            'Content-Length': st.size,
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'X-Content-Type-Options': 'nosniff',
+            'Access-Control-Allow-Origin': '*'
+        });
+        fs.createReadStream(file).pipe(res);
     });
 }
 
@@ -808,6 +893,16 @@ async function handleSyncRoute(req, res) {
                     error: '線上歌曲搜尋服務異常: ' + err.message
                 });
             }
+        }
+
+        // ==========================================
+        // 0.9 快捷記事本截圖：上傳存成檔案 (避免把 dataURL 塞進 NeDB)，再以網址讀回
+        // ==========================================
+        if (pathname === '/api/bookmarks/screenshot' && req.method === 'POST') {
+            return await handleScreenshotUpload(req, res);
+        }
+        if (pathname.startsWith('/api/bookmarks/screenshot/') && req.method === 'GET') {
+            return serveScreenshot(pathname.slice('/api/bookmarks/screenshot/'.length), res);
         }
 
         // ==========================================
