@@ -1,27 +1,42 @@
+# 【總說明】docker-compose.yml：用一份設定檔描述「怎麼跑這個網站的容器」。
+# 只要在專案資料夾執行 docker compose up -d --build 就會：
+#  1. 依 Dockerfile 建立映像檔 (build)
+#  2. 啟動名為 web-library 的容器，並套用下面的埠號對應、資料卷、環境變數
+# 注意：YAML 靠縮排表示階層，改的時候縮排不能亂。
+# 下一行 name 是這個 compose 專案的名稱。
 name: web-library
 
+# services：列出要跑的服務（容器）。本專案只有一個。
 services:
   web-library:
+    # build: . 代表用目前資料夾的 Dockerfile 建映像。
     build: .
+    # container_name：指定容器名稱，之後 docker logs / docker cp 就用這個名字。
     container_name: web-library
+    # restart: unless-stopped：容器當掉或電腦重開會自動重啟，除非你手動 stop 它。
     restart: unless-stopped
+    # ports：格式「本機埠:容器埠」。從本機瀏覽器連 8095 就會轉到容器內的 8090。
     ports:
       # 外部映射端口設為 8095 (容器內部仍為 8090)
       # 徹底避開本地正在運行的 node server.js (佔用 8090) 的端口綁定衝突！
       - "8095:8090"
+    # volumes：資料持久化。把具名 volume 掛到容器的 /app/data，容器刪掉資料還在。
     volumes:
       # Docker 專用具名 volume (與本機 node server.js 的 ./data 分開)：
       # NeDB 不支援多個程序同時寫同一份檔案，兩邊共用會互相覆蓋
       # 備份: docker cp web-library:/app/data ./data-backup
       - web-library-data:/app/data
+    # environment：傳進容器的環境變數（server.js 用 process.env 讀取）。
     environment:
       - NODE_ENV=production
       - PORT=8090
+      # ${變數:-} 是 compose 的語法：讀本機 .env 的值，沒設定就用空字串。
       # 機密從同資料夾的 .env 帶入（見 .env.example），沒設定就是空值
       - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:-}
       - DANDANPLAY_APP_ID=${DANDANPLAY_APP_ID:-}
       - DANDANPLAY_APP_SECRET=${DANDANPLAY_APP_SECRET:-}
       - COPYMANGA_TOKEN=${COPYMANGA_TOKEN:-}
 
+# 頂層 volumes：宣告上面用到的具名 volume，由 Docker 管理實際儲存位置。
 volumes:
   web-library-data:

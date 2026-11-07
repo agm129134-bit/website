@@ -1,3 +1,5 @@
+<!-- ACG 影音漫讀專區頁面：上方是今日新番輪播，中間是四個功能入口（動漫劇院／條漫／小說／遊戲），下方是觀看歷史與每週放送表。 -->
+<!-- 邏輯分散在 js/app.js（共用功能）、js/acg.js（輪播與動畫）、js/custom-rules.js（自訂來源規則），本檔主要負責畫面骨架。 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -8,24 +10,32 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="alternate icon" href="favicon.ico" />
     <link rel="shortcut icon" href="favicon.ico" />
+    <!-- 【登入守衛】這段 script 放在 head 最前面，頁面還沒畫出來就先檢查有沒有登入，沒登入就跳走，避免未登入者看到內容 -->
+    <!-- 流程：1.先看 sessionStorage 有沒有 currentUser（本次瀏覽的登入狀態）；2.沒有的話看 localStorage 的 rememberedUser（登入頁勾選「記住我」留下的），沒過期就還原回 sessionStorage；3.兩邊都沒有就導向 login.html -->
     <!-- 身分認證守衛：未登入者強制導向登入頁 (sessionStorage 會話保護，掃除硬碟 localStorage 殘留) -->
     <script>
+      // 立即執行函式，變數不外洩到全域
       (function authGuard() {
+        // 取出目前登入者（字串 JSON），沒有則為 null
         let user = sessionStorage.getItem("currentUser");
         if (!user) {
+          // 沒登入時，嘗試用「記住我」資料自動登入；JSON 壞掉會丟錯，所以包 try/catch
           try {
             const remembered = JSON.parse(localStorage.getItem("rememberedUser") || "null");
+            // expiresAt 是到期時間戳；沒設定代表不過期，有設定就要比現在時間晚才有效
             if (remembered && remembered.user && (!remembered.expiresAt || Date.now() < remembered.expiresAt)) {
               sessionStorage.setItem("currentUser", JSON.stringify(remembered.user));
               user = JSON.stringify(remembered.user);
             }
           } catch(e) {}
         }
+        // 仍然沒有使用者 -> replace 導向登入頁（replace 不留歷史紀錄，按上一頁不會回到這頁）
         if (!user) {
           window.location.replace("login.html");
         }
       })();
     </script>
+    <!-- 外部資源：Bootstrap（版面與元件）、Bootstrap Icons（圖示）、Google Fonts（字型），皆透過 CDN 載入 -->
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -34,10 +44,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- 專案自己的全站樣式；下方 <style> 是只給 ACG 頁面用的樣式 -->
     <!-- Custom Styles -->
     <link rel="stylesheet" href="css/style.css">
+    <!-- JSZip：用來解析使用者上傳的 EPUB 電子書（EPUB 本質上是壓縮檔） -->
     <!-- JSZip for EPUB Ebook Parsing -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- 本頁專用樣式。大致分三塊：輪播樣式、功能卡片樣式、3D 立體書架（含垃圾桶拖曳刪除）樣式 -->
     <style data-page-style>
         /* 專屬 ACG Carousel 輪播樣式 */
         .acg-carousel-container {
@@ -95,6 +108,7 @@
             .navbar-brand .badge { display: none; }
         }
 
+        /* 輪播左右箭頭與下方指示點的樣式（!important 是為了蓋過 Bootstrap 預設值） */
         /* 輪播圖控制箭頭升級：高對比毛玻璃圓形控制鈕 (深色模式與淺色皆極致清晰) */
         .carousel-control-prev,
         .carousel-control-next {
@@ -149,6 +163,7 @@
             width: 32px;
         }
 
+        /* 四個功能入口卡片的外觀；卡片的浮起動畫由 js/acg.js 的 GSAP 控制 */
         /* GSAP 專屬動態平滑樣式 */
         .acg-feature-card {
             border-radius: var(--radius-lg) !important;
@@ -177,6 +192,7 @@
             color: var(--on-ink);
         }
 
+        /* 下面整段是「立體書架」：書本封面 hover 時會 3D 翻開、書下面有木頭擱板，條漫與小說兩個書架共用 */
         /* ==================== 3D 擬真立體書架 (Apple Books 質感) ==================== */
         .bookshelf-container {
             width: 100%;
@@ -443,6 +459,7 @@
             75% { transform: translateY(2px) scale(1.02); }
         }
 
+        /* 拖曳書本時的游標與半透明樣式（搭配 JS 拖曳到垃圾桶刪除）；後面還有一份 .bookshelf-book 設定會覆蓋前面的 transition */
         .bookshelf-book {
             cursor: grab !important;
         }
@@ -526,6 +543,8 @@
 </head>
 <body class="bg-light">
 
+    <!-- 以下是 iPhone「靈動島」風格的音樂控制元件，固定在畫面上方。分三種狀態：膠囊列（平常）、展開抽屜（長按）、通知橫幅。 -->
+    <!-- 事件與播放邏輯在 js/app.js：單擊膠囊開啟音樂庫、長按展開音控、按鈕控制播放／上下首／音量／進度。 -->
     <!-- ==================== iPhone 靈動島 (Dynamic Island) 核心元件 ==================== -->
     <div id="dynamicIslandContainer" class="dynamic-island-container">
       <div id="dynamicIsland" class="dynamic-island idle" role="region" aria-label="動態島多功能控制中心">
@@ -621,6 +640,7 @@
       </div>
     </div>
 
+    <!-- 全螢幕「音樂庫」選歌頁：預設隱藏（display:none），點靈動島或「選歌」才打開。上方有線上音樂搜尋，中間是圓形封面氣泡，下方是迷你播放列。內容由 app.js 動態產生。 -->
     <!-- 4. 全螢幕音樂庫選歌頁面 (圓形氣泡流) -->
     <div id="watchMusicModal" class="watch-music-modal" style="display:none;" aria-hidden="true">
       <div class="watch-music-backdrop" id="watchMusicBackdrop"></div>
@@ -692,6 +712,8 @@
       </div>
     </div>
 
+    <!-- 頂部導航列：左邊品牌，右邊是觀看歷史、同步 Bangumi、回首頁、登出。小螢幕時收進漢堡選單（Bootstrap collapse，data-bs-toggle 自動處理，不用寫 JS）。 -->
+    <!-- 登出按鈕的 logoutUser() 定義在 js/app.js，會清除登入狀態並回到登入頁。 -->
     <!-- 頂部導航列 (支援 RWD 漢堡選單自適應摺疊) -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top py-2 border-bottom shadow-sm">
         <div class="container-fluid px-lg-4">
@@ -726,8 +748,11 @@
         </div>
     </nav>
 
+    <!-- ========== 主內容區：由上到下依序是 輪播 -> 四個功能入口 -> 觀看歷史 -> 每週放送表 ========== -->
     <main class="container-fluid px-lg-4 py-4">
 
+        <!-- 輪播區說明：標題列右邊有三顆數量按鈕（全部／前10／前5），onclick 呼叫 acg.js 的 setCarouselDisplayLimit()。-->
+        <!-- #carouselDateText 是日期說明文字；#carouselIndicators（小圓點）與 #carouselInner（投影片）一開始是空的，載入後由 acg.js 的 renderCarouselItems() 填入；資料來自 Bangumi 的 calendar API。 -->
         <!-- 1. Bootstrap 5 Carousel 輪播圖 (本日放送新番動態展示) -->
         <section class="mb-4">
             <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
@@ -778,6 +803,7 @@
             </div>
         </section>
 
+        <!-- 四個功能入口卡片（這四張卡片載入時有 GSAP 淡入、滑鼠移上去會浮起，見 acg.js）。按鈕的 onclick 函式都在 app.js：openKazumiPlayer 動漫劇院、openTachimangaReader 條漫、openLegadoReader 小說、openGameHubModal 遊戲專區。「自訂來源規則」按鈕由 custom-rules.js 依 data-custom-rules-open 屬性處理。 -->
         <!-- 2. 四大核心閱覽與遊戲入口卡片 -->
         <section class="row g-3 mb-4" id="acgFeaturesSection">
             <div class="col-12 col-sm-6 col-lg-3">
@@ -855,6 +881,7 @@
             </div>
         </section>
 
+        <!-- 觀看歷史區：#watchHistoryGrid 的卡片由 app.js 從紀錄動態產生（可接續播放、單筆刪除）；「清空全部紀錄」呼叫 clearAllWatchHistory()。 -->
         <!-- 2.5 獨立觀看歷史紀錄專區 (支援卡片網格、動漫/B站/YouTube、接續播放與單筆刪除) -->
         <section class="card border-0 shadow-sm rounded-4 mb-4" id="acgWatchHistorySection">
             <div class="card-body p-4">
@@ -876,6 +903,7 @@
             </div>
         </section>
 
+        <!-- 每週放送表：上方週一～週日分頁按鈕，點擊呼叫 switchCalendarWeekday(星期, 按鈕) 切換；#bangumiAnimeGrid 是該天動畫卡片的容器（acg.js 有 MutationObserver 監看它，卡片一更新就播入場動畫）。「刷新時間表」會強制重新向 Bangumi 要資料。 -->
         <!-- 3. Bangumi 每週放送時刻表 (週一 ~ 週日) -->
         <section class="card border-0 shadow-sm rounded-4 mb-4">
             <div class="card-body p-4">
@@ -905,8 +933,11 @@
 
     </main>
 
+    <!-- ==================== 以下全是彈出視窗（Modal），平常隱藏，由 Bootstrap 的 data-bs-toggle / JS 呼叫開啟 ==================== -->
     <!-- ==================== 模態框 (Modals) ==================== -->
 
+    <!-- 這個視窗讓使用者輸入 Bangumi 帳號，把「在看」的番劇匯入圖書館；填入 Token 後可雙向同步（網站進度回寫 Bangumi）。按鈕呼叫 triggerBangumiUserSync('import' 或 'two-way')，Token 驗證呼叫 verifyBangumiToken()。 -->
+    <!-- 衝突策略單選：兩邊進度不同時，以 Bangumi 或以本網頁為準，選擇後 saveBgmPriority() 會記住。 -->
     <!-- Bangumi 帳號追番一鍵同步 Modal -->
     <div class="modal fade" id="bangumiSyncModal" tabindex="-1" aria-labelledby="bgmSyncLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -1011,6 +1042,7 @@
         </div>
     </div>
 
+    <!-- 播放來源視窗：點輪播或卡片的「播放來源」後出現，顯示動畫封面與可用的播放來源／集數，可手動微調關鍵字重新檢索（searchKazumiFromModal）。來源清單由 JS 注入 #kazumiSourceList。 -->
     <!-- 0. Kazumi 播放來源 Modal (仿 Kazumi 原生播放來源抽屜) -->
     <div class="modal fade" id="kazumiSourceModal" tabindex="-1" aria-labelledby="kazumiSourceModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -1049,6 +1081,8 @@
         </div>
     </div>
 
+    <!-- 動漫劇院播放器（最大的視窗）：左邊是播放畫面（支援 <video> 直接播放與 <iframe> 內嵌兩種模式，最上層疊著彈幕層），右邊是選集列表／彈幕列表兩個分頁加發送彈幕。 -->
+    <!-- data-bs-backdrop="static" 代表點視窗外面不會關閉，避免看到一半誤觸。快捷鍵（空白鍵暫停、F 全螢幕、M 靜音）也在 app.js 綁定。 -->
     <!-- 1. Kazumi 動漫串流播放器 Modal -->
     <div class="modal fade" id="animePlayerModal" tabindex="-1" aria-labelledby="animeModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-theater">
@@ -1298,6 +1332,7 @@
         </div>
     </div>
 
+    <!-- 彈幕設置視窗：「外觀」分頁調字體、透明度、顯示區域、行距、彈幕類型；「播放」分頁選彈幕來源（Bilibili 或彈彈play）、停留時間、時間校準、關鍵字屏蔽、彈彈play 金鑰。滑桿用 oninput 即時套用。 -->
     <!-- 1.1 Kazumi 仿原生彈幕設置 Modal (外觀與播放時間校準) -->
     <div class="modal fade" id="danmakuSettingsModal" tabindex="-1" aria-labelledby="danmakuSettingsLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
@@ -1492,6 +1527,8 @@
         </div>
     </div>
 
+    <!-- 條漫閱覽器（全螢幕視窗）：沒開漫畫時顯示 3D 立體書架（#mangaBookshelfGrid 由 JS 渲染書本，可搜尋漫畫加入書架）；開了漫畫後在 #mangaPageWrapper 以長條瀑布流顯示圖片，上方工具列有上下話、選集、縮放、收進書架。 -->
+    <!-- 視窗開啟（shown.bs.modal）時 acg.js 會呼叫 renderMangaBookshelf() 重畫書架。 -->
     <!-- 2. Tachimanga 條漫閱覽器 Modal -->
     <div class="modal fade" id="mangaReaderModal" tabindex="-1" aria-labelledby="mangaModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen">
@@ -1562,6 +1599,7 @@
         </div>
     </div>
 
+    <!-- 漫畫搜尋與章節選集視窗：先搜尋出漫畫清單，選一部後同一個容器改成顯示章節；「重選作品」回到搜尋結果。 -->
     <!-- 2.5 Tachimanga 漫畫來源與選集抽屜 Modal -->
     <div class="modal fade" id="mangaSourceModal" tabindex="-1" aria-labelledby="mangaSourceModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -1603,6 +1641,8 @@
         </div>
     </div>
 
+    <!-- 沉浸小說閱讀器（全螢幕視窗）：和條漫類似，沒開書時顯示小說立體書房（可搜尋、可上傳 TXT/EPUB），開書後顯示章節內文。 -->
+    <!-- 外觀設定：羊皮紙／純白／暗黑三種主題、A-/A+ 字級、自訂字色。寬螢幕直接顯示按鈕，窄螢幕收進下拉選單。 -->
     <!-- 3. Legado 沉浸小說閱讀器 Modal -->
     <div class="modal fade" id="novelReaderModal" tabindex="-1" aria-labelledby="novelModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen">
@@ -1739,6 +1779,7 @@
         </div>
     </div>
 
+    <!-- 小說搜尋與章節選集視窗：可切換書源（小説家になろう／カクヨム），搜尋後選書再選章節。 -->
     <!-- 3.5 Legado 小說來源與選集抽屜 Modal -->
     <div class="modal fade" id="novelSourceModal" tabindex="-1" aria-labelledby="novelSourceModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -1801,6 +1842,7 @@
         </div>
     </div>
 
+    <!-- 遊戲專區視窗：卡片格狀列出遊戲 Wiki／工具，上方可搜尋（filterGameHubGrid 即時過濾）、恢復被刪除的預設卡片、自訂加入。卡片由 JS 渲染進 #gameHubGridContainer。 -->
     <!-- 4. ACG 遊戲專區與攻略庫 Modal -->
     <div class="modal fade" id="gameHubModal" tabindex="-1" aria-labelledby="gameHubModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl">
@@ -1845,6 +1887,7 @@
         </div>
     </div>
 
+    <!-- 遊戲工具內嵌視窗：用 iframe 在目前頁面直接開啟 Wiki／工具，也可重新載入、另開新分頁、返回遊戲庫。 -->
     <!-- 4.5 遊戲在線工具與 Wiki 內嵌視窗 Modal (當前網頁開新畫面) -->
     <div class="modal fade" id="gameToolModal" tabindex="-1" aria-labelledby="gameToolModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-fullscreen">
@@ -1882,6 +1925,7 @@
         </div>
     </div>
 
+    <!-- 自訂新增遊戲視窗：填名稱、網址、標籤、說明後按「儲存加入」，saveCustomGame() 會存起來並出現在遊戲庫。 -->
     <!-- 4.6 自定義新增遊戲 Wiki / 工具 Modal -->
     <div class="modal fade" id="addCustomGameModal" tabindex="-1" aria-labelledby="addCustomGameModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -1916,6 +1960,7 @@
         </div>
     </div>
 
+    <!-- 全部觀看歷史視窗：用較大的格狀列出所有觀看紀錄（動漫／B站／YouTube），可清空。內容由 JS 注入 #modalWatchHistoryGrid。 -->
     <!-- 播放歷史清單 Modal -->
     <div class="modal fade" id="watchHistoryModal" tabindex="-1" aria-labelledby="watchHistoryModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
@@ -1942,17 +1987,20 @@
         </div>
     </div>
 
+    <!-- 回到頂端按鈕，捲動超過一定距離才會顯示（邏輯在 app.js） -->
     <!-- 回到頂端浮動按鈕 (只在外層頁面顯示；開啟內頁對話框時由 CSS 隱藏) -->
     <button type="button" id="backToTopBtn" class="back-to-top" aria-label="回到頂端" title="回到頂端">
       <i class="bi bi-arrow-up" aria-hidden="true"></i>
     </button>
 
+    <!-- ========== 腳本載入區（順序有意義）：GSAP 動畫 -> Bootstrap -> app.js -> acg.js -> custom-rules.js；放在 body 最後是為了讓畫面先出現 ========== -->
     <!-- GSAP 3 高效能專業動畫庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
     <!-- 尊重系統「減少動態效果」：GSAP 動畫幾乎瞬間完成 -->
     <script>if (typeof gsap !== "undefined") gsap.matchMedia().add("(prefers-reduced-motion: reduce)", () => { gsap.globalTimeline.timeScale(20); return () => gsap.globalTimeline.timeScale(1); });</script>
     <!-- Bootstrap 5 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- app.js 先載入，提供共用函式（escapeHtml、各種開啟播放器的函式等）；acg.js 會呼叫它們，所以順序不能反 -->
     <!-- App Logic JS -->
     <script src="js/app.js"></script>
     <!-- ACG Dedicated Module JS -->
@@ -1962,6 +2010,7 @@
 
 
 
+    <!-- 全螢幕固定的垃圾桶：把書架上的書拖曳到這裡放開就會刪除，顯示／隱藏由 acg.js 與 app.js 控制 -->
     <!-- 全螢幕固定懸浮垃圾桶 (條漫與沉浸小說立體書房 拖曳刪除) -->
     <div class="global-bookshelf-trash" id="globalBookshelfTrashBin" title="拖曳書本至此丟入垃圾桶刪除" style="display: none;">
         <div class="trash-icon-wrap">

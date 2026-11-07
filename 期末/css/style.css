@@ -1,3 +1,8 @@
+/* 【檔案總覽】這支 style.css 是整個「Web Library 收藏庫」(index.html / acg.html) 的唯一樣式表。
+   讀法：最上面是基本版面與書籤卡片；中段是 ACG 專區(動漫劇院/條漫/小說)、3D 書架、深色模式；
+   最下面「極簡設計層」會用同名選擇器再覆蓋一次(CSS 後寫的贏)，所以同一個元件可能出現兩次，以後面為準。
+   Bootstrap 5 負責基礎排版，這裡只負責客製化。 */
+
 /* ============================================================
 
    Web Library — 極簡沉穩風格 (Qwen 3.8 27B 設計，Antigravity 審查與修復)
@@ -7,6 +12,9 @@
    低飽和、微陰影、1px 細邊框、克制圓角、拒絕花俏 AI 漸層
 
    ============================================================ */
+
+/* 【CSS 變數】:root 放全站共用的顏色/圓角/陰影，其他地方用 var(--名稱) 取用。
+   好處：要換主題色只改這裡一處。檔案後半(第二個 :root)會再補上間距、字級、墨色主色等變數。 */
 
 /* ---------- 1. 設計變數 ---------- */
 
@@ -43,8 +51,13 @@
   --radius-md: 10px;
   --radius-lg: 14px;
   /* 動畫時間 */
+  /* 通用過渡動畫：0.2 秒、先快後慢的 ease 曲線(第二個 :root 會用更細的版本覆蓋) */
+
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* 【全域排版】設定整頁預設字型(系統字體 + 思源黑體)、背景色、文字色與行高。
+   antialiased 讓字在 Mac/手機上較細緻。 */
 
 /* ---------- 2. 基礎全域排版 ---------- */
 
@@ -64,6 +77,9 @@ body {
   font-size: 0.75rem;
   letter-spacing: 0.02em;
 }
+
+/* 【導覽列】頁面最上方的 navbar：品牌 Logo、搜尋框、右側功能按鈕。
+   下面用 flex 排版 + 搜尋框 flex:1 自動伸縮，避免視窗變窄時按鈕互相重疊。 */
 
 /* ---------- 3. 導覽列 (Navbar) ---------- */
 
@@ -94,6 +110,10 @@ body {
   font-size: 1rem;
   color: var(--text-primary);
 }
+
+/* 搜尋框的 RWD：
+   >=992px(桌機) 搜尋框置中並限制最大寬度；>=1400px(大螢幕) 稍微放寬；
+   <=991.98px(平板/手機，Bootstrap 的 lg 以下，選單會收合) 搜尋框滿版並上下留白。 */
 
 /* 頂部導航與流體自適應置中搜尋框 (徹底杜絕按鍵重疊跑版) */
 
@@ -153,6 +173,8 @@ body {
   gap: 6px;
 }
 
+/* 搜尋框外框：pill 圓角膠囊；:focus-within 代表裡面的 input 被點到時，整個外框亮藍色光圈 */
+
 .search-input-group {
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
@@ -184,6 +206,8 @@ body {
   box-shadow: none;
   background: transparent;
 }
+
+/* 【統計卡片】頁面頂端三格數字統計(書籤數、點擊數等)。刻意用白底+細邊框，不用鮮豔漸層。 */
 
 /* ---------- 4. 頂部統計指標卡片 (去除鮮豔漸層，改為極簡邊框) ---------- */
 
@@ -239,6 +263,8 @@ body {
 .bg-gradient-video .stat-icon { color: var(--cat-video-text) !important; }
 
 .bg-gradient-res .stat-icon { color: var(--cat-res-text) !important; }
+
+/* 【分類導航與標籤 Chips】書籤列表上方的分類切換與標籤小膠囊；選中的會變色。 */
 
 /* ---------- 5. 分類導航與標籤 Chips ---------- */
 
@@ -300,6 +326,9 @@ body {
   font-size: 0.75rem;
 }
 
+/* 【書籤卡片】每一個收藏網站顯示成一張卡片：封面圖(16:9)、標題、說明、標籤、操作按鈕。
+   卡片用 flex column 讓封面在上、內容在下；hover 時往上浮 2px 並加深陰影，提供「可點擊」的回饋。 */
+
 /* ---------- 6. 收藏卡片 (Cards) ---------- */
 
 .bookmark-card {
@@ -318,6 +347,9 @@ body {
   box-shadow: var(--shadow-md) !important;
   transform: translateY(-2px);
 }
+
+/* 封面區域：aspect-ratio 固定 16:9 避免圖片載入前跳動；overflow:hidden 讓 hover 放大時不會超出圓角。
+   右下角的放大鏡徽章平常 opacity:0，滑鼠移上封面才淡入(pointer-events:none 表示不擋點擊)。 */
 
 /* 封面圖 */
 
@@ -367,6 +399,8 @@ body {
 .bookmark-card:hover .card-cover-img {
   transform: scale(1.02);
 }
+
+/* 置頂徽章：絕對定位在封面左上角；半透明深底 + backdrop-filter 毛玻璃模糊背後的圖片。 */
 
 /* 置頂標籤 */
 
@@ -546,6 +580,9 @@ body {
   gap: 0.25rem;
 }
 
+/* 【清單檢視模式】按「清單」按鈕後，外層多了 .list-view-mode，卡片由直式變成橫式(封面在左、文字在右)。
+   手機(<=768px)太窄，改回直式排列。 */
+
 /* ---------- 7. 清單檢視模式 (List View) ---------- */
 
 .list-view-mode .bookmark-col {
@@ -578,11 +615,16 @@ body {
   }
 }
 
+/* ########## 以下進入 ACG 專區(acg.html)：Kazumi 動漫劇院、Tachimanga 條漫、Legado 小說 ########## */
+
 /* ============================================================
 
    ACG 專用樣式 (Kazumi 劇院 / Tachimanga 條漫 / Legado 小說)
 
    ============================================================ */
+
+/* @keyframes danmakuFly：彈幕(飄過畫面的留言)動畫。從 left:100%(畫面右邊外面) 飛到 left:0，
+   再加 translateX(-100%) 讓它完整滑出左邊。飛行時間由 JS 設定 animation-duration。 */
 
 /* 1. Kazumi 彈幕動畫與浮層層級保證 (浮於 iframe / video 之上) */
 
@@ -596,6 +638,11 @@ body {
     transform: translateX(-100%);
   }
 }
+
+/* 全螢幕播放器：JS 會替 #kazumiScreenContainer 加上 .is-fullscreen(或瀏覽器原生 :fullscreen)。
+   position:fixed + inset:0 + z-index:99999 讓它鋪滿整個視窗並蓋過其他所有東西；
+   用多個選擇器是為了同時支援 Chrome/Safari(-webkit-) 與自訂全螢幕。
+   此區 !important 很多，是為了強壓過 Bootstrap 與前面寫的固定高度。 */
 
 /* ============================================================
 
@@ -657,6 +704,9 @@ body {
   background: #000000 !important;
   border: none !important;
 }
+
+/* 純淨化技巧：把 iframe 往上/往下位移並用外層 overflow:hidden 裁掉，
+   藉此藏住第三方播放器的標題列與控制列，只露出影片本體。 */
 
 /* Bilibili 專屬純淨化：一般模式與全螢幕模式精準裁切頂部標題/頭像 (46px) 與底部控制欄 (60px) */
 
@@ -733,6 +783,9 @@ body {
   border: none !important;
 }
 
+/* z-index 層級(全螢幕播放器內，數字大的蓋在上面)：影片 1 < 彈幕層 50 < 滑鼠感應區 65~70 < 控制列 90~95。
+   控制列最高，確保永遠點得到；彈幕在影片上、控制列下。 */
+
 /* 全螢幕模式下彈幕覆蓋於最上方 (確保彈幕在全螢幕下 100% 飄過) */
 
 #kazumiScreenContainer:fullscreen #danmakuOverlay,
@@ -802,6 +855,9 @@ body {
 #kazumiScreenContainer.is-fullscreen #kazumiFsDrawerBtn {
   display: inline-block !important;
 }
+
+/* Hover Zones：全螢幕時上/下各放一條透明感應區，滑鼠靠近就喚醒控制列；
+   閒置幾秒後控制列淡出並隱藏滑鼠游標(像看電影的效果)。 */
 
 /* 全螢幕滑鼠上下懸浮感應區 (Hover Zones) 與中央滾輪事件代理層 */
 
@@ -980,6 +1036,8 @@ body {
   z-index: 25 !important;
 }
 
+/* 頂部/底部彈幕不飛行，停在原位一段時間後用 danmakuFade 淡出。 */
+
 /* 頂部與底部固定彈幕 */
 
 .danmaku-bullet.danmaku-top {
@@ -1006,6 +1064,8 @@ body {
 .danmaku-paused .danmaku-bullet {
   animation-play-state: paused !important;
 }
+
+/* 彈幕設定面板(調透明度、速度、字級等的小視窗)。 */
 
 /* Kazumi 彈幕設定面板樣式 */
 
@@ -1051,6 +1111,8 @@ body {
   border-radius: 6px;
 }
 
+/* Tachimanga 條漫(直式捲動漫畫)閱讀器的圖片排版。 */
+
 /* 2. Tachimanga 條漫樣式 */
 
 .manga-page-img {
@@ -1061,6 +1123,9 @@ body {
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
   border-radius: 2px;
 }
+
+/* Legado 小說閱讀器：提供三種閱讀主題(米黃羊皮紙 / 純白 / 暗黑)的基本字色與背景，
+   下面支援使用者自訂字色(透過 CSS 變數由 JS 寫入)。 */
 
 /* 3. Legado 小說三種主題與自訂字色支援 */
 
@@ -1216,6 +1281,8 @@ body {
   color: var(--novel-custom-text-color) !important;
 }
 
+/* Bangumi 新番時間表：每日播出動畫的小卡片，用 backdrop-filter 做半透明玻璃感。 */
+
 /* 4. Bangumi 新番時間表卡片 */
 
 .bgm-anime-card {
@@ -1261,6 +1328,10 @@ body {
   border-radius: var(--radius-sm);
   backdrop-filter: blur(4px);
 }
+
+/* 【批量管理】按下「批量」後可勾選多張卡片一次刪除/移動。
+   底部操作列用 batchSlideUp 動畫從下方滑上來(translateY 100% → 0 並淡入)；
+   勾選框打勾時有 batch-check-pop 縮放彈一下的動畫；z-index 1045 比一般元件高但低於對話框。 */
 
 /* ==========================================
 
@@ -1320,11 +1391,16 @@ body {
   100% { transform: scale(1); }
 }
 
+/* 無障礙：使用者系統設定「減少動態效果」時，關掉勾選動畫。 */
+
 @media (prefers-reduced-motion: reduce) {
   .bookmark-batch-checkbox .form-check-input:checked {
     animation: none;
   }
 }
+
+/* 【深色容器文字加亮】劇院/條漫/小說閱讀器是固定深色背景，Bootstrap 預設灰字在黑底會看不清，
+   所以這整區把次要文字、placeholder、徽章全部調成高對比的淺灰/亮色(符合 WCAG AA 對比度 4.5:1)。 */
 
 /* ============================================================
 
@@ -1500,6 +1576,8 @@ body {
   font-weight: 600 !important;
 }
 
+/* Bootstrap modal 預設 z-index 1055；來源/選集抽屜要疊在全螢幕閱覽器之上，所以提高到 1065。 */
+
 /* 多層 Modal 疊加層級 (避免來源/選集抽屜被全螢幕閱覽器遮擋) */
 
 #mangaSourceModal,
@@ -1567,6 +1645,8 @@ body {
   font-size: 0.95rem;
   line-height: 1.6;
 }
+
+/* 【劇院右側欄】動漫劇院右邊的「選集 / 彈幕」欄位，用 flex column 排列、清單可獨立捲動，避免被擠壞。 */
 
 /* ============================================================
 
@@ -1706,6 +1786,8 @@ body {
   color: #38bdf8 !important;
 }
 
+/* 【觀看歷史】「最近觀看」紀錄卡片的樣式，含深色模式版本。 */
+
 /* ==================== 獨立觀看歷史專區樣式 ==================== */
 
 .watch-history-card {
@@ -1795,6 +1877,8 @@ body {
   transition: width 0.3s ease;
 }
 
+/* 劇院對話框放大 + 側邊欄寬度調整，讓影片區更大。 */
+
 /* 動漫劇院超大沉浸式對話框與側邊欄寬度優化 */
 
 .modal-dialog-theater {
@@ -1831,6 +1915,9 @@ body {
   background: rgba(239, 68, 68, 0.8);
 }
 
+/* body.has-multi-modal 由 JS 在「對話框疊對話框」時加上；數字越大越上層：
+   歷史 Modal 1070 > 劇院 Modal 1065 > 一般 Bootstrap 1055。 */
+
 /* 多層模態框疊加層級修復：播放歷史 Modal 置於動漫劇院上方 */
 
 #watchHistoryModal {
@@ -1840,6 +1927,9 @@ body {
 body.has-multi-modal .modal-backdrop:last-of-type {
   z-index: 1065 !important;
 }
+
+/* 毛玻璃(Glass)浮動視窗：backdrop-filter: blur(16px) 模糊背後內容；
+   進場用 floatingPanelSlideIn 動畫(淡入 + 位移)。 */
 
 /* 劇院側邊欄「最近觀看紀錄」懸浮視窗 (Floating Glass Panel) */
 
@@ -1916,6 +2006,8 @@ body.has-multi-modal .modal-backdrop:last-of-type {
   transform: translateY(-2px);
 }
 
+/* 手機(<=768px)的 ACG 版面微調。 */
+
 /* 主頁響應式設計 (RWD) 強化 */
 
 @media (max-width: 768px) {
@@ -1936,6 +2028,10 @@ body.has-multi-modal .modal-backdrop:last-of-type {
     width: 100% !important;
   }
 }
+
+/* 【3D 書架】漫畫/小說「藏書閣」。perspective 給子元素透視深度，
+   .bookshelf-book 設 transform-style: preserve-3d 才能讓封面真的有 3D 翻開效果；
+   hover 時書本往上抬 6px(translateY)，像從書架抽出一點。 */
 
 /* ============================================================
 
@@ -1995,6 +2091,9 @@ body.has-multi-modal .modal-backdrop:last-of-type {
 .bookshelf-remove-btn {
   display: none !important;
 }
+
+/* 藏書閣右下角的垃圾桶：把書拖到這裡放開就刪除。
+   拖曳狀態由 JS 切換 class：trash-ready(可放置，脈衝呼吸) → trash-hover(書在上方，變紅放大) → trash-dumped(刪除時抖動)。 */
 
 /* ==================== 藏書閣右下角互動垃圾桶與拖曳刪除 ==================== */
 .bookshelf-trash-dropzone {
@@ -2057,6 +2156,8 @@ body.has-multi-modal .modal-backdrop:last-of-type {
 .bookshelf-trash-dropzone.trash-dumped {
   animation: trashDumpShake 0.3s ease;
 }
+
+/* 全螢幕閱覽器用的垃圾桶：position:fixed 固定在視窗右下角，z-index 1060 蓋過閱覽器內容。 */
 
 /* ==================== 全螢幕視窗右下角懸浮垃圾桶 (條漫與小說書架拖曳刪除) ==================== */
 .global-bookshelf-trash {
@@ -2161,6 +2262,8 @@ body.has-multi-modal .modal-backdrop:last-of-type {
   animation: globalTrashDump 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* 垃圾桶相關動畫：Pulse = 呼吸提示、Dump = 丟入時的動作、Shake = 抖一下。 */
+
 @keyframes globalTrashPulse {
   0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
   100% { transform: scale(1.06); box-shadow: 0 0 0 14px rgba(239, 68, 68, 0); }
@@ -2226,6 +2329,9 @@ body.has-multi-modal .modal-backdrop:last-of-type {
   line-height: 1rem;
   margin-top: 2px;
 }
+
+/* 【3D 實體書本】用多層 div 疊出書：內頁厚度、書脊光影、可掀開的封面(transform: rotateY)。
+   滑鼠 hover 時封面繞著左邊書脊翻開，露出內頁插畫；z-index 1~7 控制各層前後順序(封面最前)。 */
 
 /* ==================== 3D 擬真實體書本與木質書架 (Opening Cover) ==================== */
 .book-3d-chassis {
@@ -2368,6 +2474,8 @@ body.has-multi-modal .modal-backdrop:last-of-type {
   box-shadow: -14px 16px 28px rgba(0, 0, 0, 0.65), 0 6px 12px rgba(0, 0, 0, 0.35);
 }
 
+/* 書架的木頭層板：用漸層與陰影做出立體感；深色模式換較深的木色。 */
+
 /* 書架立體實木擱板 (Solid Wood Plank) */
 .bookshelf-plank {
   height: 20px;
@@ -2414,6 +2522,8 @@ body.has-multi-modal .modal-backdrop:last-of-type {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(68, 52, 40, 0.8) 100%) !important;
 }
 
+/* ACG 閱讀器/播放器標題列在手機上按鈕會擠到換行，這裡 nowrap 不換行並縮小內距。 */
+
 /* ========================================================
    ACG 模態框 Header 響應式防擠壓安全規範 (RWD Anti-Compression)
    ======================================================== */
@@ -2446,6 +2556,9 @@ body.has-multi-modal .modal-backdrop:last-of-type {
   }
 }
 
+/* 【Spotlight 聚光燈卡片】滑鼠移到卡片上時，有一圈跟著游標的光暈。
+   原理：JS 把滑鼠座標寫進 CSS 變數 --mouse-x / --mouse-y，這裡用 radial-gradient 把圓心放在該座標。 */
+
 /* ==================== Task 5: React Bits (BV1mxTz6VED3) Spotlight Card & Border Glow ==================== */
 
 [data-bs-theme="dark"] .spotlight-card,
@@ -2466,6 +2579,8 @@ body.has-multi-modal .modal-backdrop:last-of-type {
   position: relative;
   z-index: 3;
 }
+
+/* 劇院對話框 RWD：桌機寬度 96vw(>=1400px 最大 1480px)；平板/手機(<=991.98px) 播放區改 16:9 比例。 */
 
 /* ==================== Task 3 & 6: ACG 遊戲專區與動漫劇院 RWD 大視窗 ==================== */
 /* 劇院超大視窗沉浸體驗 */
@@ -2523,6 +2638,9 @@ body.has-multi-modal .modal-backdrop:last-of-type {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
   transform: scale(1.08);
 }
+
+/* 聚光燈強化版：::before 疊一層光暈，pointer-events:none 讓它不擋滑鼠，z-index 在子元素之上；
+   .border-glow 用 mask-composite 把漸層「挖空中間」只留邊框一圈，做出游標附近邊框發亮。 */
 
 /* ==================== Task 5: 強化版 Spotlight Card & Border Glow (鮮明科技光暈) ==================== */
 .spotlight-card {
@@ -2612,6 +2730,9 @@ body.has-multi-modal .modal-backdrop:last-of-type {
 
 /* ==================== iPhone Duo / Surface Duo 特殊折疊屏解析度適配 ==================== */
 
+/* 【深色模式】兩種觸發方式並存：Bootstrap 的 [data-bs-theme="dark"] 與自訂的 body.dark-theme，
+   所以每條規則都寫兩個選擇器。導覽列在這裡用半透明 + 毛玻璃(blur 12px)。 */
+
 /* ==================== 深色模式 (Dark Mode) 全域介面強化 ==================== */
 
 [data-bs-theme="dark"] .navbar,
@@ -2675,6 +2796,8 @@ body.dark-theme .text-muted {
   color: #94a3b8 !important;
 }
 
+/* 遊戲區的圓形小按鈕，>=768px 與動畫區對齊。 */
+
 /* ==================== Task: 遊戲區 RWD 小圓球按鈕 (對齊動畫區) ==================== */
 .game-hub-round-btn {
   width: 34px;
@@ -2695,6 +2818,8 @@ body.dark-theme .text-muted {
     padding: 0.3rem 0.85rem !important;
   }
 }
+
+/* 遊戲工具/Wiki 內嵌視窗頂部工具列：手機(<768px)按鈕換行，桌機(>=768px)單行。 */
 
 /* ==================== Task: 遊戲工具與 Wiki 內嵌視窗頂部工具列 RWD ==================== */
 .game-tool-header-btn {
@@ -2724,6 +2849,9 @@ body.dark-theme .text-muted {
     font-size: 0.82rem !important;
   }
 }
+
+/* 【層疊飄浮書頁】「關於」頁的卡片：後面墊 3 張半透明假卡片(.stacked-card-shadow-1~3)，
+   各自旋轉(rotate)與位移(translate)，z-index 1/0/-1 由前到後，做出一疊紙散開的感覺。 */
 
 /* ==================== Task: 獨立飄浮層疊書頁 (Stacked Floating Cards) ==================== */
 .floating-cards-wrapper {
@@ -2812,6 +2940,8 @@ body.dark-theme .text-muted {
   background-color: rgba(148, 163, 184, 0.7);
 }
 
+/* Spotlight 停用開關：使用者關閉特效時，隱藏光暈。 */
+
 /* ==================== Task: Spotlight 停用模式開關控制 ==================== */
 .spotlight-disabled .spotlight-card::before,
 .spotlight-disabled .border-glow::after {
@@ -2824,6 +2954,8 @@ body.dark-theme .text-muted {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
   border-color: rgba(226, 232, 240, 0.9) !important;
 }
+
+/* 深色模式補強：統計卡、ACG 入口橫幅、搜尋框、手冊卡片都換成深底淺字。 */
 
 /* ==================== Task: 深色模式全域無死角暗夜覆蓋 (徹底解決只做一點) ==================== */
 [data-bs-theme="dark"] body,
@@ -2880,6 +3012,8 @@ body.dark-theme #searchInput {
   border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
+/* iPhone Duo 內螢幕 (1878x2670) 專用版面。之後「摺疊螢幕適配」區有更通用的版本。 */
+
 /* ==================== Task: iPhone Duo (1878 x 2670 像素) 專屬極致雙屏適配 ==================== */
 @media screen and (width: 1878px) and (height: 2670px),
        screen and (device-width: 1878px) and (device-height: 2670px) {
@@ -2901,6 +3035,8 @@ body.dark-theme #searchInput {
     margin: 0 auto !important;
   }
 }
+
+/* 遊戲卡片按鈕列：手機(<=576px)避免按鈕被擠壓或斷行。 */
 
 /* ==================== 遊戲卡片按鈕列 RWD 防擠壓防換行 ==================== */
 .game-card-actions {
@@ -2926,6 +3062,8 @@ body.dark-theme #searchInput {
     padding: 0.28rem 0.45rem !important;
   }
 }
+
+/* 深色模式的高對比度修正(文字、徽章、按鈕)，確保在暗底看得清楚。 */
 
 /* ==================== 深色模式 (Dark Mode) 高對比度與易讀性全面提升 (WCAG AA) ==================== */
 [data-bs-theme="dark"],
@@ -3022,6 +3160,8 @@ body.dark-theme .action-jump-btn:hover {
   color: #ffffff !important;
 }
 
+/* 飄浮書頁翻頁：perspective 提供 3D 景深，JS 用 transform 做飛入/飛出，transform-origin 設在左側像翻書。 */
+
 /* ==================== 獨立層疊飄浮書頁 3D 飛入飛出容器透視 ==================== */
 .floating-book-card {
   perspective: 1200px;
@@ -3035,6 +3175,9 @@ body.dark-theme .action-jump-btn:hover {
   transform-origin: center left;
   will-change: transform, opacity;
 }
+
+/* 【小說閱讀器三主題】Sepia(羊皮紙)、White(純白)、Dark(暗黑) 三套完整配色，
+   各自重設按鈕、輸入框、關閉鈕、書架木板、閱讀內頁的顏色。三段結構相同，只有顏色不同。 */
 
 /* ==================== 小說立體書房與閱讀器三維主題深度重構 (Sepia / White / Dark) ==================== */
 
@@ -3096,6 +3239,8 @@ body.dark-theme .action-jump-btn:hover {
   opacity: 1 !important;
   transform: scale(1.08);
 }
+
+/* ---- 主題一：羊皮紙(Sepia) ---- */
 
 /* ==========================================================================
    2. 📜 羊皮紙主題 (Sepia Mode) - 溫潤暖調實木書房
@@ -3288,6 +3433,8 @@ body.dark-theme .action-jump-btn:hover {
   border-top: 1.5px solid #e3d5be !important;
 }
 
+/* ---- 主題二：純白(White) ---- */
+
 /* ==========================================================================
    3. ☀️ 純白主題 (White Mode) - 現代簡約極淨讀書空間
    ========================================================================== */
@@ -3475,6 +3622,8 @@ body.dark-theme .action-jump-btn:hover {
 .novel-theme-white #novelReadingArea .border-top {
   border-top: 1.5px solid #e2e8f0 !important;
 }
+
+/* ---- 主題三：暗黑(Dark) ---- */
 
 /* ==========================================================================
    4. 🌙 暗黑主題 (Dark Mode) - 沉浸夜間深黑護眼劇場
@@ -3668,6 +3817,8 @@ body.dark-theme .action-jump-btn:hover {
   border-top: 1.5px solid rgba(255, 255, 255, 0.12) !important;
 }
 
+/* 輪播圖(Bootstrap carousel)在深色模式下左右箭頭改成亮色。 */
+
 /* ==================== 輪播圖在深色模式下的控制箭頭高對比強化 ==================== */
 [data-bs-theme="dark"] .carousel-control-prev-icon,
 [data-bs-theme="dark"] .carousel-control-next-icon,
@@ -3675,6 +3826,11 @@ body.dark-theme .carousel-control-prev-icon,
 body.dark-theme .carousel-control-next-icon {
   filter: brightness(0) invert(1) drop-shadow(0 2px 5px rgba(0, 0, 0, 0.9)) !important;
 }
+
+/* 【音樂靈動島】仿 iPhone 靈動島：固定在畫面上方正中間的膠囊，用來顯示音樂播放狀態與通知。
+   position:fixed + left:50% + translateX(-50%) 達成水平置中；z-index 1080 比 Bootstrap 對話框(1055)高。
+   container 設 pointer-events:none(不擋下方內容)，膠囊本體再設 auto 才能被點。
+   寬高/圓角用 transition 做出「膠囊變形」的展開收合動畫，下面 idle/playing/expanded/notifying 是不同狀態的大小。 */
 
 /* ==========================================================================
    iPhone 靈動島 (Dynamic Island) & Apple Watch 經典蜂巢瀑布流核心樣式 (圖二)
@@ -3909,6 +4065,8 @@ body.dark-theme .carousel-control-next-icon {
   transform: scale(1.1);
 }
 
+/* 長按膠囊會展開成迷你控制器：音量滑桿(自訂 range 外觀)與時間軸。 */
+
 /* ==================== 長按展開抽屜 (Mini Island Controller) ==================== */
 .island-drawer {
   display: none;
@@ -3968,6 +4126,8 @@ body.dark-theme .carousel-control-next-icon {
   padding-top: 4px;
 }
 
+/* 靈動島通知：用來顯示「已加入」之類的提示訊息；長訊息自動換行，隱形副本用來量測所需高度。 */
+
 /* ==================== 靈動島通知 (Notification) ==================== */
 .island-notification {
   display: none;
@@ -4014,6 +4174,9 @@ body.dark-theme .carousel-control-next-icon {
   visibility: hidden;
   pointer-events: none;
 }
+
+/* 【選歌全螢幕視窗】仿 Apple Watch 蜂巢氣泡。.watch-music-modal 用 fixed + inset:0 鋪滿畫面，z-index 1090 最高(蓋過靈動島 1080)；
+   背景遮罩 backdrop-filter: blur(24px) 模糊後方網站。歌曲封面圓形泡泡用 flex 一列一列排，奇偶列錯位形成蜂巢。 */
 
 /* ==========================================================================
    圖二真實 Apple Watch 蜂巢瀑布流全螢幕模態 (Honeycomb Bubble Cluster Modal)
@@ -4092,6 +4255,8 @@ body.dark-theme .carousel-control-next-icon {
   color: #38bdf8;
   border-color: rgba(56, 189, 248, 0.4);
 }
+
+/* 搜尋結果用 CSS Grid：auto-fill + minmax(260px,1fr) 代表「每格至少 260px，塞得下就多排幾欄」，自動 RWD。 */
 
 /* 搜尋結果抽屜 */
 .watch-search-drawer {
@@ -4318,6 +4483,9 @@ body.dark-theme .carousel-control-next-icon {
   object-fit: cover;
 }
 
+/* 靈動島與選歌視窗的動畫：DiscSpin = 黑膠唱片旋轉、Wave = 頻譜波條跳動、FadeIn = 淡入、
+   ModalPop = 視窗彈出、PulseGlow = 播放中泡泡發光呼吸。 */
+
 /* 動畫設定 */
 @keyframes islandDiscSpin {
   from { transform: rotate(0deg); }
@@ -4343,6 +4511,8 @@ body.dark-theme .carousel-control-next-icon {
   0%, 100% { box-shadow: 0 0 16px rgba(56, 189, 248, 0.4), 0 0 0 2px rgba(56, 189, 248, 0.6); }
   50% { box-shadow: 0 0 30px rgba(56, 189, 248, 0.9), 0 0 0 3px rgba(56, 189, 248, 0.95); }
 }
+
+/* 手機(<=576px)：選歌視窗與泡泡縮小。 */
 
 @media (max-width: 576px) {
   .dynamic-island.expanded {
@@ -4376,6 +4546,8 @@ body.dark-theme .carousel-control-next-icon {
 .watch-music-bar .btn:hover {
   transform: scale(1.12);
 }
+
+/* 通知可以用手勢上滑關閉，所以游標改成可拖曳樣式。 */
 
 /* 靈動島通知手勢上滑消除與拖曳游標 */
 .dynamic-island.swipe-up-dismiss {
@@ -4441,6 +4613,10 @@ body.dark-theme .carousel-control-next-icon {
   transform: scale(1.1);
 }
 
+/* ########## 極簡設計層(最後載入，覆蓋前面所有樣式) ##########
+   前面的樣式是一路累積的，風格不完全一致；這層用統一的變數與規則收斂成 Notion/Linear 風格。
+   因為寫在檔案最後，同樣權重下它會贏過前面的規則。 */
+
 /* ============================================================
    極簡設計層 (Minimal Design Layer)
    放在檔案最後，統一覆蓋前面累積的樣式：
@@ -4449,6 +4625,9 @@ body.dark-theme .carousel-control-next-icon {
    - 150–250ms ease-out 過渡、去除彈跳與光暈
    - 清楚的 hover / focus-visible、深淺色一致、375px 可用
    ============================================================ */
+
+/* 第二個 :root：補上間距(4px 倍數)、字級、圓角、墨色(--ink)主色、藍色強調色(--accent)、動畫曲線。
+   同名變數(如 --shadow-md、--transition)會覆蓋第一份。 */
 
 :root {
   /* 間距 (4px 基準) */
@@ -4492,6 +4671,9 @@ body.dark-theme .carousel-control-next-icon {
     transform var(--dur) var(--ease-out), opacity var(--dur) var(--ease-out);
 }
 
+/* 深色模式只需要「重新定義變數」，所有用 var() 的元件就會自動變色，這就是用變數的好處。
+   例如 --ink 在淺色是深藍黑，深色時變淺色，主按鈕就自動反白。 */
+
 [data-bs-theme="dark"] {
   --bg-page: #0b0f19;
   --bg-hover: rgba(255, 255, 255, 0.06);
@@ -4509,6 +4691,8 @@ body.dark-theme .carousel-control-next-icon {
 body {
   background-color: var(--bg-page);
 }
+
+/* 無障礙：:focus-visible 只在鍵盤 Tab 操作時顯示焦點框，滑鼠點擊不會出現。 */
 
 /* ---------- 焦點：鍵盤操作時清楚可見，滑鼠點擊時不打擾 ---------- */
 
@@ -4534,6 +4718,8 @@ summary:focus-visible {
 .form-check-input:focus {
   box-shadow: 0 0 0 3px var(--accent-ring);
 }
+
+/* 導覽列按鈕改成中性灰，只有數字徽章保留顏色，視覺較安靜。 */
 
 /* ---------- 導覽列：按鈕回歸中性，顏色只留給數字徽章 ---------- */
 
@@ -4617,6 +4803,8 @@ a.btn-dark[href="acg.html"] {
   --bs-btn-active-border-color: var(--ink-hover);
 }
 
+/* 手機(<=575.98px)三張統計卡並排成一列，而不是各佔一整行。 */
+
 /* ---------- 統計卡片：手機上三格並排，不再佔滿一整個螢幕 ---------- */
 
 .stat-card:hover {
@@ -4651,6 +4839,8 @@ body.dark-theme .stat-card h3 {
   }
 }
 
+/* 分類/標籤選中時，深色模式反白(用 --ink 變數自動切換)。 */
+
 /* ---------- 分類 / 標籤：選中狀態在深色模式反白 ---------- */
 
 .category-pills .nav-link,
@@ -4670,6 +4860,8 @@ body.dark-theme .stat-card h3 {
   background-color: rgba(15, 23, 42, 0.12) !important;
   color: var(--on-ink) !important;
 }
+
+/* 書籤卡片最終版：統一圓角、hover 輕微上浮、單色聚光。 */
 
 /* ---------- 書籤卡片：一致圓角、輕微上浮、單色聚光 ---------- */
 
@@ -4756,6 +4948,8 @@ body.dark-theme .tag-badge {
   transform: translateY(-2px);
 }
 
+/* 批量模式最終版樣式。 */
+
 /* ---------- 批量模式 ---------- */
 
 .bookmark-card.batch-selected {
@@ -4780,6 +4974,8 @@ body.dark-theme .tag-badge {
   animation-duration: var(--dur-slow);
   animation-timing-function: var(--ease-out);
 }
+
+/* 所有 Bootstrap 對話框(modal)統一圓角、淡陰影，開啟時短距離淡入。 */
 
 /* ---------- 對話框：一致圓角、淡陰影、短距離淡入 ---------- */
 
@@ -4811,6 +5007,10 @@ body.dark-theme .tag-badge {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
 }
+
+/* 靈動島最終版：位置固定在上方置中。
+   下方 body.modal-open 規則：有對話框開著時，把靈動島 z-index 降到 1040(低於對話框 1055)避免擋住按鈕，
+   但有通知(.notifying)時例外，仍保持在最上面。:has() 是「包含某子元素」的選擇器。 */
 
 /* ---------- 音樂靈動島：固定在畫面上方置中 ---------- */
 
@@ -4878,6 +5078,8 @@ body.modal-open .dynamic-island-container:not(:has(.notifying)) {
   transform: none;
 }
 
+/* 選歌視窗：播放中的泡泡改成靜態外框，不要一直發光。 */
+
 /* 選歌視窗：播放中的泡泡改為靜態外框，不再循環發光 */
 .watch-bubble-item {
   transition: transform var(--dur) var(--ease-out);
@@ -4902,6 +5104,8 @@ body.modal-open .dynamic-island-container:not(:has(.notifying)) {
   transform: none;
 }
 
+/* 手機(<=576px)的靈動島與選歌視窗微調。 */
+
 @media (max-width: 576px) {
   .dynamic-island.idle {
     width: 168px;
@@ -4914,6 +5118,10 @@ body.modal-open .dynamic-island-container:not(:has(.notifying)) {
     width: calc(100vw - 24px);
   }
 }
+
+/* 【摺疊螢幕適配】把「展開狀態」的 iPhone Duo / 類似摺疊機偵測出來。
+   條件：(pointer: coarse)=觸控裝置 + 寬度範圍 + aspect-ratio 長寬比，三者同時成立才套用，
+   這樣桌機把視窗縮小(滑鼠 = pointer: fine)不會誤觸。 */
 
 /* ==========================================================================
    iPhone Duo 摺疊螢幕適配
@@ -4962,6 +5170,9 @@ body.modal-open .dynamic-island-container:not(:has(.notifying)) {
     max-width: 38em !important;
   }
 }
+
+/* 摺疊機展開時：導覽列由 sticky-top 改成 position:fixed 貼在右邊變成 72px 的直式功能列，
+   body 加 padding-right 讓內容不被蓋住；env(safe-area-inset-*) 是避開瀏海/圓角的安全區。 */
 
 /* ---------- iPhone Duo 展開：導覽列移到右側變成直式功能列 (仿 App「完美最佳化」) ----------
    直向 / 橫向展開都套用；外螢幕與一般手機維持原本上方導覽列。純 CSS，不改 HTML 與 JS。 */
@@ -5176,6 +5387,8 @@ body.modal-open .dynamic-island-container:not(:has(.notifying)) {
   }
 }
 
+/* 無障礙：使用者系統開啟「減少動態效果」時，把所有動畫/過渡縮到幾乎 0 秒(0.01ms 而不是 0，是為了仍觸發 animationend 事件)。 */
+
 /* ---------- 尊重「減少動態效果」設定 ---------- */
 
 @media (prefers-reduced-motion: reduce) {
@@ -5188,6 +5401,10 @@ body.modal-open .dynamic-island-container:not(:has(.notifying)) {
     scroll-behavior: auto !important;
   }
 }
+
+/* 【回到頂端按鈕】position:fixed 固定右下角。平常 opacity:0 + visibility:hidden 隱藏，
+   JS 捲動後加上 .is-visible 才淡入並從下方 8px 滑入。z-index 1035：高於導覽列 1030、低於對話框。
+   下面 body.modal-open 規則讓它在開對話框/批量列時自動隱藏，避免擋住畫面。 */
 
 /* ---------- 回到頂端浮動按鈕 (主頁 / ACG 專區外層頁面) ----------
    捲動超過約一個畫面高度才由 js/app.js 加上 .is-visible 淡入。
@@ -5256,6 +5473,9 @@ body:has(.batch-action-bar:not(.d-none)) .back-to-top {
     bottom: max(16px, calc(env(safe-area-inset-bottom) + 12px));
   }
 }
+
+/* 【ACG 自訂來源規則】使用者可新增自己的動漫/漫畫來源網站，這區是「快速跳轉列」與「規則管理視窗」的樣式。
+   .custom-rules-modal z-index 1075 蓋過一般對話框，遮罩 1070 墊在它下面。 */
 
 /* ==================== ACG 自訂來源規則 (js/custom-rules.js) ==================== */
 .custom-jump-row {

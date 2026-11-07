@@ -2,23 +2,32 @@
 
 <html lang="zh-Hant">
   <head>
+    <!-- 【網頁基本設定】charset=UTF-8 讓中文不會變亂碼 -->
     <meta charset="UTF-8" />
 
+    <!-- 【響應式設定】viewport 讓手機瀏覽時寬度跟著螢幕走，版面才不會縮得很小 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <!-- 【隱私設定】referrer：跳到外部網站時只送出網站來源，不洩漏完整網址 -->
     <meta name="referrer" content="strict-origin-when-cross-origin" />
 
+    <!-- 【分頁標題與網站圖示】title 是瀏覽器分頁上顯示的名字；下面三行 link 是分頁小圖示(favicon)，svg 給新瀏覽器、ico 給舊瀏覽器 -->
     <title>網頁收藏圖書館 | Web Library</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="alternate icon" href="favicon.ico" />
     <link rel="shortcut icon" href="favicon.ico" />
 
+    <!-- 【登入守衛】這段 script 在頁面一載入就先執行：
+         若 sessionStorage 沒有 currentUser，會嘗試從 localStorage 的「記住我」資料還原；還是沒有就跳回 login.html。
+         這樣沒登入的人就看不到主畫面。 -->
     <!-- 身分認證守衛：未登入者強制導向登入頁 (第一頁，採用 sessionStorage 會話保護) -->
     <script>
+      // 立即執行函式：先讀本次分頁的登入者；沒有的話再看「記住我」
       (function authGuard() {
         let user = sessionStorage.getItem("currentUser");
         if (!user) {
           try {
+            // 「記住我」資料存在且沒過期，就還原登入狀態
             const remembered = JSON.parse(localStorage.getItem("rememberedUser") || "null");
             if (remembered && remembered.user && (!remembered.expiresAt || Date.now() < remembered.expiresAt)) {
               sessionStorage.setItem("currentUser", JSON.stringify(remembered.user));
@@ -26,12 +35,14 @@
             }
           } catch(e) {}
         }
+        // 仍然沒有登入者 -> 用 replace 跳到登入頁(replace 不會留下歷史，按上一頁回不來)
         if (!user) {
           window.location.replace("login.html");
         }
       })();
     </script>
 
+    <!-- 【外部 CSS 1】Bootstrap 5.3：提供格線(row/col)、按鈕、彈窗(modal)等現成樣式，整頁版面幾乎都靠它 -->
     <!-- Bootstrap 5.3 CSS -->
 
     <link
@@ -39,6 +50,7 @@
       rel="stylesheet"
     />
 
+    <!-- 【外部 CSS 2】Bootstrap Icons：圖示字型，頁面上的 <i class="bi bi-..."> 都是用它顯示 -->
     <!-- Bootstrap Icons -->
 
     <link
@@ -46,6 +58,7 @@
       rel="stylesheet"
     />
 
+    <!-- 【外部字型】Google Fonts：Inter(英文)與 Noto Sans TC(繁體中文)；preconnect 是預先連線以加快載入 -->
     <!-- Google Fonts: Inter & Noto Sans TC -->
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -57,16 +70,20 @@
       rel="stylesheet"
     />
 
+    <!-- 【自訂樣式】css/style.css 是我們自己寫的樣式(深色模式、卡片、靈動島、播放器等)；?v= 是版本號，改檔後可強制瀏覽器重抓，避免吃到舊快取 -->
     <!-- Custom Styles -->
 
     <link rel="stylesheet" href="css/style.css?v=20261105_minimal" />
 
+    <!-- 【外部 JS】JSZip：用來解開 .epub 電子書(其實是壓縮檔)，給小說閱讀器的本機電子書功能使用 -->
     <!-- JSZip for EPUB Ebook Parsing -->
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   </head>
 
   <body class="bg-light">
+    <!-- 【區塊】iPhone 靈動島(Dynamic Island)：固定在畫面頂端的膠囊型音樂控制器。
+         單擊進入選歌頁、長按展開播放控制；各按鈕的 id 都以 island 開頭，由 js/app.js 綁定事件並更新歌名/進度/音量。 -->
     <!-- ==================== iPhone 靈動島 (Dynamic Island) 核心元件 ==================== -->
     <div id="dynamicIslandContainer" class="dynamic-island-container">
       <div id="dynamicIsland" class="dynamic-island idle" role="region" aria-label="動態島多功能控制中心">
@@ -162,6 +179,8 @@
       </div>
     </div>
 
+    <!-- 【區塊】全螢幕音樂庫(watchMusicModal)：從靈動島單擊進入，用圓形氣泡顯示歌曲，可搜尋線上音樂、切換播放模式。
+         搜尋結果與氣泡由 JS 動態產生並塞進 watchSearchList / watchHoneycombCluster。 -->
     <!-- 4. 全螢幕音樂庫選歌頁面 (圓形氣泡流) -->
     <div id="watchMusicModal" class="watch-music-modal" style="display:none;" aria-hidden="true">
       <div class="watch-music-backdrop" id="watchMusicBackdrop"></div>
@@ -232,6 +251,9 @@
         </div>
       </div>
     </div>
+    <!-- 【區塊】頂部導覽列 navbar：固定在最上方(sticky-top)。左邊品牌名稱、中間搜尋框(searchInput)、
+         右邊有新增收藏、播放紀錄、篡改猴、Docker 管理、使用者選單、關於、深色模式等按鈕。
+         大部分按鈕由 js/app.js 依 id 綁定點擊事件；手機版會收成漢堡選單(navbarContent)。 -->
     <!-- 頂部導航列 (Navbar - 簡約白色背景 + 1px 底邊框) -->
 
     <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top py-2">
@@ -261,8 +283,10 @@
           <span class="navbar-toggler-icon"></span>
         </button>
 
+        <!-- 【導覽列：可折疊容器】手機上按漢堡按鈕才展開，裡面放搜尋框與右側按鈕 -->
         <!-- 折疊管線 (將搜尋欄與右側功能鍵置於同一個 Flex 容器中，物理性杜絕任何層疊與衝突) -->
         <div class="collapse navbar-collapse" id="navbarContent">
+          <!-- 【導覽列：搜尋框】在 searchInput 打字時，app.js 會即時過濾下方收藏卡片；clearSearchBtn 可一鍵清除 -->
           <!-- 自適應流體置中搜尋框 (桌機版 mx-lg-auto 置中自適應，小螢幕滿版) -->
           <div class="navbar-search-wrapper my-2 my-lg-0 mx-lg-auto">
             <div class="input-group search-input-group shadow-none">
@@ -296,6 +320,7 @@
             </div>
           </div>
 
+          <!-- 【導覽列：右側按鈕群】新增收藏(openAddModalBtn 會開啟 bookmarkModal)、觀看紀錄、篡改猴說明等 -->
           <!-- 右側操作按鈕群 (ms-lg-auto 靠右對齊，RWD 標籤自適應緊湊收縮) -->
           <div
             class="navbar-actions-group d-flex align-items-center gap-1.5 flex-wrap ms-lg-auto mt-2 mt-lg-0"
@@ -334,6 +359,8 @@
               <span class="d-none d-xl-inline">篡改猴</span><span>插件</span>
             </button>
 
+            <!-- 【導覽列：Docker 管理選單】下拉選單，可啟動/停止本專案的各個容器服務(例如 Port 8095)，
+                 狀態徽章(dockerStatusBadge)與運行中服務的跳轉連結由 JS 向後端查詢後更新；操作結果顯示在 dockerOutputModal。 -->
             <!-- Docker 一鍵容器管理漢堡選單 (Port 8095) -->
             <div class="dropdown flex-shrink-0" id="dockerDropdownWrapper">
               <button
@@ -515,6 +542,7 @@
               </ul>
             </div>
 
+            <!-- 【導覽列：使用者帳號選單】顯示頭像與名稱(navUsername)；內有編輯個人資料、匯出/匯入資料(exportDataBtn/importDataBtn)、重設示範資料、登出等，由 app.js 處理 -->
             <!-- 使用者帳號選單 -->
             <div class="dropdown flex-shrink-0">
               <button
@@ -618,6 +646,7 @@
               />
             </div>
 
+            <!-- 【導覽列：關於網頁】點了會開啟 aboutBookModal(3D 書頁介紹) -->
             <!-- 📖 關於網頁 3D 書頁導引按鍵 (置於最右邊) -->
             <button
               class="btn btn-outline-info btn-sm d-flex align-items-center gap-1.5 px-2.5 py-1.5 flex-shrink-0"
@@ -628,6 +657,7 @@
               <span class="d-none d-lg-inline">關於網頁</span>
             </button>
 
+            <!-- 【導覽列：深色/淺色模式】themeToggleBtn 被點擊時 app.js 切換主題並記住設定 -->
             <!-- 🌙/☀️ 深色模式切換按鈕 (置於最右邊) -->
             <button
               class="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center p-1.5 flex-shrink-0"
@@ -643,8 +673,10 @@
       </div>
     </nav>
 
+    <!-- 【主內容區 main】導覽列以下的主要畫面：統計面板、ACG 專區、分類工具列、收藏卡片清單 -->
     <!-- 主要內容區 -->
     <main class="container-fluid px-lg-4 py-4">
+      <!-- 【統計面板】顯示網站、影片、資源等收藏數量(statWebCount、statVideoCount、statResCount)，數字由 app.js 根據資料計算後填入 -->
       <!-- 頂部資訊與統計面板 (極簡邊框微質感) -->
 
       <header class="row g-2 g-sm-3 mb-4">
@@ -703,6 +735,7 @@
         </div>
       </header>
 
+      <!-- 【ACG 專區】動漫/漫畫/小說入口按鈕，點下去會開啟對應的播放器或閱讀器 Modal(由 js/acg.js 負責) -->
       <!-- ACG 影音漫讀體驗專區 (原分頁切換，只留單一按鈕) -->
 
       <div class="card border-0 shadow-sm rounded-3 mb-4 bg-white border">
@@ -740,6 +773,8 @@
         </div>
       </div>
 
+      <!-- 【分類與工具列】分類 Pills(categoryNav)：全部/動漫/網站/影片/漫畫/其他/筆記，點擊後 app.js 篩選卡片，
+           badge 數字是各分類的數量。右側有批量管理(batchModeBtn)、同步 Bangumi、排序(sortSelect)、卡片/清單視圖切換(viewGridBtn/viewListBtn)。 -->
       <!-- 分類切換標籤 & 視圖工具列 -->
 
       <div class="card border-0 shadow-sm rounded-4 mb-4">
@@ -947,6 +982,7 @@
             </div>
           </div>
 
+          <!-- 【熱門標籤】tagFiltersContainer 由 app.js 統計所有收藏的標籤後動態產生，點標籤即可篩選 -->
           <!-- 快速熱門標籤區 (Chips) -->
 
           <div
@@ -969,6 +1005,8 @@
         </div>
       </div>
 
+      <!-- 【收藏清單】bookmarkContainer 是卡片的容器，app.js 的渲染函式會依篩選/排序結果把每筆收藏畫成卡片(或清單列)放進來；
+           沒有資料時會顯示下面的空狀態(emptyState)，可按 resetFiltersBtn 重設篩選。 -->
       <!-- 收藏卡片展示區 (Cards Grid) -->
 
       <section aria-label="收藏列表">
@@ -1013,8 +1051,10 @@
       </section>
     </main>
 
+    <!-- 以下是所有彈窗(Modal)。Modal 平常是隱藏的，由 Bootstrap 的 data-bs-toggle/data-bs-target 或 JS 呼叫 show() 才顯示。 -->
     <!-- ==================== 模態框區 (Modals) ==================== -->
 
+    <!-- 【彈窗】新增/編輯收藏(bookmarkModal)：填網址(可自動解析標題與封面)、標題、分類、封面與簡介、是否置頂；按儲存後由 app.js 寫入 localStorage 並重新渲染清單 -->
     <!-- 1. 新增 / 編輯收藏 Modal -->
 
     <div
@@ -1221,6 +1261,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】關於網頁(aboutBookModal)：4 頁的 3D 書頁手冊(專案緣起、更新紀錄、技術整合、未來規劃)，底部按鈕負責翻頁，由 JS 切換頁面 -->
     <!-- ==================== 關於網頁 獨立層疊飄浮書頁手冊 Modal ==================== -->
     <div class="modal fade" id="aboutBookModal" tabindex="-1" aria-labelledby="aboutBookModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -1402,6 +1443,7 @@
         </div>
       </div>
     </div>
+    <!-- 【彈窗】編輯個人資料(editProfileModal)：三個頁籤：基本資料(頭像/暱稱/簡介)、修改密碼、體驗偏好；送出表單 editProfileForm 時 app.js 更新使用者資料 -->
     <!-- ==================== 編輯個人資料與密碼 Modal ==================== -->
     <div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg my-3">
@@ -1563,6 +1605,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】篡改猴(Tampermonkey)腳本導引：教使用者安裝瀏覽器腳本，之後在其他網站可一鍵收藏到本圖書館 -->
     <!-- 2. 篡改猴 (Tampermonkey) 腳本導引 Modal -->
 
     <div
@@ -1679,6 +1722,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】登入/註冊(authModal)：切換帳號或建立新帳號，登入與註冊各有一個 Form，驗證邏輯在 app.js -->
     <!-- 3. 會員身分切換 / 登入 Modal -->
 
     <div
@@ -1843,8 +1887,10 @@
       </div>
     </div>
 
+    <!-- 以下是 ACG(動畫、漫畫、小說)相關彈窗，主要由 js/acg.js 控制。 -->
     <!-- ==================== ACG 專用模態框 (Bangumi Sync / Calendar / Kazumi / Tachimanga / Legado) ==================== -->
 
+    <!-- 【彈窗】Bangumi 追番同步(bangumiSyncModal)：輸入 Bangumi 帳號，把追番清單同步進收藏，並可選擇雙向同步時的衝突處理策略 -->
     <!-- -1. Bangumi 帳號追番一鍵同步 Modal -->
 
     <div
@@ -2102,6 +2148,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】每日新番時刻表(bangumiCalendarModal)：用週一到週日按鈕切換，JS 呼叫 Bangumi API 後把當天新番卡片放進網格，載入中會顯示動畫 -->
     <!-- 0. Bangumi 官方每日新番時刻表 Modal -->
 
     <div
@@ -2251,6 +2298,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】Kazumi 播放來源(kazumiSourceModal)：顯示動畫資訊、可微調搜尋關鍵字，下方列出各規則來源與集數讓使用者選擇要播哪一集 -->
     <!-- 0. Kazumi 播放來源 Modal (仿 Kazumi 原生播放來源抽屜) -->
 
     <div
@@ -2362,6 +2410,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】播放歷史(watchHistoryModal)：以卡片列出最近看過的動漫/B站/YouTube，點卡片可接續觀看 -->
     <!-- 0.5 播放歷史清單 Modal (支援動漫/B站/YouTube) -->
 
     <div
@@ -2420,6 +2469,9 @@
       </div>
     </div>
 
+    <!-- 【彈窗】動漫串流播放器(animePlayerModal)：
+         左邊是影片畫面(HTML5/HLS 串流、B站與 YouTube 內嵌，kazumiVideoPlayer 是 video 元素)，疊加彈幕層(danmakuOverlay)與控制列；
+         右邊是選集列表與彈幕列表、發送彈幕。全螢幕時有專用的浮動控制列與選集抽屜，滑鼠閒置會自動隱藏。邏輯在 js/acg.js。 -->
     <!-- 1. Kazumi 動漫串流播放器 Modal -->
 
     <div
@@ -3202,6 +3254,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】彈幕設定(danmakuSettingsModal)：「外觀」頁調整字體/透明度/速度等，「播放」頁選彈幕來源(Bilibili 或彈彈play)、時間校準與屏蔽規則 -->
     <!-- 1.1 Kazumi 仿原生彈幕設置 Modal (外觀與播放時間校準) -->
 
     <div
@@ -3806,6 +3859,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】條漫閱讀器(mangaReaderModal)：全螢幕黑底，頂端控制列可選集/上下話/縮放；中間是捲動式漫畫，未載入時顯示搜尋與 3D 書架、閱讀歷史 -->
     <!-- 2. Tachimanga 條漫閱覽器 Modal -->
 
     <div
@@ -4027,6 +4081,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】漫畫來源與選集(mangaSourceModal)：搜尋漫畫、選定後顯示摘要與章節列表 -->
     <!-- 2.5 Tachimanga 漫畫來源與選集抽屜 Modal -->
 
     <div
@@ -4152,6 +4207,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】沉浸小說閱讀器(novelReaderModal)：全螢幕，頂端可調主題/字色/字級、切換章節；未載入小說時顯示搜尋、3D 書架與本機電子書(epub)拖曳上傳區 -->
     <!-- 3. Legado 沉浸小說閱讀器 Modal -->
 
     <div
@@ -4525,6 +4581,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】小說來源與章節(novelSourceModal)：可切換書源(小説家になろう / カクヨム)，搜尋後選書並列出章節 -->
     <!-- 3.5 Legado 小說來源與選集抽屜 Modal -->
 
     <div
@@ -4699,6 +4756,8 @@
       </div>
     </div>
 
+    <!-- 【批量管理操作列】batchActionBar 固定在畫面底部，按「批量管理」勾選卡片後才出現；
+         可一次變更分類、新增標籤、置頂、刪除，或離開批量模式，按鈕事件由 app.js 處理 -->
     <!-- 批量管理懸浮操作列 (Fixed Bottom) -->
 
     <div
@@ -4845,6 +4904,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】批量標籤管理(batchTagsModal)：為已勾選的多筆收藏同時加上/移除標籤 -->
     <!-- 批量標籤管理 Modal -->
 
     <div
@@ -4918,6 +4978,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】圖片放大檢視(imagePreviewModal)：點擊封面或截圖時以大圖預覽(Lightbox) -->
     <!-- 3.8 圖片預覽放大檢視 Modal (Lightbox Image Viewer) -->
 
     <div
@@ -5017,6 +5078,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】Docker 執行結果(dockerOutputModal)：黑底終端機風格，顯示導覽列 Docker 選單執行指令後的日誌輸出 -->
     <!-- 3.9 Docker 容器控制日誌與執行結果 Modal -->
 
     <div
@@ -5103,6 +5165,7 @@
       </div>
     </div>
 
+    <!-- 【彈窗】彩蛋(samePasswordEasterEggModal)：當使用者改密碼時沿用相同密碼，會跳出大字報提示，純屬趣味功能 -->
     <!-- ==================== 哈哈你用了相同的密碼 大字報彩蛋 Modal (個人資料與全域支援) ==================== -->
     <div class="modal fade" id="samePasswordEasterEggModal" tabindex="-1" aria-labelledby="samePasswordModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -5129,32 +5192,42 @@
             </div>
         </div>
     </div>
+    <!-- 【彩蛋動畫樣式】只給上面彩蛋彈窗使用的小樣式，所以直接寫在頁面裡 -->
     <style>
+        /* 彩蛋圖示來回放大縮小並微微旋轉的動畫 */
         @keyframes pulseEasterEgg {
             0% { transform: scale(0.92) rotate(-3deg); }
             100% { transform: scale(1.08) rotate(3deg); }
         }
     </style>
 
+<!-- 【頁尾腳本載入區】以下 script 放在 body 最後面，等 HTML 都畫好才載入，才找得到前面的元素。順序有意義：先載函式庫，最後才載我們自己的 JS。 -->
 <!-- Bootstrap 5.3 Bundle JS -->
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
+    <!-- 【外部 JS】Bootstrap Bundle 內含 Popper，讓 modal、下拉選單、頁籤、折疊等元件能運作 -->
     <!-- GSAP 3 物理動態引擎 (微互動與流暢彈入動畫) -->
 
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <!-- 【內嵌腳本】若使用者系統開啟「減少動態效果」，就把 GSAP 動畫加速 20 倍(幾乎瞬間結束)，照顧對動畫敏感的使用者 -->
     <!-- 尊重系統「減少動態效果」：GSAP 動畫幾乎瞬間完成 -->
     <script>if (typeof gsap !== "undefined") gsap.matchMedia().add("(prefers-reduced-motion: reduce)", () => { gsap.globalTimeline.timeScale(20); return () => gsap.globalTimeline.timeScale(1); });</script>
 
+    <!-- 【外部 JS】hls.js：讓 Chrome/Edge 能播放 .m3u8 (HLS) 串流影片，動漫播放器需要 -->
     <!-- Hls.js for native m3u8 playback in Chrome/Edge -->
 
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
+    <!-- 【我們自己的 JS】app.js：收藏的新增/編輯/刪除/搜尋/篩選/渲染、登入與個人資料、深色模式、靈動島音樂等主程式；
+         acg.js：Bangumi 同步、新番時刻表、Kazumi 播放器與彈幕、漫畫與小說閱讀器；
+         custom-rules.js：自訂播放/搜尋來源規則。三支檔案要在函式庫之後載入。 -->
     <!-- App Logic JS -->
 
     <script src="js/app.js"></script>
     <script src="js/acg.js"></script>
     <script src="js/custom-rules.js"></script>
+    <!-- 【垃圾桶】漫畫/小說 3D 書架拖曳書本到這裡可刪除(平常隱藏，拖曳時由 JS 顯示) -->
     <!-- 全螢幕固定懸浮垃圾桶 (條漫與沉浸小說立體書房 拖曳刪除) -->
     <div class="global-bookshelf-trash" id="globalBookshelfTrashBin" title="拖曳書本至此丟入垃圾桶刪除" style="display: none;">
         <div class="trash-icon-wrap">
@@ -5166,6 +5239,7 @@
         </div>
     </div>
 
+    <!-- 【回到頂端按鈕】捲動一段距離後出現，點擊平滑回到頁面頂端(backToTopBtn，由 app.js 綁定) -->
     <!-- 回到頂端浮動按鈕 (只在外層頁面顯示；開啟內頁對話框時由 CSS 隱藏) -->
     <button type="button" id="backToTopBtn" class="back-to-top" aria-label="回到頂端" title="回到頂端">
       <i class="bi bi-arrow-up" aria-hidden="true"></i>

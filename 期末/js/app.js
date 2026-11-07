@@ -1,5 +1,10 @@
 // ==================== 共用工具函式 (Shared Helpers) ====================
+// 本檔案是整個網站的主程式：書籤圖書館、雲端同步、Bangumi 串接、音樂靈動島、Kazumi 動畫劇場。
+// 這個區塊放的是「到處都會用到的小工具函式」，後面的功能都會呼叫它們。
 // HTML 特殊字元跳脫 (XSS 防護)
+// 為什麼要做：把使用者輸入的文字塞進 innerHTML 前，必須把 < > & " ' 換成安全的實體，
+// 否則有人在書籤標題輸入 <script> 就會被瀏覽器當成程式執行（XSS 攻擊）。
+// 參數 str：任意值；回傳：跳脫後的字串（空值回傳空字串）。
 function escapeHtml(str) {
   if (!str) return "";
   return String(str)
@@ -19,12 +24,14 @@ function formatMmSs(sec) {
 }
 
 // 移除書籤上舊的觀看/閱讀狀態標籤 (同步 Bangumi 狀態前清理用)
+// 這些是「觀看/閱讀狀態」的標籤文字清單，用 Set 是為了查詢速度快（has 為 O(1)）。
 const WATCH_STATUS_TAGS = new Set([
   "想看", "在看", "看過", "已看", "已看過", "已在看",
   "想讀", "在讀", "讀過", "已讀", "已讀過", "已在讀",
   "在看/在讀", "看過/讀過", "想看/想讀", "#在看/在讀", "#看過/讀過", "#想看/想讀",
   "擱置", "拋棄",
 ]);
+// 參數 tags：標籤字串陣列；回傳：把上面清單裡的狀態標籤濾掉之後的新陣列。
 function stripWatchStatusTags(tags) {
   return tags.filter((t) => !WATCH_STATUS_TAGS.has(t));
 }
@@ -35,9 +42,11 @@ const BGM_STATUS_LABELS = {
   watch: { 1: "想看", 2: "已看過", 3: "已在看", 4: "擱置", 5: "拋棄" },
   read: { 1: "想讀", 2: "已讀過", 3: "已在讀", 4: "擱置", 5: "拋棄" },
 };
+// 把狀態代碼轉成中文字：type 是 1~5 的代碼，isBook 為 true 時用「讀」否則用「看」；查不到回傳空字串。
 function bgmStatusLabel(type, isBook) {
   return BGM_STATUS_LABELS[isBook ? "read" : "watch"][parseInt(type, 10)] || "";
 }
+// 依狀態代碼回傳對應的 Bootstrap 文字顏色 class（在看=綠、看過=藍、想看=紅、擱置=黃、拋棄=灰）。
 function bgmStatusClass(type) {
   const t = parseInt(type, 10);
   if (t === 3) return "text-success fw-bold";
@@ -50,6 +59,8 @@ function bgmStatusClass(type) {
 // 由標籤推斷收藏狀態代碼 (無 bangumiStatus 的舊資料用)，找不到回傳 0
 function bgmStatusFromTags(tags) {
   if (!Array.isArray(tags)) return 0;
+  // 判斷順序有意義：先判斷「拋棄、擱置、在看」再判斷「看過、想看」，
+  // 避免像「在看」被「看」字誤判；同時相容簡體與繁體寫法。
   const has = (re) => tags.some((t) => typeof t === "string" && re.test(t));
   if (has(/拋棄|抛弃/)) return 5;
   if (has(/擱置|搁置/)) return 4;
@@ -60,21 +71,27 @@ function bgmStatusFromTags(tags) {
 }
 
 // 從書籤取得已綁定的 Bangumi subject ID (bangumiSubjectId 或 bgm.tv / bangumi.tv / chii.in 條目網址)
+// 參數 b：書籤物件；回傳：條目 ID 字串，沒綁定就回傳空字串。
 function bgmBoundSubjectId(b) {
   if (!b) return "";
   if (b.bangumiSubjectId) return String(b.bangumiSubjectId);
+  // 正規表示式：比對網址中 /subject/ 後面的數字，那串數字就是條目 ID
   const m = /(?:bgm\.tv|bangumi\.tv|chii\.in)\/subject\/(\d+)/i.exec(b.url || "");
   return m ? m[1] : "";
 }
 
 // 產生唯一 ID：<prefix>_<timestamp>_<隨機碼>
+// 隨機碼用 Math.random().toString(36) 轉成英數字，再取 randLen 位；時間戳加隨機碼可降低重複機率。
 function genId(prefix, randLen = 5, ts = Date.now()) {
   return `${prefix}_${ts}_${Math.random().toString(36).slice(2, 2 + randLen)}`;
 }
 
 // ==================== 播放模式 (循環 / 隨機 / 單曲循環) ====================
+// 目前播放模式存在 localStorage（鍵名 islandPlayMode），重新整理頁面後還能記住使用者選擇。
 let islandPlayMode = localStorage.getItem("islandPlayMode") || "repeat"; // "repeat" | "shuffle" | "repeat-1"
 
+// 切換播放模式，順序：清單循環 -> 隨機播放 -> 單曲循環 -> 回到清單循環。
+// 由播放列的模式按鈕與靈動島抽屜的模式按鈕點擊時呼叫。
 function toggleIslandPlayMode() {
   if (islandPlayMode === "repeat") {
     islandPlayMode = "shuffle";
@@ -88,6 +105,8 @@ function toggleIslandPlayMode() {
   updatePlayModeUI();
 }
 
+// 依目前的 islandPlayMode 更新兩個地方的按鈕外觀：底部播放列(watchBar)與靈動島抽屜(islandDrawer)。
+// 元素不存在（例如在別的頁面）就跳過，所以每個都先 if 檢查。
 function updatePlayModeUI() {
   const configs = {
     "repeat": { icon: "bi-repeat", title: "清單循環 (點擊切換為隨機播放)", text: "清單循環" },
@@ -120,7 +139,11 @@ function updatePlayModeUI() {
   }
 }
 // ==================== 主頁與 ACG 專區無縫切換 (SPA / PJAX 動態局部抽換) ====================
+// 初始化「無縫換頁」：點 index.html / acg.html 的連結時不整頁重載，
+// 而是用 fetch 抓新頁面再局部替換，這樣頂部的音樂靈動島不會中斷播放。
+// 同時監聽瀏覽器的上一頁/下一頁(popstate)，讓歷史紀錄也能正常運作。
 function initSeamlessPageTransitions() {
+  // 事件委派：把監聽器綁在 document 上，用 closest("a") 找到被點的連結，新換上的元素也不用重綁
   document.addEventListener("click", (e) => {
     const link = e.target.closest("a");
     if (!link) return;
@@ -145,6 +168,9 @@ function initSeamlessPageTransitions() {
   });
 }
 
+// 實際執行無縫換頁。url：目標頁面；isPopState：是否由上一頁/下一頁觸發（是的話不再 pushState，避免歷史紀錄重複）。
+// 流程：fetch 取得 HTML -> 解析成 Document -> 換樣式、導航列、內容 -> 重新初始化該頁的功能。
+// 任何一步失敗都 fallback 成一般整頁跳轉（window.location.href），確保一定換得過去。
 async function seamlessNavigateTo(url, isPopState = false) {
   try {
     const res = await fetch(url);
@@ -198,6 +224,8 @@ async function seamlessNavigateTo(url, isPopState = false) {
     }
 
     // 重新初始化新頁面組件
+    // （換上來的是新 DOM，舊的事件監聽與動畫都不在了，所以要重跑各頁面的初始化函式；
+    //   用 typeof === "function" 檢查是因為這些函式可能定義在別的 js 檔，不一定載入）
     if (url.includes("acg.html")) {
       if (typeof window.initAcgPageCarousel === "function") window.initAcgPageCarousel(true);
       if (typeof window.initAcgTabs === "function") window.initAcgTabs();
@@ -240,6 +268,11 @@ window._novelBookshelfMemory = window._novelBookshelfMemory || [];
 // 2. 狀態管理器 (State)
 // ==========================================
 
+// 全站唯一的「狀態物件」：畫面上顯示什麼都根據它來決定。
+// bookmarks 書籤陣列；activeCategory/activeTag 目前分類與標籤篩選；searchQuery 搜尋字；
+// sortMode 排序方式；viewMode 卡片/列表檢視；currentUser 目前登入帳號；
+// isBatchMode/selectedBookmarkIds 批次選取模式與已選取的書籤 ID。
+// 為什麼用 sessionStorage：關閉分頁就清除，不會把登入資訊長期留在共用電腦上。
 const state = {
   bookmarks: [],
   activeCategory: "all",
@@ -256,6 +289,8 @@ const state = {
 // 3. 初始化與本地存儲 (Storage) & 跨電腦同步
 // ==========================================
 
+// 網站啟動入口：先讀本機資料，若在首頁就初始化 UI 與事件，最後向伺服器拉雲端書籤。
+// 由檔案最後面的 document.addEventListener("DOMContentLoaded", initApp) 在頁面載入完成後呼叫。
 function initApp() {
   loadFromStorage();
 
@@ -351,6 +386,9 @@ function initApp() {
   });
 }
 
+// 從 sessionStorage 讀回書籤與登入身分，寫入 state。
+// 登入身分來源優先順序：sessionStorage.currentUser（登入頁寫入）> web_library_user（舊的備援）。
+// 注意 state.currentUser 一律存「乾淨的 username」，因為它會當成伺服器 API 的帳號識別碼。
 function loadFromStorage() {
   const saved = sessionStorage.getItem("web_library_bookmarks");
 
@@ -386,6 +424,7 @@ function loadFromStorage() {
       if (authUser) {
         // 關鍵修復：state.currentUser 永遠使用純淨的 username (如 'jyun', 'admin', 'student') 作為伺服器同步識別碼！
         let rawU = (authUser.username || authUser.name || "").trim();
+        // 正規表示式：移除所有「不是英數字、底線、中文」的字元（空白、括號等），避免帳號字串夾雜雜訊
         let cleanU = rawU.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, "").trim();
 
         if (cleanU.startsWith("Jyun") || cleanU.startsWith("jyun"))
@@ -399,6 +438,7 @@ function loadFromStorage() {
         else state.currentUser = cleanU.toLowerCase();
         let rawDisp = authUser.name || authUser.username || state.currentUser;
 
+        // displayUserName 是畫面上顯示的名字，這裡把「(專案開發者)」這種後綴拿掉，只留名字
         state.displayUserName = rawDisp
           .replace(/\s*[\(（]專案開發者[\)）]/g, "")
           .trim();
@@ -416,6 +456,7 @@ function loadFromStorage() {
 }
 
 // 帳號登出函數
+// 清掉 sessionStorage/localStorage 裡的登入資訊（含「30天免登入」的 rememberedUser），0.5 秒後導回 login.html。
 window.logoutUser = function () {
   if (confirm("確定要登出個人圖書館帳號嗎？")) {
     sessionStorage.removeItem("currentUser");
@@ -435,6 +476,8 @@ window.logoutUser = function () {
 };
 
 // 刪除當前帳號函數 (雙重確認 + 伺服器端資料徹底刪除)
+// 流程：confirm 確認 -> POST /api/user/delete 通知伺服器刪資料 -> 把帳號加入本機 deletedUsers 黑名單
+// （避免之後被同步又復活）-> 清本機快取 -> 導回登入頁。就算伺服器請求失敗，也會清本機並登出。
 window.confirmDeleteCurrentAccount = async function () {
   const user = state.currentUser;
 
@@ -523,6 +566,10 @@ let _cloudSyncDebounceTimer = null;
 
 let _isLocalMutationActive = false; // 本地主動修改鎖 (避免 confirm 彈窗關閉導致 window.focus 誤拉取舊書籤復活)
 
+// 把目前所有書籤上傳到伺服器 (POST /api/user/bookmarks)，讓不同電腦登入同帳號能看到同樣資料。
+// immediate=false：用「防抖 (debounce)」延遲 500ms，連續快速修改多次只會送出最後一次，省流量；
+// immediate=true：立刻送出並等待完成（例如刪除操作，避免還沒送出就被別處同步拉回舊資料）。
+// 失敗時只印警告，不影響本機使用（離線模式）。
 async function syncToServer(immediate = false) {
   const user = state.currentUser;
 
@@ -561,6 +608,12 @@ async function syncToServer(immediate = false) {
 }
 
 // 從伺服器拉取跨裝置收藏 (支援平滑雙向合併，防止已被刪除的項目復活)
+// username：要拉的帳號；isFocusSync：true 表示是「切回分頁」觸發的背景同步。
+// 兩種模式：
+//  - 登入/整頁重整 (false)：直接以伺服器資料覆蓋本機。
+//  - 切回分頁 (true)：只把伺服器上「本機沒有」的新書籤（以 id 或 url 判斷）加到最前面，
+//    不覆蓋本機，這樣不會把剛在本機刪除的東西又蓋回來。
+// API：GET /api/user/bookmarks?user=帳號
 async function syncFromServer(username, isFocusSync = false) {
   if (_isLocalMutationActive) return; // 正在進行本地刪除/修改，不覆蓋
 
@@ -636,6 +689,8 @@ async function syncFromServer(username, isFocusSync = false) {
   }
 }
 
+// 儲存書籤：寫入 sessionStorage（本機暫存）並觸發雲端同步。
+// 所有新增/編輯/刪除書籤的地方，最後都會呼叫它。
 function saveToStorage(immediate = false) {
   sessionStorage.setItem(
     "web_library_bookmarks",
@@ -652,6 +707,7 @@ function saveToStorage(immediate = false) {
 // 3.1 Bangumi 雙向同步 (Token 管理與 API 代理回寫)
 // ==========================================
 
+// 切換密碼欄位的顯示/隱藏（眼睛按鈕）：input 的 type 在 password 與 text 之間互換，並換按鈕圖示。
 window.toggleTokenVisibility = function (inputId, btnEl) {
   const input = document.getElementById(inputId);
 
@@ -668,6 +724,9 @@ window.toggleTokenVisibility = function (inputId, btnEl) {
   }
 };
 
+// Bangumi 的 Access Token（個人授權令牌）存在 sessionStorage 的 bangumi_access_token，
+// 用 sessionStorage 而不是 localStorage，是為了關掉分頁後令牌就消失，降低外洩風險。
+// 以下四個小函式是 token 與「衝突時以誰為準」(bangumi_conflict_priority，預設 bangumi) 的讀寫。
 window.getBangumiToken = function () {
   return sessionStorage.getItem("bangumi_access_token") || "";
 };
@@ -689,6 +748,9 @@ window.getBgmPriority = function () {
 };
 
 // 驗證 Bangumi 個人授權令牌 (Token) 是否有效
+// 為什麼不直接在瀏覽器呼叫 Bangumi：會有跨網域 (CORS) 問題，所以改 POST 給自家伺服器 /api/bangumi/me，
+// 由伺服器代理去問 Bangumi 的 /v0/me。成功就存下 token 並顯示使用者名稱，失敗顯示原因。
+// finally 區塊保證無論成功失敗，驗證按鈕都會恢復可按。
 window.verifyBangumiToken = async function () {
   const tokenInput = document.getElementById("bgmTokenInput");
   const statusBox = document.getElementById("bgmTokenStatus");
@@ -788,6 +850,9 @@ window.verifyBangumiToken = async function () {
 };
 
 // 雙向同步：向 Bangumi 官方回寫收藏狀態 (1:想看, 2:看過, 3:在看, 4:擱置, 5:拋棄)
+// 參數：subjectId 條目 ID、statusType 狀態代碼、rating 評分、comment 短評、isBook 是否為書籍（只影響提示文字）。
+// 透過自家伺服器 POST /api/bangumi/collection 代理轉送；沒有 token 就提示使用者去設定。
+// 回傳 true/false 表示是否成功，呼叫端可據此決定要不要更新畫面。
 window.syncStatusToBangumi = async function (
   subjectId,
   statusType = 3,
@@ -844,6 +909,8 @@ window.syncStatusToBangumi = async function (
 };
 
 // 雙向同步：向 Bangumi 官方自動更新集數/話數進度
+// episodeId：單集 ID；watchedEpisodes：看到第幾集（兩者擇一傳即可）。
+// 透過 POST /api/bangumi/episodes；這是背景自動執行，沒 token 或失敗都靜默回傳 false，不打擾使用者。
 window.syncEpisodeProgressToBangumi = async function (
   subjectId,
   episodeId = null,
@@ -886,6 +953,8 @@ window.syncEpisodeProgressToBangumi = async function (
 // 4. UI 渲染邏輯 (Card Rendering)
 // ==========================================
 
+// 一次刷新首頁所有畫面：統計數字 -> 標籤晶片 -> 書籤卡片 -> 右上角使用者名稱與頭像。
+// 資料變動（新增/刪除/同步）後呼叫它即可。不在首頁（沒有 bookmarkContainer）就直接略過。
 function updateUI() {
   if (!document.getElementById("bookmarkContainer")) return;
 
@@ -914,8 +983,10 @@ function updateUI() {
 //   2. 舊值 (resource / 空值 / 未知值) → 依網域清單 + 關鍵字推斷，推斷不出則歸 other
 //   推斷只在讀取時進行，不會改寫使用者資料
 // ==========================================
+// 有效的分類代碼清單（note 是篡改猴記事本存進來的筆記）
 const BOOKMARK_CATEGORIES = ["anime", "manga", "video", "web", "other", "note"];
 
+// 每個分類在畫面上的中文名稱、Bootstrap Icons 圖示 class、卡片徽章 CSS class
 const BOOKMARK_CATEGORY_META = {
   anime: { label: "動畫", icon: "bi-broadcast", badge: "badge-cat-anime" },
   manga: { label: "漫畫 / 小說", icon: "bi-book-half", badge: "badge-cat-manga" },
@@ -929,6 +1000,7 @@ const BOOKMARK_CATEGORY_META = {
 // 舊分類值 → 新分類 (resource 為舊版「動漫與資源」，需再依內容細分)
 const LEGACY_CATEGORY_MAP = { resource: "other" };
 
+// 依「網站網域」自動判斷分類用的對照表：網址的 hostname 命中哪一組，就歸到哪一類。
 const CATEGORY_HOSTS = {
   manga: [
     "manga.bilibili.com", "copymanga", "mangacopy", "dm5.com", "manhuagui.com",
@@ -956,9 +1028,12 @@ const CATEGORY_HOSTS = {
   ],
 };
 
+// 關鍵字正規表示式（i = 不分大小寫），同時涵蓋繁體、簡體與英文，用來從標題/標籤猜分類。
 const MANGA_KEYWORDS = /漫畫|漫画|条漫|條漫|書籍|书籍|小說|小说|輕小說|轻小说|文庫|manga|comic|webtoon|novel/i;
 const ANIME_KEYWORDS = /動畫|动画|番劇|番剧|新番|anime/i;
 
+// 判斷 hostname 是否命中清單。清單項目含「.」(完整網域) 就要完全相同或是其子網域(endsWith)；
+// 不含「.」(只是關鍵字，如 "agefans") 就只要 host 包含該字串，因為這類網站常常換網址尾碼。
 function hostMatchesList(host, list) {
   return list.some((d) =>
     d.includes(".") ? host === d || host.endsWith("." + d) : host.includes(d),
@@ -998,6 +1073,7 @@ function detectCategoryFromSignals(url, title, tags) {
 }
 
 // 取得書籤的有效分類 (唯讀，不修改 item)
+// 優先順序：使用者存的有效 category > 依網址/標題/標籤推斷 > 舊值對照 > "other"。
 function getBookmarkCategory(item) {
   if (!item) return "other";
   const stored = String(item.category || "").trim().toLowerCase();
@@ -1019,6 +1095,7 @@ function normalizeCategoryFilter(cat) {
   return LEGACY_CATEGORY_MAP[key] || "all";
 }
 
+// 掛到 window，讓其他 js 檔 (例如 acg 頁面) 也能呼叫同一套分類規則
 window.getBookmarkCategory = getBookmarkCategory;
 
 // 動畫項目判定 (統一走分類方案，避免漫畫因 Bangumi 標籤被誤判為動畫)
@@ -1027,6 +1104,8 @@ function isAnimeItem(item) {
 }
 
 // 統計數量更新
+// 逐一計算每個分類有幾筆書籤，寫進頂部統計卡與分類按鈕上的數字徽章。
+// 每筆書籤只算一個分類，所以各數字加起來等於總數。每個元素都先檢查是否存在，因為不同頁面 DOM 不同。
 function updateStats() {
   const statWeb = document.getElementById("statWebCount");
 
@@ -1078,6 +1157,8 @@ function updateStats() {
 }
 
 // 標籤篩選晶片動態渲染
+// 把所有書籤的標籤收集起來（Set 自動去重），為每個標籤產生一顆可點擊的按鈕；點擊後設定 activeTag 並重畫。
+// 每次呼叫都會重寫 container.innerHTML，所以「全部標籤」按鈕的事件要在最後重新綁一次。
 function renderTagChips() {
   const container = document.getElementById("tagFiltersContainer");
 
@@ -1128,6 +1209,8 @@ function renderTagChips() {
 }
 
 // 篩選與排序核心運算
+// 不會改動原始 state.bookmarks（先用 [...] 複製一份），依序套用：分類 -> 標籤 -> 搜尋字串 -> 排序。
+// 回傳：處理完的書籤陣列，給 renderBookmarks 畫卡片使用。
 function getFilteredAndSortedBookmarks() {
   let result = [...state.bookmarks];
 
@@ -1166,6 +1249,8 @@ function getFilteredAndSortedBookmarks() {
   }
 
   // 4. 排序方式
+  // 多個 case 疊在一起代表「新舊版本的排序代號都支援」；預設（含 newest）依建立時間由新到舊。
+  // 中文標題排序用 localeCompare("zh-Hant") 才會依注音/筆畫習慣排。
   switch (state.sortMode) {
     case "pinned":
       result.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
@@ -1197,6 +1282,7 @@ function getFilteredAndSortedBookmarks() {
 }
 
 // 一鍵清除所有搜尋與篩選條件
+// 把 state 的搜尋/分類/標籤都還原，同步清輸入框與分類按鈕的 active 樣式，再重畫。
 window.resetAllFilters = function () {
   state.searchQuery = "";
   state.activeCategory = "all";
@@ -1228,6 +1314,10 @@ window.resetAllFilters = function () {
 };
 
 // 收藏卡片生成渲染
+// （首頁最核心的畫面函式）
+// 做法：取得篩選排序後的書籤 -> 清空容器 -> 每筆書籤組出一張卡片的 HTML 字串（template literal）-> 塞進容器。
+// skipAnimation：true 時不播進場動畫。沒有資料時改顯示「空狀態」提示。
+// 重要：所有來自使用者的文字都先用 escapeHtml() 處理再放進 HTML，防止 XSS。
 function renderBookmarks(skipAnimation = false) {
   // 自動連動更新頂部統計計數與分類標籤數字，杜絕統計歸零
   if (typeof updateStats === "function") updateStats();
@@ -1303,6 +1393,7 @@ function renderBookmarks(skipAnimation = false) {
       hostname = item.url;
     }
 
+    // 網站小圖示直接用 Google 的 favicon 服務，依網域取得，不用自己存圖
     const faviconUrl = `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`;
 
     // 標籤 HTML
@@ -1342,6 +1433,9 @@ function renderBookmarks(skipAnimation = false) {
       ? ""
       : `onclick="event.stopPropagation(); openImagePreview('${escapeHtml(coverSrc)}', '${escapeHtml(item.title)}')"`;
 
+    // 下面是一張卡片的完整 HTML 模板。按鈕用 onclick="函式('id')" 直接呼叫全域函式
+    // （jumpToBookmark、editBookmark、deleteBookmark 等，定義在後面的「使用者互動事件」區塊）。
+    // 「Kazumi 播放 / 播放 / 漫畫 / 小說 / 狀態同步」按鈕會依分類與標籤條件才顯示。
     col.innerHTML = `
             <div class="card bookmark-card spotlight-card border-glow shadow-sm h-100 position-relative ${batchSelectedClass}" ${cardClickAttr} ${cardCursorStyle}>
                 ${checkboxHtml}
@@ -1508,6 +1602,8 @@ function renderBookmarks(skipAnimation = false) {
 // 圖片大圖檢視器 (Lightbox Image Preview)
 // ==========================================
 
+// 開啟封面大圖預覽：把圖片網址與標題填進 #imagePreviewModal，用 Bootstrap Modal 顯示，並用 GSAP 做淡入縮放。
+// 由卡片封面的 onclick 呼叫。
 window.openImagePreview = function (imgSrc, title = "圖片預覽") {
   if (!imgSrc) return;
 
@@ -1544,6 +1640,8 @@ window.openImagePreview = function (imgSrc, title = "圖片預覽") {
 // 5. 使用者互動事件 (Actions & Events)
 // ==========================================
 
+// 綁定首頁所有按鈕／輸入框的事件（分類、搜尋、排序、視圖切換、新增書籤表單、批次操作等）。
+// 在 initApp 與「無縫換頁切回首頁」時呼叫；因為換頁會換掉 DOM，舊事件會失效，所以要重綁。
 function setupEventListeners() {
   // 1. 分類導航點擊
   const categoryNav = document.getElementById("categoryNav");
@@ -1614,6 +1712,7 @@ function setupEventListeners() {
     }
   }
 
+  // 用 window._slashSearchBound 當旗標：window 的事件不會隨換頁消失，重複綁定會觸發多次，所以只綁一次。
   // 按 '/' 快捷鍵聚焦搜尋框 (window 層只綁一次；SPA 切回首頁重綁時不重複，並即時取最新的搜尋框)
   if (!window._slashSearchBound) {
     window._slashSearchBound = true;
@@ -1661,6 +1760,9 @@ function setupEventListeners() {
     }
 
     // 帶有 GSAP 容器無縫轉場效果的視圖切換器 (徹底杜絕卡頓與跑版破格)
+    // 流程：容器淡出 -> 趁看不見時切換 grid/list 並重畫 -> 容器淡入。
+    // isSwitchingView 是「動畫進行中」的鎖，避免使用者連點造成動畫疊在一起。
+    // 檢視偏好存在 sessionStorage 的 web_library_view_mode，重整後還原。
     let isSwitchingView = false;
 
     const switchViewWithAnimation = (targetMode) => {
@@ -1814,6 +1916,8 @@ function setupEventListeners() {
         return;
       }
 
+      // 清空流程：先上「本地修改鎖」_isLocalMutationActive，再清本機，再 POST /api/user/clear 清伺服器。
+      // 鎖的用途：confirm 視窗關閉會觸發 window 的 focus 事件，進而去伺服器拉資料，可能把剛清掉的書籤又拉回來。
       if (
         confirm(
           `⚠️ 確定要清空當前帳號【${user}】的所有收藏書籤嗎？\n\n• 本機與伺服器端將同步清空（0 筆）。\n• 絕不會重新載入任何範例書籤！\n• 此操作無法復原。\n\n點擊「確定」執行清空。`,
@@ -1916,6 +2020,8 @@ function setupEventListeners() {
 // 6. 收藏 CRUD 核心函式
 // ==========================================
 // 跳轉連結並累計計數
+// 以新分頁開啟書籤網址；"noopener,noreferrer" 讓新頁面拿不到本站的 window 物件，比較安全。
+// 同時把 clicks +1、記錄 lastVisited，並同步存檔，卡片上的「N 次點擊」就是這樣來的。
 window.jumpToBookmark = function (id) {
   const item = state.bookmarks.find((b) => b.id === id);
 
@@ -1947,6 +2053,8 @@ window.togglePinBookmark = function (id) {
 };
 
 // 編輯開啟 Modal
+// 依 id 找到書籤，把資料填回表單欄位（標籤陣列用逗號串回字串），再顯示 Bootstrap 彈窗。
+// 隱藏欄位 editBookmarkId 有值代表「編輯模式」，saveBookmarkFromForm 會據此決定是更新還是新增。
 window.editBookmark = function (id) {
   const item = state.bookmarks.find((b) => b.id === id);
 
@@ -1968,6 +2076,8 @@ window.editBookmark = function (id) {
 };
 
 // 刪除
+// 確認後從 state.bookmarks 濾掉該筆，並用 saveToStorage(true) 立即同步伺服器。
+// _isLocalMutationActive 鎖住 1.5 秒，原因同「清空書籤」：避免 confirm 關閉後的 focus 事件把已刪書籤拉回來。
 window.deleteBookmark = function (id) {
   const item = state.bookmarks.find((b) => b.id === id);
 
@@ -1992,6 +2102,9 @@ window.deleteBookmark = function (id) {
 };
 
 // 從表單儲存 (新增或更新)
+// 讀取表單各欄位；標籤字串用正規表示式 /[,，\s]+/ 以半形逗號、全形逗號或空白切開。
+// 有 id -> 更新既有書籤；沒有 id -> 新增（id 用 "bm_"+時間戳，並放到陣列最前面）。
+// 存完後刷新畫面並關閉彈窗。
 function saveBookmarkFromForm() {
   const id = document.getElementById("editBookmarkId").value;
   const url = document.getElementById("bmUrl").value.trim();
@@ -2050,6 +2163,9 @@ function saveBookmarkFromForm() {
 }
 
 // 智慧解析網址 (自動推斷分類與預設標籤)
+// 使用者按「智慧辨識」按鈕時呼叫：依網站網域幫忙填好分類、標題、標籤、封面（只填空白欄位，不覆蓋已輸入的內容）。
+// YouTube 用正規表示式抓出 11 碼影片 ID，組出縮圖網址；GitHub 用 opengraph 服務產生預覽圖。
+// 網址格式錯誤時 new URL() 會丟例外，由 catch 提示使用者。
 function autoDetectUrl(url) {
   try {
     const parsed = new URL(url);
@@ -2134,6 +2250,7 @@ function autoDetectUrl(url) {
 }
 
 // 模擬篡改猴一鍵採集
+// 展示用：不用真的安裝油猴腳本，隨機挑一筆範例資料加進書籤，示範「從別的網站一鍵收藏」的效果。
 function simulateTampermonkeyCollect() {
   const mockSites = [
     {
@@ -2184,6 +2301,8 @@ function simulateTampermonkeyCollect() {
 }
 
 // 匯出 JSON
+// 把所有書籤轉成格式化的 JSON 字串，用 data: URI 放進一個隱形 <a download> 並程式點擊，就會下載備份檔，
+// 不需要伺服器。檔名帶當天日期（toISOString 前 10 碼 = YYYY-MM-DD）。
 function exportDataAsJSON() {
   const dataStr =
     "data:text/json;charset=utf-8," +
@@ -2206,8 +2325,14 @@ function exportDataAsJSON() {
 }
 
 // ==================== iPhone 靈動島 (Dynamic Island) 通知與音樂控制中心 ====================
+// 「靈動島」是頁面頂端仿 iPhone Dynamic Island 的膠囊：平常顯示音樂狀態，有通知時展開顯示訊息。
+// 它同時取代了傳統的 toast 通知，整個網站的提示都由 showToast 顯示在這裡。
+// _islandNotifTimer：通知自動收起的計時器，用來在新通知進來時取消舊計時。
 let _islandNotifTimer = null;
 
+// 全域訊息通知
+// 參數 message：要顯示的文字(可含 HTML)；iconClass：Bootstrap Icons 圖示與顏色 class。
+// 找不到靈動島元素(例如登入頁)就退而求其次只印在 console。
 // 全域訊息通知：直接從頂部動態島以彈性形變動畫展開
 function showToast(message, iconClass = "bi-check-circle-fill text-success") {
   const island = document.getElementById("dynamicIsland");
@@ -2237,6 +2362,8 @@ function sizeIslandNotification(island) {
   const available = 2 * Math.min(centerX, viewportW - centerX);
   const maxW = Math.max(200, Math.min(560, available - 24));
 
+  // 做法：複製通知節點(probe)放到畫面上量尺寸，量完就移除；量出的寬高存成 CSS 變數，
+  // 讓 CSS 動畫能展開到正確大小。
   // 在容器內放一份隱形副本量測自然尺寸 (不能放進靈動島本體，它有 overflow: hidden)
   const probe = notifEl.cloneNode(true);
   probe.removeAttribute("id");
@@ -2303,6 +2430,7 @@ window.dismissIslandNotification = function () {
 };
 
 // 全域影音播放互斥監聽器：當播放影片或動畫時，音樂播放器自動暫停
+// 避免背景音樂和影片聲音同時出現。只有音樂「正在播放」時才會動作並提示。
 function pauseIslandMusicForVideo() {
   if (typeof islandMusicState !== "undefined" && islandMusicState.isPlaying) {
     if (typeof islandAudio !== "undefined" && islandAudio) {
@@ -2318,6 +2446,7 @@ function pauseIslandMusicForVideo() {
 }
 
 // 1. 全域捕獲任何 HTML5 <video> 或非音樂播放事件
+// play 事件不會冒泡(bubble)，所以第三個參數用 true 改成「捕獲階段」監聽，才能攔到頁面上任何媒體元素的播放。
 document.addEventListener("play", (e) => {
   if (typeof islandAudio !== "undefined" && e.target !== islandAudio) {
     pauseIslandMusicForVideo();
@@ -2326,6 +2455,8 @@ document.addEventListener("play", (e) => {
 
 // ==================== 音樂庫 & iPhone 動態島雙模核心 (開源線上串流引擎) ====================
 
+// userMusicTracks：目前帳號的音樂清單(從伺服器載入)；islandAudio：整站共用的唯一 Audio 播放器物件；
+// islandCurrentIndex：目前播到清單第幾首；islandMusicState：是否播放中、抽屜是否展開。
 let userMusicTracks = [];
 let islandAudio = new Audio();
 islandAudio.preload = "auto";
@@ -2336,6 +2467,7 @@ let islandMusicState = {
   isExpanded: false
 };
 
+// 秒數轉成 "分:秒" 顯示（例如 125 -> "2:05"）；無效數字回傳 "0:00"。
 function formatIslandTime(seconds) {
   if (isNaN(seconds) || seconds < 0) return "0:00";
   const m = Math.floor(seconds / 60);
@@ -2343,6 +2475,9 @@ function formatIslandTime(seconds) {
   return `${m}:${s < 10 ? "0" : ""}${s}`;
 }
 
+// 靈動島音樂系統的初始化：先抓好所有需要的 DOM 元素，再在函式內定義播放、搜尋、清單渲染等內部函式並綁定事件。
+// （函式很長，內部分為：載入清單、渲染氣泡牆、播放控制、線上搜尋、進度條/音量、抽屜開關…）
+// 沒有靈動島元素的頁面會直接 return，不影響其他頁面。
 function initDynamicIslandMusic() {
   const island = document.getElementById("dynamicIsland");
   const bar = document.getElementById("islandBar");
@@ -2413,6 +2548,7 @@ function initDynamicIslandMusic() {
   }
 
   // 通知上滑手勢監聽 (Swipe-Up to Dismiss Notification)
+  // 用 Pointer Events(同時支援滑鼠與觸控)：按下記錄起點 Y，移動時若往上超過 14px 就關閉通知。
   const notifEl = document.getElementById("islandNotification");
   if (notifEl) {
     let startY = 0;
@@ -2446,6 +2582,7 @@ function initDynamicIslandMusic() {
   }
 
   // 監聽 Kazumi 動漫劇場與影片燈箱彈窗展示事件，互斥暫停音樂
+  // show.bs.modal 是 Bootstrap 彈窗「即將顯示」時觸發的事件。
   ["kazumiModal", "videoPlayerModal", "kazumiTheaterModal"].forEach((modalId) => {
     const el = document.getElementById(modalId);
     if (el) {
@@ -2469,6 +2606,8 @@ function initDynamicIslandMusic() {
   }
 
   // 1. 自 NeDB 資料庫非同步載入音樂清單 (留白設計，無假歌)
+  // NeDB 是伺服器端使用的輕量檔案型資料庫；這裡透過 GET /api/user/music?user=帳號 取得，
+  // 每個帳號各自有自己的音樂庫。訪客不讀伺服器，清單維持空的。
   async function loadMusicFromNeDB() {
     const user = getCurrentUser();
     if (!user) {
@@ -2496,6 +2635,7 @@ function initDynamicIslandMusic() {
   }
 
   // 儲存音樂庫至 NeDB
+  // 清單有增減時，把整份 tracks 以 POST /api/user/music 送到伺服器覆蓋儲存；失敗只警告不中斷播放。
   async function saveMusicToNeDB(tracksToSave) {
     const user = getCurrentUser();
     if (!user) return;
@@ -2527,6 +2667,8 @@ function initDynamicIslandMusic() {
     }
 
     // 依據六角錯落排列法：奇數行與偶數行交錯
+    // rowCapacity 規定每一排放幾顆氣泡(4、5 交替)，偶數排用 CSS 平移半格，看起來像蜂巢。
+    // while 迴圈每次切出一排的歌曲(slice)並產生一排 DOM。
     const rowCapacity = [4, 5, 4, 5, 4, 5];
     let trackPointer = 0;
     let rowIndex = 0;
@@ -2617,6 +2759,8 @@ function initDynamicIslandMusic() {
   }
 
   // 4. 載入並開播曲目 (播放正確的真實原聲音訊)
+  // index 超出範圍會首尾相接（-1 跳到最後一首、超過最後一首回到第一首）。
+  // audio.play() 回傳 Promise：瀏覽器可能因「使用者尚未互動」而拒絕自動播放，所以用 .catch 處理並提示使用者點擊。
   function loadAndPlayTrack(index) {
     if (!userMusicTracks || userMusicTracks.length === 0) return;
     if (index < 0) index = userMusicTracks.length - 1;
@@ -2647,6 +2791,7 @@ function initDynamicIslandMusic() {
     }
   }
 
+  // 暫停目前曲目並更新所有按鈕/氣泡牆的圖示
   function pauseIslandTrack() {
     islandAudio.pause();
     islandMusicState.isPlaying = false;
@@ -2654,6 +2799,7 @@ function initDynamicIslandMusic() {
     renderWatchHoneycomb();
   }
 
+  // 播放/暫停切換：播放中就暫停；還沒載入過任何歌就從目前索引開始播；否則直接 resume。
   function toggleIslandPlay() {
     if (islandMusicState.isPlaying) {
       pauseIslandTrack();
@@ -2677,6 +2823,9 @@ function initDynamicIslandMusic() {
   }
 
   // 5. 更新 UI 狀態
+  // 把「目前曲目」的資訊同步到三個地方（靈動島膠囊、長按抽屜、全螢幕音樂庫底部列），
+  // 並依狀態切換靈動島的 CSS class：expanded(展開抽屜) / playing / paused / idle。
+  // 通知(notifying)顯示中不動 class，避免打斷通知動畫。
   function updateIslandUI() {
     const track = userMusicTracks[islandCurrentIndex] || {
       title: "音樂庫",
@@ -2726,6 +2875,7 @@ function initDynamicIslandMusic() {
   }
 
   // 6. 開啟與關閉音樂庫全螢幕模態
+  // 開啟時鎖住背景捲動(body overflow hidden)，關閉時還原；這個浮層是自己用 display 控制，不是 Bootstrap Modal。
   function openWatchMusicModal() {
     if (!watchModal) return;
     renderWatchHoneycomb();
@@ -2743,6 +2893,8 @@ function initDynamicIslandMusic() {
   }
 
   // 7. 長按（Long Press ~450ms）vs 單擊（Click）事件判定
+  // 原理：按下時啟動 450ms 計時器，時間到還沒放開 = 長按，展開抽屜；
+  // 在時間內放開(計時器被清掉、旗標仍為 false) = 單擊，開啟音樂庫。
   let islandLongPressTimer = null;
   let isLongPressTriggered = false;
 
@@ -2844,6 +2996,9 @@ function initDynamicIslandMusic() {
   if (watchBarNextBtn) watchBarNextBtn.addEventListener("click", () => loadAndPlayTrack(islandCurrentIndex + 1));
 
   // 8. 開源線上真實歌曲搜尋與原曲播放 (借鏡 APlayer/Meting 架構)
+  // kw：搜尋關鍵字。向自家伺服器 /api/user/music/search?q= 查詢（失敗改試 /api/music/search），
+  // 伺服器負責去外部音樂來源找歌，避免瀏覽器跨網域限制。
+  // 每筆結果做成一張卡片，有「試聽」(直接播放)與「收藏」(加進自己的音樂庫並存伺服器)兩顆按鈕。
   async function performOnlineMusicSearch(kw) {
     if (!kw || !kw.trim()) return;
     kw = kw.trim();
@@ -2987,6 +3142,7 @@ function initDynamicIslandMusic() {
   });
 
   // 9. 動態島提示訊息
+  // 音樂模組專用的簡易通知，借用靈動島的通知膠囊顯示一段文字。
   function showIslandNotice(text) {
     if (!island) return;
     const notifText = document.getElementById("islandNotifText");
@@ -2995,6 +3151,8 @@ function initDynamicIslandMusic() {
   }
 
   // 10. 音訊時間軸與真實狀態雙向同步 (Single Source of Truth)
+  // 為什麼監聽 audio 本身的 play/pause 事件：播放狀態可能被別的來源改變（如影片互斥暫停、瀏覽器媒體鍵），
+  // 以 audio 物件的真實事件為準來更新畫面，才不會畫面與實際狀態不一致。
   islandAudio.addEventListener("play", () => {
     islandMusicState.isPlaying = true;
     updateIslandUI();
@@ -3037,6 +3195,7 @@ function initDynamicIslandMusic() {
     }
   });
 
+  // 歌曲播完：依播放模式決定下一步（單曲循環／隨機（避免重複同一首）／清單循環）
   islandAudio.addEventListener("ended", () => {
     if (islandPlayMode === "repeat-1") {
       // 單曲循環：回到開頭繼續播放
@@ -3071,10 +3230,12 @@ function initDynamicIslandMusic() {
     });
   }
 
+  // 點擊進度條跳轉：用點擊位置佔進度條寬度的比例，換算成要跳到的秒數
   // 首次自 NeDB 載入音樂數據 (若空則留白)
   loadMusicFromNeDB();
 }
 
+// 腳本載入時 DOM 可能還沒好(loading)也可能已好(例如無縫換頁後)，兩種情況都要確保初始化剛好執行一次。
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initDynamicIslandMusic);
 } else {
@@ -3085,6 +3246,8 @@ if (document.readyState === "loading") {
 // 7. ACG 專用模組邏輯 (Kazumi / Tachimanga / Legado)
 // ==========================================
 // --- 0. Kazumi 播放來源規則引擎 (仿 Kazumi 原生播放來源抽屜) ---
+// Kazumi 是一款動漫聚合播放器的概念：輸入片名後，同時到多個「播放來源網站」搜尋，
+// 使用者再選擇來源、選集數播放。這裡的 id 會當成參數傳給伺服器 /api/kazumi/rule-search。
 const KAZUMI_SOURCES = [
   { id: "AGE", name: "AGE動漫", desc: "全網熱門番劇（第三方解析器直出）" },
   {
@@ -3108,6 +3271,7 @@ function getKazumiSources() {
   return KAZUMI_SOURCES.concat(custom);
 }
 
+// Kazumi 來源彈窗的執行期狀態：目前搜尋的片名、封面、每個來源的搜尋狀態與結果(Map，key 是來源 id)、目前選的集數。
 let kazumiState = {
   title: "",
   cover: "",
@@ -3146,6 +3310,8 @@ window.readMangaBookmark = function (id) {
   openTachimangaReader(item.title);
 };
 
+// 以下三個 *FromElement 函式：把資料放在 HTML 的 data-* 屬性，再由元素傳入讀取，
+// 這樣標題含單引號/雙引號時也不會弄壞 onclick="..." 的字串。
 // 從 DOM 元素安全讀取屬性開啟 Kazumi 來源
 window.openKazumiFromElement = function (el) {
   const title = el.getAttribute("data-title") || "";
@@ -3213,6 +3379,11 @@ window.getFallbackAnimeCover = function (title = "", platform = "") {
   return "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='450' viewBox='0 0 320 450'%3E%3Crect fill='%231e293b' width='320' height='450'/%3E%3Ccircle cx='160' cy='200' r='50' fill='%23dc2626' opacity='0.8'/%3E%3Cpolygon points='150,180 180,200 150,220' fill='%23ffffff'/%3E%3Ctext x='50%25' y='70%25' fill='%23e2e8f0' font-family='system-ui,sans-serif' font-size='18' font-weight='bold' text-anchor='middle'%3E動漫影片%3C/text%3E%3C/svg%3E";
 };
 
+// 開啟「播放來源」彈窗並對所有來源同時發動搜尋（Kazumi 的核心入口）。
+// 步驟：1) 決定封面（沒有就先用備用圖，並背景呼叫 /api/bangumi/search 補官方海報、順便更新觀看紀錄的封面）
+//       2) 為每個來源建立 loading 狀態 -> renderSourceList 畫出清單
+//       3) forEach 同時對每個來源呼叫 fetchRuleSearch（不用 await，所以是「並發」）
+//       4) 顯示 Bootstrap Modal。沒給片名就顯示空狀態讓使用者自己輸入。
 window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
   const title = (animeTitle || "").trim();
   kazumiState.title = title;
@@ -3355,6 +3526,9 @@ window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
   }
 };
 
+// 向單一來源搜尋片名。內建來源走 GET /api/kazumi/rule-search?q=片名&source=來源id（伺服器代為爬取），
+// 使用者自訂規則的來源則在瀏覽器端用 CustomRules 處理。
+// 結果寫入 kazumiState.sources 並重畫清單：有結果->done（預設展開）、沒結果->empty、例外->error。
 async function fetchRuleSearch(sourceId, title) {
   const state = kazumiState.sources.get(sourceId);
 
@@ -3399,6 +3573,7 @@ async function fetchRuleSearch(sourceId, title) {
   updateSourceSummary();
 }
 
+// 更新彈窗上方的摘要文字：「N 個來源 · 正在檢索… / 找到 X 個作品 / 無符合結果」
 function updateSourceSummary() {
   const summaryEl = document.getElementById("kazumiSourceSummary");
 
@@ -3420,6 +3595,9 @@ function updateSourceSummary() {
   summaryEl.textContent = text;
 }
 
+// 依 kazumiState 把每個來源畫成一張可展開的卡片：標題列(狀態徽章) + 搜尋結果列表。
+// 每筆結果有「收藏」「Bangumi 狀態」「取得選集」按鈕；第一筆結果會自動載入選集，省一次點擊。
+// 狀態改變(展開/收合/搜尋完成)就整個重畫，簡單但不需要手動維護每個元素。
 function renderSourceList() {
   const list = document.getElementById("kazumiSourceList");
 
@@ -3569,6 +3747,7 @@ function renderSourceList() {
   });
 }
 
+// 依來源狀態回傳對應的徽章 HTML（檢索中 / 找到 N 個 / 無結果 / 連線異常）
 function getStatusBadge(status, count) {
   switch (status) {
     case "loading":
@@ -3588,6 +3767,9 @@ function getStatusBadge(status, count) {
   }
 }
 
+// 取得某筆搜尋結果的集數清單。參數：來源 id、結果索引、結果物件(含 detailUrl)、放集數按鈕的容器、觸發的按鈕。
+// 呼叫 GET /api/kazumi/rule-episodes?detailUrl=...（伺服器解析作品頁），成功後快取到 state.episodes 並畫出集數按鈕；
+// 失敗時按鈕變成「重試」。快取的目的：來源清單重畫時不必再請求一次。
 async function loadEpisodesForSource(sourceId, rIdx, item, epContainer, btn) {
   btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>解析劇集...`;
   btn.disabled = true;
@@ -3623,6 +3805,9 @@ async function loadEpisodesForSource(sourceId, rIdx, item, epContainer, btn) {
   }
 }
 
+// 把集數陣列畫成一排按鈕放進 container；點按鈕就呼叫 playRuleEpisode 播放該集。
+// 做兩件事：1) 依集數名稱去重（多條播放線路會出現重複集數）
+//           2) 超過 48 集時預設只顯示前 48 個，並出現「展開/收起」按鈕（狀態存在 container 的 data-expanded 屬性）。
 function renderEpisodeButtons(sourceId, animeItem, episodes, container) {
   container.innerHTML = "";
 
@@ -3705,6 +3890,11 @@ function renderEpisodeButtons(sourceId, animeItem, episodes, container) {
   }
 }
 
+// 播放指定的一集。參數：來源 id、動畫資訊(title/cover)、該集物件(含 playUrl)、全部集數(給選集抽屜用)。
+// 流程：呼叫 GET /api/kazumi/rule-play?playUrl=... 讓伺服器解析出真正的播放器網址(playerUrl)
+//       -> 關閉來源彈窗 -> openTheaterWithUrl 開劇院播放
+//       -> 若有綁定 Bangumi Token，從集數標題用正規表示式抓出集數，背景回寫觀看進度(失敗不影響播放)。
+// sourceId 為空字串代表是從劇院右側選集抽屜換集；此時改看 episode.customSourceId 判斷是不是自訂規則。
 async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
   showToast(
     `正在透過 Kazumi Rules 解析「${animeItem.title} - ${episode.title}」...`,
@@ -3806,6 +3996,12 @@ async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
   }
 }
 
+// 開啟「動漫劇院」播放器並開始播放。參數：動畫名、集數名、播放器網址、全部集數、目前集物件、封面。
+// 依網址類型選三種播放方式：
+//  1) isBlocked：站方禁止被 iframe 內嵌 -> 只顯示「新分頁播放」的備用卡片
+//  2) isDirectVideo：.mp4 / .m3u8 直連 -> 用 <video> 原生播放；m3u8 需 hls.js（Safari 原生就支援）
+//  3) 其他 -> 用 <iframe> 內嵌對方的播放器頁面
+// 另外：存觀看紀錄、重建右側選集清單、啟動彈幕、顯示 Bootstrap 彈窗。
 function openTheaterWithUrl(
   animeTitle,
   epTitle,
@@ -3932,6 +4128,8 @@ function openTheaterWithUrl(
 
       video.removeAttribute("controls");
 
+      // m3u8 是分段串流格式，多數瀏覽器不能直接播，要靠 hls.js 把它轉成瀏覽器能吃的資料；
+      // 換集前要先 destroy 舊的 hls 實例，避免記憶體洩漏與兩個串流同時載入。
       if (playerUrl.includes(".m3u8")) {
         if (window.Hls && Hls.isSupported()) {
           if (window.kazumiHlsInstance) {
@@ -4046,6 +4244,7 @@ function openTheaterWithUrl(
   }
 
   // 啟動彈幕流
+  // 用正規表示式 /\d+/ 從集數標題抓第一組數字當集數（抓不到就當第 1 集），彈幕依「片名 + 集數」查詢。
   const epMatch = (epTitle || "").match(/\d+/);
   const epNo = epMatch ? parseInt(epMatch[0], 10) : 1;
 
@@ -4064,6 +4263,9 @@ function openTheaterWithUrl(
 }
 
 // 劇院內一鍵搜尋番劇（支援待命畫面與 Header 搜尋，具備 Bootstrap 5 模態框異步防衝突機制）
+// 參數 keyword：片名，沒給就從待命畫面或標題列的搜尋框取值。
+// 為什麼要等 hidden.bs.modal：Bootstrap 同時開兩個彈窗會讓遮罩(backdrop)錯亂，
+// 所以先關劇院、等「完全關閉」事件觸發後（事件只用一次，觸發後立刻移除監聽）再開來源彈窗。
 window.searchAnimeFromTheater = function (keyword) {
   let term = keyword;
 
@@ -4195,10 +4397,18 @@ window.resetKazumiTheater = function () {
 };
 
 // --- A. Kazumi 動漫劇院播放器 ---
+// danmakuInterval：彈幕定時發射的計時器；danmakuEnabled：彈幕開關。
 let danmakuInterval = null;
 
 let danmakuEnabled = false; // 彈幕預設關閉
 
+// 開啟播放器播放「一般影片」（書籤的「播放」按鈕呼叫它）。參數 title 標題、src 影片網址。
+// 依網址判斷：
+//  - 沒有可直接播的網址（或是 bgm.tv 條目頁）-> 轉去「來源檢索」彈窗，或開空白待命劇院
+//  - Bilibili -> 向 /api/kazumi/bilibili-playurl 取原生 MP4 串流；失敗退回官方 iframe 內嵌播放器；
+//                再向 /api/kazumi/resolve 取真實標題、分 P 選集與封面
+//  - YouTube -> 用 youtube-nocookie.com 內嵌，網址參數 controls=0 等是為了隱藏原控制列，改用自製控制列
+//  - 其他 -> 當 mp4 之類的原生影片，直接放進 <video>
 window.openKazumiPlayer = function (title = "", src = "") {
   // 若無提供直接串流/外嵌網址，一律跳出播放來源檢索抽屜
   if (
@@ -4250,6 +4460,7 @@ window.openKazumiPlayer = function (title = "", src = "") {
     startFsIdleTimer();
   }
 
+  // 下面用多個正規表示式（match）從網址抓出影片 ID，依序嘗試，用 || 取第一個成功的結果。
   // 辨識是否為 Bilibili 影片 (支援 BV號、av號、番劇 ss/ep 或一般網址)
   const biliMatch =
     src.match(/bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/i) ||
@@ -4512,6 +4723,8 @@ window.openKazumiPlayer = function (title = "", src = "") {
 };
 
 // 動態渲染分P選集按鈕
+// Bilibili 一支影片可能有多個分 P；為每個分 P 做一顆按鈕，點擊後切換播放、更新觀看紀錄、重新載入該 P 的彈幕。
+// 參數 bvid：影片 BV 號；episodes：分 P 陣列（含 page 頁碼、part 名稱、cid 彈幕/串流用 ID）。
 function renderKazumiEpisodes(bvid, episodes) {
   const container = document.querySelector(".episode-list-container");
 
@@ -4648,6 +4861,8 @@ function renderKazumiEpisodes(bvid, episodes) {
   });
 }
 
+// 關閉劇院播放器時的清理工作：先存目前觀看進度、清掉控制列隱藏計時器、銷毀 hls 實例、
+// 暫停並卸載 <video>（removeAttribute("src") + load() 才能真正停止下載串流）、清空 iframe 網址（停止內嵌播放器聲音）、清彈幕。
 window.closeAnimePlayer = function () {
   try {
     if (typeof window.saveCurrentAnimeProgressNow === "function") {
@@ -4699,6 +4914,8 @@ window.closeAnimePlayer = function () {
 };
 
 // 防內嵌優雅降級：快速切換至其他免跳轉來源
+// 當某來源禁止內嵌時，使用者可一鍵換來源：targetSource 為 "bilibili" 就用新分頁搜尋該片名，
+// 其他則關閉播放器、等彈窗關完後重新開啟來源檢索清單。
 window.quickSwitchKazumiSource = function (targetSource) {
   const title =
     kazumiState.title ||
@@ -4765,8 +4982,11 @@ window.closeCurrentAnime = function () {
 // Kazumi 彈幕引擎與設置核心 (外觀/播放/時間軸嚴格對齊)
 // ==========================================
 
+// 【本區塊總覽】彈幕 (Danmaku) 引擎：負責「從後端抓彈幕 -> 依影片時間排序 -> 每 200ms 檢查該放哪幾則 -> 在畫面上飄過去」。
+// 設定值存在 sessionStorage（關掉分頁就會重置），鍵名為下面的 DANMAKU_SETTINGS_KEY。
 const DANMAKU_SETTINGS_KEY = "kazumi_danmaku_settings";
 
+// 彈幕的預設設定；使用者在「彈幕設定」視窗改的值會合併蓋掉這些預設
 let danmakuConfig = {
   sourcePreference: "bilibili", // "bilibili" (免金鑰官方直連) 或 "dandanplay" (需金鑰全網聚合)
   fontSize: 24, // 14 ~ 38 px
@@ -4782,6 +5002,10 @@ let danmakuConfig = {
   bottomDanmaku: true,
 };
 
+/**
+ * 從 sessionStorage 讀回之前存的彈幕設定，用 Object.assign 合併進 danmakuConfig。
+ * 用 try/catch 是因為 JSON 壞掉或瀏覽器禁用儲存時不要讓整個網頁當掉。
+ */
 function loadDanmakuSettings() {
   try {
     const saved = sessionStorage.getItem(DANMAKU_SETTINGS_KEY);
@@ -4792,6 +5016,7 @@ function loadDanmakuSettings() {
   } catch (e) {}
 }
 
+/** 把目前的 danmakuConfig 存進 sessionStorage，並立刻把新設定套用到畫面 (CSS 變數)。 */
 function saveDanmakuSettings() {
   try {
     sessionStorage.setItem(DANMAKU_SETTINGS_KEY, JSON.stringify(danmakuConfig));
@@ -4800,6 +5025,11 @@ function saveDanmakuSettings() {
   applyDanmakuConfigToCSS();
 }
 
+/**
+ * 把設定（字體大小、透明度、行高、飛行時間）寫成 CSS 自訂變數 (--danmaku-xxx) 放到彈幕圖層上，
+ * 這樣 CSS 動畫會自動讀到新值，不必逐個彈幕重設樣式。
+ * 飛行時間會除以影片倍速：影片 2 倍速時彈幕也飛得快一倍，看起來才同步。
+ */
 function applyDanmakuConfigToCSS() {
   const overlay = document.getElementById("danmakuOverlay");
 
@@ -4887,6 +5117,8 @@ window.clearAllDanmakuState = function () {
 };
 
 // 彈幕發送與飄字動畫 (支援顯示區域與屏蔽詞過濾)
+// 參數：text 文字內容；color 顏色；mode 彈幕類型 (1=滾動、4=底部固定、5=頂部固定，沿用 B 站/彈彈play 的定義)。
+// 做法：建立一個 div 放進彈幕圖層，飛行動畫由 CSS 的 .danmaku-bullet 負責，動畫結束後自己移除。
 function createBulletDanmaku(text, color = "#ffffff", mode = 1) {
   if (!danmakuEnabled || !text) return;
 
@@ -4939,12 +5171,20 @@ function createBulletDanmaku(text, color = "#ffffff", mode = 1) {
   }, maxFallbackMs);
 }
 
+// 彈幕狀態變數：
+//  currentDanmakuQueue：目前這集的全部彈幕（已按時間排序）
+//  lastSyncVideoTime：上一次同步時的影片時間，用來判斷「秒數有沒有變」才更新時間顯示
+//  virtualDanmakuTime：iframe 播放器抓不到真實時間時，自己累加的「虛擬時間」
+//  isDanmakuPaused：彈幕是否凍結中
 let currentDanmakuQueue = [];
 let lastSyncVideoTime = 0;
 let virtualDanmakuTime = 0;
 let isDanmakuPaused = false;
 
 // 串接 Kazumi 後端彈幕流 (支援 彈彈play 全網聚合與 B站官方即時彈幕)
+// 參數：animeTitle 動漫名稱；cid B 站影片的彈幕 ID（可為 null）；episodeNo 第幾集。
+// 流程：先清掉舊彈幕 -> 呼叫後端 /api/kazumi/danmaku 取得彈幕陣列 -> 依時間排序 -> 啟動 200ms 輪詢迴圈。
+// 抓不到彈幕時只是安靜地回傳（不會報錯，影片照常播放）。
 async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
   if (danmakuInterval) {
     clearInterval(danmakuInterval);
@@ -4962,6 +5202,7 @@ async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
 
   applyDanmakuConfigToCSS();
   window.currentPlayingAnime = { title: animeTitle, cid: cid, ep: episodeNo };
+  // 彈彈play 需要使用者自己申請的 AppId/AppSecret（存在 sessionStorage），沒填就走免金鑰的 B 站來源
   const appId = sessionStorage.getItem("dandanplay_app_id") || "";
   const appSecret = sessionStorage.getItem("dandanplay_app_secret") || "";
 
@@ -5051,6 +5292,8 @@ async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
 }
 
 // 基於影片 currentTime 或 iframe 虛擬時間軸與時間校準 offset 嚴格對齊彈幕
+// 由 startDanmakuLoop 的 setInterval 每 200ms 呼叫一次，是整個彈幕系統的核心。
+// 兩種模式：1) 原生 <video>：直接讀 video.currentTime；2) iframe：讀不到時間，只好每次 +0.2 秒自己計時。
 function syncDanmakuWithVideoTime() {
   if (
     !danmakuEnabled ||
@@ -5091,6 +5334,8 @@ function syncDanmakuWithVideoTime() {
     updateDanmakuTimeDisplay(effectiveTime);
   }
 
+  // 彈幕佇列已按時間排序，所以從頭掃，遇到「還沒到時間」的就可以直接 break（省效能）。
+  // _fired 旗標避免同一則彈幕被重複發射。
   // 找出落在 [effectiveTime - 1.2, effectiveTime + 0.3] 之間且尚未發送的彈幕
   for (let i = 0; i < currentDanmakuQueue.length; i++) {
     const item = currentDanmakuQueue[i];
@@ -5110,6 +5355,7 @@ function syncDanmakuWithVideoTime() {
   lastSyncVideoTime = effectiveTime;
 }
 
+/** 啟動彈幕的「心跳」：每 200 毫秒呼叫一次 syncDanmakuWithVideoTime 檢查該放哪些彈幕。 */
 function startDanmakuLoop() {
   if (danmakuInterval) clearInterval(danmakuInterval);
 
@@ -5125,6 +5371,9 @@ function startDanmakuLoop() {
 }
 
 // 廣播跨域與通用播放器指令給 iframe 內嵌播放器 (相容 Bilibili, YouTube Iframe API, DPlayer, ArtPlayer 等)
+// 參數：cmd 為 "play" / "pause" / "seek"；time 為要跳到的秒數（只有 seek 用到）。
+// 因為 iframe 裡的播放器是別人的網站（跨網域），我們碰不到它的 video 元素，只能用 postMessage「丟訊息」請它配合；
+// 每個播放器聽的格式都不一樣，所以把各種常見格式全部都送一遍，哪個認得就會動作。
 function sendIframePlaybackCommand(cmd, time = 0) {
   const iframe = document.getElementById("kazumiIframePlayer");
 
@@ -5279,6 +5528,7 @@ window.resumeDanmaku = function () {
   }
 };
 
+/** 依 paused 狀態切換「暫停/繼續」按鈕的樣式、圖示與文字（只改畫面，不控制播放）。 */
 function updatePlayPauseButtonUI(paused) {
   const btn = document.getElementById("danmakuPlayPauseBtn");
   const btnText = document.getElementById("danmakuPlayPauseBtnText");
@@ -5332,6 +5582,7 @@ function getDanmakuMaxDuration() {
   return maxSec;
 }
 
+/** 更新「00:12 / 24:00」文字與時間軸滑桿位置。totalSec 沒給就用 getDanmakuMaxDuration() 估算。 */
 function updateDanmakuTimeDisplay(currentSec, totalSec = null) {
   const maxSec = totalSec || getDanmakuMaxDuration();
   const cur = Math.max(0, Math.min(currentSec, maxSec));
@@ -5379,6 +5630,7 @@ window.seekMasterTimeline = function (targetSec) {
   updateDanmakuTimeDisplay(sec);
 };
 
+// 跳到指定秒數；沒給秒數就「以目前時間重新對齊」（例如使用者調整完時間校準後呼叫）
 window.seekDanmaku = function (targetSec = null) {
   if (targetSec !== null && !isNaN(targetSec)) {
     window.seekMasterTimeline(targetSec);
@@ -5444,6 +5696,8 @@ window.onDanmakuTimelineSliderChange = function (val) {
 // Kazumi 動漫劇院純淨化：音量控制系統 (按鈕、拉桿、滾輪、鍵盤方向鍵 ↑↓、M 鍵靜音)
 // ==========================================
 
+// 音量狀態：目前音量 (0~100) 與是否靜音，存在 sessionStorage，換集或重整後仍記得。
+// 底下三行是防呆：讀到亂碼 (NaN) 或超出範圍就修正回 0~100。
 let kazumiCurrentVolume = parseInt(
   sessionStorage.getItem("kazumi_theater_volume") || "100",
   10,
@@ -5457,6 +5711,8 @@ let kazumiIsMuted = sessionStorage.getItem("kazumi_theater_muted") === "true";
 let kazumiVolumeHudTimer = null;
 
 // 廣播音量給 iframe (相容 YouTube Iframe API, Bilibili, DPlayer, ArtPlayer, Tampermonkey Bridge)
+// 原理同 sendIframePlaybackCommand：跨網域 iframe 只能用 postMessage 傳話，各播放器格式不同所以全送。
+// 靜音時直接把音量當 0 送出。
 function sendIframeVolumeCommand(vol, isMuted) {
   const iframe = document.getElementById("kazumiIframePlayer");
 
@@ -5520,6 +5776,8 @@ function sendIframeVolumeCommand(vol, isMuted) {
   } catch (e) {}
 }
 
+// 在影片畫面上顯示「音量 xx%」的浮動提示 (HUD)，1.2 秒後自動隱藏；
+// 每次呼叫會先 clearTimeout，避免連續調音量時被前一次的計時器提早關掉。
 window.showKazumiVolumeHud = function (vol, isMuted) {
   const hud = document.getElementById("kazumiVolumeHud");
   const icon = document.getElementById("volumeHudIcon");
@@ -5553,6 +5811,8 @@ window.showKazumiVolumeHud = function (vol, isMuted) {
   }, 1200);
 };
 
+// 音量的「總套用」函式：把 kazumiCurrentVolume / kazumiIsMuted 同步到 <video>、iframe、滑桿與圖示，並存進 sessionStorage。
+// 所有音量操作 (按鈕、滑桿、滾輪、鍵盤) 最後都會呼叫它。showHud=true 時會順便顯示畫面提示。
 window.applyKazumiVolume = function (showHud = false) {
   const video = document.getElementById("kazumiVideoPlayer");
   const slider = document.getElementById("danmakuVolumeSlider");
@@ -5600,11 +5860,13 @@ window.applyKazumiVolume = function (showHud = false) {
   }
 };
 
+// 切換靜音 (M 鍵或喇叭按鈕)
 window.toggleKazumiVolumeMute = function () {
   kazumiIsMuted = !kazumiIsMuted;
   window.applyKazumiVolume(true);
 };
 
+// 拖動音量滑桿時觸發；若原本靜音且拖到大於 0，自動解除靜音
 window.onKazumiVolumeInput = function (val) {
   const v = parseInt(val, 10);
 
@@ -5623,6 +5885,7 @@ window.onKazumiVolumeChange = function (val) {
   window.onKazumiVolumeInput(val);
 };
 
+// 相對調整音量 (鍵盤 ↑↓ 或滑鼠滾輪)，delta 為正負增減量；結果限制在 0~100
 window.adjustKazumiVolume = function (delta) {
   if (kazumiIsMuted) kazumiIsMuted = false;
   kazumiCurrentVolume = Math.max(0, Math.min(100, kazumiCurrentVolume + delta));
@@ -5633,6 +5896,8 @@ window.adjustKazumiVolume = function (delta) {
 // 彈幕列表側邊欄功能 (右側完全不遮擋左側畫面，即時瀏覽與搜尋)
 // ==========================================
 
+// 切換劇院右側欄分頁：tabName 為 "danmaku"（彈幕列表）或其他（預設顯示選集）。
+// 做法是切換按鈕樣式，並用 Bootstrap 的 d-none / d-flex 類別顯示或隱藏兩個面板。
 window.switchTheaterSidebarTab = function (tabName) {
   const tabEp = document.getElementById("tabBtnEpisodes");
   const tabDm = document.getElementById("tabBtnDanmaku");
@@ -5683,6 +5948,7 @@ window.switchTheaterSidebarTab = function (tabName) {
   }
 };
 
+// 彈幕列表的搜尋框：依關鍵字（不分大小寫）過濾目前這集的彈幕後重新繪製清單
 window.filterDanmakuList = function (keyword) {
   const kw = (keyword || "").trim().toLowerCase();
 
@@ -5705,6 +5971,8 @@ window.filterDanmakuList = function (keyword) {
   renderDanmakuList(filtered, kw);
 };
 
+// 把彈幕陣列畫成右側清單（時間標籤可點擊跳轉、色點、內容、「試發」按鈕），並更新數量徽章與來源標示。
+// 內容一律經過 escapeHtml 再放進 innerHTML，避免彈幕裡有惡意 HTML/腳本 (XSS)。
 function renderDanmakuList(list, keyword = "") {
   const container = document.getElementById("danmakuListItemsContainer");
   const countBadge = document.getElementById("dmkListTotalBadge");
@@ -5762,6 +6030,7 @@ function renderDanmakuList(list, keyword = "") {
     .join("");
 }
 
+// 清單上的「試發」按鈕：不管時間，立刻把這則彈幕飄一次給使用者看
 window.fireTestDanmaku = function (text, color) {
   createBulletDanmaku(text, color || "#ffffff");
 
@@ -5775,6 +6044,7 @@ window.fireTestDanmaku = function (text, color) {
 // Kazumi 彈幕設置面板 UI 交互
 // ==========================================
 
+// 開啟彈幕設定視窗：先讀取已存設定、把值填進各控制項，再用 Bootstrap Modal 顯示
 window.openDanmakuSettingsModal = function () {
   loadDanmakuSettings();
 
@@ -5788,6 +6058,7 @@ window.openDanmakuSettingsModal = function () {
   }
 };
 
+// 把 danmakuConfig 的值回填到設定視窗的滑桿、文字、開關。setVal / setText / setChecked 是小工具：找不到元素就略過。
 function updateDanmakuSettingsModalUI() {
   // 外觀
   const setVal = (id, val) => {
@@ -5874,6 +6145,8 @@ function updateDanmakuSettingsModalUI() {
   }
 }
 
+// 切換彈幕來源 ("bilibili" 免金鑰 / "dandanplay" 需金鑰)：存起來、提示使用者，
+// 並且若正在看某集，就用新來源重新抓一次彈幕 (window.initDanmakuForCurrentEpisode 由別處定義，所以先檢查它存在)
 window.onDanmakuSourcePreferenceChanged = function (src) {
   danmakuConfig.sourcePreference = src || "bilibili";
 
@@ -5903,6 +6176,8 @@ window.onDanmakuSourcePreferenceChanged = function (src) {
   }
 };
 
+// 設定視窗中「滑桿類」設定共用的處理函式：key 是 danmakuConfig 的欄位名 (如 fontSize)，val 是滑桿值。
+// 它會更新設定、同步旁邊的數字標籤 (元素 id 規則 val-dmk + 欄位名首字大寫)，時間校準變動時要重新對齊彈幕。
 window.onDanmakuSettingInput = function (key, val) {
   const num = parseFloat(val);
 
@@ -5933,12 +6208,14 @@ window.onDanmakuSettingInput = function (key, val) {
   saveDanmakuSettings();
 };
 
+// 開關類設定 (滾動/頂部/底部彈幕、跟隨倍速) 的處理：直接把 true/false 存進設定
 window.onDanmakuSettingToggle = function (key, checked) {
   danmakuConfig[key] = checked;
 
   saveDanmakuSettings();
 };
 
+// 儲存屏蔽關鍵字（逗號或空白分隔）；實際過濾在 createBulletDanmaku 內
 window.onDanmakuSettingBlockWords = function (val) {
   danmakuConfig.blockWords = (val || "").trim();
 
@@ -5947,6 +6224,7 @@ window.onDanmakuSettingBlockWords = function (val) {
   showToast("已更新彈幕屏蔽關鍵字！", "bi-shield-check text-info");
 };
 
+// 微調彈幕時間校準 (+/- 按鈕)：彈幕比畫面快或慢時用。限制在 -10 ~ +10 秒，toFixed(1) 避免浮點數誤差 (0.1+0.2)。
 window.adjustDanmakuOffset = function (delta) {
   let current = parseFloat(danmakuConfig.timeOffset) || 0;
   current = Math.min(Math.max(current + delta, -10), 10);
@@ -5969,6 +6247,7 @@ window.adjustDanmakuOffset = function (delta) {
   showToast(`⏱️ 彈幕時間校準：${offsetStr}`, "bi-clock-history text-info");
 };
 
+// 把時間校準歸零
 window.resetDanmakuOffset = function () {
   danmakuConfig.timeOffset = 0;
   const range = document.getElementById("dmkTimeOffsetRange");
@@ -5984,6 +6263,7 @@ window.resetDanmakuOffset = function () {
   showToast("⏱️ 已重置彈幕時間偏移！", "bi-check-circle text-success");
 };
 
+// 「恢復預設」按鈕：把所有彈幕設定改回出廠值並重新套用
 window.resetDanmakuSettingsDefault = function () {
   danmakuConfig = {
     fontSize: 24,
@@ -6010,6 +6290,7 @@ window.resetDanmakuSettingsDefault = function () {
   );
 };
 
+// 把使用者填的彈彈play AppId / AppSecret 存進 sessionStorage（只存在這個分頁，關閉就消失，不會上傳到伺服器儲存）
 window.saveDandanplayFromModal = function () {
   const appIdInput = document.getElementById("dmkDandanAppId");
   const appSecretInput = document.getElementById("dmkDandanAppSecret");
@@ -6027,6 +6308,8 @@ window.saveDandanplayFromModal = function () {
 };
 
 // 彈幕按鈕事件綁定
+// 網頁載入完成後一次性綁定：發送彈幕按鈕/Enter、彈幕開關、全螢幕變化、<video> 的各種事件（播放/暫停/跳轉/倍速/結束）、
+// iframe 的 postMessage 回報、鍵盤快速鍵、滑鼠滾輪調音量。目的都是讓「影片」與「彈幕」永遠同步。
 document.addEventListener("DOMContentLoaded", () => {
   const danmakuBtn = document.getElementById("sendDanmakuBtn");
   const danmakuInput = document.getElementById("danmakuInput");
@@ -6142,6 +6425,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 支援 iframe 播放器透過 postMessage 進行暫停/播放/時間軸雙向通知 (相容 Tampermonkey Bridge 與通用協議)
+  // 這是「接收」方向：iframe 內的播放器（或篡改猴腳本）把狀態丟回來，我們據此暫停/恢復彈幕、更新時間。
+  // 外層 try/catch 是因為別人傳來的資料格式不可預期，出錯就忽略，不要中斷頁面。
   window.addEventListener("message", (event) => {
     try {
       const data = event.data;
@@ -6233,6 +6518,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // 待命狀態精準判定：劇院處於待命模式且無正在播放的影片或串流
+  // 回傳 true 表示「劇院開著但沒在播東西」，此時快速鍵/滾輪不該生效 (避免誤觸)。
   window.isKazumiStandby = function () {
     const theaterModal = document.getElementById("animePlayerModal");
 
@@ -6396,6 +6682,9 @@ function getTheaterViewState() {
 }
 
 // 全螢幕沉浸式互動感應區初始化
+// 全螢幕時控制列會自動隱藏；滑鼠移動/進入頂部、底部感應區就「喚醒」控制列並重設閒置計時器。
+// 中央透明代理層 (screenOverlay) 負責：單擊=播放/暫停、雙擊=全螢幕。
+// 單擊用 250ms 延遲 setTimeout 判斷，如果 250ms 內又點一次就視為雙擊，取消單擊動作，避免雙擊時先暫停又全螢幕。
 function initKazumiFullscreenInteractions() {
   const topHover = document.getElementById("kazumiFsTopHoverZone");
   const bottomHover = document.getElementById("kazumiFsBottomHoverZone");
@@ -6599,6 +6888,8 @@ function initKazumiFullscreenInteractions() {
 // Kazumi 彈幕開關與全域控制
 // ==========================================
 
+// 彈幕總開關（「彈幕: 開/關」按鈕）：切換 danmakuEnabled、更新一般與全螢幕兩組按鈕的文字樣式、顯示/隱藏圖層；
+// 重新開啟時若佇列已有資料就直接重啟迴圈，沒資料但有正在播的動漫就重新向後端抓。
 window.toggleDanmaku = function () {
   danmakuEnabled = !danmakuEnabled;
   const toggleBtn = document.getElementById("danmakuToggleBtn");
@@ -6652,8 +6943,11 @@ window.toggleDanmaku = function () {
 // Kazumi 全螢幕與沈浸式浮動控制核心
 // ==========================================
 
+// fsHideTimer：全螢幕控制列「閒置幾秒後自動隱藏」的計時器編號
 let fsHideTimer = null;
 
+// 切換全螢幕：全螢幕的對象是整個播放容器 (kazumiScreenContainer) 而不是 video，
+// 這樣自訂的控制列與彈幕圖層才會一起進入全螢幕。為了相容舊瀏覽器，同時寫了 webkit/moz/ms 前綴版本。
 window.toggleKazumiFullscreen = function () {
   const container = document.getElementById("kazumiScreenContainer");
 
@@ -6684,6 +6978,8 @@ window.toggleKazumiFullscreen = function () {
   }
 };
 
+// 全螢幕狀態改變時 (fullscreenchange 事件) 觸發：進入全螢幕就顯示頂部列/彈幕發送列/選集按鈕並啟動閒置計時；
+// 離開就把這些隱藏、按鈕文字改回「全螢幕」。
 function handleFullscreenChange() {
   const container = document.getElementById("kazumiScreenContainer");
 
@@ -6761,9 +7057,12 @@ function handleFullscreenChange() {
   }
 }
 
+// 記住上一次滑鼠位置，用來判斷滑鼠是不是「真的有移動」
 let lastFsMouseX = -1;
 let lastFsMouseY = -1;
 
+// 滑鼠在全螢幕播放器上移動：喚醒（顯示）控制列並重新開始閒置倒數。
+// 位移小於 3px 的事件直接忽略，因為控制列顯示/隱藏會讓瀏覽器產生「假的」滑鼠事件，不過濾會造成控制列反覆閃爍。
 window.onFullscreenMouseMove = function (e) {
   const container = document.getElementById("kazumiScreenContainer");
 
@@ -6787,6 +7086,8 @@ window.onFullscreenMouseMove = function (e) {
   startFsIdleTimer();
 };
 
+// 開始（或重新開始）3 秒閒置倒數，時間到就替容器加上 fs-controls-hidden 類別，CSS 會把控制列藏起來。
+// 待命畫面或選集抽屜開著時不隱藏。
 function startFsIdleTimer() {
   const container = document.getElementById("kazumiScreenContainer");
 
@@ -6835,6 +7136,7 @@ window.toggleFullscreenEpisodesDrawer = function (force) {
 };
 
 // 同步選集清單至全螢幕快速抽屜
+// 做法：把原本選集面板 (.episode-list-container .ep-btn) 的按鈕複製一份到抽屜，點抽屜按鈕就等於點原按鈕。
 window.syncFullscreenEpisodeDrawer = function () {
   const targetList = document.getElementById("kazumiFsEpisodeList");
 
@@ -6888,8 +7190,12 @@ window.sendFsDanmaku = function () {
 // B. Tachimanga 條漫閱讀器與全網檢索模組
 // ==========================================
 
+// 【本區塊總覽】漫畫 (Tachimanga 條漫) 閱讀器與書架：搜尋漫畫、選章節、卷軸式連續閱讀、縮放；
+// 以及「立體書架」的收藏/同步功能。
+// currentMangaZoom：目前閱讀縮放倍率
 let currentMangaZoom = 1.0;
 
+// 漫畫閱讀器的整體狀態：目前這本、章節清單、目前章節、當章圖片網址、最近一次搜尋結果
 let mangaState = {
   currentManga: null, // { id, title, cover, author }
   chapters: [], // [ { id, title, index } ]
@@ -6902,10 +7208,13 @@ let mangaState = {
 // 全域立體書架管理輔助函式 (相容 acg.html 與 index.html)
 // ==========================================
 
+// 書架資料只存在記憶體 (window._mangaBookshelfMemory)，真正的持久化靠 syncBookshelfToServer 存到伺服器資料庫，
+// 這樣換裝置登入也看得到同一份書架。
 window.getMangaBookshelf = function () {
   return Array.isArray(window._mangaBookshelfMemory) ? window._mangaBookshelfMemory : [];
 };
 
+// 防抖 (debounce) 計時器：使用者短時間連續改書架時，只在最後一次改完 350ms 後送一次請求，減少伺服器負擔
 let _bookshelfSyncDebounceTimer = null;
 
 // 解析書架同步帳號 (session 登入者 → web_library_user → 預設)；訪客回傳 null
@@ -6938,6 +7247,7 @@ window.syncBookshelfToServer = function(type, list) {
         payload.manga = window.getMangaBookshelf ? window.getMangaBookshelf() : [];
         payload.novel = window.getNovelBookshelf ? window.getNovelBookshelf() : [];
       }
+      // POST /api/user/bookshelf：把書架（漫畫/小說）與帳號一起送給後端存進 NeDB 資料庫
       await fetch('/api/user/bookshelf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -6985,6 +7295,7 @@ window.syncBookshelfFromServer = async function(username) {
   }
 };
 
+// 儲存漫畫書架：更新記憶體 -> 重畫書架畫面 -> 排程同步到伺服器
 window.saveMangaBookshelf = function (list) {
   window._mangaBookshelfMemory = list || [];
   if (typeof window.renderMangaBookshelf === "function") {
@@ -6999,6 +7310,7 @@ window.getNovelBookshelf = function () {
   return Array.isArray(window._novelBookshelfMemory) ? window._novelBookshelfMemory : [];
 };
 
+// 儲存小說書架（流程同 saveMangaBookshelf）
 window.saveNovelBookshelf = function (list) {
   window._novelBookshelfMemory = list || [];
   if (typeof window.renderNovelBookshelf === "function") {
@@ -7009,6 +7321,8 @@ window.saveNovelBookshelf = function (list) {
   }
 };
 
+// 「放進書架 / 移出書架」切換按鈕：以書名判斷是否已在書架；
+// 參數 title 書名、cover 封面網址（沒有就用預設圖）、btnEl 被點的按鈕（用來更新文字樣式）。
 window.toggleMangaBookshelfItem = function (title, cover, btnEl) {
   if (!title) return;
   let shelf = window.getMangaBookshelf();
@@ -7057,6 +7371,7 @@ window.toggleMangaBookshelfItem = function (title, cover, btnEl) {
 // 3D 擬真立體書架全域核心引擎 (支援琴鍵式相鄰波浪聯動 & 3D 抽書起伏)
 // ============================================================
 
+// 書本的「波浪」特效目前已停用，只負責清掉殘留的 transform，讓書本維持水平排列
 function bindBookshelfWaveEffect(bookEl) {
   if (!bookEl) return;
   // 書本嚴格水平在一條直線上，移除殘留琴鍵波浪與不對稱旋轉
@@ -7147,6 +7462,8 @@ window.disintegrateBookToPowder = function(bookElement, onComplete, originCoords
   }
 
   // 5. 慢速流體灰燼動畫循環
+  // 用 requestAnimationFrame 每一幀重畫：每顆粒子位置 += 速度、透明度遞減、半徑縮小，
+  // 全部粒子透明度都消失 (alive 為 0) 後，移除 canvas 並呼叫 onComplete（真正把書從書架資料刪掉）。
   let animId;
   function renderDust() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -7186,6 +7503,8 @@ window.disintegrateBookToPowder = function(bookElement, onComplete, originCoords
 };
 
 // 綁定全螢幕右下角固定懸浮垃圾桶 Drag & Drop 事件
+// 垃圾桶元素不存在就動態建立；用 dataset.bound 旗標確保事件只綁一次（因為每次渲染書架都會呼叫這個函式）。
+// 書本拖曳時用 dataTransfer 帶著 {type, title}，放開 (drop) 時據此判斷要從漫畫或小說書架刪除。
 window.setupGlobalBookshelfTrashBin = function() {
   let trash = document.getElementById("globalBookshelfTrashBin");
   if (!trash) {
@@ -7323,6 +7642,9 @@ function bindBookshelfDrag(bookEl, type, title) {
   return drag;
 }
 
+// 渲染漫畫書架：清空容器後，替書架中每本書建立一個 3D 書本 DOM（封面、書脊、內頁），
+// 設定可拖曳 (draggable) 以便丟進垃圾桶，點擊則開啟該漫畫的搜尋/選集抽屜；沒有書時顯示空書架提示。
+// 最後用 GSAP（動畫函式庫，若有載入）做依序彈出的進場動畫。
 window.renderMangaBookshelf = function () {
   const grid = document.getElementById("mangaBookshelfGrid");
   if (!grid) return;
@@ -7402,6 +7724,7 @@ window.renderMangaBookshelf = function () {
   }
 };
 
+// 依書名把漫畫從書架移除（垃圾桶粉碎動畫結束後呼叫）
 window.removeBookFromMangaShelf = function (title) {
   let shelf = window.getMangaBookshelf();
   shelf = shelf.filter((b) => b.title !== title);
@@ -7489,6 +7812,7 @@ window.renderNovelBookshelf = function () {
       if (drag.active) return;
       if (isLocal) {
         // 本機電子書開卷邏輯：自 IndexedDB 讀取完整章節
+        // （本機上傳的 txt/epub 內容很大，不能放 localStorage，所以存瀏覽器的 IndexedDB 資料庫）
         const bookId = book.id || "local_" + book.title.replace(/\s+/g, "_");
         let localData = await getLocalNovelFromDB(bookId);
 
@@ -7548,6 +7872,7 @@ window.renderNovelBookshelf = function () {
   }
 };
 
+// 依書名把小說從書架移除
 window.removeBookFromNovelShelf = function (title) {
   let shelf = window.getNovelBookshelf();
   shelf = shelf.filter((b) => b.title !== title);
@@ -7591,6 +7916,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }, 200);
 });
 
+// 小說版的「放進書房 / 移出書房」切換，邏輯與 toggleMangaBookshelfItem 相同
 window.toggleNovelBookshelfItem = function (title, cover, btnEl) {
   if (!title) return;
   let shelf = window.getNovelBookshelf();
@@ -7636,6 +7962,7 @@ window.toggleNovelBookshelfItem = function (title, cover, btnEl) {
 };
 
 // 開啟 Tachimanga 閱覽器
+// 有給漫畫名稱 -> 直接開搜尋抽屜；沒給 -> 顯示閱覽器視窗，沒有內容時顯示待命書架，有頁面圖片則畫卷軸式長條漫畫。
 window.openTachimangaReader = function (title = "", pages = []) {
   if (title && title !== "漫畫閱覽器" && title.trim() !== "") {
     // 如果帶有漫畫名稱，直接喚起搜尋與選集抽屜
@@ -7807,10 +8134,12 @@ window.searchMangaFromDrawer = async function (keyword) {
   if (window.CustomRules) window.CustomRules.onMangaSearch(q);
 
   try {
+    // 先啟動自訂規則搜尋（不 await，讓它與內建 API 請求並行），之後再一起合併結果
     // 內建來源與使用者自訂 XPath 規則同時搜尋，自訂規則失敗不影響內建結果
     const customPromise = window.CustomRules
       ? window.CustomRules.mangaSearchAll(q).catch(() => [])
       : Promise.resolve([]);
+    // GET /api/manga/search?q=關鍵字：後端幫忙搜尋漫畫來源 (前端不能直接跨網域爬別人網站，所以經由自己的後端代理)
     const res = await fetch(`/api/manga/search?q=${encodeURIComponent(q)}`);
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -7828,6 +8157,9 @@ window.searchMangaFromDrawer = async function (keyword) {
 };
 
 // 渲染漫畫搜尋結果清單
+// 把漫畫搜尋結果畫成卡片清單（封面、書名、來源徽章、作者、「放進書架」、Bangumi 閱讀狀態下拉、「選集」按鈕）。
+// 來源判斷：id 以 "copy_" 開頭 = CopyManga；以 "crule:" 開頭 = 使用者自訂規則；其餘當作包子漫畫。
+// 所有文字都先 escapeHtml 再放進 innerHTML，防止 XSS。
 function renderMangaSearchResults(results, q) {
   const container = document.getElementById("mangaSearchResultsContainer");
 
@@ -7919,6 +8251,7 @@ function renderMangaSearchResults(results, q) {
 
     container.appendChild(card);
 
+    // 稍微延遲 20ms 等卡片真的進到 DOM，再去 Bangumi 查這部漫畫的閱讀狀態並填入按鈕文字
     setTimeout(() => {
       checkAndRenderBangumiStatus(m.title, 1, statusTagId);
     }, 20);
@@ -7926,6 +8259,8 @@ function renderMangaSearchResults(results, q) {
 }
 
 // 選擇一部漫畫並載入章節列表 (支援別名與繁簡智慧自癒)
+// 參數：mangaId/title/cover/author 漫畫基本資料；alias 別名；source 來源名稱。
+// 流程：記到 mangaState -> 顯示摘要區 -> 向後端要章節 -> renderMangaChaptersGrid 畫出章節按鈕。
 window.selectManga = async function (
   mangaId,
   title,
@@ -7984,6 +8319,7 @@ window.selectManga = async function (
     if (isCustom && window.CustomRules) {
       data = await window.CustomRules.mangaChapters(mangaId);
     } else {
+      // GET /api/manga/chapters：向後端取得這部漫畫的章節清單；title/alias 讓後端在找不到時用別名、繁簡轉換重試
       const res = await fetch(
         `/api/manga/chapters?mangaId=${encodeURIComponent(mangaId)}&title=${encodeURIComponent(title || "")}&alias=${encodeURIComponent(alias || "")}`,
       );
@@ -8128,6 +8464,7 @@ window.loadMangaChapter = async function (
     if (String(mangaId).startsWith("crule:") && window.CustomRules) {
       data = await window.CustomRules.mangaPages(mangaId, chapterId);
     } else {
+      // GET /api/manga/pages：取得這一話所有圖片的網址陣列，再交給 renderMangaWaterfall 一張張排下來
       const res = await fetch(
         `/api/manga/pages?mangaId=${encodeURIComponent(mangaId)}&chapterId=${encodeURIComponent(chapterId)}`,
       );
@@ -8156,7 +8493,9 @@ window.loadMangaChapter = async function (
   }
 };
 
-// 渲染條漫垂直瀑布流長圖
+// 渲染條漫垂直瀑布流長圖：pages 是圖片網址陣列，依序建立 <img> 垂直排列。
+// referrerpolicy="no-referrer" 是為了繞過圖床的防盜鏈（不送出來源網址）；前 3 張 eager，其餘 lazy 滾到才載入以省流量。
+// scroll 事件裡用「可視區中心點落在哪張圖」來計算目前頁碼，顯示「第 N 頁 / 共 M 頁」。
 function renderMangaWaterfall(pages) {
   const wrapper = document.getElementById("mangaPageWrapper");
   const indicatorEl = document.getElementById("mangaPageIndicator");
@@ -8298,6 +8637,7 @@ function updateMangaNavButtons() {
   }
 }
 
+// 縮放漫畫：delta 為增減量，倍率限制在 0.6 ~ 1.8，用 CSS transform: scale 實作
 window.zoomManga = function (delta) {
   currentMangaZoom = Math.min(1.8, Math.max(0.6, currentMangaZoom + delta));
   const wrapper = document.getElementById("mangaPageWrapper");
@@ -8305,6 +8645,7 @@ window.zoomManga = function (delta) {
   if (wrapper) wrapper.style.transform = `scale(${currentMangaZoom})`;
 };
 
+// 縮放還原為 100%
 window.resetZoomManga = function () {
   currentMangaZoom = 1.0;
   const wrapper = document.getElementById("mangaPageWrapper");
@@ -8342,6 +8683,8 @@ window.closeCurrentManga = function () {
 // --- C. Legado 沉浸小說閱讀器全功能引擎 ---
 // ==========================================
 
+// 【本區塊總覽】Legado 風格小說閱讀器：搜尋日本小說站、選章節、閱讀（可換主題/字級/字色），也支援本機 txt/epub。
+// novelState 是閱讀器的整體狀態；主題與字色從 sessionStorage 還原（用立即執行函式 + try/catch 防止讀取失敗）。
 let novelState = {
   currentNovel: null, // { id, title, author, cover, intro, category }
   chapters: [], // [ { id, title, index } ]
@@ -8435,11 +8778,13 @@ let currentNovelSource = NOVEL_SOURCES[
   : "syosetu";
 
 // 產生可安全放進 onclick="fn(...)" 的 JS 字串參數 (避免標題含引號時破壞屬性)
+// 做法：JSON.stringify 加上引號並跳脫特殊字元，再 escapeHtml 轉掉 HTML 的 " 符號。
 function novelJsArg(value) {
   return escapeHtml(JSON.stringify(String(value ?? "")));
 }
 
 // 讀取後端錯誤訊息；後端未啟動或回傳非 JSON 時給通用訊息
+// 回傳 { ok:true, json } 或 { ok:false, error }，讓呼叫端統一用 if (!r.ok) 處理，不必每次寫 try/catch。
 async function readNovelApi(resp) {
   let json = null;
 
@@ -8457,6 +8802,7 @@ async function readNovelApi(resp) {
   };
 }
 
+// 在指定容器顯示一個置中的提示卡（找不到結果或連線錯誤用）；isError 為 true 時換成紅色斷線圖示
 function renderNovelNotice(container, title, detail, isError) {
   if (!container) return;
 
@@ -8469,6 +8815,7 @@ function renderNovelNotice(container, title, detail, isError) {
         `;
 }
 
+// 依目前書源 (currentNovelSource) 高亮對應的書源按鈕，並更新「當前：xxx」文字
 function updateNovelSourcePills() {
   Object.keys(NOVEL_SOURCES).forEach((key) => {
     const pill = document.getElementById(`sourcePill-${key}`);
@@ -8487,6 +8834,7 @@ function updateNovelSourcePills() {
     badge.textContent = `當前：${NOVEL_SOURCES[currentNovelSource].name}`;
 }
 
+// 切換小說書源（syosetu / kakuyomu）：記進 sessionStorage，並用抽屜裡已有的關鍵字重新搜尋
 window.setNovelSource = function (src) {
   currentNovelSource = NOVEL_SOURCES[src] ? src : "syosetu";
 
@@ -8538,6 +8886,7 @@ window.searchNovelFromDrawer = async function (keyword) {
   }
 
   // 避免快速連續搜尋時，較慢的舊回應覆蓋新結果
+  // 做法：每次搜尋產生一個獨一無二的 Symbol 當「令牌」，回應回來時若令牌已被新一次搜尋換掉，就丟棄這個過期結果。
   const searchToken = Symbol("novelSearch");
 
   novelState.searchToken = searchToken;
@@ -8555,6 +8904,7 @@ window.searchNovelFromDrawer = async function (keyword) {
   let errorMsg = "";
 
   try {
+    // GET /api/novel/search：由後端去查日本小說站；AbortSignal.timeout(20000) 表示超過 20 秒就中止，避免畫面一直轉圈
     const resp = await fetch(
       `/api/novel/search?q=${encodeURIComponent(q)}&source=${encodeURIComponent(source)}`,
       { signal: AbortSignal.timeout(20000) },
@@ -8670,6 +9020,8 @@ function renderNovelSearchResults(novels, q = "", sourceName = "") {
 }
 
 // 選擇某部小說並載入章節目錄（支援多分卷標題展示）
+// 參數：novelId、title、cover、author、intro、sourceKey（來自哪個書源）。
+// 流程：顯示摘要卡 -> GET /api/novel/chapters 取得目錄 -> renderNovelChapterList 畫出章節按鈕。
 window.selectNovel = async function (
   novelId,
   title,
@@ -8728,6 +9080,7 @@ window.selectNovel = async function (
   let errorMsg = "";
 
   try {
+    // GET /api/novel/chapters：向後端要這部小說的章節目錄
     const resp = await fetch(
       `/api/novel/chapters?novelId=${encodeURIComponent(novelId)}&source=${encodeURIComponent(source)}`,
       { signal: AbortSignal.timeout(20000) },
@@ -8811,7 +9164,7 @@ function renderNovelChapterList(chapters, novelId, title) {
     `;
 }
 
-// 抽屜中返回搜尋結果列表
+// 抽屜中返回搜尋結果列表（用先前存下的 novelState.searchResults 重畫，不必重新搜尋）
 window.backToNovelSearchResults = function () {
   const summaryBox = document.getElementById("novelSelectedSummaryBox");
 
@@ -8829,6 +9182,7 @@ window.backToNovelSearchResults = function () {
 // 核心：載入指定小說的特定章節正文（具備本地備援正文生成引擎）
 
 // 渲染小說章節段落並立即套用使用者已保存的自訂字色
+// paragraphs 是字串陣列，每段變成一個 <p>（首行縮排 2 字元、行高 2.2），內容經 escapeHtml 防 XSS。
 function renderNovelParagraphs(paragraphsEl, paragraphs) {
   if (!paragraphsEl) return;
   paragraphsEl.innerHTML = paragraphs
@@ -8843,6 +9197,9 @@ function renderNovelParagraphs(paragraphsEl, paragraphs) {
   if (savedColor) window.setNovelCustomTextColor(savedColor);
 }
 
+// 載入並顯示某一章的正文。參數：novelId、chapterId、chapterIdx（第幾章，從 0 起算）、novelTitle。
+// 流程：關掉目錄抽屜、開啟閱讀器 -> 顯示載入中 -> GET /api/novel/content 取正文 ->
+// 失敗時顯示「章節載入失敗」的說明段落（而不是白畫面）-> 更新標題並捲到頂端。
 window.loadNovelChapter = async function (
   novelId,
   chapterId,
@@ -8915,6 +9272,7 @@ window.loadNovelChapter = async function (
   let errorMsg = "";
 
   try {
+    // GET /api/novel/content：取得章節正文（paragraphs 段落陣列）；source 用「開書當下的書源」，不受之後切換影響
     const resp = await fetch(
       `/api/novel/content?novelId=${encodeURIComponent(novelId)}&chapterId=${encodeURIComponent(chapterId)}&source=${encodeURIComponent(source)}`,
       { signal: AbortSignal.timeout(20000) },
@@ -8974,7 +9332,7 @@ window.loadNovelChapter = async function (
   updateNovelNavButtons();
 };
 
-// 切換上一章 / 下一章
+// 切換上一章 / 下一章（delta = -1 或 +1）；本機電子書與線上小說走不同的載入函式
 window.switchNovelChapter = function (delta) {
   if (
     !novelState.currentNovel ||
@@ -9018,7 +9376,7 @@ window.switchNovelChapter = function (delta) {
   }
 };
 
-// 開啟選集目錄抽屜
+// 開啟選集目錄抽屜：本機書直接畫本機章節清單；線上小說則重新呼叫 selectNovel 取目錄
 window.openNovelChapterPicker = function () {
   if (!novelState.currentNovel) {
     openNovelSearchModal();
@@ -9100,6 +9458,7 @@ function renderLocalNovelChapterList() {
     `;
 }
 
+// 在本機電子書目錄點某章：載入該章並關閉抽屜
 window.selectLocalNovelChapter = function (idx) {
   loadLocalNovelChapter(idx);
   const modalEl = document.getElementById("novelSourceModal");
@@ -9153,6 +9512,8 @@ window.closeCurrentNovel = function (silent = false) {
 // 本機電子書解析引擎 (.txt / .epub)
 // ==========================================
 
+// 處理使用者上傳的電子書檔案：先檢查副檔名（只收 .txt / .epub），再交給對應的解析函式。
+// 副檔名取法：lastIndexOf(".") 配合 >>> 0 無號位移，檔名沒有「.」時結果會變成空字串。
 window.handleNovelFileUpload = async function (file) {
   if (!file) return;
   const fileName = file.name;
@@ -9184,6 +9545,8 @@ window.handleNovelFileUpload = async function (file) {
 };
 
 // TXT 電子書智慧正則切分
+// 用 FileReader 在瀏覽器端讀檔（檔案不會上傳到伺服器），讀完後把整本書切成章節陣列，
+// 每章為 { id, title, index, paragraphs }，最後交給 loadLocalBookIntoReader 顯示。
 function parseAndLoadTxtBook(file, bookTitle) {
   const reader = new FileReader();
 
@@ -9197,6 +9560,9 @@ function parseAndLoadTxtBook(file, bookTitle) {
     }
 
     // 章節正則匹配：支援 第X章、第X回、第X卷、第X節、Chapter X 等
+    // 正規表示式拆解：(?:^|\r?\n) 從行首開始；[\t 　]* 允許前面有空白/全形空格；
+    // 第[數字或中文數字]+[章回節卷集話篇]... 抓「第一章 標題」；或 Chapter\s*\d+... 抓英文章名；
+    // g 旗標讓 exec 能連續找下一個符合處，i 表示不分大小寫。
     const chapterRegex =
       /(?:^|\r?\n)[\t \u3000]*(第[\s0-9一二三四五六七八九十百千]+[章回節卷集話篇][^\r\n]*|Chapter\s*\d+[^\r\n]*)/gi;
     const matches = [];
@@ -9248,6 +9614,7 @@ function parseAndLoadTxtBook(file, bookTitle) {
       }
     } else {
       // 無明顯章節標記，按每 4000 字智慧切分
+      // （切點若 500 字內有換行就順延到換行處，避免把一句話從中間切斷）
       const chunkSize = 4000;
       let start = 0;
       let chNum = 1;
@@ -9283,6 +9650,7 @@ function parseAndLoadTxtBook(file, bookTitle) {
   reader.readAsText(file, "UTF-8");
 }
 
+// 把一大段文字依換行拆成段落陣列，並去掉空白行（供 TXT/EPUB 解析共用）
 function splitTextIntoParagraphs(text) {
   return text
     .split(/\r?\n+/)
@@ -9291,6 +9659,9 @@ function splitTextIntoParagraphs(text) {
 }
 
 // EPUB 電子書解析
+// EPUB 其實是一個 zip 壓縮檔，裡面是很多 xhtml 章節檔。做法：
+// 1) 沒載入 JSZip 套件就動態從 CDN 插入 <script> 載入；2) 解壓、挑出 html 檔（排除封面）並依檔名「自然排序」；
+// 3) 每個檔用 DOMParser 解析，標題取 h1~h3/title，段落取所有 <p>。
 async function parseAndLoadEpubBook(file, bookTitle) {
   if (typeof JSZip === "undefined") {
     showToast(
@@ -9398,9 +9769,17 @@ async function parseAndLoadEpubBook(file, bookTitle) {
 // 本機小說 IndexedDB 永續存儲引擎 (突破 localStorage 5MB 限制)
 // ============================================================
 
+// 【說明】本機上傳的 .txt / .epub 小說內容很大，localStorage 只有約 5MB 放不下，
+// 所以改存到瀏覽器內建的資料庫 IndexedDB。下面兩個常數是資料庫名稱與「資料表」(object store) 名稱。
 const LOCAL_NOVEL_DB_NAME = "WebLibraryLocalNovels";
 const LOCAL_NOVEL_STORE_NAME = "novel_chapters";
 
+/**
+ * 開啟（必要時建立）IndexedDB 資料庫。
+ * 回傳 Promise：成功回傳 db 物件；瀏覽器不支援或開啟失敗則回傳 null（不丟錯，
+ * 讓呼叫端可以走備援方案）。
+ * onupgradeneeded 只有第一次建立或版本升級時才會觸發，用來建立資料表，主鍵是 id。
+ */
 function getLocalNovelDB() {
   return new Promise((resolve, reject) => {
     if (!window.indexedDB) {
@@ -9429,6 +9808,12 @@ function getLocalNovelDB() {
   });
 }
 
+/**
+ * 把一本本機小說（含所有章節）存進 IndexedDB。
+ * @param {Object} novelData 需含 id、title、chapters 等欄位，用 id 當主鍵（put = 新增或覆蓋）
+ * 若 IndexedDB 不能用，退而求其次存到 sessionStorage（關掉分頁就沒了）。
+ * 由 loadLocalBookIntoReader 在開卷時自動呼叫。
+ */
 async function saveLocalNovelToDB(novelData) {
   try {
     const db = await getLocalNovelDB();
@@ -9460,6 +9845,10 @@ async function saveLocalNovelToDB(novelData) {
   }
 }
 
+/**
+ * 依 id 從 IndexedDB 讀出一本本機小說；找不到或失敗都回傳 null。
+ * 備援邏輯與 saveLocalNovelToDB 對應（讀 sessionStorage）。
+ */
 async function getLocalNovelFromDB(id) {
   try {
     const db = await getLocalNovelDB();
@@ -9488,6 +9877,13 @@ async function getLocalNovelFromDB(id) {
   }
 }
 
+/**
+ * 把解析好的本機電子書載入閱讀器。
+ * @param {string} bookTitle 書名
+ * @param {Array} chapters 章節陣列，每章 { title, paragraphs[] }
+ * @param {string|null} existingId 若是從 IndexedDB 還原舊書就傳原 id，否則用書名產生 id
+ * 流程：設定 novelState -> 背景存進 IndexedDB -> 顯示第 1 章 -> 跳出提示。
+ */
 function loadLocalBookIntoReader(bookTitle, chapters, existingId = null) {
   const bookId = existingId || "local_" + bookTitle.replace(/\s+/g, "_");
 
@@ -9522,7 +9918,8 @@ function loadLocalBookIntoReader(bookTitle, chapters, existingId = null) {
   );
 }
 
-// 載入本機特定章節
+// 載入本機特定章節：idx 是章節在陣列中的位置（從 0 開始）。
+// 會更新書名/章名、渲染段落、把捲軸拉回頂端，並刷新上下章按鈕。超出範圍就直接忽略。
 function loadLocalNovelChapter(idx) {
   if (!novelState.chapters || idx < 0 || idx >= novelState.chapters.length)
     return;
@@ -9560,7 +9957,8 @@ window.closeNovelReader = function () {
   // 預留可做進度暫存
 };
 
-// 更新上一章/下一章按鈕狀態
+// 更新上一章/下一章按鈕狀態：第一章時「上一章」變灰，最後一章時「下一章」變灰。
+// 頂部與底部各有一組按鈕，所以四顆一起處理。
 function updateNovelNavButtons() {
   const headerPrev = document.getElementById("novelHeaderPrevBtn");
   const headerNext = document.getElementById("novelHeaderNextBtn");
@@ -9582,7 +9980,9 @@ function updateNovelNavButtons() {
   if (bottomNext) bottomNext.disabled = !hasNext;
 }
 
-// 主題切換 (sepia, white, dark)
+// 主題切換 (sepia 護眼米黃, white 白, dark 夜間)。
+// 把主題記在 sessionStorage 的 novel_theme，並換掉容器的 CSS class（novel-theme-xxx）。
+// 注意：若使用者已自訂字色，要保留 novel-custom-color 這個 class。
 window.setNovelTheme = function (theme) {
   novelState.theme = theme;
   try {
@@ -9699,7 +10099,7 @@ window.resetNovelCustomTextColor = function () {
   );
 };
 
-// 字級大小調整
+// 字級大小調整：delta 為增減的 px（例如 +2 / -2），並用 min/max 限制在 14~28px 之間。
 window.adjustNovelFontSize = function (delta) {
   novelState.fontSize = Math.min(28, Math.max(14, novelState.fontSize + delta));
   const articleBox = document.getElementById("novelArticleContent");
@@ -9738,6 +10138,7 @@ window.openLegadoReader = function (arg = null) {
   modal.show();
 };
 
+// 以書名直接開啟「小說搜尋」視窗（給卡片上的按鈕使用）
 window.openLegadoWithTitle = function (title) {
   openNovelSearchModal(title);
 };
@@ -9746,6 +10147,8 @@ window.openLegadoWithTitle = function (title) {
 window.bangumiCalendarData = window.bangumiCalendarData || null;
 let currentCalendarDay = 1;
 
+// 開啟「每日新番時刻表」視窗：資料只在第一次抓取（有快取就不再發 API），
+// 預設切到「今天」的分頁。fetchCalendarDataWithFallback 定義在 acg.js，失敗會自動用離線資料。
 window.openBangumiCalendar = async function () {
   const modalEl = document.getElementById("bangumiCalendarModal");
 
@@ -9787,6 +10190,7 @@ window.openBangumiCalendar = async function () {
   switchCalendarWeekday(today, targetTab);
 };
 
+// 切換星期分頁：dayId 為 1~7（週一~週日），btn 是被點的按鈕，用來標示 active 外觀。
 window.switchCalendarWeekday = function (dayId, btn) {
   currentCalendarDay = dayId;
 
@@ -9807,6 +10211,8 @@ window.switchCalendarWeekday = function (dayId, btn) {
   renderCalendarDayAnime(dayId);
 };
 
+// 把某一天的新番渲染成卡片格狀。資料來自 Bangumi 的 calendar API：
+// 陣列每項是 { weekday: {id}, items: [番劇...] }。用 escapeHtml 防止標題內含 HTML 造成 XSS。
 function renderCalendarDayAnime(dayId) {
   const grid = document.getElementById("bangumiAnimeGrid");
 
@@ -9880,7 +10286,8 @@ function renderCalendarDayAnime(dayId) {
   });
 }
 
-// 將 Bangumi 新番直接存入個人圖書館
+// 將 Bangumi 新番直接存入個人圖書館（unshift 放到清單最前面），
+// 然後存檔 (saveToStorage) 並重畫畫面 (updateUI)。
 window.collectBangumiAnime = function (title, url, cover) {
   const newBookmark = {
     id: "bm_" + Date.now(),
@@ -9910,6 +10317,14 @@ window.collectBangumiAnime = function (title, url, cover) {
 // 8. Bangumi 帳號追番清單一鍵同步核心 (支援單向匯入與雙向衝突優先同步)
 // ==========================================
 
+/**
+ * 從 Bangumi（番組計劃，日本動漫資料站）抓使用者的收藏清單，合併進本站圖書館。
+ * @param {string} mode "import" = 只匯入；"two-way" = 雙向同步（需要 Token，
+ *   本地集數比 Bangumi 多時會透過本站後端 /api/bangumi/episodes 回寫過去）。
+ * 流程：讀表單 -> 檢查 Token/帳號 -> 分頁抓 API -> 逐筆比對（已存在就更新、沒有就新增）
+ *   -> 存檔、重畫、提示、1.8 秒後關閉視窗。按鈕在 finally 一定會恢復，避免卡在「載入中」。
+ * 由 Bangumi 同步視窗的「僅匯入」「雙向全量同步」按鈕觸發。
+ */
 window.triggerBangumiUserSync = async function (mode = "import") {
   const usernameInput = document.getElementById("bgmUsernameInput");
   const syncTypeSelect = document.getElementById("bgmSyncType");
@@ -9996,6 +10411,8 @@ window.triggerBangumiUserSync = async function (mode = "import") {
       subjectType === "all" ? [2, 1] : [parseInt(subjectType, 10)];
     let allItems = [];
 
+    // subject_type：1 = 書籍、2 = 動畫；選「全部」時兩種都抓。
+    // type（syncType）：1 想看 / 2 看過 / 3 在看。
     // v0 API 每頁上限 50 筆，需依 total/offset 逐頁取回 (最多 20 頁，避免無限迴圈)
     const PAGE_LIMIT = 50;
     const MAX_PAGES = 20;
@@ -10046,6 +10463,7 @@ window.triggerBangumiUserSync = async function (mode = "import") {
     let updatedCount = 0;
     let pushedCount = 0;
 
+    // 逐筆處理抓回來的作品：整理標題/封面/進度 -> 比對本地是否已有 -> 更新或新增
     for (const item of allItems) {
       const subject = item.subject || {};
       const subjectId = item.subject_id || subject.id;
@@ -10099,6 +10517,7 @@ window.triggerBangumiUserSync = async function (mode = "import") {
         // 雙向全量同步且以「網頁優先」：比對本地是否有更進一步的集數觀看記錄
         if (isTwoWay && priority === "local" && token) {
           let localEp = 0;
+          // 本地的集數記在 desc 文字裡，格式像「[5/12 集]」；這個正規表示式抓出斜線前的數字 5
           const epMatch = (existing.desc || "").match(/\[(\d+)\//);
 
           if (epMatch) localEp = parseInt(epMatch[1], 10) || 0;
@@ -10240,6 +10659,8 @@ window.triggerBangumiUserSync = async function (mode = "import") {
 // 9. 批量管理 (Batch Management) 核心邏輯
 // ==========================================
 
+// 開/關批量管理模式。forceState 不給就是反向切換；退出時清空已勾選項目。
+// 所有選取的書籤 id 存在 state.selectedBookmarkIds（Set，不會重複）。
 window.toggleBatchMode = function (forceState) {
   state.isBatchMode =
     forceState !== undefined ? forceState : !state.isBatchMode;
@@ -10270,6 +10691,7 @@ window.toggleBatchMode = function (forceState) {
   }
 };
 
+// 依目前是否為批量模式，更新工具列的顯示/隱藏、按鈕樣式與「已選幾個」的數字
 window.updateBatchUI = function () {
   const bar = document.getElementById("batchActionBar");
   const btn = document.getElementById("batchModeBtn");
@@ -10299,6 +10721,7 @@ window.updateBatchUI = function () {
   }
 };
 
+// 勾選/取消勾選單一書籤。explicitChecked 有給就照它設定（來自 checkbox），沒給就反轉。
 window.toggleSelectBookmark = function (id, explicitChecked) {
   if (!state.isBatchMode) return;
 
@@ -10329,6 +10752,7 @@ function syncCardSelection(id) {
   card.classList.toggle("batch-selected", selected);
 }
 
+// 全選/全不選：只針對「目前篩選後看得到的」書籤，不會選到被篩掉的
 window.batchSelectAll = function (selectAll = true) {
   const currentItems = getFilteredAndSortedBookmarks();
 
@@ -10343,6 +10767,7 @@ window.batchSelectAll = function (selectAll = true) {
   currentItems.forEach((b) => syncCardSelection(b.id));
 };
 
+// 批量改分類：把選取的書籤全部改成 newCategory（必須是合法分類），然後存檔重畫
 window.batchChangeCategory = function (newCategory) {
   if (state.selectedBookmarkIds.size === 0) {
     showToast(
@@ -10376,6 +10801,7 @@ window.batchChangeCategory = function (newCategory) {
   );
 };
 
+// 開啟「批量加標籤」視窗（沒有選任何項目時先提醒）
 window.openBatchTagsModal = function () {
   if (state.selectedBookmarkIds.size === 0) {
     showToast(
@@ -10401,6 +10827,7 @@ window.openBatchTagsModal = function () {
   }
 };
 
+// 把輸入的標籤追加到所有選取的書籤（已有的標籤不重複加）
 window.applyBatchTags = function () {
   const input = document.getElementById("batchNewTagInput");
   const rawVal = input ? input.value.trim() : "";
@@ -10411,6 +10838,7 @@ window.applyBatchTags = function () {
     return;
   }
 
+  // 用半形逗號、全形逗號或空白切開，支援一次輸入多個標籤；再濾掉空字串
   const tagsToAdd = rawVal.split(/[,，\s]+/).filter((t) => t.trim() !== "");
 
   if (tagsToAdd.length === 0) return;
@@ -10447,6 +10875,7 @@ window.applyBatchTags = function () {
   );
 };
 
+// 批量切換置頂：每個選取項目各自反轉 pinned（原本置頂的變不置頂，反之亦然）
 window.batchTogglePin = function () {
   if (state.selectedBookmarkIds.size === 0) {
     showToast("請先勾選項目！", "bi-exclamation-circle text-warning");
@@ -10476,6 +10905,7 @@ window.batchTogglePin = function () {
   );
 };
 
+// 批量刪除：先 confirm 確認，再用 filter 保留「沒被選到」的書籤，並立即同步到伺服器。
 window.batchDeleteBookmarks = function () {
   const count = state.selectedBookmarkIds.size;
 
@@ -10491,6 +10921,7 @@ window.batchDeleteBookmarks = function () {
     return;
   }
 
+  // 這個旗標告訴「跨裝置同步」邏輯：本機正在修改資料，先別把伺服器舊資料合併回來
   _isLocalMutationActive = true;
 
   state.bookmarks = state.bookmarks.filter(
@@ -10519,6 +10950,13 @@ window.batchDeleteBookmarks = function () {
 // 8. KazumiRules 前端即時搜尋與播放
 // ==========================================
 
+/**
+ * 在 ACG 頁面用「Kazumi 規則」搜尋動漫。
+ * @param {string|null} keyword 有給就用它搜；沒給就讀搜尋框的內容
+ * 流程：呼叫本站後端 /api/kazumi/rule-search（後端去爬各家動漫站，前端不能直接跨網站爬，
+ * 會被瀏覽器的 CORS 擋住），拿到結果後畫成卡片。標題一律 escapeHtml 防 XSS。
+ * 每張卡片的「在線觀看全集」按鈕會呼叫 watchKazumiFromElement -> watchKazumiAnime。
+ */
 window.searchKazumiAnime = async function (keyword = null) {
   const input = document.getElementById("kazumiSearchInput");
   const q = (keyword !== null ? keyword : input ? input.value : "").trim();
@@ -10599,7 +11037,9 @@ window.searchKazumiAnime = async function (keyword = null) {
   }
 };
 
-// 點擊「在線觀看全集」
+// 點擊「在線觀看全集」：先打開播放 Modal（先隱藏原生 video、清空 iframe），
+// 再向後端 /api/kazumi/rule-episodes 取得這部番的集數清單，畫出集數按鈕並自動播放第 1 集。
+// title 片名、detailUrl 作品詳情頁網址、source 規則來源（預設 AGE）。
 window.watchKazumiAnime = async function (title, detailUrl, source = "AGE") {
   showToast(`正在解析《${title}》選集清單...`, "bi-hourglass-split text-info");
 
@@ -10662,6 +11102,8 @@ window.watchKazumiAnime = async function (title, detailUrl, source = "AGE") {
   }
 };
 
+// 在播放視窗的集數區畫出每一集的按鈕；第一集預設為選中（藍色）。
+// 點某集時：切換按鈕的選中樣式、更新視窗標題、呼叫 playKazumiRuleEpisode 播放。
 function renderKazumiRuleEpisodes(animeTitle, episodes, source) {
   window.currentKazumiAnimeTitle = animeTitle;
   const modalTitle = document.getElementById("animePlayerTitle");
@@ -10700,6 +11142,14 @@ function renderKazumiRuleEpisodes(animeTitle, episodes, source) {
   });
 }
 
+/**
+ * 播放指定的一集。向後端 /api/kazumi/rule-play 把「集數頁網址」換成真正可播的網址。
+ * 兩種播放方式：
+ *  1. 直接串流（.mp4 / .m3u8）：用原生 <video>；.m3u8 是 HLS 格式，
+ *     瀏覽器多半不能直接播，所以用 hls.js 函式庫（Safari 則原生支援）。
+ *  2. 其他網址：用 <iframe> 嵌入第三方播放器。
+ * 播放後會用集數數字去抓彈幕（startDanmakuStream）。
+ */
 async function playKazumiRuleEpisode(playUrl, epTitle, source) {
   showToast(`正在載入 ${epTitle}...`, "bi-play-circle-fill text-danger");
 
@@ -10713,6 +11163,7 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
       window.currentKazumiPlayingUrl = data.playerUrl;
 
       // 檢查是否為直接串流 (.mp4, .m3u8, 或後端標記 isDirectStream)
+      // 正規表示式：網址以 .mp4 或 .m3u8 結尾（後面可接 ?參數）就視為直接串流
       const isDirect =
         data.isDirectStream || /\.(mp4|m3u8)(\?.*)?$/i.test(data.playerUrl);
       const video = document.getElementById("kazumiVideoPlayer");
@@ -10843,7 +11294,7 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
           window.applyKazumiVolume(false);
       }, 100);
 
-      // 啟動彈幕流
+      // 啟動彈幕流：從集數標題（如「第12集」）抓第一串數字當集數編號，抓不到就當第 1 集
       const epMatch = (epTitle || "").match(/\d+/);
       const epNo = epMatch ? parseInt(epMatch[0], 10) : 1;
 
@@ -10895,6 +11346,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // 自動預填 Bangumi 個人令牌與帳號以及衝突優先權
+// （每次同步視窗要顯示前 show.bs.modal 事件觸發，把已存的設定填回輸入框、清掉舊提示）
 document.addEventListener("DOMContentLoaded", () => {
   const bgmModal = document.getElementById("bangumiSyncModal");
 
@@ -10930,7 +11382,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// 初始化小說閱讀器自訂字體顏色與書源狀態
+// 初始化小說閱讀器自訂字體顏色與書源狀態：頁面載入完成後，載入彈幕設定、
+// 還原小說書源下拉選單，並把 sessionStorage 記住的自訂字色重新套用到閱讀器。
 document.addEventListener("DOMContentLoaded", () => {
   try {
     loadDanmakuSettings();
@@ -10968,6 +11421,8 @@ document.addEventListener("DOMContentLoaded", () => {
 // C. 歷史紀錄、Bangumi 狀態辨識/同步與書籤匯入
 // ==========================================
 
+// 判斷一筆書籤是不是「書籍類」(漫畫/小說) 而不是動畫。
+// 優先看 Bangumi 匯入時記的 bangumiSubjectType；沒有的話再看分類與標籤文字猜。
 function isMangaItem(item) {
   if (!item) return false;
 
@@ -10993,6 +11448,8 @@ function isMangaItem(item) {
   );
 }
 
+// 取得卡片上要顯示的「觀看狀態」文字（想看/在看/看過…）。
+// 依序嘗試：書籤欄位 -> 標籤 -> 快取，都沒有就顯示「標記狀態」。
 window.getBookmarkWatchStatusLabel = function (item) {
   if (!item) return "狀態";
   const isManga = isMangaItem(item);
@@ -11019,6 +11476,13 @@ window.getBookmarkWatchStatusLabel = function (item) {
   return "標記狀態";
 };
 
+/**
+ * 使用者在卡片上改「觀看狀態」（想看/在看/看過…）。
+ * @param {string} bookmarkId 書籤 id
+ * @param {number} newType Bangumi 狀態代碼 1 想看 / 2 看過 / 3 在看 / 4 擱置 / 5 拋棄
+ * 先改本地（標籤 + bangumiStatus），再如果有綁 Token 就回寫 Bangumi 官方帳號。
+ * 沒有作品 ID 時會先用標題去搜尋（fetchBangumiSubjectStatus）。
+ */
 window.updateCardWatchStatus = async function (bookmarkId, newType) {
   const item = state.bookmarks.find((b) => b.id === bookmarkId);
 
@@ -11084,7 +11548,7 @@ window.updateCardWatchStatus = async function (bookmarkId, newType) {
   }
 };
 
-// 搜尋結果加入圖書館
+// 搜尋結果加入圖書館（以標題判斷是否已收藏過，避免重複加入）
 window.addAnimeSearchResultToLibrary = function (title, cover, url) {
   if (!title) return;
 
@@ -11132,6 +11596,8 @@ window.addAnimeSearchResultToLibrary = function (title, cover, url) {
 // Bangumi 狀態辨識與快速修改快取
 window.bangumiSubjectStatusCache = window.bangumiSubjectStatusCache || {};
 
+// 清理標題以利搜尋：把【】[]（）《》等括號內容，以及「第2季、S2、1080p、劇場版」這類
+// 季數/畫質標記用正規表示式拿掉，只留作品本名，這樣 Bangumi 才搜得到。
 function cleanBangumiQueryTitle(rawTitle) {
   if (!rawTitle) return "";
   let t = String(rawTitle).trim();
@@ -11168,6 +11634,15 @@ function bgmSubjectCacheKey(subjectId) {
 const BGM_SEASON_RE =
   /第[0-9一二三四五六七八九十百]+[季期部]|Season\s*\d+|\bS\d+\b|Part\s*\d+|劇場版|剧场版|特別篇|OVA|OAD/i;
 
+/**
+ * 用作品標題查出它在 Bangumi 的條目 ID 與使用者的收藏狀態。
+ * @param {string} title 作品標題
+ * @param {number} typeId 1 = 書籍、2 = 動畫
+ * @returns {Promise<{subjectId, type, title}|null>} type 為收藏狀態 (0 = 未收藏)；查不到回傳 null
+ * 步驟：先查快取 -> 看本地書籤是否已綁定 ID -> 否則呼叫後端 /api/bangumi/search 搜尋
+ *   (優先完全比對標題) -> 有 Token 就再問 /api/bangumi/collection 取得狀態。
+ * 結果存進 window.bangumiSubjectStatusCache，避免重複發 API。
+ */
 window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
   const rawTitle = String(title || "").trim();
   if (!rawTitle) return null;
@@ -11308,6 +11783,7 @@ window.fetchBangumiSubjectStatus = async function (title, typeId = 2) {
   return null;
 };
 
+// 查詢並把狀態文字顯示在指定 id 的 DOM 元素上（例如播放器標題旁的「在看」）
 window.checkAndRenderBangumiStatus = async function (title, typeId, elementId) {
   const el = document.getElementById(elementId);
 
@@ -11333,6 +11809,8 @@ window.checkAndRenderBangumiStatus = async function (title, typeId, elementId) {
   }
 };
 
+// 使用者從播放器等處修改某作品的 Bangumi 收藏狀態：需有 Token，
+// 成功回寫後同步更新快取、本地書籤的標籤，以及畫面上指定的狀態元素。
 window.applyBangumiStatusChange = async function (
   title,
   statusType,
@@ -11422,6 +11900,9 @@ window.applyBangumiStatusChange = async function (
 
 // ==================== 全方位觀看歷史紀錄系統 (支援動漫/YouTube/Bilibili/直連串流) ====================
 
+// 取得「觀看歷史」陣列。歷史存在 sessionStorage 的 web_library_watch_history 鍵。
+// 讀取時順便做資料清洗（舊格式遷移、補封面、清掉無效的待命紀錄），有修正就寫回去。
+// 壞掉的 JSON 會被 try/catch 接住，回傳空陣列。
 window.getWatchHistoryList = function () {
   try {
     let list = JSON.parse(
@@ -11459,6 +11940,8 @@ window.getWatchHistoryList = function () {
           : "";
         hasFixed = true;
       } else if (item.platform === "youtube" && item.playUrl) {
+        // 正規表示式：從 YouTube 各種網址格式（?v= / embed / shorts / youtu.be）抓 11 碼影片 ID，
+        // 用來組出縮圖網址 img.youtube.com/vi/<ID>/hqdefault.jpg
         const ytMatch = item.playUrl.match(
           /(?:v=|\/embed\/|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
         );
@@ -11528,7 +12011,7 @@ window.toggleTheaterFloatingHistory = function (forceState) {
   }
 };
 
-// 點擊懸浮面板外部自動收合
+// 點擊懸浮面板外部自動收合：全頁面監聽 click，點到面板或開關按鈕以外的地方就隱藏
 document.addEventListener("click", (e) => {
   const panel = document.getElementById("theaterFloatingHistoryPanel");
   const btn = document.getElementById("theaterHistoryFloatingToggleBtn");
@@ -11539,6 +12022,12 @@ document.addEventListener("click", (e) => {
   panel.style.display = "none";
 });
 
+/**
+ * 新增/更新一筆觀看歷史（動漫、YouTube、Bilibili 通用）。
+ * 參數：片名、封面、集數標題、播放網址、目前秒數、總秒數、平台（不給就依網址判斷）。
+ * 規則：待命狀態或沒有網址不記錄；同片名/同網址的舊紀錄先刪除（去重）再放到最前面；
+ * 最多保留 30 筆。存完後重畫兩處歷史畫面。
+ */
 window.saveWatchHistory = function (
   title,
   cover,
@@ -11665,6 +12154,7 @@ window.saveAnimePlayHistory = function (
 };
 let lastAnimeThrottleTime = 0;
 
+// 節流：影片播放時 timeupdate 事件一秒觸發好幾次，這裡限制每 4 秒才真的存一次進度
 window.throttleSaveAnimeProgress = function (currentTime, duration) {
   const now = Date.now();
 
@@ -11674,6 +12164,8 @@ window.throttleSaveAnimeProgress = function (currentTime, duration) {
   }
 };
 
+// 立刻把目前動漫劇院的播放進度存進歷史（從播放器標題「片名 - 集數」拆出資料）。
+// 若是原生 video 取 currentTime；iframe 播放沒辦法讀時間，改用彈幕的虛擬時間。
 window.saveCurrentAnimeProgressNow = function () {
   const video = document.getElementById("kazumiVideoPlayer");
 
@@ -11720,6 +12212,8 @@ window.saveCurrentAnimeProgressNow = function () {
 };
 
 // 劇院待命畫面中渲染最近觀看摘要 (支援懸浮視窗與抽屜，寬度舒展展示所有紀錄並支援平滑向下滾動)
+// 做法：把歷史陣列用 .map() 轉成 HTML 字串再 .join("") 塞進容器的 innerHTML。
+// 進度百分比 = 目前秒數 / 總秒數；使用者內容都經過 escapeHtml，避免被注入惡意 HTML。
 window.renderAnimeHistoryStandby = function () {
   const box = document.getElementById("animeRecentHistoryBox");
 
@@ -11909,7 +12403,9 @@ window.renderWatchHistoryGrid = function () {
   });
 };
 
-// 接續恢復觀看
+// 接續恢復觀看：依 id 找到歷史紀錄，動漫走劇院播放器、其餘（YouTube/B站）走一般播放器。
+// 播放器載入需要時間，所以先監聽 loadedmetadata（影片資訊載入完成）事件，
+// 一觸發就把 currentTime 跳到上次看到的秒數，並立刻移除監聽器（只跳一次）。
 window.resumeWatchHistory = function (id) {
   const history = window.getWatchHistoryList();
 
@@ -11965,6 +12461,7 @@ window.resumeWatchHistory = function (id) {
   }
 };
 
+// 刪除單筆觀看紀錄。stopPropagation 避免點叉叉時同時觸發卡片本身的點擊事件。
 window.deleteWatchHistoryItem = function (id, e) {
   if (e) {
     e.preventDefault();
@@ -11982,6 +12479,7 @@ window.deleteWatchHistoryItem = function (id, e) {
   showToast("已刪除該筆觀看紀錄", "bi-trash text-secondary");
 };
 
+// 清空全部觀看紀錄（含舊版 key），先 confirm 讓使用者確認
 window.clearAllWatchHistory = function () {
   if (!confirm("確定要清空所有動漫、Bilibili 與 YouTube 的播放歷史紀錄嗎？"))
     return;
@@ -11995,6 +12493,8 @@ window.clearAllWatchHistory = function () {
   showToast("已清空全部觀看紀錄！", "bi-trash-fill text-danger");
 };
 
+// 開啟「觀看歷史」視窗。如果動漫劇院視窗也開著（兩個 Modal 疊在一起），
+// 要手動調高 z-index，確保歷史視窗與遮罩會蓋在劇院上面。
 window.openWatchHistoryModal = function (e) {
   if (e) {
     try {
@@ -12060,6 +12560,7 @@ if (whModalEl) {
 const MANGA_HISTORY_KEY = "web_library_manga_history";
 let _mangaHistorySyncTimer = null;
 
+// 讀取漫畫閱讀歷史（陣列）；資料壞掉時回傳空陣列
 function getMangaHistory() {
   try {
     const list = JSON.parse(sessionStorage.getItem(MANGA_HISTORY_KEY) || "[]");
@@ -12069,6 +12570,8 @@ function getMangaHistory() {
   }
 }
 
+// 寫入漫畫歷史：先存 sessionStorage；若有登入帳號，300ms 後再 POST 到後端
+// /api/user/bookshelf（防抖 debounce：短時間連續呼叫只會送最後一次，省流量）。
 function setMangaHistory(history) {
   sessionStorage.setItem(MANGA_HISTORY_KEY, JSON.stringify(history));
   const user = resolveBookshelfUser();
@@ -12084,6 +12587,7 @@ function setMangaHistory(history) {
   }, 300);
 }
 
+// 記錄漫畫閱讀進度：同一部漫畫先刪舊的再放最前面，最多保留 20 筆
 window.saveMangaReadHistory = function (
   mangaId,
   title,
@@ -12116,6 +12620,7 @@ window.saveMangaReadHistory = function (
   }
 };
 
+// 在漫畫待命畫面渲染閱讀歷史清單（沒有紀錄就整個隱藏）；idx 是陣列位置，供「閱讀/刪除」按鈕使用
 window.renderMangaHistoryStandby = function () {
   const box = document.getElementById("mangaRecentHistoryBox");
 
@@ -12169,6 +12674,7 @@ window.renderMangaHistoryStandby = function () {
   }
 };
 
+// 刪除第 idx 筆漫畫歷史（splice 就地移除）
 window.removeMangaHistoryItem = function (idx) {
   try {
     let history = getMangaHistory();
@@ -12184,6 +12690,8 @@ window.removeMangaHistoryItem = function (idx) {
   }
 };
 
+// 接續閱讀漫畫：先開啟該漫畫（selectManga 會非同步載入章節清單），
+// 等 700ms 後章節才抓好，再跳到上次的章節；找不到該序號就用章名比對，再不行就第 1 章。
 window.resumeMangaHistory = function (idx = 0) {
   try {
     const history = getMangaHistory();
@@ -12217,6 +12725,7 @@ window.resumeMangaHistory = function (idx = 0) {
   }
 };
 
+// 清除全部漫畫歷史
 window.clearMangaHistory = function () {
   setMangaHistory([]);
   window.renderMangaHistoryStandby();
@@ -12225,6 +12734,7 @@ window.clearMangaHistory = function () {
 };
 
 // 相容性全域函式守護 (預防歷史模組與 ACG 擴充調用 ReferenceError)
+// （別名）其他模組呼叫的「存書籤」，實際上就是 saveToStorage(true) 立即存檔並同步伺服器
 window.saveBookmarksLocally = function () {
   saveToStorage(true);
 };
@@ -12233,7 +12743,9 @@ window.renderCategoryTabs = function () {
   updateUI();
 };
 
-// 匯入書籤 JSON 支援
+// 匯入書籤 JSON 支援。event 是 <input type="file"> 的 change 事件。
+// 用 FileReader 讀檔案文字，再 JSON.parse；相容三種格式：純陣列、{bookmarks:[...]}、以 id 為 key 的物件。
+// 比對規則：id 相同或 url 相同就「更新」，否則「新增」。finally 清空 input，讓同一檔案可再次選取。
 window.handleImportBookmarks = function (event) {
   const file = event.target.files && event.target.files[0];
 
@@ -12329,7 +12841,7 @@ window.handleImportBookmarks = function (event) {
   reader.readAsText(file, "UTF-8");
 };
 
-// 頁面初始化自動渲染歷史紀錄
+// 頁面初始化自動渲染歷史紀錄（延遲 100ms 等其他模組與 DOM 就緒）
 document.addEventListener("DOMContentLoaded", () => {
   setTimeout(() => {
     if (typeof window.renderAnimeHistoryStandby === "function")
@@ -12350,6 +12862,8 @@ document.addEventListener("DOMContentLoaded", initApp);
 // ACG 專區：遊戲專區與工具攻略庫 (Game Hub)
 // ==========================================
 
+// 內建的預設遊戲/工具攻略站清單（每筆有 id、標題、網址、徽章、標籤、說明）。
+// isCustom: false 表示系統預設；使用者自己新增的會是 true，並存在 localStorage。
 const DEFAULT_ACG_GAMES = [
   {
     id: "game_fgo_chaldea",
@@ -12436,6 +12950,9 @@ const DEFAULT_ACG_GAMES = [
   },
 ];
 
+// 取得遊戲專區要顯示的所有卡片 = 「沒被使用者隱藏的預設卡片」+「使用者自訂卡片」。
+// 兩份設定都存在 sessionStorage：web_library_hidden_default_games（被移除的預設卡 id 清單）、
+// web_library_custom_games（自訂卡片陣列）。讀取失敗就退回完整預設清單。
 function getGameHubItems() {
   try {
     const hiddenDefaults = JSON.parse(
@@ -12455,6 +12972,7 @@ function getGameHubItems() {
   }
 }
 
+// 開啟遊戲專區視窗：先渲染卡片再顯示 Bootstrap Modal
 window.openGameHubModal = function () {
   window.renderGameHubGrid();
   const modalEl = document.getElementById("gameHubModal");
@@ -12466,6 +12984,9 @@ window.openGameHubModal = function () {
   }
 };
 
+// 渲染遊戲卡片格。keyword 不為空時，會比對標題/說明/標籤（不分大小寫）做搜尋過濾。
+// 某些網站（itch.io、unityroom、B站小遊戲）禁止被 iframe 嵌入，所以只提供「另開新分頁」；
+// 其餘提供「在線開啟」（站內 iframe 視窗）與「跳轉」兩種按鈕。最後一格固定是「新增自訂卡片」。
 window.renderGameHubGrid = function (keyword = "") {
   const container = document.getElementById("gameHubGridContainer");
 
@@ -12554,10 +13075,13 @@ window.renderGameHubGrid = function (keyword = "") {
   container.appendChild(addCol);
 };
 
+// 搜尋框輸入時呼叫，等於用關鍵字重新渲染
 window.filterGameHubGrid = function (keyword) {
   window.renderGameHubGrid(keyword);
 };
 
+// 在站內的 iframe 視窗開啟某個工具網站：先收起清單視窗，再顯示工具視窗。
+// iframe 的 onload 觸發時才把「載入中」提示藏起來。網址記在 window.currentGameToolUrl 供重新整理/新分頁用。
 window.openGameToolViewer = function (title, url) {
   if (!url) return;
 
@@ -12609,6 +13133,7 @@ window.openGameToolViewer = function (title, url) {
   }
 };
 
+// 重新載入目前的工具頁面（把同一個網址再指定給 iframe.src）
 window.reloadGameToolIframe = function () {
   const iframe = document.getElementById("gameToolIframe");
 
@@ -12621,12 +13146,15 @@ window.reloadGameToolIframe = function () {
   }
 };
 
+// 另開新分頁；noopener,noreferrer 防止新頁面透過 window.opener 控制本站（安全做法）
 window.openGameToolInNewTab = function () {
   if (window.currentGameToolUrl) {
     window.open(window.currentGameToolUrl, "_blank", "noopener,noreferrer");
   }
 };
 
+// 從工具視窗返回遊戲清單：關閉工具視窗、把 iframe 設成 about:blank 釋放記憶體，
+// 延遲 150ms 再開清單（等前一個 Modal 的關閉動畫跑完，避免兩個 Modal 互相卡住）。
 window.backToGameHub = function () {
   const toolModalEl = document.getElementById("gameToolModal");
 
@@ -12645,12 +13173,14 @@ window.backToGameHub = function () {
   }, 150);
 };
 
+// 關閉工具視窗時清空 iframe，停止網站繼續在背景執行（例如影音）
 window.closeGameToolViewer = function () {
   const iframe = document.getElementById("gameToolIframe");
 
   if (iframe) iframe.src = "about:blank";
 };
 
+// 開啟「新增自訂遊戲」表單視窗，並先把四個輸入框清空
 window.openAddCustomGameModal = function () {
   const nameInput = document.getElementById("customGameNameInput");
 
@@ -12677,6 +13207,8 @@ window.openAddCustomGameModal = function () {
   }
 };
 
+// 儲存使用者自訂的遊戲/Wiki 卡片。名稱與網址必填；網址若沒有 http(s):// 開頭就自動補 https://。
+// 標籤用逗號/空白分隔（沒填預設「自定義」）。存入 sessionStorage 的 web_library_custom_games。
 window.saveCustomGame = function () {
   const nameInput = document.getElementById("customGameNameInput");
 
@@ -12747,6 +13279,8 @@ window.saveCustomGame = function () {
   }
 };
 
+// 刪除卡片：自訂卡片直接從清單移除；預設卡片因為寫死在程式裡，只能把 id 記到「隱藏清單」，
+// 之後可用「恢復預設」(resetDefaultGames) 還原。
 window.deleteGameHubCard = function (id, isCustom) {
   if (
     !confirm(
@@ -12794,6 +13328,7 @@ window.deleteGameHubCard = function (id, isCustom) {
   }
 };
 
+// 恢復預設卡片：清掉「隱藏清單」即可，被移除的預設卡就會重新出現
 window.resetDefaultGames = function () {
   sessionStorage.removeItem("web_library_hidden_default_games");
 
@@ -12804,7 +13339,7 @@ window.resetDefaultGames = function () {
   window.renderGameHubGrid();
 };
 
-// 當前漫畫一鍵收進書架
+// 當前漫畫一鍵收進書架（以書名判斷是否已收藏，避免重複）
 window.toggleCurrentMangaToBookshelf = function () {
   const cur = mangaState.currentManga;
   if (!cur || !cur.title) {
@@ -12855,7 +13390,7 @@ window.toggleCurrentNovelToBookshelf = async function () {
       ? "local_" + cur.title.replace(/\s+/g, "_")
       : "online_" + cur.title);
 
-  // 若為本機上傳，確保完整章節寫入 IndexedDB
+  // 書架只存書名/封面等摘要，本機書的完整章節要靠 IndexedDB 才能日後再開，所以收藏前先確保寫入
   if (isLocal && novelState.chapters && novelState.chapters.length > 0) {
     await saveLocalNovelToDB({
       id: bookId,
@@ -12889,8 +13424,16 @@ window.toggleCurrentNovelToBookshelf = async function () {
 
 // ==================== Docker 容器生命週期控制 (Port 8095) ====================
 
+// 記住最近一次 Docker 指令的結果，給「執行紀錄」視窗顯示
 let lastDockerOutput = { cmd: "", output: "", status: "" };
 
+/**
+ * 向後端 /api/docker/status 詢問 Docker 容器狀態，更新導覽列的徽章。
+ * @param {boolean} isManual 使用者手動按「檢測」時為 true，才跳出提示訊息
+ * 用 AbortController + setTimeout 設定 2.5 秒逾時（fetch 本身沒有逾時功能，要自己中止）。
+ * 若網站本身已經跑在 Docker 容器內（port 8095），就改顯示簡化版選單，
+ * 並用 mode:"no-cors" 探測宿主機 8090 是否有開（no-cors 拿不到內容，但能連上就代表有開）。
+ */
 window.checkDockerStatus = async function (isManual = false) {
   const badge = document.getElementById("dockerStatusBadge");
   const navBadge = document.getElementById("navDockerBadge");
@@ -13013,6 +13556,9 @@ window.checkDockerStatus = async function (isManual = false) {
     }
   }
 };
+// 對後端 /api/docker/action 送出 Docker 操作指令（up 部署 / start / stop / restart / down 等）。
+// "update" 在後端等同 "up"（會重新 build）。結果存到 lastDockerOutput 並開執行紀錄視窗；
+// 後端連不上時，產生可直接複製到終端機執行的 docker compose 指令當替代方案。
 window.executeDockerAction = async function (action) {
   const actionNames = {
     up: "一鍵部署並啟動 (Up)",
@@ -13090,6 +13636,7 @@ window.executeDockerAction = async function (action) {
   }
 };
 
+// 移除容器是危險操作，先用 confirm 讓使用者確認（資料放在 ./data 目錄，不會被刪）
 window.confirmDockerDown = function () {
   if (
     confirm(
@@ -13100,6 +13647,7 @@ window.confirmDockerDown = function () {
   }
 };
 
+// 顯示最近一次 Docker 指令與輸出；狀態含「成功」顯示綠色、含「錯誤」顯示紅色，其他藍色
 window.openDockerLogsModal = function () {
   const modalEl = document.getElementById("dockerOutputModal");
 
@@ -13130,7 +13678,7 @@ window.openDockerLogsModal = function () {
   modal.show();
 };
 
-// 頁面載入後自動偵測一次 Docker 狀態
+// 頁面載入後自動偵測一次 Docker 狀態（延遲 1.2 秒，等導覽列等元素先渲染好）
 setTimeout(() => {
   if (typeof window.checkDockerStatus === "function") {
     window.checkDockerStatus();
@@ -13140,6 +13688,7 @@ setTimeout(() => {
 // ==================== Task 2: 個人資料維護、頭像庫與偏好設定 ====================
 
 // ==================== Spotlight 偏好套用函式 ====================
+// 開啟/關閉滑鼠聚光燈特效：在 <body> 加/移除 spotlight-disabled 這個 class，由 CSS 決定是否顯示特效
 window.applySpotlightPref = function(enabled) {
     if (enabled) {
         document.body.classList.remove('spotlight-disabled');
@@ -13149,6 +13698,8 @@ window.applySpotlightPref = function(enabled) {
 };
 
 // ==================== 強化版個人資料彈窗與頭像持久化 (徹底解決頭像消失問題) ====================
+// 內建頭像選項：每個有 id、名稱、Bootstrap Icons 圖示 HTML 與背景色。
+// 使用者也可上傳自訂圖片，那種頭像會以 data:image/... (base64) 字串儲存。
 const AVATAR_PRESETS = [
     { id: 'default', label: '預設頭像', icon: '<i class="bi bi-person-fill fs-4"></i>', bg: '#475569' },
     { id: 'avatar-1', label: '探索星際', icon: '<i class="bi bi-rocket-takeoff-fill fs-4"></i>', bg: '#3b82f6' },
@@ -13160,6 +13711,9 @@ const AVATAR_PRESETS = [
 ];
 
 // 右上角導航列使用者頭像即時同步 (支援多設備雲端自動拉取與快取相容)
+// avatar 可以是：內建頭像 id、圖片網址(http)、或 base64 圖片(data:image/)；不傳就從 sessionStorage 讀。
+// 顯示完先畫一次，再背景向後端 /api/user/profile 查最新頭像（換裝置登入時自動補上）；
+// _avatarSyncLock 是防重入鎖，避免同時發出多個請求。
 function updateNavUserAvatar(avatar) {
     const wrapper = document.getElementById('navUserAvatarWrapper');
     if (!wrapper) return;
@@ -13219,6 +13773,9 @@ function updateProfileModalAvatarPreview(avatar) {
     }
 };
 
+// 把使用者資料填進「個人資料」表單：暱稱、簡介、偏好（預設排序/分類/聚光燈），
+// 並動態產生頭像選擇格（若有自訂上傳圖會排在最前面）。點頭像會更新隱藏欄位 profileSelectedAvatar 與預覽。
+// 密碼欄位每次開啟都清空，避免殘留。
 function populateProfileForm(profileData, savedCustomAvatar) {
     const userInput = document.getElementById('profileUsernameInput');
     const nameInput = document.getElementById('profileNameInput');
@@ -13296,6 +13853,9 @@ function populateProfileForm(profileData, savedCustomAvatar) {
     updateProfileModalAvatarPreview(profileData.avatar || 'default');
 }
 
+// 開啟「編輯個人資料」視窗。訪客不能改。
+// 策略：先用本機資料（sessionStorage 的 registeredUsers）立刻填表並顯示，不讓使用者等；
+// 同時背景向後端抓最新資料，抓到後再重填一次（後端沒開就靜默略過）。
 window.openEditProfileModal = function() {
     const modalEl = document.getElementById('editProfileModal');
     if (!modalEl) {
@@ -13358,6 +13918,13 @@ window.openEditProfileModal = function() {
         .catch(() => {});
 };
 
+/**
+ * 儲存個人資料表單（表單 submit 時呼叫）。
+ * 步驟：讀欄位 -> 先把偏好（預設排序/分類）存好並立即套用到首頁 -> 驗證（暱稱必填、
+ * 新密碼至少 4 字且兩次相同）-> POST /api/user/profile 存到後端 ->
+ * 不論後端成功與否，也同步寫進本地 registeredUsers（後端離線時的備援）-> 更新導覽列與頭像。
+ * 另有一個小彩蛋：新密碼和舊密碼一樣時會跳出彩蛋視窗。
+ */
 window.saveUserProfile = async function(e) {
     if (e && e.preventDefault) e.preventDefault();
     const saveBtn = document.getElementById('saveProfileBtn');
@@ -13527,6 +14094,9 @@ window.saveUserProfile = async function(e) {
     }
 };
 
+// 處理自訂頭像上傳：檢查是圖片 -> FileReader 讀成 data URL -> 用 <canvas> 從正中央裁成正方形，
+// 縮成 128x128 並轉 JPEG(品質 0.85)，這樣存起來的 base64 字串很小，不會塞爆儲存空間。
+// 按「儲存個人資料」後才會真正寫到後端。
 window.handleCustomAvatarUpload = function(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
@@ -13570,6 +14140,7 @@ window.handleCustomAvatarUpload = function(event) {
 };
 
 // ==================== 獨立飄浮層疊書頁 3D 翻頁動效 (Stacked Floating Pages Flip) ====================
+// 「關於本站」書本視窗共 4 頁（Chapter 01~04），currentFloatingPage 是目前頁碼
 let currentFloatingPage = 1;
 const TOTAL_FLOATING_PAGES = 4;
 
@@ -13580,6 +14151,7 @@ const FLOATING_PAGE_META = [
     { badge: 'Chapter 04', title: '🔮 未來版本展望與規劃藍圖 (Roadmap)' }
 ];
 
+// 開啟「關於本站」書本視窗：重置回第 1 頁，其他頁隱藏，並用 GSAP 把動畫位置/旋轉歸零
 window.openAboutBookModal = function() {
     const modalEl = document.getElementById('aboutBookModal');
     if (!modalEl) return;
@@ -13599,6 +14171,9 @@ window.openAboutBookModal = function() {
 };
 
 // 擬真紙張飄飛音效合成器 (Web Audio API 合成，零外部依賴)
+// 原理：產生 0.12 秒的隨機白噪音，音量隨時間指數衰減（像「沙」一聲），
+// 再通過帶通濾波器(bandpass, 800Hz)只留下類似紙張摩擦的頻段，最後接到喇叭輸出。
+// 瀏覽器不支援或被自動播放政策擋住時，try/catch 會靜默忽略，不影響翻頁。
 function playPageFlipSound() {
     try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -13626,9 +14201,11 @@ function playPageFlipSound() {
     } catch (_) {}
 }
 
+// 翻頁動畫進行中的旗標：動畫還沒跑完時忽略新的翻頁點擊，避免動畫疊在一起
 let isFloatingPageAnimating = false;
 
 // 隨機多方向物理航線庫 (Random Trajectory Matrix)
+// 每筆是「書頁飛出畫面的終點」：x/y 位移(px)、旋轉角度、縮放。下一頁時隨機抽一條。
 const FLOATING_PAGE_FLIGHT_TRAJECTORIES = [
     { id: 'top-left',     x: -1200, y: -260, rotation: -32, scale: 0.65 },
     { id: 'top-right',    x: 1200,  y: -260, rotation: 32,  scale: 0.65 },
@@ -13639,6 +14216,13 @@ const FLOATING_PAGE_FLIGHT_TRAJECTORIES = [
 ];
 window.floatingPageFlightHistory = window.floatingPageFlightHistory || {};
 
+/**
+ * 書本翻頁動畫。direction：+1 下一頁、-1 上一頁（頭尾會循環）。
+ * 下一頁：複製(cloneNode)目前頁面當「飛行替身」，用 GSAP 時間軸讓它飛出畫面並淡出，
+ *   同時底下的主卡片已換成新頁面內容，從歪斜的毛玻璃狀態回正。
+ * 上一頁：反過來，從當初飛出去的方向(記在 floatingPageFlightHistory)飛回中央。
+ * 沒有載入 GSAP 動畫庫時，直接切換頁面不做動畫（降級處理）。
+ */
 window.flipFloatingPage = function(direction) {
     if (isFloatingPageAnimating) return;
     let targetPage = currentFloatingPage + direction;
@@ -13819,6 +14403,8 @@ window.flipFloatingPage = function(direction) {
     }
 };
 
+// 更新書本視窗的章節徽章、標題、頁碼、「下一頁」按鈕文字（最後一頁會變成「回首頁」），
+// 以及底部圓點指示器（目前頁放大成藍色）。
 function updateFloatingPageMeta() {
     const badgeEl = document.getElementById('aboutPageBadge');
     const titleEl = document.getElementById('aboutPageTitle');
@@ -13852,6 +14438,8 @@ function updateFloatingPageMeta() {
 }
 
 // ==================== 全域深色模式主題管理 (Dark / Light Mode) ====================
+// 套用主題：theme 為 'dark' 或 'light'。同時設定 Bootstrap 5 的 data-bs-theme 屬性（讓 Bootstrap
+// 元件自動換色）、自訂的 data-theme 與 body 的 dark-theme class（給本站自己的 CSS 用），並更新按鈕圖示。
 function applyThemeMode(theme) {
     const htmlEl = document.documentElement;
     const bodyEl = document.body;
@@ -13876,6 +14464,7 @@ function applyThemeMode(theme) {
     }
 };
 
+// 切換深/淺色：讀目前主題、反轉後套用，並記到 sessionStorage 的 web_library_theme
 function toggleThemeMode() {
     const htmlEl = document.documentElement;
     const bodyEl = document.body;
@@ -13885,10 +14474,13 @@ function toggleThemeMode() {
     sessionStorage.setItem('web_library_theme', newTheme);
 };
 
+// 頁面載入時還原上次的主題（預設淺色）
 function initThemeMode() {
     const savedTheme = sessionStorage.getItem('web_library_theme') || 'light';
     window.applyThemeMode(savedTheme);
 };
+// 密碼強度計：依長度(>=4、>=8)、大小寫混合、含數字、含特殊符號累加分數(滿分 100)，
+// 分數 <40 紅色偏弱、<75 黃色良好、其餘綠色極高，顯示在進度條與文字上。val 是目前輸入的密碼。
 window.checkPasswordStrength = function(val) {
     const bar = document.getElementById('pwdStrengthBar');
     const text = document.getElementById('pwdStrengthText');
@@ -13923,6 +14515,9 @@ window.checkPasswordStrength = function(val) {
 };
 
 // ==================== React Bits Spotlight 跟隨與 3D 阻尼微動效 ====================
+// 聚光燈跟隨滑鼠特效：滑鼠移到 .spotlight-card 卡片上時，把滑鼠在卡片內的座標寫成
+// CSS 變數 --mouse-x / --mouse-y（CSS 用它畫跟著游標的光暈），並用 GSAP 讓卡片依游標位置微傾斜 3D 效果。
+// 用 requestAnimationFrame 合併高頻的 mousemove，每個畫面影格最多更新一次，避免卡頓。
 function initSpotlightTracking() {
     let activeCard = null;
     let rafId = null;
@@ -13986,6 +14581,7 @@ function initSpotlightTracking() {
     });
 }
 
+// 頁面載入完成後的總初始化：啟動聚光燈、還原主題、顯示頭像、從伺服器同步書架、套用聚光燈偏好
 document.addEventListener('DOMContentLoaded', () => {
     initSpotlightTracking();
     window.initThemeMode();
@@ -13999,6 +14595,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // 啟動主頁與 ACG 專區無縫換頁防中斷監聽
+// （如果 DOM 還在載入就等 DOMContentLoaded，已載入完成就直接執行，兩種情況都能正確啟動）
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initSeamlessPageTransitions);
 } else {
@@ -14011,6 +14608,10 @@ if (document.readyState === "loading") {
 // 所以每次都用 id 重新取得，事件用 document / window 層級監聽。
 // 內頁 (Bootstrap 對話框、選歌頁、批次模式) 的隱藏條件寫在 CSS。
 // ==========================================
+// 這是 IIFE（立即執行函式），變數都包在函式內不污染全域。
+// 捲動超過 0.9 個螢幕高就顯示按鈕（加 is-visible class）；點擊平滑捲回頂端，
+// 若使用者系統設定「減少動態效果」(prefers-reduced-motion) 則改為瞬間跳轉。
+// 捲動事件用 requestAnimationFrame + ticking 旗標節流，避免每次捲動都重算。
 (function initBackToTop() {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let ticking = false;

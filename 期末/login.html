@@ -1,3 +1,5 @@
+<!-- 登入／註冊頁：同一個畫面用三張表單切換（登入、註冊、忘記密碼），不用換頁。 -->
+<!-- 驗證資料都是用 fetch 呼叫後端 API（/api/user/login、/api/user/register、/api/user/reset-password），密碼由後端加鹽雜湊後存進資料庫，前端不保存密碼。登入成功後把使用者資料存在 sessionStorage，其他頁面（如 acg.html）靠它判斷是否已登入。 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -7,6 +9,7 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="alternate icon" href="favicon.ico">
     <link rel="shortcut icon" href="favicon.ico">
+    <!-- 外部資源：Bootstrap（版面與元件）、Bootstrap Icons（圖示）、GSAP（淡入動畫），以及專案自己的 css/style.css -->
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -18,6 +21,7 @@
     <!-- Custom Style Sheet -->
     <link rel="stylesheet" href="css/style.css">
 
+    /* 登入頁專用樣式：置中的卡片、品牌圖示、登入／註冊分頁藥丸列、輸入框與按鈕外觀 */
     <style>
         body {
             background-color: #f8fafc;
@@ -151,30 +155,39 @@
             color: #ffffff;
         }
     </style>
+// 【進頁面最優先的自動登入檢查】放在 head，頁面還沒畫出來就先判斷，已登入的人不會看到登入畫面閃一下
+// 流程：1.sessionStorage 有 currentUser 代表本次已登入；2.沒有就看 localStorage 的 rememberedUser（勾選「記住我」留下，有 30 天期限）；3.未過期就還原登入並導向首頁，過期就清掉
 <script>
         // 置頂優先檢查 30 天記住登入憑證
         (function headFastAutoLogin() {
             try {
+                // 目前登入者（字串 JSON）
                 let current = sessionStorage.getItem('currentUser');
                 if (!current) {
+                    // 讀取「記住我」資料；沒有就是 null
                     const remembered = JSON.parse(localStorage.getItem('rememberedUser') || 'null');
+                    // 有資料且沒過期（expiresAt 是到期時間戳）-> 還原成本次登入
                     if (remembered && remembered.user && (!remembered.expiresAt || Date.now() < remembered.expiresAt)) {
                         sessionStorage.setItem('currentUser', JSON.stringify(remembered.user));
                         current = JSON.stringify(remembered.user);
+                    // 已過期 -> 清掉舊憑證
                     } else if (remembered && remembered.expiresAt && Date.now() >= remembered.expiresAt) {
                         localStorage.removeItem('rememberedUser');
                     }
                 }
+                // 確認有使用者且有帳號名稱，才導向首頁（replace 不會留下歷史紀錄，按上一頁不會回到登入頁）
                 if (current) {
                     const userObj = JSON.parse(current);
                     if (userObj && userObj.username) {
                         window.location.replace('index.html');
                     }
                 }
+            // JSON 壞掉等錯誤直接忽略，讓使用者留在登入頁手動登入
             } catch(e) {}
         })();
     </script>
 </head>
+<!-- ========== 頁面主體：中間一張白色卡片，裡面有品牌、分頁切換、錯誤提示，以及三張表單（同一時間只顯示一張，其餘加上 d-none 隱藏） ========== -->
 <body>
 
     <div class="login-card">
@@ -187,6 +200,7 @@
             <p class="text-secondary small mb-0">個人化網頁收藏圖書館 · 期末專案</p>
         </div>
 
+        <!-- 登入／註冊分頁切換按鈕：點擊呼叫 switchAuthMode('login' 或 'register')，由 JS 切換顯示哪一張表單 -->
         <!-- 登入 / 註冊 雙模式切換分頁 -->
         <div class="auth-nav-tabs" id="authNavTabs">
             <button type="button" class="auth-tab-btn active" id="tabLoginBtn" onclick="switchAuthMode('login')">
@@ -197,11 +211,13 @@
             </button>
         </div>
 
+        <!-- 錯誤提示框：平常隱藏，驗證失敗時由 showAlert(訊息) 顯示並填入文字，hideAlert() 隱藏 -->
         <!-- 錯誤或警告提示框 -->
         <div id="loginAlertBox" class="alert alert-danger py-2 px-3 small d-none rounded-2 mb-3">
             <i class="bi bi-exclamation-circle-fill me-1"></i> <span id="loginAlertText">請填寫完整的帳號與密碼</span>
         </div>
 
+        <!-- 登入表單：novalidate 關閉瀏覽器內建驗證，改用下方 JS 自己檢查並顯示中文訊息。按「立即登入」觸發 submit 事件，由第 8 段 JS 攔截處理。 -->
         <!-- ==================== 1. 登入表單 (Login Form) ==================== -->
         <form id="loginForm" novalidate>
             <!-- 帳號 -->
@@ -211,6 +227,7 @@
             </div>
 
             <!-- 密碼 -->
+            <!-- 密碼欄位右邊有眼睛按鈕，點擊切換顯示／隱藏密碼（setupPasswordToggle） -->
             <div class="mb-3">
                 <label for="passwordInput" class="form-label">登入密碼</label>
                 <div class="input-group">
@@ -221,6 +238,7 @@
                 </div>
             </div>
 
+            <!-- 「記住登入狀態」預設勾選：勾選時登入成功會把憑證存進 localStorage 30 天；「忘記密碼」切到重設表單 -->
             <!-- 記住我 -->
             <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="form-check mb-0">
@@ -234,6 +252,7 @@
                 </button>
             </div>
 
+            <!-- 登入按鈕：送出後 JS 會把按鈕停用並顯示轉圈圈（spinner），避免重複送出 -->
             <!-- 登入按鈕 -->
             <button type="submit" class="btn btn-login w-100 d-flex align-items-center justify-content-center gap-2" id="submitLoginBtn">
                 <span id="submitSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
@@ -248,6 +267,7 @@
                 </button>
             </div>
 
+            <!-- 訪客通道：不需帳號密碼，guestLogin() 直接建立一個 guest 身分進入首頁 -->
             <!-- 訪客體驗 -->
             <div class="text-center mt-2 pt-2 border-top">
                 <button type="button" class="btn btn-link text-secondary text-decoration-none small p-0" onclick="guestLogin()">
@@ -256,6 +276,7 @@
             </div>
         </form>
 
+        <!-- 註冊表單：預設隱藏。帳號與兩次密碼必填，暱稱選填（沒填就用帳號當暱稱）。送出後由第 9 段 JS 檢查並呼叫註冊 API。 -->
         <!-- ==================== 2. 註冊表單 (Register Form) ==================== -->
         <form id="registerForm" class="d-none" novalidate>
             <!-- 註冊帳號 -->
@@ -302,6 +323,7 @@
             </div>
         </form>
 
+        <!-- 忘記密碼表單：預設隱藏。輸入帳號與新密碼（兩次）後呼叫重設密碼 API。注意：本專題沒有寄信驗證，是簡化版流程。 -->
         <!-- ==================== 3. 忘記密碼表單 (Forgot Password Form) ==================== -->
         <form id="forgotForm" class="d-none" novalidate>
             <div class="alert alert-info py-2 px-3 small rounded-2 mb-3">
@@ -351,6 +373,7 @@
         </form>
     </div>
 
+    <!-- 彩蛋視窗：重設密碼時如果新密碼和舊密碼一樣，後端會回報 isSamePassword，前端就跳出這個搞笑視窗，並提供「直接幫我登入」按鈕 -->
     <!-- ==================== 哈哈你用了相同的密碼 大字報彩蛋 Modal ==================== -->
     <div class="modal fade" id="samePasswordEasterEggModal" tabindex="-1" aria-labelledby="samePasswordModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
@@ -380,6 +403,7 @@
             </div>
         </div>
     </div>
+    <!-- 彩蛋表情符號的搖擺動畫 keyframes -->
     <style>
         @keyframes pulseEasterEgg {
             0% { transform: scale(0.92) rotate(-3deg); }
@@ -387,6 +411,7 @@
         }
     </style>
 
+    <!-- Toast 提示：畫面上方正中間短暫彈出的小通知（例如「登入成功」），由 showToast(訊息) 顯示 2.6 秒 -->
     <!-- Toast 提示容器 -->
     <div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3" style="z-index: 1090;">
         <div id="loginToast" class="toast align-items-center text-bg-dark border-0 rounded-3 shadow" role="alert" aria-live="assertive" aria-atomic="true">
@@ -400,6 +425,7 @@
         </div>
     </div>
 
+    <!-- Bootstrap 的 JS（彈窗、Toast 需要它）；下面是本頁自己的邏輯 -->
     <!-- Bootstrap 5.3 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -407,6 +433,8 @@
         // 1. 徹底掃除本機歷史 localStorage 殘留，杜絕任何硬碟持久化依賴 (遵守全域無 localStorage 鐵律)
         // [30天免登入保護] 已移除 localStorage.clear()
 
+        // 這是和 head 那段相同的檢查（第二道保險）：若在 DOM 載入後才發現已登入，同樣直接導向首頁
+        // 差別是這裡還能操作輸入框，所以在沒登入時順便把上次登入的帳號自動填回去
         // 2. 雙重守衛：檢查 30 天記住登入 (localStorage) 與會話 (sessionStorage)，有效則立即直通首頁
         (function checkAlreadyLoggedIn() {
             try {
@@ -427,11 +455,13 @@
                         return;
                     }
                 }
+            // 若 sessionStorage 內容壞掉，清除它，避免卡在錯誤狀態
             } catch (e) {
                 sessionStorage.removeItem('currentUser');
             }
 
             // 若無有效免登憑證，自動回填使用者帳號以提升 UX
+            // web_library_user 是登入成功且勾選「記住我」時存下的帳號名稱
             try {
                 const savedUser = localStorage.getItem('web_library_user');
                 const usernameInput = document.getElementById('usernameInput');
@@ -441,6 +471,12 @@
             } catch (e) {}
         })();
 
+        /**
+         * 切換顯示登入／註冊／忘記密碼其中一張表單
+         * @param {'login'|'register'|'forgot'} mode 要顯示的模式
+         * 觸發：頁面上的分頁按鈕與各種「前往註冊／返回登入／忘記密碼」連結的 onclick
+         * 作法：用 Bootstrap 的 d-none class 隱藏／顯示表單，並用 GSAP 做淡入，再把游標移到該表單的第一個輸入框
+         */
         // 3. 模式切換 (登入 / 註冊 / 忘記密碼)
         function switchAuthMode(mode) {
             hideAlert();
@@ -490,6 +526,12 @@
             }
         }
 
+        /**
+         * 幫密碼欄位綁定「眼睛」按鈕：點一下在 password（隱藏）與 text（顯示）之間切換
+         * @param {string} btnId 按鈕的 id
+         * @param {string} inputId 密碼輸入框的 id
+         * @param {string} iconId 眼睛圖示的 id（顯示時換成睜眼圖示）
+         */
         // 4. 密碼切換顯示/隱藏
         function setupPasswordToggle(btnId, inputId, iconId) {
             const btn = document.getElementById(btnId);
@@ -503,11 +545,16 @@
                 icon.className = isPassword ? 'bi bi-eye text-primary' : 'bi bi-eye-slash text-secondary';
             });
         }
+        // 四個密碼欄位都綁上眼睛按鈕（登入、註冊、忘記密碼的新密碼與確認密碼）
         setupPasswordToggle('togglePasswordBtn', 'passwordInput', 'togglePasswordIcon');
         setupPasswordToggle('toggleRegPasswordBtn', 'regPasswordInput', 'toggleRegPasswordIcon');
         setupPasswordToggle('toggleForgotPwdBtn', 'forgotPasswordInput', 'toggleForgotPwdIcon');
         setupPasswordToggle('toggleForgotConfirmPwdBtn', 'forgotConfirmPasswordInput', 'toggleForgotConfirmPwdIcon');
 
+        /**
+         * 顯示紅色錯誤提示框並播放小縮放動畫
+         * @param {string} msg 要顯示的訊息（用 innerHTML，所以只能傳入程式自己寫的固定文字，不能放使用者輸入）
+         */
         // 6. 錯誤提示與 Toast 訊息
         function showAlert(msg) {
             const alertBox = document.getElementById('loginAlertBox');
@@ -521,11 +568,17 @@
             }
         }
 
+        // 隱藏錯誤提示框，每次重新送出表單或切換模式前都會先呼叫
         function hideAlert() {
             const alertBox = document.getElementById('loginAlertBox');
             if (alertBox) alertBox.classList.add('d-none');
         }
 
+        /**
+         * 顯示上方 Toast 小通知
+         * @param {string} message 訊息文字
+         * @param {string} iconClass 圖示的 Bootstrap Icons class（預設綠色勾勾）
+         */
         function showToast(message, iconClass = "bi-check-circle-fill text-success") {
             const toastEl = document.getElementById('loginToast');
             const toastMsg = document.getElementById('toastMessage');
@@ -536,6 +589,10 @@
             }
         }
 
+        /**
+         * 訪客登入：直接在 sessionStorage 放一個 guest 身分，不需呼叫後端也不會寫入 localStorage
+         * 關閉瀏覽器分頁後訪客狀態就消失，0.5 秒後導向首頁
+         */
         // 7. 訪客快速體驗 (僅寫入 sessionStorage，無本機磁碟殘留)
         function guestLogin() {
             const guestUser = {
@@ -551,13 +608,18 @@
             }, 500);
         }
 
+        // 登入流程：1.攔截 submit 事件、阻止表單預設送出（preventDefault），改用 fetch 非同步送出
+        //        2.前端先檢查是否有填；3.POST 帳號密碼到後端 /api/user/login，由後端比對加鹽雜湊後的密碼
+        //        4.成功：存使用者資料到 sessionStorage（本次登入），有勾選就再存 localStorage（30 天）；失敗：還原按鈕並顯示錯誤
         // ==================== 8. 登入表單提交處理 (向 NeDB 後端驗證加鹽雜湊密碼) ====================
         const loginForm = document.getElementById('loginForm');
         if (loginForm) {
+            // async function：裡面可以用 await 等待後端回應，等待期間畫面不會卡住
             loginForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 hideAlert();
 
+                // trim() 去掉前後空白，避免使用者不小心多打空格
                 const username = document.getElementById('usernameInput')?.value.trim();
                 const password = document.getElementById('passwordInput')?.value.trim();
 
@@ -573,6 +635,7 @@
                     return;
                 }
 
+                // 取得按鈕元素，等一下送出時要把它停用並顯示「驗證中」
                 const submitBtn = document.getElementById('submitLoginBtn');
                 const spinner = document.getElementById('submitSpinner');
                 const btnText = document.getElementById('submitBtnText');
@@ -580,14 +643,18 @@
                 if (spinner) spinner.classList.remove('d-none');
                 if (btnText) btnText.textContent = "驗證中...";
 
+                // try/catch：fetch 如果連不上伺服器會丟出錯誤，在 catch 裡處理
                 try {
+                    // 呼叫登入 API；POST + JSON 傳送帳號密碼（不放在網址上，較安全）
                     const res = await fetch('/api/user/login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ username, password })
                     });
+                    // 後端回傳格式：{ success: true/false, user: {...}, error: '錯誤訊息' }
                     const data = await res.json();
 
+                    // HTTP 狀態不正常或 success 為 false -> 登入失敗，還原按鈕並顯示後端給的錯誤訊息
                     if (!res.ok || !data.success) {
                         if (submitBtn) submitBtn.disabled = false;
                         if (spinner) spinner.classList.add('d-none');
@@ -597,9 +664,11 @@
                     }
 
                     if (btnText) btnText.textContent = "驗證成功，正在進入...";
+                    // 登入成功：user 是後端回傳的使用者資料（不含密碼）；存進 sessionStorage 供其他頁面的登入守衛檢查
                     const user = data.user;
                     sessionStorage.setItem('currentUser', JSON.stringify(user));
 
+                    // 「記住我」：勾選就存 30 天期限的憑證到 localStorage，下次開網站可免登入；沒勾選就清掉舊憑證
                     const rememberMe = document.getElementById('rememberMeCheckbox')?.checked;
                     if (rememberMe) {
                         const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 天效期
@@ -611,10 +680,12 @@
                         localStorage.removeItem('currentUser');
                     }
 
+                    // 顯示歡迎訊息，稍等一下再跳首頁，讓使用者看到提示
                     showToast(`歡迎回來，${user.name || user.username}！`, "bi-check-circle-fill text-success");
                     setTimeout(() => {
                         window.location.href = 'index.html';
                     }, 400);
+                // 網路錯誤或伺服器沒開：還原按鈕並提示
                 } catch (err) {
                     if (submitBtn) submitBtn.disabled = false;
                     if (spinner) spinner.classList.add('d-none');
@@ -624,6 +695,8 @@
             });
         }
 
+        // 註冊流程：與登入類似，先在前端檢查（帳號至少 3 碼、只能中英數與底線、密碼至少 3 碼、兩次密碼要一致），通過才 POST 到 /api/user/register
+        //        註冊成功後後端直接回傳使用者資料，前端存進 sessionStorage 並自動登入進首頁
         // ==================== 9. 註冊表單提交處理 (NeDB 加鹽雜湊持久化) ====================
         const registerForm = document.getElementById('registerForm');
         if (registerForm) {
@@ -632,6 +705,7 @@
                 hideAlert();
 
                 const regUsername = document.getElementById('regUsernameInput')?.value.trim();
+                // 暱稱選填，沒填就沿用帳號
                 const regName = document.getElementById('regNameInput')?.value.trim() || regUsername;
                 const regPassword = document.getElementById('regPasswordInput')?.value.trim();
                 const regConfirmPassword = document.getElementById('regConfirmPasswordInput')?.value.trim();
@@ -648,6 +722,7 @@
                     return;
                 }
 
+                // 正規表示式：只允許英文字母、數字、底線與中文字（一-龥 是常用漢字範圍）
                 if (!/^[a-zA-Z0-9_一-龥]+$/.test(regUsername)) {
                     showAlert('帳號僅支援中英文字母、數字與底線');
                     document.getElementById('regUsernameInput')?.focus();
@@ -680,6 +755,7 @@
                 if (submitRegBtnText) submitRegBtnText.textContent = "註冊中...";
 
                 try {
+                    // 呼叫註冊 API；role 固定送「註冊會員」。密碼由後端加鹽雜湊後儲存，帳號重複時後端會回傳錯誤
                     const res = await fetch('/api/user/register', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -716,7 +792,10 @@
             });
         }
 
+        // 忘記密碼流程：輸入帳號與新密碼 -> POST /api/user/reset-password -> 後端更新密碼
+        //   若新密碼和舊密碼相同，後端會回傳 isSamePassword，前端就彈出彩蛋視窗；否則提示成功，切回登入表單並自動填入帳號密碼
         // ==================== 10. 忘記密碼表單提交處理 (NeDB 安全重設與同密碼彩蛋) ====================
+        // 暫存「彩蛋視窗要登入的人」，使用者按下彩蛋視窗的按鈕時會用到
         let pendingEasterEggUser = null;
 
         const forgotForm = document.getElementById('forgotForm');
@@ -761,6 +840,7 @@
                 if (submitForgotBtnText) submitForgotBtnText.textContent = "處理中...";
 
                 try {
+                    // 呼叫重設密碼 API
                     const res = await fetch('/api/user/reset-password', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -777,6 +857,7 @@
                         return;
                     }
 
+                    // 新舊密碼相同：記下要登入的使用者並打開彩蛋 Modal；Modal 元件不存在時退而求其次用提示框
                     if (data.isSamePassword || data.samePassword) {
                         pendingEasterEggUser = { username: username, name: username, role: '一般會員' };
                         const easterEggModalEl = document.getElementById('samePasswordEasterEggModal');
@@ -786,6 +867,7 @@
                         } else {
                             showAlert('🎉 哈哈！你用了跟之前一模一樣的密碼！密碼已完成刷新。');
                         }
+                    // 一般情況：重設成功，切回登入表單並預先填好帳號與新密碼，使用者只要按登入
                     } else {
                         showToast('🎉 密碼重設成功！請使用新密碼登入。', 'bi-check-circle-fill text-success');
                         switchAuthMode('login');
@@ -806,6 +888,8 @@
             });
         }
 
+        // 彩蛋 Modal「好啦！直接幫我登入」按鈕處理
+        // 先關掉彩蛋視窗，再直接用剛才的帳號建立登入狀態（只存 sessionStorage）並跳首頁
         // 彩蛋 Modal「好啦！直接幫我登入」按鈕處理
         const easterEggBtn = document.getElementById('easterEggConfirmBtn');
         if (easterEggBtn) {

@@ -1,3 +1,14 @@
+// 【總說明】js/custom-rules.js（前端）：「使用者自訂來源規則」的管理介面與資料層。
+// 使用者可以自己新增動畫 / 漫畫的搜尋來源，共兩種規則：
+//  - xpath 規則：用 XPath 描述網站結構，由後端 api/custom-rules.js 去抓並解析，結果直接顯示在站內
+//  - jump 搜尋跳轉：只存「網站名稱 + 搜尋網址」，點了就在新分頁開啟該網站的搜尋結果
+// 這支檔案做的事：
+//  1. 儲存：規則存在瀏覽器 localStorage；登入後再同步到伺服器 /api/user/custom-rules（跨裝置）
+//  2. 驗證 / 匯入 / 匯出規則 JSON（相容 Kazumi 規則格式）
+//  3. 呼叫後端 API（/api/kazumi/custom-*、/api/manga/custom-*）
+//  4. 畫出「規則管理」彈出視窗（Bootstrap Modal）與搜尋跳轉按鈕列
+//  5. 把功能掛在 window.CustomRules，讓 app.js / acg.js 呼叫（例如取得規則做成播放來源）
+// 整支檔案包在 IIFE (立即執行函式) 裡，裡面的變數不會污染全域，只對外公開 window.CustomRules。
 /**
  * Web Library - ACG 使用者自訂來源規則
  *
@@ -11,14 +22,18 @@
  * 儲存：localStorage (web_library_custom_rules_v1)，登入帳號時另外同步到 /api/user/custom-rules。
  * 抓取：一律交給後端 (/api/kazumi/custom-*、/api/manga/custom-*)，後端會擋內網位址並限制大小與逾時。
  */
+// IIFE：定義後立刻執行，目的是把內部變數藏起來（變數作用域只在這個函式內）。
 (function () {
   "use strict";
 
+  // 防止重複載入：頁面可能被多次載入這支腳本，已經初始化過就直接結束。
   if (window.CustomRules) return; // index.html 與 acg.html 都會載入，避免 SPA 換頁重複初始化
 
+  // STORAGE_KEY：localStorage 的鍵名。META_KEYS：規則的「系統欄位」（id、種類、模式…），匯入 / 匯出時要略過，不屬於使用者填的內容。
   const STORAGE_KEY = "web_library_custom_rules_v1";
   const META_KEYS = ["id", "kind", "mode", "enabled", "createdAt", "updatedAt"];
 
+  // 範例規則：使用者按「填入範例」時會填入，讓人照著改。各欄位是 XPath 或網址模板（@keyword 會被換成搜尋關鍵字）。
   // Kazumi 官方規則庫 AGE.json 的格式，方便使用者照著改
   const SAMPLE_ANIME = {
     api: "1",
@@ -47,6 +62,8 @@
     pageImage: "//amp-img[contains(@class,'comic-contain__item')]",
   };
 
+  // FIELDS：編輯表單要顯示哪些欄位。每個欄位是陣列：[欄位名, 顯示標籤, 是否必填, 提示說明, 是否為進階選項]。
+  // 鍵名 "動畫:xpath"、"漫畫:xpath"、jump 分別對應三種規則的表單。表單是依這張表動態產生的，要加欄位只要改這裡。
   // 表單欄位定義：[key, 標籤, 是否必填, 說明, 進階]
   const FIELDS = {
     "anime:xpath": [
@@ -84,9 +101,12 @@
       ["icon", "圖示", false, "Bootstrap Icons 名稱 (如 bi-globe) 或 1~2 個 emoji，選填"],
     ],
   };
+  // 布林欄位（勾選框）：值是 true/false，不是文字。
   const BOOL_FIELDS = new Set(["usePost", "chapterReverse"]);
 
+  // 小工具函式。
   // ==================== 工具 ====================
+  // esc(str)：HTML 跳脫，把 & < > " ' 換成實體碼。把使用者輸入放進 innerHTML 前一定要用，防止 XSS（腳本注入）。
   function esc(str) {
     if (str == null) return "";
     return String(str)
@@ -97,15 +117,18 @@
       .replace(/'/g, "&#039;");
   }
 
+  // toast(msg, icon)：顯示提示訊息。優先用全站的 window.showToast，沒有就只印 console。
   function toast(msg, icon) {
     if (typeof window.showToast === "function") window.showToast(msg, icon || "bi-info-circle text-info");
     else console.log("[CustomRules]", msg);
   }
 
+  // uid()：產生規則的唯一 id（時間戳轉 36 進位 + 隨機字串）。
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
+  // hostOf(url)：取網址的主機名稱（如 www.google.com），網址無效回傳空字串。
   function hostOf(url) {
     try {
       return new URL(url).hostname;
@@ -114,6 +137,7 @@
     }
   }
 
+  // isHttpUrl(url)：判斷是否為 http / https 網址（擋掉 javascript: 之類危險協定）。
   function isHttpUrl(url) {
     try {
       const u = new URL(url);
@@ -123,10 +147,13 @@
     }
   }
 
+  // fillKeyword(template, keyword)：把網址模板的 @keyword 換成編碼後的關鍵字。
   function fillKeyword(template, keyword) {
     return String(template || "").replace(/@keyword/g, encodeURIComponent(keyword || ""));
   }
 
+  // currentUser()：取得目前登入的使用者名稱（小寫）；訪客或沒登入回傳 null。
+  // 依序看 sessionStorage（本次登入）和 localStorage（記住我）。
   // 與 app.js 的 getCurrentUser 相同的判斷：訪客只存本機
   function currentUser() {
     let user = null;
@@ -140,9 +167,12 @@
     return !user || user === "訪客" || user === "guest" ? null : user;
   }
 
+  // 儲存與同步：資料來源有兩份——本機 localStorage 與伺服器，以 updatedAt 較新的為準。
   // ==================== 儲存與同步 ====================
+  // store：記憶體中的所有規則 { rules: [...], updatedAt }。
   let store = { rules: [], updatedAt: null };
 
+  // loadLocal()：從 localStorage 讀入 store；資料壞掉就略過（不讓頁面報錯）。
   function loadLocal() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -155,6 +185,7 @@
     }
   }
 
+  // writeLocal()：寫回 localStorage；空間不足時提示使用者。
   function writeLocal() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
@@ -163,6 +194,8 @@
     }
   }
 
+  // save()：任何規則變更後都呼叫它。先存本機，若已登入再「防抖」400ms 後推到伺服器
+  // （防抖 debounce：連續多次修改只送最後一次，避免狂送請求）。
   let pushTimer = null;
   function save() {
     store.updatedAt = new Date().toISOString();
@@ -173,6 +206,7 @@
     pushTimer = setTimeout(() => pushToServer(user), 400);
   }
 
+  // pushToServer(user)：POST /api/user/custom-rules，把整份規則上傳到帳號。失敗只警告，視為離線模式（本機仍可用）。
   async function pushToServer(user) {
     try {
       await fetch("/api/user/custom-rules", {
@@ -185,6 +219,8 @@
     }
   }
 
+  // syncFromServer()：頁面載入時呼叫。比較伺服器與本機的 updatedAt：
+  // 伺服器較新 -> 覆蓋本機並重畫畫面；本機較新且有規則 -> 推上去伺服器。
   // 以較新的一方為準 (整份規則一起比較 updatedAt)
   async function syncFromServer() {
     const user = currentUser();
@@ -208,17 +244,22 @@
     }
   }
 
+  // rulesOf(kind, mode, onlyEnabled)：篩選規則。kind 動畫 / 漫畫；mode 可選 xpath / jump；onlyEnabled 只取啟用中的。
   function rulesOf(kind, mode, onlyEnabled) {
     return store.rules.filter(
       (r) => r.kind === kind && (!mode || r.mode === mode) && (!onlyEnabled || r.enabled !== false),
     );
   }
 
+  // findRule(id)：依 id 找規則。
   function findRule(id) {
     return store.rules.find((r) => r.id === id);
   }
 
+  // 規則驗證 / 匯入匯出。
   // ==================== 規則驗證 / 匯入匯出 ====================
+  // validateRule(rule)：檢查規則填得對不對。回傳錯誤訊息字串，沒問題回傳空字串 ""。
+  // 檢查：必填欄位、搜尋網址是 http/https 且含 @keyword、首頁網址格式、圖示格式（bi-xxx 或 1~2 個 emoji）。
   function validateRule(rule) {
     const def = FIELDS[rule.mode === "jump" ? "jump" : `${rule.kind}:xpath`];
     for (const [key, label, required] of def) {
@@ -232,6 +273,8 @@
     return "";
   }
 
+  // fromImported(obj, kind)：把匯入的 JSON 物件轉成內部規則。有 searchList 當 xpath 規則，只有 searchURL 當 jump。
+  // 過濾系統欄位、字串截到 4000 字、只收字串 / 布林 / 數字，最後呼叫 validateRule；有問題丟 Error。
   // 匯入的 JSON：有 searchList 視為 XPath 規則，只有 searchURL 視為搜尋跳轉
   function fromImported(obj, kind) {
     if (!obj || typeof obj !== "object" || Array.isArray(obj)) throw new Error("每條規則必須是 JSON 物件");
@@ -249,6 +292,7 @@
     return rule;
   }
 
+  // exportRule(rule)：匯出成乾淨的 JSON（拿掉系統欄位與空值），格式盡量與 Kazumi 規則相同，可分享給別人。
   function exportRule(rule) {
     const out = {};
     if (rule.mode === "jump") Object.assign(out, { type: rule.kind, mode: "jump" });
@@ -260,6 +304,8 @@
     return out;
   }
 
+  // upsertRules(list)：批次新增或更新。同種類、同模式、同名稱視為同一條 -> 覆蓋更新（保留原 id、建立時間、啟用狀態）；否則新增。
+  // 回傳 [新增數, 更新數]，最後 save()。
   // 同名規則直接覆蓋更新，其餘新增；回傳 [新增數, 更新數]
   function upsertRules(list) {
     let added = 0;
@@ -280,7 +326,9 @@
     return [added, updated];
   }
 
+  // 呼叫後端 API。
   // ==================== 後端 API ====================
+  // post(path, body)：POST JSON 到後端並解析回應。HTTP 錯誤或 success:false 時丟 Error（訊息取後端的 error）。
   async function post(path, body) {
     const res = await fetch(path, {
       method: "POST",
@@ -295,15 +343,19 @@
     return data;
   }
 
+  // 自訂來源 id = "custom-" + 規則 id，用前綴區分內建來源與自訂來源（且只含英數與連字號，才能安全當 DOM id）。
   // app.js 會拿來源 id 組 DOM id 和 querySelector，只能用英數與連字號
   const SOURCE_PREFIX = "custom-";
 
+  // ruleFromSourceId(sourceId)：由來源 id 找回規則，找不到（可能已刪除）丟 Error。
   function ruleFromSourceId(sourceId) {
     const rule = findRule(String(sourceId || "").slice(SOURCE_PREFIX.length));
     if (!rule) throw new Error("找不到這條自訂規則，可能已被刪除");
     return rule;
   }
 
+  // 漫畫沒有固定 id，所以自己編碼：crule:規則id|詳情網址。mangaIdFor 產生；parseMangaId 反向解析出規則與網址。
+  // 單引號轉成 %27，避免破壞 app.js 用字串拼出來的 onclick。
   // 漫畫結果 id：crule:<規則 id>|<詳情網址>  (' 轉成 %27 避免破壞 app.js 的 onclick 字串)
   function mangaIdFor(rule, detailUrl) {
     return `crule:${rule.id}|${encodeURIComponent(detailUrl).replace(/'/g, "%27")}`;
@@ -316,6 +368,13 @@
     return { rule, detailUrl: decodeURIComponent(m[2]) };
   }
 
+  // 對外公開的 API（會掛到 window.CustomRules）：
+  //  animeSources / isCustomSource：提供動畫來源清單、判斷是否為自訂來源
+  //  animeSearch / animeEpisodes / animePlay：搜尋 -> 取集數 -> 取播放連結（對應 /api/kazumi/custom-*）
+  //  mangaSearchAll：同時用所有漫畫規則搜尋（Promise.allSettled：一條失敗不影響其他）
+  //  mangaChapters / mangaPages：取章節、取圖片（對應 /api/manga/custom-*）
+  //  onAnimeSearch / onMangaSearch：記下最近的搜尋關鍵字並更新跳轉按鈕
+  //  openManager：打開規則管理視窗；list：取得規則複本
   const api = {
     animeSources() {
       return rulesOf("anime", "xpath", true).map((r) => ({
@@ -383,6 +442,8 @@
     list: () => store.rules.slice(),
   };
 
+  // 搜尋跳轉按鈕列：在來源彈窗中插入一排按鈕，點了到外部網站搜尋。
+  // lastKeyword 記住最近的關鍵字；JUMP_ANCHOR 說明按鈕列要插在哪個既有元素之前、輸入框 id 是什麼。
   // ==================== 搜尋跳轉按鈕列 ====================
   const lastKeyword = { anime: "", manga: "" };
   const JUMP_ANCHOR = {
@@ -390,12 +451,15 @@
     manga: { modal: "mangaSourceModal", before: "mangaSelectedSummaryBox", input: "mangaDrawerKeywordInput" },
   };
 
+  // iconHtml(icon)：產生按鈕圖示的 HTML：沒設定用預設圖示；bi-xxx 用 Bootstrap Icons；否則當 emoji 文字（有跳脫）。
   function iconHtml(icon) {
     if (!icon) return '<i class="bi bi-box-arrow-up-right"></i>';
     if (/^bi-[a-z0-9-]+$/.test(icon)) return `<i class="bi ${icon}"></i>`;
     return `<span aria-hidden="true">${esc(icon)}</span>`;
   }
 
+  // renderJumpRow(kind)：畫出（或更新）搜尋跳轉按鈕列。
+  // 有關鍵字就連到「該網站的搜尋結果」；沒有關鍵字就連到網站首頁（origin）。連結用 noopener noreferrer 避免新分頁操控原頁面。
   function renderJumpRow(kind) {
     const anchor = JUMP_ANCHOR[kind];
     const before = document.getElementById(anchor.before);
@@ -430,17 +494,23 @@
     `;
   }
 
+  // refreshAll()：規則變動後重畫所有相關畫面（兩個跳轉列 + 若管理視窗開著也重畫）。
   function refreshAll() {
     renderJumpRow("anime");
     renderJumpRow("manga");
     if (managerKind) renderManager();
   }
 
+  // 規則管理 Modal（彈出視窗）。用三個狀態變數控制畫面：managerKind（動畫 / 漫畫）、managerView（list 清單 / edit 編輯 / import 匯入）、editing（編輯中的規則複本）。
+  // 畫面做法：狀態改變 -> renderManager() 重新產生 HTML 塞進視窗；按鈕用 data-act 屬性標記動作，統一由 onManagerClick 處理（事件委派）。
   // ==================== 規則管理 Modal ====================
   let managerKind = null; // 'anime' | 'manga'
   let managerView = "list"; // 'list' | 'edit' | 'import'
   let editing = null; // 編輯中的規則 (複本)
 
+  // ensureModal()：第一次用到時才建立 Modal 的 HTML 並加進頁面（之後重複使用）。同時綁好事件：
+  //  shown：把背景遮罩加上自訂 class，讓它疊在原本的來源視窗之上；
+  //  hidden：清掉狀態，並在底下仍有別的 Modal 時維持 body 的 modal-open（避免背景可捲動）。
   function ensureModal() {
     let el = document.getElementById("customRulesModal");
     if (el) return el;
@@ -480,6 +550,7 @@
     return el;
   }
 
+  // openManager(kind)：打開規則管理視窗。kind 為 'anime' 或 'manga'。
   function openManager(kind) {
     managerKind = kind === "manga" ? "manga" : "anime";
     managerView = "list";
@@ -489,10 +560,12 @@
     bootstrap.Modal.getOrCreateInstance(el).show();
   }
 
+  // kindLabel(kind)：種類的中文名稱。
   function kindLabel(kind) {
     return kind === "anime" ? "動畫" : "漫畫";
   }
 
+  // renderManager()：依 managerView 決定內容（編輯 / 匯入 / 清單），並畫出上方動畫 / 漫畫分頁標籤與各自的規則數量。
   function renderManager() {
     const body = document.getElementById("customRulesBody");
     if (!body || !managerKind) return;
@@ -509,6 +582,7 @@
     body.innerHTML = `<ul class="nav nav-pills gap-2 mb-3">${tabs}</ul>${content}`;
   }
 
+  // listHtml()：產生規則清單的 HTML（每列有啟用開關、編輯、匯出、刪除）。所有使用者內容都經過 esc() 跳脫。
   function listHtml() {
     const kind = managerKind;
     const rules = rulesOf(kind);
@@ -553,6 +627,7 @@
       <p class="small text-white-50 mt-3 mb-0"><i class="bi bi-cloud-check"></i> ${currentUser() ? `規則存在這台瀏覽器，並同步到帳號「${esc(currentUser())}」` : "訪客模式：規則只存在這台瀏覽器 (登入後可跨裝置同步)"}</p>`;
   }
 
+  // importHtml()：產生「貼上 JSON 匯入」畫面的 HTML。
   function importHtml() {
     const kind = managerKind;
     const sample = JSON.stringify(kind === "anime" ? SAMPLE_ANIME : SAMPLE_MANGA, null, 2);
@@ -574,6 +649,7 @@
       </div>`;
   }
 
+  // editorHtml()：產生編輯表單的 HTML。表單欄位依 FIELDS 表動態產生；進階欄位收在 <details> 裡；xpath 規則多一個「測試規則」區塊。
   function editorHtml() {
     const r = editing;
     const def = FIELDS[r.mode === "jump" ? "jump" : `${r.kind}:xpath`];
@@ -625,6 +701,7 @@
       </div>`;
   }
 
+  // readForm()：把表單目前的值讀成規則物件（從 editing 複製一份，保留匯入時多出來的 Kazumi 欄位）。fillForm(values)：反向，把值填進表單。
   // 從表單讀出規則 (保留原本匯入時的其他 Kazumi 欄位)
   function readForm() {
     const rule = { ...editing };
@@ -645,6 +722,8 @@
     });
   }
 
+  // runTest()：「測試搜尋」按鈕。不用先儲存，直接用表單內容呼叫後端搜尋，顯示找到幾筆結果（或錯誤原因）。
+  // 若 searchList 選到節點但沒解析出標題 + 連結，會提示使用者檢查 XPath。關鍵字沒填就用輸入框 placeholder 的範例。
   async function runTest() {
     const out = document.getElementById("customRuleTestOut");
     const kwInput = document.getElementById("customRuleTestKw");
@@ -672,6 +751,7 @@
     }
   }
 
+  // runDetailTest(detailUrl)：測試第一筆結果的後續步驟。動畫：取集數；漫畫：取章節，再取第一章圖片並顯示縮圖。
   async function runDetailTest(detailUrl) {
     const box = document.getElementById("customRuleTestDetail");
     if (!box) return;
@@ -701,6 +781,7 @@
     }
   }
 
+  // doImport()：處理「匯入」按鈕。解析貼上的 JSON（單一物件或陣列都可）-> 逐條 fromImported 驗證 -> 成功的用 upsertRules 寫入，格式有誤的略過並提示。
   function doImport() {
     const text = (document.getElementById("customRulesImportText").value || "").trim();
     const msg = document.getElementById("customRulesImportMsg");
@@ -736,6 +817,7 @@
     if (errors.length) console.warn("[CustomRules] 匯入略過：", errors);
   }
 
+  // saveEditing()：儲存編輯中的規則。驗證通過後：有 id 就更新原規則，沒有就新增（產生 id、預設啟用）。
   function saveEditing() {
     const msg = document.getElementById("customRuleFormMsg");
     const rule = readForm();
@@ -757,6 +839,7 @@
     refreshAll();
   }
 
+  // copyText(text)：複製文字到剪貼簿。優先用新的 navigator.clipboard；不行（如非 https 環境）就用隱藏的 textarea + execCommand 舊方法。回傳是否成功。
   async function copyText(text) {
     try {
       await navigator.clipboard.writeText(text);
@@ -777,6 +860,9 @@
     }
   }
 
+  // onManagerClick(e)：管理視窗內所有按鈕的點擊處理（事件委派）。靠按鈕的 data-act 值用 switch 分派：
+  // tab 切換分頁、new 新增、edit 編輯、delete 刪除（會先 confirm 確認）、export 複製 JSON、import-view / import-do 匯入、
+  // fill-sample 填範例、test-search / test-detail 測試、save 儲存、back 返回清單。
   function onManagerClick(e) {
     const btn = e.target.closest("[data-act]");
     if (!btn || btn.dataset.act === "toggle") return;
@@ -843,6 +929,7 @@
     }
   }
 
+  // onManagerChange(e)：啟用 / 停用開關改變時更新規則並儲存（開關是 change 事件，所以和點擊分開處理）。
   function onManagerChange(e) {
     const t = e.target;
     if (t.dataset.act !== "toggle") return;
@@ -854,20 +941,24 @@
     refreshAll();
   }
 
+  // 初始化：載入本機規則、公開 API、綁定全域事件、與伺服器同步。
   // ==================== 初始化 ====================
   loadLocal();
   window.CustomRules = api;
 
+  // 事件委派：不直接綁在按鈕上，而是綁在 document 上再判斷點到誰，這樣 SPA 換頁、按鈕被重新產生也仍然有效。
   // 「自訂規則」按鈕在 SPA 換頁後可能是新的 DOM，用事件委派
   document.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-custom-rules-open]");
     if (btn) openManager(btn.dataset.customRulesOpen);
   });
+  // 來源視窗打開時（Bootstrap 的 show.bs.modal 事件）補上跳轉按鈕列。
   // 打開來源 Modal 時補上按鈕列 (例如沒有關鍵字直接打開漫畫來源抽屜)
   document.addEventListener("show.bs.modal", (e) => {
     if (e.target && e.target.id === "kazumiSourceModal") renderJumpRow("anime");
     if (e.target && e.target.id === "mangaSourceModal") renderJumpRow("manga");
   });
+  // storage 事件：另一個瀏覽器分頁改了 localStorage 時觸發，這裡重新讀取並更新畫面，多分頁保持一致。
   // 其他分頁改了規則時同步
   window.addEventListener("storage", (e) => {
     if (e.key !== STORAGE_KEY) return;
@@ -875,6 +966,7 @@
     refreshAll();
   });
 
+  // 頁面還在載入就等 DOMContentLoaded 再與伺服器同步；已載入完就直接同步。
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", syncFromServer);
   else syncFromServer();
 })();

@@ -40,12 +40,45 @@
 
 
 
+/*
+ * ======================================================================
+ * 上方 ==UserScript== 中繼資料區塊各項設定說明 (此區塊內不能插入文字，所以寫在這裡)
+ * ----------------------------------------------------------------------
+ * @name        腳本在 Tampermonkey 管理頁面顯示的名稱。
+ * @namespace   命名空間，與 @name 合起來用來辨識「這是哪一支腳本」，避免和別人的同名腳本衝突。
+ * @version     版本號。Tampermonkey 依此判斷有沒有新版可更新 (這裡不要隨意改動)。
+ * @description 腳本簡介，顯示在管理頁面。
+ * @author      作者名稱。
+ * @match       只在符合這些網址樣式的頁面執行：http://、https://、本機 file:/// 檔案。
+ * @include     舊式寫法的網址樣式，「*」代表所有網址 (和上面 @match 一起讓腳本幾乎在每個網頁都跑)。
+ * @require     腳本執行前先載入外部函式庫；這裡載入 html2canvas，用來把網頁畫面截成圖片 (記事本截圖功能用)。
+ * @run-at      document-idle：等網頁大致載入完成、閒下來才執行，避免拖慢頁面或抓不到元素。
+ * @grant       申請使用 Tampermonkey 提供的特權 API (沒申請就不能用)：
+ *   GM_xmlhttpRequest      可「跨網域」發送 HTTP 請求。一般網頁的 fetch 會被 CORS 擋住，
+ *                          這個 API 由擴充功能代送，才能從 youtube.com 等網站傳資料到 localhost 的圖書館後端。
+ *   GM_setValue / GM_getValue / GM_deleteValue
+ *                          把設定存在 Tampermonkey 自己的儲存空間 (跨網站共用，和各網站的 localStorage 無關)，
+ *                          用來記住伺服器網址、懸浮球位置與是否顯示、記事本草稿。
+ *   GM_registerMenuCommand 在 Tampermonkey 圖示的選單裡新增可點選的指令。
+ * @connect     白名單：GM_xmlhttpRequest 只允許連到這些主機 (localhost、127.0.0.1，即本機的圖書館伺服器)。
+ *              沒列在這裡的網域，Tampermonkey 會跳出詢問或直接拒絕，是一道安全防護。
+ * ======================================================================
+ */
 (function() {
 
     'use strict';
 
 
 
+    /*
+     * 【iframe 橋樑說明】
+     * 腳本設定成在「所有網頁」執行，包含網頁裡嵌的 iframe (子視窗)。
+     * 動漫劇院頁面會把第三方播放器用 iframe 嵌進來，因為跨網域，母頁面無法直接操作裡面的 <video>。
+     * 所以：如果目前程式跑在 iframe 裡 (window.top !== window.self)，就只啟動「橋樑」，
+     * 用 postMessage 跟母頁面互相傳話 (回報播放狀態、接收暫停/跳轉指令)，然後 return 結束，
+     * 不再往下建立收藏懸浮球 (避免每個 iframe 都出現一顆球)。
+     * 只有最上層的主頁面 (window.top) 才會執行後面的收藏與記事本功能。
+     */
     // 0. 動漫劇院 iframe 內部播放器雙向同步橋樑 (Bi-directional Video Bridge)
 
     // 徹底解決任何第三方跨域播放器 (ArtPlayer, DPlayer, Bilibili, AGE, 7sefun) 與母網頁彈幕/時間軸割裂問題
@@ -60,6 +93,12 @@
 
 
 
+    /**
+     * 啟動 iframe 內的播放器橋樑。
+     * 觸發時機：腳本在 iframe 內載入時，由上方判斷式呼叫一次。
+     * 做的事：找到 iframe 內的 <video>，監聽播放事件回報給母頁面，並接收母頁面的控制指令。
+     * 沒有參數、沒有回傳值。
+     */
     function initIframePlaybackBridge() {
 
         let video = null;
@@ -70,6 +109,10 @@
 
 
 
+        /**
+         * 尋找 iframe 裡的 <video> 並掛上事件監聽。
+         * 播放器常常是等一下才動態生成 <video>，所以找不到就每 0.8 秒重試 (輪詢)，直到找到為止。
+         */
         function findAndHookVideo() {
 
             video = document.querySelector('video');
@@ -84,6 +127,13 @@
 
 
 
+            /*
+             * notifyParent(eventType, extra)：把影片目前狀態打包，用 postMessage 傳給最上層母頁面。
+             *   eventType 事件種類 (play / pause / seeking / seeked / timeupdate / ready ...)
+             *   extra     額外要覆蓋或附加的欄位
+             * source: 'kazumi_player_bridge' 是自訂的「暗號」，母頁面靠它確認這則訊息是橋樑傳來的，不是別的雜訊。
+             * 目標來源用 '*' 是因為不同播放器網域不固定；整段包 try/catch 避免傳送失敗讓播放器出錯。
+             */
             // 雙向同步：將 iframe 內真實影片狀態回傳給 Web Library 劇院母頁面
 
             const notifyParent = (eventType, extra = {}) => {
@@ -134,6 +184,8 @@
 
             });
 
+            // timeupdate 在播放時每秒會觸發好幾次，這裡做節流：時間變動不到 0.35 秒就不回報；
+            // 使用者正在拖動進度條 (isSeekingLocal) 期間也不回報，避免和跳轉事件打架。
             video.addEventListener('timeupdate', () => {
 
                 if (isSeekingLocal) return;
@@ -212,6 +264,12 @@
 
 
 
+        /*
+         * 反方向：母頁面 → iframe。
+         * 母頁面送來 { target: 'kazumi_iframe_video', action: ... } 的訊息，這裡依 action 控制影片：
+         *   pause 暫停 / play 播放 / seek 跳到指定秒數 / toggle 播放暫停切換 / volume 調音量與靜音。
+         * 先檢查 target 暗號，不是給我們的訊息就直接忽略。
+         */
         // 接收母頁面的主控指令（暫停、播放、進度軸跳轉）
 
         window.addEventListener('message', (e) => {
@@ -280,11 +338,20 @@
 
 
 
+    /*
+     * config：集中管理使用者設定的小物件，用 getter/setter 包裝 GM_getValue / GM_setValue。
+     * 好處是其他地方只要寫 config.serverUrl、config.showFab 就能讀寫，不用記儲存用的 key 名稱。
+     *   serverUrl 後端書籤 API 網址 (預設本機 8090 埠)
+     *   showFab   是否顯示畫面上的懸浮球 (預設顯示)
+     *   fabPos    懸浮球被拖曳後的位置 { left, top }；null 代表用預設右下角
+     */
     // 讀取設定與儲存的位置
 
     const config = {
 
         get serverUrl() {
+            // 舊版預設網址用過 8080 / 8000 埠，現在後端改成 8090，
+            // 讀到舊值時自動改成 8090 並存回去，使用者不用手動改設定。
             let val = GM_getValue("wl_server_url", "http://localhost:8090/api/user/bookmarks");
             if (val.includes(":8080") || val.includes(":8000")) {
                 val = val.replace(":8080", ":8090").replace(":8000", ":8090");
@@ -311,6 +378,13 @@
 
 
 
+    /**
+     * 偵測目前網頁的資訊，用來預先填好收藏表單。
+     * 觸發時機：每次打開收藏對話框時 (toggleCollectorModal 呼叫)。
+     * 回傳物件：{ url 網址, title 標題, category 分類, defaultTags 預設標籤, coverUrl 封面圖網址, desc 簡介 }
+     * 邏輯：先抓通用的 og:image / description 等 meta 標籤；再依網站網域 (YouTube、B站、GitHub、
+     * 漫畫站、動漫站) 套用專屬規則，例如 YouTube 用影片 ID 組出縮圖網址。
+     */
     // 2. 自動提取網頁資訊 (YouTube / B站 / GitHub / 動漫站)
 
     function detectPageMetadata() {
@@ -435,6 +509,7 @@
 
 
 
+        // 封面若是相對路徑 (例如 /img/a.jpg)，補成完整網址，否則圖書館那邊會讀不到圖
         if (coverUrl && !coverUrl.startsWith("http")) {
 
             try { coverUrl = new URL(coverUrl, window.location.origin).href; } catch(e){}
@@ -455,6 +530,15 @@
 
 
 
+    /**
+     * 建立畫面角落那顆可拖曳的「FAB 懸浮球」(Floating Action Button)。
+     * 觸發時機：頁面載入後由 setupTrigger 呼叫，之後每 2.5 秒也會再呼叫一次 (已存在就只更新顯示狀態，不會重複建立)。
+     * 重點：
+     *  - 用 position: fixed 加 !important 的內嵌樣式，並固定 48px，避免被宿主網站的 CSS 影響或放大。
+     *  - z-index 取最大值 2147483647，確保蓋在任何網頁元素上面。
+     *  - 以 mousedown / mousemove / mouseup 自己實作拖曳；位置存進 config.fabPos，下次開網頁還記得。
+     *  - 移動超過 5px 才算「拖曳」，否則視為點擊，點擊會開啟收藏對話框。
+     */
     function createDraggableFAB() {
 
         if (document.getElementById("wl-collector-fab")) {
@@ -563,6 +647,8 @@
 
 
 
+        // 圖示用 createElementNS 一個個建 SVG 節點，不用 innerHTML。
+        // 因為 YouTube 等網站啟用 Trusted Types 安全政策，直接塞 HTML 字串會被瀏覽器擋掉。
         // 原生 SVG (避開 Trusted Types)
 
         const svgNS = "http://www.w3.org/2000/svg";
@@ -611,6 +697,8 @@
 
 
 
+        // 滑鼠按下：記下起點與目前位置；mousemove / mouseup 監聽掛在 window 上，
+        // 這樣滑鼠移太快跑出球外也不會「掉球」，放開滑鼠時再移除監聽。
         fab.addEventListener("mousedown", (e) => {
 
             if (e.button !== 0) return; // 僅限左鍵
@@ -759,6 +847,11 @@
 
 
 
+    /**
+     * 依設定 config.showFab 顯示或隱藏懸浮球。
+     * 觸發時機：建立懸浮球時、儲存設定時、從選單切換時。
+     * 隱藏時仍可用 Alt + B 收藏，只是畫面上看不到球。
+     */
     function applyFabVisibility() {
 
         if (!fabElement) return;
@@ -779,6 +872,13 @@
 
     // 4. 原生 DOM 建立 Modal 視窗 (相容 YouTube Trusted Types)
 
+    /**
+     * 建立「收藏至 Web Library」對話框 (全螢幕半透明遮罩 + 中間白色卡片)，只會建立一次，之後重複使用。
+     * 觸發時機：第一次呼叫 toggleCollectorModal 時。
+     * 全部用 document.createElement 手動組 DOM (不用 innerHTML)，才能相容 YouTube 的 Trusted Types 限制。
+     * 結構：Header (標題、設定、關閉) → 設定抽屜 (伺服器網址、懸浮球開關) → 表單 (封面、標題、分類、標籤、描述) → 按鈕。
+     * 另外注入一段 <style>，強制輸入框用淺色，避免 GitHub / YouTube 的深色模式把字變成白底白字。
+     */
     function createSafeModal() {
 
         if (document.getElementById("wl-collector-modal")) return;
@@ -1440,6 +1540,9 @@
 
 
 
+        // 按「確認收藏」：把表單內容組成一筆書籤物件 (payload) 送出。
+        // id 用「時間戳 + 隨機字串」確保不重複；標籤用逗號/空白切開並濾掉空字串；
+        // pinned、clicks 是圖書館網站用的欄位，新書籤預設為未置頂、點擊 0 次。
         submitBtn.addEventListener("click", () => {
 
             const now = Date.now();
@@ -1474,6 +1577,11 @@
 
 
 
+    /**
+     * 開啟或關閉收藏對話框 (開著就關、關著就開)。
+     * 觸發時機：點懸浮球、按 Alt + B、Tampermonkey 選單的「快速開啟收藏對話框」。
+     * 開啟時會先呼叫 detectPageMetadata 抓資料，自動填入標題、分類、標籤、封面、簡介，並顯示封面預覽。
+     */
     // 5. 開啟 / 關閉對話框
 
     function toggleCollectorModal() {
@@ -1536,6 +1644,18 @@
 
 
 
+    /**
+     * 把書籤送到圖書館後端。
+     * 參數 payload：一筆書籤物件 (id、title、url、category、tags、cover、desc ...)。
+     * 流程：依序嘗試候選伺服器網址 (本機 8090 → Docker 8095 → 127.0.0.1 版本)，
+     *   1. 先 GET 讀回目前已有的書籤清單；
+     *   2. 把新書籤放最前面，並移除網址相同的舊書籤 (避免重複)；
+     *   3. 再 POST 整份清單回去。
+     * 任一步失敗或逾時就換下一個網址，全部失敗才改用 handleLocalFallback (複製到剪貼簿)。
+     * 為何用 GM_xmlhttpRequest 而不是 fetch：使用者可能在 youtube.com 之類的網站上，
+     * 一般 fetch 打 localhost 會被 CORS 跨網域限制擋下，GM_xmlhttpRequest 由擴充功能代送就沒這個問題
+     * (但目標主機要列在上方 @connect 白名單)。
+     */
     // 6. 送出資料 (具備 8090 / 8095 多埠號自動容錯感知探測架構)
     function submitBookmark(payload) {
         const btn = document.getElementById("wl-submit-btn");
@@ -1557,8 +1677,10 @@
             ? [customUrl, ...defaultUrls]
             : defaultUrls;
 
+        // currentIndex 記錄試到第幾個候選網址了
         let currentIndex = 0;
 
+        // tryNext：試下一個候選伺服器 (先 GET 再交給 executePost)；用完所有網址就走本機備援
         function tryNext() {
             if (currentIndex >= candidateUrls.length) {
                 handleLocalFallback(payload);
@@ -1582,6 +1704,8 @@
                             if (json.user && json.user !== 'default' && json.user !== '期末展示學生') username = json.user;
                         } catch (e) {}
 
+                        // 去掉舊清單裡網址相同的書籤，再把新的放最前面，達到「同網址只留一筆、最新在前」。
+                        // 這裡送整份 bookmarks 是因為後端以「整份清單」方式儲存，不先合併會把原有書籤洗掉。
                         const filtered = existing.filter(b => b.url !== payload.url);
                         const merged = [payload, ...filtered];
                         const postBody = { user: username, bookmark: payload, bookmarks: merged };
@@ -1595,6 +1719,7 @@
             });
         }
 
+        // executePost：把合併後的資料 POST 給伺服器 (JSON 格式)。成功就顯示通知並關閉對話框，失敗改試下一個網址。
         function executePost(url, postBody) {
             GM_xmlhttpRequest({
                 method: "POST",
@@ -1626,6 +1751,10 @@
         tryNext();
     }
 
+    /**
+     * 備援：所有伺服器都連不上時呼叫。
+     * 把書籤 JSON 複製到剪貼簿，使用者可以之後到圖書館網站手動貼上新增，資料就不會白白遺失。
+     */
     function handleLocalFallback(payload) {
 
         const btn = document.getElementById("wl-submit-btn");
@@ -1646,6 +1775,10 @@
 
 
 
+    /**
+     * 在畫面右下角跳出一則深色小提示，4 秒後自動消失。
+     * 參數 text：要顯示的文字。因為不能保證宿主網站的樣式，所以全部用 !important 的內嵌樣式。
+     */
     function showNotice(text) {
 
         const n = document.createElement("div");
@@ -1688,6 +1821,10 @@
 
 
 
+    /*
+     * Alt + B 快捷鍵。第三個參數 true 代表在「捕獲階段」就先攔截，
+     * 比網頁自己的快捷鍵處理更早拿到事件；preventDefault / stopPropagation 避免網頁也跟著反應。
+     */
     // 7. 最高捕獲優先級快捷鍵監聽
 
     window.addEventListener("keydown", (e) => {
@@ -1706,6 +1843,10 @@
 
 
 
+    /*
+     * 在 Tampermonkey 圖示的選單加入指令 (用 GM_registerMenuCommand)：
+     * 開收藏對話框、切換懸浮球顯示。先檢查該函式存在才呼叫，避免在不支援的管理器上報錯。
+     */
     // 8. 註冊 Tampermonkey 快捷指令選單
 
     if (typeof GM_registerMenuCommand !== "undefined") {
@@ -1726,15 +1867,27 @@
 
 
 
+    /*
+     * 以下是「快捷記事本」功能的總說明：
+     *  - Alt + N 開關一個小視窗，可寫標題與內容，勾選後會附上當前畫面截圖。
+     *  - 筆記以 category: "note" 的書籤形式存進圖書館，送出流程和上面收藏相同 (GET 合併後 POST)。
+     *  - 草稿用 GM_setValue 暫存，不小心關掉或換網頁也不會遺失。
+     *  - 函式名稱都以 wlNote 開頭，與前面的收藏面板分開，避免互相干擾。
+     */
     // ==========================================================
     // 10. 快捷記事本 (Alt + N)：隨手記下標題與內容，可附當前畫面截圖，一鍵存進圖書館
     //     獨立區塊：自帶 Shadow DOM 樣式與儲存流程，不動上面的收藏面板程式
     // ==========================================================
+    // WL_NOTE_DRAFT_KEY：草稿存在 Tampermonkey 儲存空間用的名稱
+    // WL_NOTE_SHOT_MAX_W：截圖最大寬度 (像素)，限制大小避免上傳太肥
+    // wlNoteHost：記事本最外層的 DOM 元素 (還沒建立時是 null)
+    // wlNoteUi：記事本裡的輸入框、核取方塊、按鈕等元素參照，方便其他函式取用
     const WL_NOTE_DRAFT_KEY = "wl_note_draft";
     const WL_NOTE_SHOT_MAX_W = 1280;
     let wlNoteHost = null;
     let wlNoteUi = null;
 
+    // 讀取暫存的草稿，回傳 { title, content, shot }；沒有草稿或內容壞掉就回傳空白草稿
     function wlNoteLoadDraft() {
         try {
             const d = JSON.parse(GM_getValue(WL_NOTE_DRAFT_KEY, "{}") || "{}");
@@ -1744,6 +1897,7 @@
         }
     }
 
+    // 把目前輸入的標題、內容與「附截圖」勾選狀態存起來。每次輸入與關閉視窗時都會呼叫。
     function wlNoteSaveDraft() {
         if (!wlNoteUi) return;
         GM_setValue(WL_NOTE_DRAFT_KEY, JSON.stringify({
@@ -1753,14 +1907,20 @@
         }));
     }
 
+    // 記事本目前是否顯示中 (回傳 true / false)
     function wlNoteIsOpen() {
         return !!(wlNoteHost && wlNoteHost.style.display !== "none");
     }
 
+    // 建立記事本視窗 (只建一次)。
+    // 使用 Shadow DOM (attachShadow)：把記事本的 HTML 與 CSS 關在獨立的「影子」裡，
+    // 網頁原本的樣式進不來、記事本的樣式也不會跑出去，所以在任何網站看起來都一樣。
+    // 視窗用 position: fixed 固定在畫面正中間，z-index 比懸浮球小 1，讓兩者不互相蓋掉。
     function wlNoteBuild() {
         wlNoteHost = document.createElement("div");
         wlNoteHost.id = "wl-quick-note-host";
         wlNoteHost.style.cssText = "position:fixed!important;top:50%!important;left:50%!important;transform:translate(-50%,-50%)!important;z-index:2147483646!important;display:none;";
+        // mode: "open" 讓外面仍能用 wlNoteHost.shadowRoot 取得內容 (方便除錯)
         const root = wlNoteHost.attachShadow({ mode: "open" });
         root.innerHTML = `
             <style>
@@ -1796,6 +1956,7 @@
                     </div>
                 </div>
             </div>`;
+        // 把常用元素的參照記起來 (用 class 名稱在 shadow root 內查詢)
         wlNoteUi = {
             title: root.querySelector(".t"),
             content: root.querySelector(".c"),
@@ -1803,6 +1964,7 @@
             status: root.querySelector(".st"),
             save: root.querySelector(".save")
         };
+        // 一輸入就自動存草稿；下面是各按鈕的事件：✕ 關閉、清空 (會先確認)、存進圖書館
         [wlNoteUi.title, wlNoteUi.content, wlNoteUi.shot].forEach(el => el.addEventListener("input", wlNoteSaveDraft));
         wlNoteUi.shot.addEventListener("change", wlNoteSaveDraft);
         root.querySelector(".x").addEventListener("click", wlNoteClose);
@@ -1821,6 +1983,7 @@
         (document.documentElement || document.body).appendChild(wlNoteHost);
     }
 
+    // 開啟記事本：必要時先建立、載入上次草稿填入欄位，再顯示並把游標放到合適的輸入框 (已有標題就跳到內容)
     function wlNoteOpen() {
         if (!wlNoteHost || !wlNoteHost.isConnected) wlNoteBuild();
         const d = wlNoteLoadDraft();
@@ -1832,16 +1995,27 @@
         setTimeout(() => (d.title ? wlNoteUi.content : wlNoteUi.title).focus(), 0);
     }
 
+    // 關閉記事本：先存草稿再隱藏 (只是隱藏，內容不會丟)
     function wlNoteClose() {
         if (!wlNoteHost) return;
         wlNoteSaveDraft();
         wlNoteHost.style.display = "none";
     }
 
+    // 開關切換。Alt + N 與 Tampermonkey 選單都呼叫這個函式
     function wlNoteToggle() {
         wlNoteIsOpen() ? wlNoteClose() : wlNoteOpen();
     }
 
+    /**
+     * 擷取目前瀏覽器可視範圍的截圖，回傳 JPEG 的 data URL 字串 (data:image/jpeg;base64,...)。
+     * 使用 @require 載入的 html2canvas：它是把頁面 DOM 重新畫到 canvas 上，並非真的螢幕擷圖。
+     * 步驟：先隱藏記事本 (不然會拍到自己) → 等兩個 requestAnimationFrame 讓畫面真的更新 →
+     *   以目前捲動位置與視窗大小為範圍截圖 → 太寬就縮小 → 轉成 JPEG 壓縮；
+     *   若檔案大於約 3.5MB 再降低品質。最後無論成功失敗都用 finally 把記事本顯示回來。
+     * html2canvas 沒載入或截圖失敗會丟出錯誤，由呼叫端 (wlNoteSubmit) 捕捉處理。
+     * useCORS: 允許讀取跨網域圖片，否則 canvas 會被污染而無法輸出。
+     */
     // 擷取當前可視畫面 (截圖前先藏起記事本本身)，縮到寬度 1280 內並轉 JPEG 0.7
     async function wlNoteCaptureViewport() {
         if (typeof html2canvas !== "function") throw new Error("html2canvas 未載入");
@@ -1872,6 +2046,11 @@
         }
     }
 
+    /**
+     * 把 GM_xmlhttpRequest (回呼寫法) 包成 Promise，這樣可以用 await 寫得比較好讀。
+     * 參數 opts：GM_xmlhttpRequest 的選項 (method、url、headers、data、timeout ...)。
+     * 回傳 Promise：HTTP 狀態 2xx 時 resolve 回應物件；其他狀態、連線失敗或逾時都 reject 並帶錯誤訊息。
+     */
     function wlNoteRequest(opts) {
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
@@ -1884,6 +2063,14 @@
         });
     }
 
+    /**
+     * 按下「存進圖書館」後的完整流程。
+     *  1. 檢查標題與內容不可兩者皆空；標題空白就取內容第一行。
+     *  2. 若勾選截圖，呼叫 wlNoteCaptureViewport 取得圖片 (失敗只提示，筆記照存)。
+     *  3. 組出筆記的 payload (category: "note")，網址後面加 #wl-<id> 讓每則筆記網址都不同。
+     *  4. 逐一嘗試候選伺服器：GET 現有書籤 → (有截圖) 上傳截圖換成檔案路徑 → POST 合併後的清單。
+     *  5. 成功就清空草稿並關閉；全部連不上就保留草稿並把 JSON 複製到剪貼簿。
+     */
     async function wlNoteSubmit() {
         const content = wlNoteUi.content.value.trim();
         const firstLine = content.split("\n")[0].trim().slice(0, 60);
@@ -1930,6 +2117,7 @@
         const candidates = customUrl && !defaultUrls.includes(customUrl) ? [customUrl, ...defaultUrls] : defaultUrls;
 
         wlNoteUi.status.textContent = "傳送中…";
+        // 逐個伺服器嘗試；用 continue 代表「這台不行，換下一台」，成功則 return 結束整個函式
         for (const apiUrl of candidates) {
             let existing = [];
             let username = "jyun";
@@ -1946,6 +2134,9 @@
             let shotFailed = false;
             if (shot) {
                 try {
+                    // 截圖是很大的 base64 字串，不直接塞進書籤資料，
+                    // 而是先 POST 到後端 /api/bookmarks/screenshot 存成檔案，拿回檔案路徑填入 cover 欄位。
+                    // new URL(apiUrl).origin 取出「協定+主機+埠」，確保傳給同一台伺服器。
                     const upRes = await wlNoteRequest({
                         method: "POST",
                         url: new URL(apiUrl).origin + "/api/bookmarks/screenshot",
@@ -1959,6 +2150,7 @@
                 }
             }
 
+            // 合併書籤清單：新筆記放最前面，並排除相同 id 或相同網址的舊資料，再整份 POST 回去
             const merged = [payload, ...existing.filter(b => b.id !== payload.id && b.url !== payload.url)];
             try {
                 await wlNoteRequest({
@@ -1988,6 +2180,8 @@
         showNotice("✨ 伺服器未開啟，筆記草稿已保留並複製到剪貼簿，開啟伺服器後再按一次存檔即可。");
     }
 
+    // 記事本快捷鍵：Alt + N 開關 (限定只按 Alt+N，不含 Ctrl/Shift/Meta，避免誤觸其他組合)；
+    // 記事本開著時按 Esc 關閉。同樣用捕獲階段 (最後的 true) 搶在網頁之前處理。
     window.addEventListener("keydown", (e) => {
         if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.code === "KeyN") {
             e.preventDefault();
@@ -2000,12 +2194,17 @@
         }
     }, true);
 
+    // Tampermonkey 選單也加入「開啟快捷記事本」，不方便按快捷鍵時可用
     if (typeof GM_registerMenuCommand !== "undefined") {
         GM_registerMenuCommand("開啟快捷記事本 (Alt+N)", wlNoteToggle);
     }
 
 
 
+    /**
+     * 掛載懸浮球的入口函式。
+     * 觸發時機：頁面載入完成、單頁應用換頁、以及每 2.5 秒定時檢查 (下方註冊)。
+     */
     // 9. 掛載懸浮球
 
     function setupTrigger() {
@@ -2016,6 +2215,7 @@
 
 
 
+    // 若頁面已經載入完就直接掛上懸浮球，否則等 DOMContentLoaded 事件再掛
     if (document.readyState === "complete" || document.readyState === "interactive") {
 
         setupTrigger();
@@ -2028,6 +2228,9 @@
 
 
 
+    // YouTube、Bilibili 這類單頁應用換頁時不會重新載入整頁，懸浮球可能被網站清掉。
+    // 所以監聽 YouTube 換頁事件 (yt-navigate-finish)、瀏覽器上一頁 (popstate)，
+    // 再加上每 2.5 秒定時檢查一次，確保懸浮球消失時能自動補回來。
     window.addEventListener("yt-navigate-finish", setupTrigger);
 
     window.addEventListener("popstate", setupTrigger);
