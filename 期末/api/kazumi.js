@@ -759,7 +759,8 @@ async function fetchDandanplayDanmaku(animeTitle, episodeIndex = 1, appId = '', 
         const comments = commentData.comments || [];
 
         // 彈幕的 p 欄位格式是「時間,模式,顏色,使用者」，用逗號拆開；顏色是十進位整數，轉成 #RRGGBB 十六進位字串，預設白色。
-        return comments.slice(0, 150).map(c => {
+        // 不設數量上限：全部彈幕都回傳，由前端依播放時間逐秒顯示。
+        return comments.map(c => {
             const pParts = (c.p || '').split(',');
             return {
                 time: Math.floor(parseFloat(pParts[0]) || 0),
@@ -1272,7 +1273,7 @@ async function handleKazumiRoute(req, res) {
             }
 
             // Bilibili 彈幕是 XML：<d p="時間,模式,字級,顏色,...">內容</d>，用 regex 逐筆取出，p 的第 1 欄是時間、第 4 欄是顏色。
-            // C. 嘗試以 CID 抓取 B站官方即時彈幕 (放寬抓取上限至 2000 條，極大化彈幕量)
+            // C. 嘗試以 CID 抓取 B站官方即時彈幕 (不設數量上限，XML 裡有幾條就全部回傳)
             if (cid && /^\d+$/.test(cid)) {
                 try {
                     const dmUrl = `https://api.bilibili.com/x/v1/dm/list.so?oid=${cid}`;
@@ -1296,7 +1297,6 @@ async function handleKazumiRoute(req, res) {
                                 color: '#' + (parseInt(pParts[3], 10) || 16777215).toString(16).padStart(6, '0'),
                                 content: m[2]
                             });
-                            if (list.length >= 2000) break; // 大幅提升彈幕上限至 2000 條！
                         }
 
                         if (list.length > 0) {
