@@ -4,7 +4,7 @@
 
 // @namespace    http://tampermonkey.net/
 
-// @version      1.7.0
+// @version      1.8.0
 
 // @description  完美相容 YouTube、Bangumi、動漫劇院全域影片/彈幕雙向秒級同步橋樑 (解決跨域 iframe 暫停/跳轉割裂)、自由拖曳移動位置、開關懸浮球與 Alt + B 快捷鍵收藏！Alt + N 開啟快捷記事本 (可附畫面截圖) 一鍵存進圖書館。
 
@@ -1760,13 +1760,13 @@
     function wlNoteBuild() {
         wlNoteHost = document.createElement("div");
         wlNoteHost.id = "wl-quick-note-host";
-        wlNoteHost.style.cssText = "position:fixed!important;right:24px!important;bottom:96px!important;z-index:2147483646!important;display:none;";
+        wlNoteHost.style.cssText = "position:fixed!important;top:50%!important;left:50%!important;transform:translate(-50%,-50%)!important;z-index:2147483646!important;display:none;";
         const root = wlNoteHost.attachShadow({ mode: "open" });
         root.innerHTML = `
             <style>
                 :host { all: initial; }
-                .box { width: 360px; max-width: calc(100vw - 32px); background: #ffffff; color: #0f172a; border-radius: 12px;
-                       box-shadow: 0 16px 40px rgba(15,23,42,.35); font: 13px/1.5 system-ui, -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif; overflow: hidden; }
+                .box { width: 460px; max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); overflow-y: auto; background: #ffffff; color: #0f172a; border-radius: 12px;
+                       box-shadow: 0 16px 40px rgba(15,23,42,.35); font: 13px/1.5 system-ui, -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif; }
                 .hd { background: #0f172a; color: #fff; padding: 10px 14px; display: flex; align-items: center; gap: 8px; }
                 .hd b { font-size: 14px; font-weight: 600; flex: 1; }
                 .hd small { color: #94a3b8; }
