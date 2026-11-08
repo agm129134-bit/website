@@ -124,14 +124,15 @@ async function autoMigrate() {
             }
             console.log(`[NeDB] 成功自動遷移 ${accounts.length} 筆帳號至 accounts.db (密碼全面升級加鹽加密)`);
         } else if (accountsCount === 0) {
-            // 沒有舊 JSON 檔、資料庫也空 -> 第一次啟動，建立預設管理員帳號 jyun。
+            // 沒有舊 JSON 檔、資料庫也空 -> 第一次啟動，建立一個訪客性質的示範帳號 demo（不綁任何真人身分）。
+            // 不用 "guest"：前端把 guest 當成「訪客模式」，資料不會同步到伺服器。
             // 密碼來自環境變數 DEFAULT_ADMIN_PASSWORD；沒設定就隨機產生並只印在伺服器 log（避免把密碼寫死在原始碼）。
-            // 首次啟動的預設帳號：密碼由環境變數提供，未提供則隨機產生並只印在伺服器 log
             const initPwd = process.env.DEFAULT_ADMIN_PASSWORD || crypto.randomBytes(6).toString('hex');
+            const now = new Date().toISOString();
             await accountsDb.insert([
-                { username: 'jyun', password: hashPassword(initPwd), name: 'Jyun', role: '核心開發者', avatar: 'default', bio: '專案核心作者' }
+                { username: 'demo', password: hashPassword(initPwd), name: '訪客示範', role: '示範帳號', avatar: 'default', bio: '系統自動建立的示範帳號', createdAt: now, updatedAt: now }
             ]);
-            if (!process.env.DEFAULT_ADMIN_PASSWORD) console.log(`[NeDB] 已建立預設帳號 jyun，初始密碼: ${initPwd}`);
+            if (!process.env.DEFAULT_ADMIN_PASSWORD) console.log(`[NeDB] 已建立預設示範帳號 demo，初始密碼: ${initPwd}`);
         }
 
         // 步驟 2 書籤：讀 data/ 底下所有 bookmarks_使用者.json，用 update + upsert:true 寫入
