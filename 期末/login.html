@@ -21,8 +21,8 @@
     <!-- Custom Style Sheet -->
     <link rel="stylesheet" href="css/style.css">
 
-    /* 登入頁專用樣式：置中的卡片、品牌圖示、登入／註冊分頁藥丸列、輸入框與按鈕外觀 */
     <style>
+        /* 登入頁專用樣式：置中的卡片、品牌圖示、登入／註冊分頁藥丸列、輸入框與按鈕外觀 */
         body {
             background-color: #f8fafc;
             color: #0f172a;
@@ -155,9 +155,9 @@
             color: #ffffff;
         }
     </style>
-// 【進頁面最優先的自動登入檢查】放在 head，頁面還沒畫出來就先判斷，已登入的人不會看到登入畫面閃一下
-// 流程：1.sessionStorage 有 currentUser 代表本次已登入；2.沒有就看 localStorage 的 rememberedUser（勾選「記住我」留下，有 30 天期限）；3.未過期就還原登入並導向首頁，過期就清掉
 <script>
+        // 【進頁面最優先的自動登入檢查】放在 head，頁面還沒畫出來就先判斷，已登入的人不會看到登入畫面閃一下
+        // 流程：1.sessionStorage 有 currentUser 代表本次已登入；2.沒有就看 localStorage 的 rememberedUser（勾選「記住我」留下，有 30 天期限）；3.未過期就還原登入並導向首頁，過期就清掉
         // 置頂優先檢查 30 天記住登入憑證
         (function headFastAutoLogin() {
             try {
