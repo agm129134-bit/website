@@ -777,6 +777,9 @@
                     }
 
                     const user = data.user;
+                    // 新帳號：清掉同名舊帳號殘留的頭像 / 偏好快取，避免出現之前帳號的頭像
+                    ['web_library_custom_avatar_', 'web_library_default_sort_', 'web_library_default_category_']
+                        .forEach(k => sessionStorage.removeItem(k + String(user.username || '').toLowerCase()));
                     sessionStorage.setItem('currentUser', JSON.stringify(user));
 
                     showToast(`🎉 註冊成功！歡迎加入，${user.name || user.username}！`, "bi-check-circle-fill text-success");

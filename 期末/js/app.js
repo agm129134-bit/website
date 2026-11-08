@@ -537,6 +537,17 @@ window.confirmDeleteCurrentAccount = async function () {
     // 3. 清理本機當前快取（含「記住我」的 localStorage 憑證，否則 login.html 會自動還原登入又跳回首頁）
     clearLoginStorage();
 
+    // 清掉此帳號的頭像 / 偏好快取，否則之後註冊同名帳號會沿用舊頭像
+    const userKey = user.toLowerCase().trim();
+    ["web_library_custom_avatar_", "web_library_default_sort_", "web_library_default_category_"]
+      .forEach((k) => sessionStorage.removeItem(k + userKey));
+
+    // 這些資料不分帳號存在本機，也屬於被刪帳號：自訂來源規則 (會自動同步回同名新帳號)、觀看/漫畫歷史、自訂遊戲
+    localStorage.removeItem("web_library_custom_rules_v1");
+    ["web_library_watch_history", "web_library_anime_history", "web_library_manga_history",
+     "web_library_custom_games", "web_library_hidden_default_games"]
+      .forEach((k) => sessionStorage.removeItem(k));
+
     sessionStorage.removeItem("web_library_user");
 
     sessionStorage.removeItem("web_library_bookmarks");

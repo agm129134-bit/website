@@ -475,6 +475,7 @@ async function handleSyncRoute(req, res) {
             await accountsDb.remove({ username: cleanUser }, { multi: true });
             await bookmarksDb.remove({ user: cleanUser }, { multi: true });
             await bookshelfDb.remove({ user: cleanUser }, { multi: true });
+            await musicDb.remove({ user: cleanUser }, { multi: true }); // 音樂庫也要刪，否則同名新帳號會繼承舊歌單
 
             return sendJson(res, 200, {
                 success: true,
