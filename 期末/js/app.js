@@ -534,10 +534,8 @@ window.confirmDeleteCurrentAccount = async function () {
       }
     } catch (e) {}
 
-    // 3. 清理本機當前快取
-    sessionStorage.removeItem("currentUser");
-
-    sessionStorage.removeItem("currentUser");
+    // 3. 清理本機當前快取（含「記住我」的 localStorage 憑證，否則 login.html 會自動還原登入又跳回首頁）
+    clearLoginStorage();
 
     sessionStorage.removeItem("web_library_user");
 
@@ -554,12 +552,18 @@ window.confirmDeleteCurrentAccount = async function () {
   } catch (err) {
     console.error("刪除帳號失敗:", err);
 
-    sessionStorage.removeItem("currentUser");
-
-    sessionStorage.removeItem("currentUser");
+    clearLoginStorage();
     window.location.replace("login.html");
   }
 };
+
+// 清除所有登入狀態：sessionStorage 本次登入 + localStorage「30天免登入」憑證
+function clearLoginStorage() {
+  sessionStorage.removeItem("currentUser");
+  localStorage.removeItem("rememberedUser");
+  localStorage.removeItem("currentUser");
+  localStorage.removeItem("web_library_user");
+}
 
 // 跨電腦雲端自動同步計時器 (支援防抖 Debounce 與刪除操作立即同步)
 let _cloudSyncDebounceTimer = null;
