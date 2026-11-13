@@ -61,6 +61,24 @@
     chapterResult: ".//a[contains(@href,'page_direct')]",
     pageImage: "//amp-img[contains(@class,'comic-contain__item')]",
   };
+  // 小說範例：維基文庫 (公有領域古典小說，合法)。格式借鑑 Legado 書源的「搜尋 -> 目錄 -> 正文」
+  const SAMPLE_NOVEL = {
+    type: "novel",
+    name: "維基文庫 (自訂範例)",
+    baseURL: "https://zh.wikisource.org/",
+    searchURL: "https://zh.wikisource.org/w/index.php?search=@keyword&title=Special:%E6%90%9C%E7%B4%A2&ns0=1&fulltext=1",
+    searchList: "//ul[@class='mw-search-results']/li",
+    searchName: ".//div[@class='mw-search-result-heading']/a",
+    searchResult: ".//div[@class='mw-search-result-heading']/a/@href",
+    chapterList: "//div[contains(@class,'mw-parser-output')]",
+    chapterResult: ".//a[starts-with(@href,'/wiki/') and not(contains(@href,':'))]",
+    contentTitle: "//h1",
+    contentNode: "//div[contains(@class,'mw-parser-output')]/p",
+  };
+  // 依種類取範例規則
+  function sampleOf(kind) {
+    return kind === "anime" ? SAMPLE_ANIME : kind === "novel" ? SAMPLE_NOVEL : SAMPLE_MANGA;
+  }
 
   // FIELDS：編輯表單要顯示哪些欄位。每個欄位是陣列：[欄位名, 顯示標籤, 是否必填, 提示說明, 是否為進階選項]。
   // 鍵名 "動畫:xpath"、"漫畫:xpath"、jump 分別對應三種規則的表單。表單是依這張表動態產生的，要加欄位只要改這裡。
@@ -93,6 +111,24 @@
       ["referer", "圖片 Referer", false, "防盜鏈用，留空使用章節頁網址", true],
       ["userAgent", "User-Agent", false, "留空使用預設瀏覽器 UA", true],
       ["chapterReverse", "章節倒序", false, "網站把最新章節排在最前面時勾選", true],
+      ["usePost", "搜尋使用 POST", false, "", true],
+    ],
+    "novel:xpath": [
+      ["name", "網站名稱", true, "顯示在小說書源按鈕上"],
+      ["baseURL", "網站首頁", false, "相對連結以此為基準"],
+      ["searchURL", "搜尋網址", true, "用 @keyword 代表搜尋關鍵字"],
+      ["searchList", "搜尋結果列表 searchList", true, "XPath，選出每一筆結果"],
+      ["searchName", "書名 searchName", true, "XPath，相對每一筆結果"],
+      ["searchResult", "詳情連結 searchResult", true, "XPath，相對每一筆結果，取 href"],
+      ["searchAuthor", "作者 searchAuthor", false, "XPath，相對每一筆結果"],
+      ["searchCover", "封面圖 searchCover", false, "XPath，相對每一筆結果"],
+      ["chapterList", "目錄區塊 chapterList", false, "XPath，在詳情頁選出目錄容器；留空為整頁"],
+      ["chapterResult", "章節連結 chapterResult", true, "XPath，相對目錄區塊，取 href"],
+      ["contentNode", "正文 contentNode", true, "XPath，在章節頁選出正文容器或每一段 <p>；會依 <br> 與段落自動分段"],
+      ["contentTitle", "章節標題 contentTitle", false, "XPath，在章節頁取標題；留空用目錄上的章名", true],
+      ["referer", "Referer", false, "留空使用網站首頁", true],
+      ["userAgent", "User-Agent", false, "留空使用預設瀏覽器 UA", true],
+      ["chapterReverse", "目錄倒序", false, "網站把最新章節排在最前面時勾選", true],
       ["usePost", "搜尋使用 POST", false, "", true],
     ],
     jump: [
@@ -278,7 +314,7 @@
   // 匯入的 JSON：有 searchList 視為 XPath 規則，只有 searchURL 視為搜尋跳轉
   function fromImported(obj, kind) {
     if (!obj || typeof obj !== "object" || Array.isArray(obj)) throw new Error("每條規則必須是 JSON 物件");
-    if (obj.type && obj.type !== kind) throw new Error(`「${obj.name || "未命名"}」的 type 是 ${obj.type}，不是${kind === "anime" ? "動畫" : "漫畫"}規則`);
+    if (obj.type && obj.type !== kind) throw new Error(`「${obj.name || "未命名"}」的 type 是 ${obj.type}，不是${kindLabel(kind)}規則`);
     const mode = obj.mode === "jump" || (!obj.searchList && obj.searchURL) ? "jump" : "xpath";
     const rule = {};
     for (const [k, v] of Object.entries(obj)) {
@@ -297,7 +333,7 @@
     const out = {};
     if (rule.mode === "jump") Object.assign(out, { type: rule.kind, mode: "jump" });
     else if (rule.kind === "anime") Object.assign(out, { api: rule.api || "1", type: "anime" });
-    else out.type = "manga";
+    else out.type = rule.kind;
     for (const [k, v] of Object.entries(rule)) {
       if (!META_KEYS.includes(k) && !(k in out) && v !== "" && v !== false) out[k] = v;
     }
@@ -430,6 +466,17 @@
       const { rule } = parseMangaId(mangaId);
       return post("/api/manga/custom-pages", { rule, chapterUrl });
     },
+    // 小說：啟用中的 XPath 規則會變成小說書源按鈕；app.js 用 novelRule 取規則再 POST 到 /api/novel/custom-*
+    novelSources() {
+      return rulesOf("novel", "xpath", true).map((r) => ({ id: SOURCE_PREFIX + r.id, name: r.name }));
+    },
+    novelRule(sourceId) {
+      return ruleFromSourceId(sourceId);
+    },
+    onNovelSearch(keyword) {
+      lastKeyword.novel = keyword || "";
+      renderJumpRow("novel");
+    },
     onAnimeSearch(keyword) {
       lastKeyword.anime = keyword || "";
       renderJumpRow("anime");
@@ -445,10 +492,11 @@
   // 搜尋跳轉按鈕列：在來源彈窗中插入一排按鈕，點了到外部網站搜尋。
   // lastKeyword 記住最近的關鍵字；JUMP_ANCHOR 說明按鈕列要插在哪個既有元素之前、輸入框 id 是什麼。
   // ==================== 搜尋跳轉按鈕列 ====================
-  const lastKeyword = { anime: "", manga: "" };
+  const lastKeyword = { anime: "", manga: "", novel: "" };
   const JUMP_ANCHOR = {
     anime: { modal: "kazumiSourceModal", before: "kazumiSourceList", input: "kazumiModalKeywordInput" },
     manga: { modal: "mangaSourceModal", before: "mangaSelectedSummaryBox", input: "mangaDrawerKeywordInput" },
+    novel: { modal: "novelSourceModal", before: "novelSelectedSummaryBox", input: "novelDrawerKeywordInput" },
   };
 
   // iconHtml(icon)：產生按鈕圖示的 HTML：沒設定用預設圖示；bi-xxx 用 Bootstrap Icons；否則當 emoji 文字（有跳脫）。
@@ -489,7 +537,7 @@
       .join("");
     row.innerHTML = `
       <span class="custom-jump-label"><i class="bi bi-signpost-split"></i> ${jumps.length ? "跳轉搜尋" : "自訂來源"}</span>
-      ${links || `<span class="custom-jump-hint">新增「搜尋跳轉」規則，就能一鍵到其他網站搜尋${kind === "anime" ? "；匯入 Kazumi 規則可直接在站內播放" : "；XPath 規則的結果會直接出現在下方"}</span>`}
+      ${links || `<span class="custom-jump-hint">新增「搜尋跳轉」規則，就能一鍵到其他網站搜尋${kind === "anime" ? "；匯入 Kazumi 規則可直接在站內播放" : kind === "novel" ? "；XPath 規則會變成上方的書源按鈕" : "；XPath 規則的結果會直接出現在下方"}</span>`}
       <button type="button" class="btn btn-xs btn-outline-light custom-jump-manage" data-custom-rules-open="${kind}"><i class="bi bi-sliders"></i> 自訂規則</button>
     `;
   }
@@ -498,13 +546,15 @@
   function refreshAll() {
     renderJumpRow("anime");
     renderJumpRow("manga");
+    renderJumpRow("novel");
+    if (typeof window.updateNovelSourcePills === "function") window.updateNovelSourcePills();
     if (managerKind) renderManager();
   }
 
   // 規則管理 Modal（彈出視窗）。用三個狀態變數控制畫面：managerKind（動畫 / 漫畫）、managerView（list 清單 / edit 編輯 / import 匯入）、editing（編輯中的規則複本）。
   // 畫面做法：狀態改變 -> renderManager() 重新產生 HTML 塞進視窗；按鈕用 data-act 屬性標記動作，統一由 onManagerClick 處理（事件委派）。
   // ==================== 規則管理 Modal ====================
-  let managerKind = null; // 'anime' | 'manga'
+  let managerKind = null; // 'anime' | 'manga' | 'novel'
   let managerView = "list"; // 'list' | 'edit' | 'import'
   let editing = null; // 編輯中的規則 (複本)
 
@@ -552,7 +602,7 @@
 
   // openManager(kind)：打開規則管理視窗。kind 為 'anime' 或 'manga'。
   function openManager(kind) {
-    managerKind = kind === "manga" ? "manga" : "anime";
+    managerKind = kind === "manga" || kind === "novel" ? kind : "anime";
     managerView = "list";
     editing = null;
     const el = ensureModal();
@@ -562,17 +612,17 @@
 
   // kindLabel(kind)：種類的中文名稱。
   function kindLabel(kind) {
-    return kind === "anime" ? "動畫" : "漫畫";
+    return kind === "anime" ? "動畫" : kind === "novel" ? "小說" : "漫畫";
   }
 
   // renderManager()：依 managerView 決定內容（編輯 / 匯入 / 清單），並畫出上方動畫 / 漫畫分頁標籤與各自的規則數量。
   function renderManager() {
     const body = document.getElementById("customRulesBody");
     if (!body || !managerKind) return;
-    const tabs = ["anime", "manga"]
+    const tabs = ["anime", "manga", "novel"]
       .map(
         (k) => `<li class="nav-item"><button type="button" class="nav-link rounded-pill ${k === managerKind ? "active" : ""}" data-act="tab" data-kind="${k}">
-          <i class="bi ${k === "anime" ? "bi-play-circle" : "bi-book"}"></i> ${kindLabel(k)}規則 <span class="badge bg-secondary ms-1">${rulesOf(k).length}</span></button></li>`,
+          <i class="bi ${k === "anime" ? "bi-play-circle" : k === "novel" ? "bi-journal-text" : "bi-book"}"></i> ${kindLabel(k)}規則 <span class="badge bg-secondary ms-1">${rulesOf(k).length}</span></button></li>`,
       )
       .join("");
     let content = "";
@@ -613,7 +663,9 @@
     const intro =
       kind === "anime"
         ? `<b>Kazumi XPath 規則</b>會和內建來源一起出現在「播放來源」清單，可站內搜尋、選集與播放；<b>搜尋跳轉</b>只要填名稱與搜尋網址，點了直接在新分頁開該站搜尋結果。`
-        : `<b>XPath 規則</b>的結果會直接出現在漫畫搜尋結果，可選集並用條漫閱讀器看；<b>搜尋跳轉</b>會在搜尋時多一排按鈕，一鍵到其他網站。`;
+        : kind === "novel"
+          ? `<b>XPath 規則</b>會變成小說搜尋視窗裡的書源按鈕，可站內搜尋、看目錄、讀正文（格式借鑑 Legado 書源：搜尋 → 目錄 → 正文）；<b>搜尋跳轉</b>會在搜尋時多一排按鈕，一鍵到其他網站。`
+          : `<b>XPath 規則</b>的結果會直接出現在漫畫搜尋結果，可選集並用條漫閱讀器看；<b>搜尋跳轉</b>會在搜尋時多一排按鈕，一鍵到其他網站。`;
     return `
       <p class="small text-white-50 mb-3">${intro}</p>
       <div class="d-flex flex-wrap gap-2 mb-3">
@@ -630,7 +682,7 @@
   // importHtml()：產生「貼上 JSON 匯入」畫面的 HTML。
   function importHtml() {
     const kind = managerKind;
-    const sample = JSON.stringify(kind === "anime" ? SAMPLE_ANIME : SAMPLE_MANGA, null, 2);
+    const sample = JSON.stringify(sampleOf(kind), null, 2);
     return `
       <div class="mb-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div class="fw-semibold"><i class="bi bi-clipboard-plus"></i> 貼上${kind === "anime" ? " Kazumi " : ""}規則 JSON</div>
@@ -639,7 +691,9 @@
       <p class="small text-white-50 mb-2">${
         kind === "anime"
           ? "可直接貼上 KazumiRules 規則庫裡的 .json 內容 (單一物件或陣列)。同名規則會被更新。"
-          : "格式仿 Kazumi：searchURL / searchList / searchName / searchResult / chapterResult，另可選 searchCover、chapterList、pageImage。只有 name + searchURL 會當成搜尋跳轉。"
+          : kind === "novel"
+            ? "格式仿 Legado 書源：searchURL / searchList / searchName / searchResult / chapterResult / contentNode，另可選 searchAuthor、searchCover、chapterList、contentTitle。只有 name + searchURL 會當成搜尋跳轉。"
+            : "格式仿 Kazumi：searchURL / searchList / searchName / searchResult / chapterResult，另可選 searchCover、chapterList、pageImage。只有 name + searchURL 會當成搜尋跳轉。"
       }</p>
       <textarea class="form-control bg-black text-white border-secondary font-monospace small" id="customRulesImportText" rows="12" spellcheck="false" placeholder='${esc(sample)}'></textarea>
       <div id="customRulesImportMsg" class="small mt-2"></div>
@@ -687,7 +741,7 @@
           ? `<div class="custom-rule-test mt-3">
           <div class="small fw-semibold mb-1"><i class="bi bi-bug"></i> 測試規則 (不必先儲存)</div>
           <div class="input-group input-group-sm">
-            <input type="text" class="form-control bg-black text-white border-secondary" id="customRuleTestKw" placeholder="輸入測試關鍵字，例如 ${r.kind === "anime" ? "葬送的芙莉莲" : "葬送的芙莉蓮"}">
+            <input type="text" class="form-control bg-black text-white border-secondary" id="customRuleTestKw" placeholder="輸入測試關鍵字，例如 ${r.kind === "anime" ? "葬送的芙莉莲" : r.kind === "novel" ? "西遊記" : "葬送的芙莉蓮"}">
             <button type="button" class="btn btn-outline-info" data-act="test-search"><i class="bi bi-search"></i> 測試搜尋</button>
           </div>
           <div id="customRuleTestOut" class="small mt-2"></div>
@@ -736,15 +790,17 @@
     const q = (kwInput.value || kwInput.placeholder.replace(/^.*例如\s*/, "")).trim();
     out.innerHTML = `<span class="text-white-50"><span class="spinner-border spinner-border-sm"></span> 正在抓取 ${esc(fillKeyword(rule.searchURL, q))} ...</span>`;
     try {
-      const data = await post(rule.kind === "anime" ? "/api/kazumi/custom-search" : "/api/manga/custom-search", { rule, q });
-      const list = data.results || [];
+      const searchPath = { anime: "/api/kazumi/custom-search", manga: "/api/manga/custom-search", novel: "/api/novel/custom-search" }[rule.kind];
+      const data = await post(searchPath, { rule, q });
+      // 小說結果用 id 當詳情網址，統一成 detailUrl 方便下面顯示與測試
+      const list = (data.results || []).map((m) => ({ ...m, detailUrl: m.detailUrl || m.id }));
       if (!list.length) {
         out.innerHTML = `<span class="text-warning"><i class="bi bi-exclamation-triangle"></i> searchList 選到 ${data.matched || 0} 個節點，但沒有解析出標題 + 連結。請檢查 XPath。</span>`;
         return;
       }
       out.innerHTML = `<div class="text-success mb-1"><i class="bi bi-check-circle"></i> 找到 ${list.length} 筆結果 (searchList 選到 ${data.matched} 個節點)</div>
         <ol class="mb-1 ps-3">${list.slice(0, 6).map((m, i) => `<li><span class="text-white">${esc(m.title)}</span> <span class="text-white-50">${esc(m.detailUrl)}</span>
-        ${i === 0 ? ` <button type="button" class="btn btn-xs btn-outline-info ms-1" data-act="test-detail" data-url="${esc(m.detailUrl)}">${rule.kind === "anime" ? "測試選集" : "測試章節"}</button>` : ""}</li>`).join("")}</ol>
+        ${i === 0 ? ` <button type="button" class="btn btn-xs btn-outline-info ms-1" data-act="test-detail" data-url="${esc(m.detailUrl)}">${rule.kind === "anime" ? "測試選集" : rule.kind === "novel" ? "測試目錄與正文" : "測試章節"}</button>` : ""}</li>`).join("")}</ol>
         <div id="customRuleTestDetail"></div>`;
     } catch (e) {
       out.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> ${esc(e.message)}</span>`;
@@ -764,6 +820,17 @@
         box.innerHTML = eps.length
           ? `<span class="text-success"><i class="bi bi-check-circle"></i> 解析出 ${eps.length} 集：</span> ${eps.slice(0, 8).map((e) => esc(e.title)).join("、")}${eps.length > 8 ? " …" : ""}`
           : `<span class="text-warning">沒有解析出集數，請檢查 chapterRoads / chapterResult</span>`;
+      } else if (rule.kind === "novel") {
+        const data = await post("/api/novel/custom-chapters", { rule, novelId: detailUrl });
+        const chs = data.chapters || [];
+        if (!chs.length) {
+          box.innerHTML = `<span class="text-warning">沒有解析出章節，請檢查 chapterList / chapterResult</span>`;
+          return;
+        }
+        const content = await post("/api/novel/custom-content", { rule, chapterId: chs[0].id });
+        const paras = content.paragraphs || [];
+        box.innerHTML = `<div class="text-success"><i class="bi bi-check-circle"></i> ${chs.length} 個章節；「${esc(content.title || chs[0].title)}」有 ${paras.length} 段正文</div>
+          <div class="text-white-50 mt-1 text-truncate">${esc(paras[0] || "")}</div>`;
       } else {
         const data = await post("/api/manga/custom-chapters", { rule, detailUrl });
         const chs = data.chapters || [];
@@ -907,10 +974,10 @@
         doImport();
         break;
       case "fill-sample-import":
-        document.getElementById("customRulesImportText").value = JSON.stringify(managerKind === "anime" ? SAMPLE_ANIME : SAMPLE_MANGA, null, 2);
+        document.getElementById("customRulesImportText").value = JSON.stringify(sampleOf(managerKind), null, 2);
         break;
       case "fill-sample":
-        fillForm(editing.kind === "anime" ? SAMPLE_ANIME : SAMPLE_MANGA);
+        fillForm(sampleOf(editing.kind));
         break;
       case "test-search":
         runTest();
@@ -957,6 +1024,10 @@
   document.addEventListener("show.bs.modal", (e) => {
     if (e.target && e.target.id === "kazumiSourceModal") renderJumpRow("anime");
     if (e.target && e.target.id === "mangaSourceModal") renderJumpRow("manga");
+    if (e.target && e.target.id === "novelSourceModal") {
+      renderJumpRow("novel");
+      if (typeof window.updateNovelSourcePills === "function") window.updateNovelSourcePills();
+    }
   });
   // storage 事件：另一個瀏覽器分頁改了 localStorage 時觸發，這裡重新讀取並更新畫面，多分頁保持一致。
   // 其他分頁改了規則時同步

@@ -21,6 +21,8 @@
  */
 
 // 偽裝成一般瀏覽器的 User-Agent；TIMEOUT_MS 為單次請求逾時 10 秒；DEFAULT_SOURCE 是沒指定書源時的預設。
+const customRules = require('./custom-rules');
+const { readJsonBody, UnsafeUrlError } = require('./safe-fetch');
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
 const TIMEOUT_MS = 10000;
 const DEFAULT_SOURCE = 'syosetu';
@@ -299,10 +301,38 @@ async function handleNovelRoute(req, res) {
     if (req.method === 'OPTIONS') {
         res.writeHead(204, {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type'
         });
         return res.end();
+    }
+
+    // 使用者自訂小說規則 (POST，body 帶 { rule, q | novelId | chapterId })：交給 custom-rules.js 抓取與解析。
+    //  novelId 是詳情頁網址、chapterId 是章節網址。被 SSRF 擋下回 403；對方網站掛了或規則寫錯回 502。
+    if (pathname.startsWith('/api/novel/custom-')) {
+        if (req.method !== 'POST') return sendJson(res, 405, { success: false, error: '請使用 POST' });
+        const action = pathname.slice('/api/novel/custom-'.length);
+        try {
+            const body = await readJsonBody(req);
+            if (action === 'search') {
+                const q = String(body.q || '').trim().slice(0, 50);
+                if (!q) return sendJson(res, 400, { success: false, error: '請輸入小說名稱或作者' });
+                const { results, matched } = await customRules.novelSearch(body.rule, q);
+                return sendJson(res, 200, { success: true, count: results.length, matched, results });
+            }
+            if (action === 'chapters') {
+                const chapters = await customRules.novelChapters(body.rule, String(body.novelId || ''));
+                return sendJson(res, 200, { success: true, count: chapters.length, chapters });
+            }
+            if (action === 'content') {
+                const { title, paragraphs } = await customRules.novelContent(body.rule, String(body.chapterId || ''));
+                if (!paragraphs.length) return sendJson(res, 502, { success: false, unavailable: true, error: '自訂規則沒有解析出正文，請檢查 contentNode' });
+                return sendJson(res, 200, { success: true, title, paragraphs });
+            }
+            return sendJson(res, 404, { success: false, error: '未知的自訂規則操作' });
+        } catch (err) {
+            return sendJson(res, err instanceof UnsafeUrlError ? 403 : 502, { success: false, error: err.message });
+        }
     }
 
     // 書源選擇：只接受 SOURCES 裡有的名稱（轉小寫），不合法就用預設書源。

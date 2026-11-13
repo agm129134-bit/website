@@ -2,7 +2,7 @@
 // 使用者可以自己寫規則（網址模板 + XPath），讓網站去別的動漫 / 漫畫網站搜尋、抓章節、抓圖片。
 // 配合關係：
 //  - 前端 js/custom-rules.js 管理規則，呼叫時把整份規則隨請求送來
-//  - api/kazumi.js、api/manga.js 的自訂規則路由 require 這支檔案的 animeXxx / mangaXxx 函式
+//  - api/kazumi.js、api/manga.js、api/novel.js 的自訂規則路由 require 這支檔案的 animeXxx / mangaXxx 函式
 //  - 抓網頁一律走 safe-fetch.js（防 SSRF），解析 HTML 用 xpath-lite.js 的 XPath
 // 共同流程：normalizeRule 清理規則 -> fetchDoc 抓並解析網頁 -> select 用 XPath 取出節點 -> 組成結果回傳。
 // 伺服器不保存規則，每次都由前端帶上來。
@@ -23,6 +23,9 @@ const MAX_PAGES = 500;
 // chapterRoads=播放線路區塊、chapterResult=集數連結、searchCover=封面、chapterList=章節清單區塊、pageImage=漫畫圖片。
 const ANIME_FIELDS = ['searchURL', 'searchList', 'searchName', 'searchResult', 'chapterRoads', 'chapterResult'];
 const MANGA_FIELDS = ['searchURL', 'searchList', 'searchName', 'searchResult', 'searchCover', 'chapterList', 'chapterResult', 'pageImage'];
+// 小說規則（借鑑 Legado 書源的「搜尋 -> 目錄 -> 正文」三段式）：searchAuthor=作者、contentNode=正文節點、contentTitle=章節標題
+const NOVEL_FIELDS = ['searchURL', 'searchList', 'searchName', 'searchResult', 'searchCover', 'searchAuthor', 'chapterList', 'chapterResult', 'contentTitle', 'contentNode'];
+const MAX_PARAGRAPHS = 5000;
 
 // str(v, max)：安全取字串。不是字串就回傳空字串；是字串就去頭尾空白並截到最大長度 max（預設 2000）。
 function str(v, max = 2000) {
@@ -30,7 +33,7 @@ function str(v, max = 2000) {
 }
 
 // normalizeRule(raw, kind)：驗證並清理前端傳來的規則。
-//  參數：raw 原始規則物件；kind 為 'anime' 或 'manga'（決定要讀哪些欄位）。
+//  參數：raw 原始規則物件；kind 為 'anime'、'manga' 或 'novel'（決定要讀哪些欄位）。
 //  回傳：乾淨的規則物件；缺少必要欄位時丟 Error（呼叫端會轉成錯誤訊息給前端）。
 //  目的：前端傳來的資料不可信，只取已知欄位並限制長度，避免奇怪輸入。
 // 只取需要的欄位並限制長度，避免奇怪的輸入
@@ -44,7 +47,8 @@ function normalizeRule(raw, kind) {
         usePost: raw.usePost === true || raw.usePost === 'true',
         chapterReverse: raw.chapterReverse === true || raw.chapterReverse === 'true'
     };
-    for (const f of kind === 'manga' ? MANGA_FIELDS : ANIME_FIELDS) rule[f] = str(raw[f]);
+    const fields = kind === 'manga' ? MANGA_FIELDS : kind === 'novel' ? NOVEL_FIELDS : ANIME_FIELDS;
+    for (const f of fields) rule[f] = str(raw[f]);
     if (!rule.searchURL) throw new Error('規則缺少 searchURL');
     if (!rule.searchList || !rule.searchName || !rule.searchResult) throw new Error('規則缺少 searchList / searchName / searchResult');
     return rule;
@@ -279,7 +283,11 @@ async function mangaSearch(rawRule, keyword) {
 // mangaChapters(rawRule, detailUrl)：取漫畫章節列表。回傳 [{id(章節網址), title, index}]。
 //  chapterList 是選填的章節容器；沒填就整份文件都找。依連結去重；chapterReverse 為真時反轉順序（有些網站最新章在最前面）。
 async function mangaChapters(rawRule, detailUrl) {
-    const rule = normalizeRule(rawRule, 'manga');
+    return listChapters(normalizeRule(rawRule, 'manga'), detailUrl, '話');
+}
+
+// listChapters(rule, detailUrl, unit)：漫畫與小說共用的章節目錄解析（unit 是預設章名的單位：話 / 章）
+async function listChapters(rule, detailUrl, unit) {
     if (!rule.chapterResult) throw new Error('規則缺少 chapterResult');
     const { doc, url } = await fetchDoc(detailUrl, rule);
     const containers = rule.chapterList ? select(doc, rule.chapterList).filter(n => n.type === 'el') : [doc];
@@ -292,7 +300,7 @@ async function mangaChapters(rawRule, detailUrl) {
             if (!link || seen.has(link)) continue;
             seen.add(link);
             const title = a.type === 'el' ? (selectText(a, '.') || (a.attrs && a.attrs.title) || '') : '';
-            chapters.push({ id: link, title: title || `第 ${chapters.length + 1} 話` });
+            chapters.push({ id: link, title: title || `第 ${chapters.length + 1} ${unit}` });
             if (chapters.length >= MAX_EPISODES) break;
         }
     }
@@ -318,5 +326,64 @@ async function mangaPages(rawRule, chapterUrl) {
     return pages;
 }
 
-// 對外匯出給 kazumi.js / manga.js 的自訂規則路由使用。
-module.exports = { animeSearch, animeEpisodes, animePlay, mangaSearch, mangaChapters, mangaPages, normalizeRule };
+// ==================== 小說 (仿 Legado 書源的 XPath 規則) ====================
+// novelSearch(rawRule, keyword)：搜尋小說，邏輯同 mangaSearch，多取作者（searchAuthor）。
+//  回傳的 id 就是詳情頁網址，前端之後用它取目錄。
+async function novelSearch(rawRule, keyword) {
+    const rule = normalizeRule(rawRule, 'novel');
+    const { doc, url } = await fetchSearchDoc(rule, keyword);
+    const base = rule.baseURL || url;
+    const ref = rule.referer || rule.baseURL || url;
+    const items = select(doc, rule.searchList).filter(n => n.type === 'el').slice(0, MAX_RESULTS);
+    const results = [];
+    const seen = new Set();
+    for (const item of items) {
+        const title = selectText(item, rule.searchName);
+        const detailUrl = absUrl(selectLink(item, rule.searchResult), base);
+        if (!title || !detailUrl || seen.has(detailUrl)) continue;
+        seen.add(detailUrl);
+        const coverNode = rule.searchCover ? select(item, rule.searchCover)[0] : null;
+        const cover = coverNode ? absUrl(imageFrom(coverNode), base) : '';
+        const author = rule.searchAuthor ? selectText(item, rule.searchAuthor) : '';
+        results.push({ id: detailUrl, title, author, cover: proxied(cover, ref), intro: '' });
+    }
+    return { results, matched: items.length };
+}
+
+// novelChapters(rawRule, detailUrl)：取小說目錄，回傳 [{id(章節網址), title, index}]
+async function novelChapters(rawRule, detailUrl) {
+    return listChapters(normalizeRule(rawRule, 'novel'), detailUrl, '章');
+}
+
+// 會造成換行的標籤：遇到這些標籤時，前後的文字要分成不同段落
+const BLOCK_TAGS = new Set(['p', 'div', 'br', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'section', 'article', 'blockquote', 'tr']);
+
+// linesOf(node, out)：把節點的文字依區塊標籤 / <br> 切成一行一行（略過 script、style）
+function linesOf(node, out) {
+    if (node.type === 'text') { out[out.length - 1] += node.text; return; }
+    if (node.type === 'attr') { out.push(node.value, ''); return; }
+    if (node.tag === 'script' || node.tag === 'style') return;
+    const block = BLOCK_TAGS.has(node.tag);
+    if (block) out.push('');
+    for (const c of node.children || []) linesOf(c, out);
+    if (block) out.push('');
+}
+
+// novelContent(rawRule, chapterUrl)：取章節正文，回傳 { title, paragraphs[] }。
+//  contentNode 選出正文節點（可以是整個容器，也可以是每一個 <p>），依 <br> / 區塊標籤切段並去掉空行。
+async function novelContent(rawRule, chapterUrl) {
+    const rule = normalizeRule(rawRule, 'novel');
+    if (!rule.contentNode) throw new Error('規則缺少 contentNode');
+    const { doc } = await fetchDoc(chapterUrl, rule);
+    const lines = [''];
+    for (const n of select(doc, rule.contentNode)) linesOf(n, lines);
+    const paragraphs = lines
+        .map(l => l.replace(/[ \t\r\n\u00a0]+/g, ' ').trim())
+        .filter(Boolean)
+        .slice(0, MAX_PARAGRAPHS);
+    const title = rule.contentTitle ? selectText(doc, rule.contentTitle) : '';
+    return { title, paragraphs };
+}
+
+// 對外匯出給 kazumi.js / manga.js / novel.js 的自訂規則路由使用。
+module.exports = { animeSearch, animeEpisodes, animePlay, mangaSearch, mangaChapters, mangaPages, novelSearch, novelChapters, novelContent, normalizeRule };

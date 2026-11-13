@@ -8896,12 +8896,42 @@ const NOVEL_SOURCES = {
   kakuyomu: { name: "カクヨム", badge: "📚 カクヨム" },
 };
 
-// 舊書源 (wenku8 / bilinovel / piaotia / ixdzs) 已移除，sessionStorage 若存舊值則改回預設書源
-let currentNovelSource = NOVEL_SOURCES[
-  sessionStorage.getItem("novel_preferred_source")
-]
-  ? sessionStorage.getItem("novel_preferred_source")
-  : "syosetu";
+// 自訂規則書源 (id 為 custom-xxx)：由 js/custom-rules.js 管理，和內建書源一起當成小說書源
+function customNovelSources() {
+  return window.CustomRules && window.CustomRules.novelSources ? window.CustomRules.novelSources() : [];
+}
+
+// 取書源資訊 { name, badge }；內建書源查 NOVEL_SOURCES，自訂規則查 CustomRules；都找不到回傳 null
+function novelSourceInfo(key) {
+  if (NOVEL_SOURCES[key]) return NOVEL_SOURCES[key];
+  const custom = customNovelSources().find((src) => src.id === key);
+  return custom ? { name: custom.name, badge: `🧩 ${custom.name}`, custom: true } : null;
+}
+
+// 呼叫小說 API（action 為 search / chapters / content，20 秒逾時）：
+// 內建書源走 GET /api/novel/<action>；自訂規則書源把整份規則 POST 到 /api/novel/custom-<action>。
+// 兩者回傳格式相同，所以呼叫端都用 readNovelApi 讀結果。
+function fetchNovelApi(action, source, params) {
+  const signal = AbortSignal.timeout(20000);
+
+  if (window.CustomRules && window.CustomRules.isCustomSource(source)) {
+    return fetch(`/api/novel/custom-${action}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rule: window.CustomRules.novelRule(source), ...params }),
+      signal,
+    });
+  }
+
+  return fetch(`/api/novel/${action}?${new URLSearchParams({ ...params, source })}`, { signal });
+}
+
+// 舊書源 (wenku8 / bilinovel / piaotia / ixdzs) 已移除，sessionStorage 若存舊值則改回預設書源。
+// 自訂規則書源先保留 (此時規則可能還沒載入)，真正搜尋時找不到才改回預設。
+let currentNovelSource = (() => {
+  const saved = sessionStorage.getItem("novel_preferred_source") || "";
+  return NOVEL_SOURCES[saved] || saved.startsWith("custom-") ? saved : "syosetu";
+})();
 
 // 產生可安全放進 onclick="fn(...)" 的 JS 字串參數 (避免標題含引號時破壞屬性)
 // 做法：JSON.stringify 加上引號並跳脫特殊字元，再 escapeHtml 轉掉 HTML 的 " 符號。
@@ -8941,35 +8971,63 @@ function renderNovelNotice(container, title, detail, isError) {
         `;
 }
 
-// 依目前書源 (currentNovelSource) 高亮對應的書源按鈕，並更新「當前：xxx」文字
+// 依目前書源 (currentNovelSource) 高亮對應的書源按鈕，並更新「當前：xxx」文字。
+// 自訂規則書源的按鈕在這裡動態補在內建按鈕後面，最後再加一顆「自訂規則」管理按鈕。
 function updateNovelSourcePills() {
-  Object.keys(NOVEL_SOURCES).forEach((key) => {
+  const group = document.querySelector('[aria-label="小說書源切換"]');
+
+  if (group) {
+    group.querySelectorAll(".novel-custom-pill").forEach((el) => el.remove());
+
+    customNovelSources().forEach((src) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.id = `sourcePill-${src.id}`;
+      btn.innerHTML = `<i class="bi bi-puzzle me-1"></i> ${escapeHtml(src.name)}`;
+      btn.addEventListener("click", () => window.setNovelSource(src.id));
+      group.appendChild(btn);
+    });
+
+    const manage = document.createElement("button");
+    manage.type = "button";
+    manage.className = "btn btn-sm btn-outline-info rounded-pill px-2 py-1 novel-custom-pill";
+    manage.dataset.customRulesOpen = "novel";
+    manage.title = "新增或管理自訂小說書源規則";
+    manage.innerHTML = `<i class="bi bi-sliders"></i> 自訂規則`;
+    group.appendChild(manage);
+  }
+
+  const keys = [...Object.keys(NOVEL_SOURCES), ...customNovelSources().map((src) => src.id)];
+
+  keys.forEach((key) => {
     const pill = document.getElementById(`sourcePill-${key}`);
 
     if (!pill) return;
 
     pill.className =
-      key === currentNovelSource
+      (key === currentNovelSource
         ? "btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold novel-source-pill"
-        : "btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill";
+        : "btn btn-sm btn-outline-light rounded-pill px-3 py-1 text-white novel-source-pill") +
+      (NOVEL_SOURCES[key] ? "" : " novel-custom-pill");
   });
 
   const badge = document.getElementById("currentNovelSourceBadge");
+  const info = novelSourceInfo(currentNovelSource);
 
-  if (badge)
-    badge.textContent = `當前：${NOVEL_SOURCES[currentNovelSource].name}`;
+  if (badge) badge.textContent = `當前：${info ? info.name : "未知書源"}`;
 }
+window.updateNovelSourcePills = updateNovelSourcePills;
 
 // 切換小說書源（syosetu / kakuyomu）：記進 sessionStorage，並用抽屜裡已有的關鍵字重新搜尋
 window.setNovelSource = function (src) {
-  currentNovelSource = NOVEL_SOURCES[src] ? src : "syosetu";
+  currentNovelSource = novelSourceInfo(src) ? src : "syosetu";
 
   sessionStorage.setItem("novel_preferred_source", currentNovelSource);
 
   updateNovelSourcePills();
 
   showToast(
-    `📚 已切換至書源【${NOVEL_SOURCES[currentNovelSource].name}】`,
+    `📚 已切換至書源【${novelSourceInfo(currentNovelSource).name}】`,
     "bi-journal-bookmark-fill text-success",
   );
 
@@ -8988,9 +9046,17 @@ window.searchNovelFromDrawer = async function (keyword) {
         ? document.getElementById("novelDrawerKeywordInput").value
         : ""
   ).trim();
+  // 自訂規則被刪除或停用時，改回預設書源
+  if (!novelSourceInfo(currentNovelSource)) {
+    currentNovelSource = "syosetu";
+    updateNovelSourcePills();
+  }
+
   const source = currentNovelSource;
-  const sourceName = NOVEL_SOURCES[source].name;
+  const sourceName = novelSourceInfo(source).name;
   const container = document.getElementById("novelSearchResultsContainer");
+
+  if (window.CustomRules && window.CustomRules.onNovelSearch) window.CustomRules.onNovelSearch(q);
   const summaryBox = document.getElementById("novelSelectedSummaryBox");
 
   if (summaryBox) {
@@ -9031,14 +9097,15 @@ window.searchNovelFromDrawer = async function (keyword) {
 
   try {
     // GET /api/novel/search：由後端去查日本小說站；AbortSignal.timeout(20000) 表示超過 20 秒就中止，避免畫面一直轉圈
-    const resp = await fetch(
-      `/api/novel/search?q=${encodeURIComponent(q)}&source=${encodeURIComponent(source)}`,
-      { signal: AbortSignal.timeout(20000) },
-    );
+    const resp = await fetchNovelApi("search", source, { q });
     const r = await readNovelApi(resp);
 
     if (r.ok) {
       results = Array.isArray(r.json.results) ? r.json.results : [];
+      // 自訂規則的結果沒有帶書源，補上目前書源，之後開書才知道要用哪條規則
+      results.forEach((n) => {
+        if (!n.source) n.source = source;
+      });
     } else {
       errorMsg = r.error;
     }
@@ -9087,7 +9154,7 @@ function renderNovelSearchResults(novels, q = "", sourceName = "") {
 
   container.innerHTML = novels
     .map((n) => {
-      const srcInfo = NOVEL_SOURCES[n.source] || { badge: "📖 書源" };
+      const srcInfo = novelSourceInfo(n.source) || { badge: "📖 書源" };
       const sourceBadge = `<span class="badge bg-success-subtle text-success border border-success-subtle small me-1">${escapeHtml(srcInfo.badge)}</span>`;
 
       const inShelf =
@@ -9156,7 +9223,7 @@ window.selectNovel = async function (
   intro = "",
   sourceKey = "",
 ) {
-  const source = NOVEL_SOURCES[sourceKey] ? sourceKey : currentNovelSource;
+  const source = novelSourceInfo(sourceKey) ? sourceKey : currentNovelSource;
 
   novelState.currentNovel = {
     id: novelId,
@@ -9207,10 +9274,7 @@ window.selectNovel = async function (
 
   try {
     // GET /api/novel/chapters：向後端要這部小說的章節目錄
-    const resp = await fetch(
-      `/api/novel/chapters?novelId=${encodeURIComponent(novelId)}&source=${encodeURIComponent(source)}`,
-      { signal: AbortSignal.timeout(20000) },
-    );
+    const resp = await fetchNovelApi("chapters", source, { novelId });
     const r = await readNovelApi(resp);
 
     if (r.ok) {
@@ -9392,17 +9456,14 @@ window.loadNovelChapter = async function (
   const source =
     novelState.currentNovel &&
     novelState.currentNovel.id === novelId &&
-    NOVEL_SOURCES[novelState.currentNovel.source]
+    novelSourceInfo(novelState.currentNovel.source)
       ? novelState.currentNovel.source
       : currentNovelSource;
   let errorMsg = "";
 
   try {
     // GET /api/novel/content：取得章節正文（paragraphs 段落陣列）；source 用「開書當下的書源」，不受之後切換影響
-    const resp = await fetch(
-      `/api/novel/content?novelId=${encodeURIComponent(novelId)}&chapterId=${encodeURIComponent(chapterId)}&source=${encodeURIComponent(source)}`,
-      { signal: AbortSignal.timeout(20000) },
-    );
+    const resp = await fetchNovelApi("content", source, { novelId, chapterId });
     const r = await readNovelApi(resp);
 
     if (r.ok && Array.isArray(r.json.paragraphs) && r.json.paragraphs.length) {
