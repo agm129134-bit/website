@@ -310,6 +310,11 @@ async function seamlessNavigateTo(url, isPopState = false) {
       if (typeof window.initSpotlightSearch === "function") window.initSpotlightSearch();
     }
 
+    // 導覽列是從 HTML 重新換上的，Docker 選單會變回預設的完整管理選單；8095 要立刻換回 In Docker 選單
+    if (document.getElementById("dockerDropdownWrapper") && typeof window.checkDockerStatus === "function") {
+      window.checkDockerStatus();
+    }
+
     window.scrollTo({ top: 0, behavior: "instant" });
     // 只有正在播音樂時才提示「音樂持續播放」；沒播就靜默切換
     const musicPlaying = typeof islandAudio !== "undefined" && islandAudio.src && !islandAudio.paused && !islandAudio.ended;
