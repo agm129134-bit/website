@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My first Vue page</title>
+   
+</head>
+<body>
+
+<h1>Example with JavaScript inside {{ }}</h1>
+
+<p>Vue.js</p>
+
+<div id="app">
+  {{ message }} 
+</div>
+ 
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+<script>
+  const app = Vue.createApp({
+   data() {
+    return {
+     message: "Hello World!"
+    }
+   }
+  })
+  
+  app.mount('#app')
+  
+ 
+
+</script>
+
+</body>
+</html>
