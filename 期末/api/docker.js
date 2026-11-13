@@ -13,6 +13,7 @@
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { getSessionUser } = require('./auth');
 
 // 專案根目錄，docker compose 要在這裡執行才找得到 docker-compose.yml。
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -23,14 +24,75 @@ const COMPOSE_BASE = 'docker compose -p web-library';
 // 容器內沒辦法控制宿主機的 Docker，所以後面會改成回傳操作說明。
 const IS_IN_CONTAINER = fs.existsSync('/.dockerenv');
 
+// 誰可以查詢 / 操作容器（兩種模式擇一）：
+//  1. 有設定 OWNER_USER：只有用該帳號登入的人（X-WL-Token 登入憑證）可以。
+//  2. 沒設定 OWNER_USER：只接受「在本機、跑在容器外」的 node server.js（8090）收到的本機請求，
+//     也就是坐在這台電腦前、直接開 http://localhost:8090 的人；任何遠端來源一律拒絕。
+//     跑在容器內（8095）時本來就無法控制宿主機的 Docker，直接停用。
+// 帳號名稱的清洗規則與 sync.js 的 sanitizeUsername 一致（只留英數、_、-、中文，轉小寫）。
+const OWNER_USER = String(process.env.OWNER_USER || '').replace(/[^a-zA-Z0-9_\-一-龥]/g, '').trim().toLowerCase();
+
+const LOOPBACK_ADDRS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+function sendJson(res, status, obj) {
+    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(obj));
+}
+
+// isTrustedLocalRequest：判斷是不是「本機使用者自己在本站頁面上按的」請求。光看來源 IP 是 127.0.0.1 不夠：
+//  - 經過反向代理 (nginx 等) 轉進來的外部請求，來源 IP 也會是本機 → 有代理標頭就拒絕。
+//  - 使用者瀏覽的任何惡意網站都能叫瀏覽器對 localhost:8090 送請求 (CSRF) → 檢查 Origin / Sec-Fetch-Site 必須是同源。
+//  - DNS rebinding（惡意網域解析成 127.0.0.1）→ Host 標頭必須是 localhost / 127.0.0.1 / [::1]。
+function isTrustedLocalRequest(req) {
+    if (IS_IN_CONTAINER) return false;
+    if (!LOOPBACK_ADDRS.has(req.socket.remoteAddress)) return false;
+    const h = req.headers;
+    if (h['x-forwarded-for'] || h['x-forwarded-host'] || h['forwarded'] || h['x-real-ip']) return false;
+    const host = String(h.host || '');
+    let hostname;
+    try { hostname = new URL(`http://${host}`).hostname; } catch { return false; }
+    if (!LOCAL_HOSTNAMES.has(hostname)) return false;
+    if (h.origin && h.origin !== `http://${host}`) return false;
+    const site = h['sec-fetch-site'];
+    if (site && site !== 'same-origin' && site !== 'none') return false;
+    return true;
+}
+
+// requireDockerAccess：通過回傳 true；否則直接回 401（擁有者模式下沒帶 / 帶了無效的登入憑證）或 403 並回傳 false。
+// 注意：停用時回 403 而不是 401，因為前端帶了有效 token 卻收到 401 會被當成「登入失效」踢回登入頁。
+async function requireDockerAccess(req, res) {
+    if (!OWNER_USER || OWNER_USER === 'default') {
+        if (isTrustedLocalRequest(req)) return true;
+        sendJson(res, 403, {
+            success: false,
+            code: 'DOCKER_DISABLED',
+            message: IS_IN_CONTAINER
+                ? '容器內無法管理 Docker，請在本機開啟 http://localhost:8090 操作'
+                : 'Docker 管理只開放在本機直接開啟 http://localhost:8090 時使用'
+        });
+        return false;
+    }
+    const user = await getSessionUser(req);
+    if (!user) {
+        sendJson(res, 401, { success: false, code: 'UNAUTHORIZED', message: '請先以擁有者帳號登入' });
+        return false;
+    }
+    if (user !== OWNER_USER) {
+        sendJson(res, 403, { success: false, code: 'FORBIDDEN', message: '只有站台擁有者可以管理 Docker 容器' });
+        return false;
+    }
+    return true;
+}
+
 // handleDockerRoute(req, res)：Docker API 的總處理器。
 //  參數：req 請求物件、res 回應物件。回傳值：無（直接用 res 寫出 JSON）。
 //  流程：先處理 CORS / OPTIONS 預檢 -> 依 pathname 與 HTTP 方法分派到 status / action -> 都不符就回 404。
-function handleDockerRoute(req, res) {
+async function handleDockerRoute(req, res) {
     // CORS 標頭：允許其他網域的網頁呼叫此 API。
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-WL-Token');
 
     // 瀏覽器跨網域送 POST 前會先發 OPTIONS「預檢」請求問可不可以，回 204（成功但無內容）即可。
     if (req.method === 'OPTIONS') {
@@ -41,6 +103,17 @@ function handleDockerRoute(req, res) {
     // 用 URL 物件解析請求網址，才能拿到不含 ?query 的 pathname。
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const pathname = url.pathname;
+
+    // 已知的兩個路由先驗證身分，未通過就到此為止（不會執行任何 docker 指令）。
+    const isKnownRoute = (pathname === '/api/docker/status' && req.method === 'GET') ||
+        (pathname === '/api/docker/action' && req.method === 'POST');
+    if (isKnownRoute) {
+        try {
+            if (!await requireDockerAccess(req, res)) return;
+        } catch (err) {
+            return sendJson(res, 500, { success: false, message: '驗證身分時發生錯誤' });
+        }
+    }
 
     // 【GET /api/docker/status】查詢狀態。
     // 回傳 JSON：success、running(是否運行中)、exists(容器是否存在)、status(中文狀態)、details。

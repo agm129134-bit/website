@@ -35,7 +35,7 @@ function getAuthToken() {
 (function installAuthFetch() {
   if (window._wlAuthFetchInstalled) return;
   window._wlAuthFetchInstalled = true;
-  const AUTH_PREFIXES = ["/api/user", "/api/bookmarks", "/api/bookshelf", "/api/music"];
+  const AUTH_PREFIXES = ["/api/user", "/api/bookmarks", "/api/bookshelf", "/api/music", "/api/docker"];
   const nativeFetch = window.fetch.bind(window);
   let expiredHandled = false;
 
@@ -13558,6 +13558,17 @@ window.toggleCurrentNovelToBookshelf = async function () {
 // 記住最近一次 Docker 指令的結果，給「執行紀錄」視窗顯示
 let lastDockerOutput = { cmd: "", output: "", status: "" };
 
+// Docker API 只開放給站台擁有者（伺服器有設 OWNER_USER 時），或沒設時只開放本機直接開的 8090；其他人會收到 401 / 403。
+// 讀出伺服器給的說明文字；不是權限錯誤就回傳空字串。
+async function readDockerDenied(res) {
+  if (res.status !== 401 && res.status !== 403) return "";
+  let msg = "";
+  try {
+    msg = (await res.json()).message || "";
+  } catch (e) {}
+  return msg || (res.status === 401 ? "請先以擁有者帳號登入" : "只有站台擁有者可以管理 Docker 容器");
+}
+
 /**
  * 向後端 /api/docker/status 詢問 Docker 容器狀態，更新導覽列的徽章。
  * @param {boolean} isManual 使用者手動按「檢測」時為 true，才跳出提示訊息
@@ -13575,11 +13586,23 @@ window.checkDockerStatus = async function (isManual = false) {
     const timeoutId = setTimeout(() => controller.abort(), 2500);
     const res = await fetch("/api/docker/status", { signal: controller.signal });
     clearTimeout(timeoutId);
-    if (!res.ok) throw new Error("伺服器未運行");
-    const data = await res.json();
+    const denied = await readDockerDenied(res);
+    const isPort8095 = window.location.port === "8095";
+    if (denied && !isPort8095) {
+      if (badge) {
+        badge.className = "badge bg-secondary rounded-pill";
+        badge.textContent = res.status === 401 ? "需擁有者登入" : "無權限";
+        badge.title = denied;
+      }
+      if (navBadge) navBadge.textContent = "8095";
+      if (isManual) showToast(`Docker 管理：${denied}`, "bi-shield-lock text-warning");
+      return;
+    }
+    // 8095（容器內）的 Docker API 停用，但能回應就代表容器在跑，照樣顯示下方的「In Docker」簡化選單
+    if (!denied && !res.ok) throw new Error("伺服器未運行");
+    const data = denied ? { inContainer: true } : await res.json();
 
     // 偵測是否運行在 8095 Docker 容器環境
-    const isPort8095 = window.location.port === "8095";
     const inDocker = !!(data.inContainer || isPort8095);
 
     if (inDocker && dropdownWrapper) {
@@ -13713,6 +13736,11 @@ window.executeDockerAction = async function (action) {
       body: JSON.stringify({ action: action === "update" ? "up" : action }),
     });
 
+    const denied = await readDockerDenied(res);
+    if (denied) {
+      showToast(`無法執行 Docker ${title}：${denied}`, "bi-shield-lock text-warning");
+      return;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 

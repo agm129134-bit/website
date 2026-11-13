@@ -12,7 +12,7 @@
  *   開頭的請求，都會交給本檔匯出的 handleSyncRoute。
  *
  * 主要 API 路由：
- *   /api/user/list | login | register | delete | clear | reset-password | profile
+ *   /api/user/login | register | delete | clear | reset-password | profile
  *   /api/user/bookshelf（或 /api/bookshelf）、/api/user/custom-rules、/api/user/games
  *   /api/user/music（或 /api/music）、/api/music/search
  *   /api/bookmarks（或 /api/user/bookmarks）、/api/bookmarks/screenshot[/檔名]
@@ -196,18 +196,6 @@ function sanitizeUsername(username) {
     return clean || 'default';
 }
 
-function sanitizeOwner(v) {
-    if (!v) return '';
-    const s = String(v).trim();
-    if (!s) return '';
-    const clean = sanitizeUsername(s);
-    return clean === 'default' ? '' : clean;
-}
-
-// 擁有者帳號（只有私用的 Docker 會設定，展示用的 8090 不設）。沒設定時為空字串。
-// 現在只用來把擁有者排在登入頁帳號清單最前面；資料歸屬一律由登入憑證決定。
-const OWNER_USER = sanitizeOwner(process.env.OWNER_USER);
-
 // 訪客 / 示範用的特殊名稱：這些身分不寫伺服器
 const GUEST_NAMES = new Set(['guest', '訪客', 'default']);
 
@@ -343,21 +331,7 @@ async function handleSyncRoute(req, res) {
     }
 
     try {
-        // ==========================================
-        // 0. 取得本機已存在的所有使用者帳號清單 /api/user/list (NeDB 查詢)
-        // ==========================================
-        // GET /api/user/list —— 回傳所有帳號名稱（給登入頁下拉選單）。
-        // 回應：{ success:true, users:[...] }；若有 OWNER_USER 則置於清單最前。出錯時依是否有 OWNER_USER 回傳，不讓登入頁壞掉。
-        if (pathname === '/api/user/list') {
-            try {
-                const accounts = await accountsDb.find({});
-                const userList = accounts.map(a => a.username).filter(u => u && u !== OWNER_USER);
-                if (OWNER_USER) userList.unshift(OWNER_USER); // 擁有者固定排第一
-                return sendJson(res, 200, { success: true, users: userList });
-            } catch (e) {
-                return sendJson(res, 200, { success: true, users: OWNER_USER ? [OWNER_USER] : [] });
-            }
-        }
+        // （原本的 GET /api/user/list 會列出所有帳號名稱，登入頁早已不用，且會洩漏其他使用者，已移除。）
 
         // ==========================================
         // 0.1 使用者登入驗證端點 /api/user/login (NeDB + 加鹽雜湊驗證，拒絕明文)
