@@ -604,6 +604,7 @@ window.confirmDeleteCurrentAccount = async function () {
 
     // 這些資料不分帳號存在本機，也屬於被刪帳號：自訂來源規則 (會自動同步回同名新帳號)、觀看/漫畫歷史、自訂遊戲
     localStorage.removeItem("web_library_custom_rules_v1");
+    localStorage.removeItem("web_library_watch_history_" + userKey);
     ["web_library_watch_history", "web_library_anime_history", "web_library_manga_history",
      "web_library_custom_games", "web_library_hidden_default_games", "web_library_games_owner"]
       .forEach((k) => sessionStorage.removeItem(k));
@@ -3545,10 +3546,7 @@ window.openKazumiSourceModal = function (animeTitle = "", animeCover = "") {
             });
 
             if (updated) {
-              sessionStorage.setItem(
-                "web_library_watch_history",
-                JSON.stringify(hist),
-              );
+              window.writeWatchHistoryStore(hist);
 
               if (typeof window.renderAnimeHistoryStandby === "function")
                 window.renderAnimeHistoryStandby();
@@ -4092,6 +4090,7 @@ function openTheaterWithUrl(
 ) {
   window.currentKazumiPlayingUrl = playerUrl;
   window.currentKazumiAnimeTitle = animeTitle;
+  window.currentKazumiEpTitle = epTitle;
 
   if (animeCover) kazumiState.cover = animeCover;
 
@@ -4519,6 +4518,7 @@ window.openKazumiPlayer = function (title = "", src = "") {
 
   window.currentKazumiPlayingUrl = src;
   window.currentKazumiAnimeTitle = title;
+  window.currentKazumiEpTitle = "";
   document.getElementById("animePlayerTitle").textContent = title;
   const video = document.getElementById("kazumiVideoPlayer");
   const iframe = document.getElementById("kazumiIframePlayer");
@@ -4693,10 +4693,7 @@ window.openKazumiPlayer = function (title = "", src = "") {
             });
 
             if (updated) {
-              sessionStorage.setItem(
-                "web_library_watch_history",
-                JSON.stringify(hist),
-              );
+              window.writeWatchHistoryStore(hist);
 
               if (typeof window.renderAnimeHistoryStandby === "function")
                 window.renderAnimeHistoryStandby();
@@ -6446,6 +6443,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     kazumiVideo.addEventListener("pause", () => {
+      // 暫停時立刻叫出控制列（進度條），恢復播放後再照常閒置隱藏
+      const sc = document.getElementById("kazumiScreenContainer");
+
+      if (sc) sc.classList.remove("fs-controls-hidden");
+
+      if (fsHideTimer) clearTimeout(fsHideTimer);
       window.pauseDanmaku();
       window.saveCurrentAnimeProgressNow();
     });
@@ -6462,6 +6465,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     kazumiVideo.addEventListener("play", () => {
       window.resumeDanmaku();
+
+      startFsIdleTimer();
 
       syncKazumiVideoVolume();
     });
@@ -6615,8 +6620,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const video = document.getElementById("kazumiVideoPlayer");
     const iframe = document.getElementById("kazumiIframePlayer");
 
+    // 暫停中的影片仍算「有在播」，否則點畫面無法取消暫停
     const isVideoActive =
-      video && video.style.display !== "none" && video.src && !video.paused;
+      video && video.style.display !== "none" && video.src;
 
     const isIframeActive =
       iframe && iframe.style.display !== "none" && iframe.src;
@@ -6821,7 +6827,7 @@ function initKazumiFullscreenInteractions() {
         const drawer = document.getElementById("kazumiFsEpisodeDrawer");
         const drawerOpen = drawer && !drawer.classList.contains("d-none");
 
-        if (!drawerOpen) {
+        if (!drawerOpen && !isTheaterPlaybackPaused()) {
           screenContainerEl.classList.add("fs-controls-hidden");
         }
       }
@@ -7166,6 +7172,15 @@ window.onFullscreenMouseMove = function (e) {
   startFsIdleTimer();
 };
 
+// 影片（或 iframe 模式下的彈幕）是否處於暫停：暫停時控制列一律保持顯示，不自動隱藏
+function isTheaterPlaybackPaused() {
+  const video = document.getElementById("kazumiVideoPlayer");
+
+  if (video && video.style.display !== "none" && video.src) return video.paused;
+
+  return typeof isDanmakuPaused !== "undefined" && isDanmakuPaused;
+}
+
 // 開始（或重新開始）3 秒閒置倒數，時間到就替容器加上 fs-controls-hidden 類別，CSS 會把控制列藏起來。
 // 待命畫面或選集抽屜開著時不隱藏。
 function startFsIdleTimer() {
@@ -7186,7 +7201,11 @@ function startFsIdleTimer() {
     const drawer = document.getElementById("kazumiFsEpisodeDrawer");
     const drawerOpen = drawer && !drawer.classList.contains("d-none");
 
-    if (!drawerOpen && !container.classList.contains("is-standby")) {
+    if (
+      !drawerOpen &&
+      !container.classList.contains("is-standby") &&
+      !isTheaterPlaybackPaused()
+    ) {
       // 全螢幕或非全螢幕播放中，閒置 3 秒自動隱藏底部/頂部控制列，避免擋住影片！
       container.classList.add("fs-controls-hidden");
     }
@@ -11980,14 +11999,34 @@ window.applyBangumiStatusChange = async function (
 
 // ==================== 全方位觀看歷史紀錄系統 (支援動漫/YouTube/Bilibili/直連串流) ====================
 
-// 取得「觀看歷史」陣列。歷史存在 sessionStorage 的 web_library_watch_history 鍵。
+// 觀看歷史改存 localStorage（依帳號分開），重開網頁/分頁後紀錄仍在。
+// 舊版存在 sessionStorage 的紀錄會在第一次讀取時搬過來。
+function watchHistoryStoreKey() {
+  const u = (typeof state !== "undefined" && state.currentUser) || "guest";
+  return "web_library_watch_history_" + String(u).toLowerCase().trim();
+}
+window.readWatchHistoryStore = function () {
+  try {
+    const raw = localStorage.getItem(watchHistoryStoreKey());
+    if (raw) return raw;
+  } catch (e) {}
+  return sessionStorage.getItem("web_library_watch_history") || "[]";
+};
+window.writeWatchHistoryStore = function (list) {
+  const json = JSON.stringify(list || []);
+  try {
+    localStorage.setItem(watchHistoryStoreKey(), json);
+  } catch (e) {
+    sessionStorage.setItem("web_library_watch_history", json);
+  }
+};
+
+// 取得「觀看歷史」陣列。歷史存在 localStorage 的 web_library_watch_history_<帳號> 鍵。
 // 讀取時順便做資料清洗（舊格式遷移、補封面、清掉無效的待命紀錄），有修正就寫回去。
 // 壞掉的 JSON 會被 try/catch 接住，回傳空陣列。
 window.getWatchHistoryList = function () {
   try {
-    let list = JSON.parse(
-      sessionStorage.getItem("web_library_watch_history") || "[]",
-    );
+    let list = JSON.parse(window.readWatchHistoryStore());
 
     if (list.length === 0) {
       // 自動遷移舊版 web_library_anime_history 紀錄
@@ -12064,7 +12103,7 @@ window.getWatchHistoryList = function () {
     }
 
     if (hasFixed) {
-      sessionStorage.setItem("web_library_watch_history", JSON.stringify(list));
+      window.writeWatchHistoryStore(list);
     }
 
     return list;
@@ -12203,7 +12242,7 @@ window.saveWatchHistory = function (
 
     if (history.length > 30) history = history.slice(0, 30);
 
-    sessionStorage.setItem("web_library_watch_history", JSON.stringify(history));
+    window.writeWatchHistoryStore(history);
 
     // 觸發雙向 UI 渲染
     window.renderAnimeHistoryStandby();
@@ -12249,18 +12288,21 @@ window.throttleSaveAnimeProgress = function (currentTime, duration) {
 window.saveCurrentAnimeProgressNow = function () {
   const video = document.getElementById("kazumiVideoPlayer");
 
+  // 先用實際開播的完整片名，搜尋關鍵字 (kazumiState.title) 只當備援
   const animeTitle =
-    kazumiState.title ||
     window.currentKazumiAnimeTitle ||
+    kazumiState.title ||
     (document.getElementById("animePlayerTitle")?.textContent || "")
       .split("-")[0]
       ?.trim() ||
     "";
 
   const epTitle =
+    window.currentKazumiEpTitle ||
     (document.getElementById("animePlayerTitle")?.textContent || "")
-      .split("-")[1]
-      ?.trim() || "";
+      .split(" - ")[1]
+      ?.trim() ||
+    "";
   const playUrl = window.currentKazumiPlayingUrl || "";
 
   // 嚴格守衛：待命狀態或無播放來源時絕不記錄
@@ -12552,7 +12594,7 @@ window.deleteWatchHistoryItem = function (id, e) {
 
   history = history.filter((h) => h.id !== id);
 
-  sessionStorage.setItem("web_library_watch_history", JSON.stringify(history));
+  window.writeWatchHistoryStore(history);
   window.renderWatchHistoryGrid();
   window.renderAnimeHistoryStandby();
 
@@ -12567,6 +12609,10 @@ window.clearAllWatchHistory = function () {
   sessionStorage.removeItem("web_library_watch_history");
 
   sessionStorage.removeItem("web_library_anime_history");
+
+  try {
+    localStorage.removeItem(watchHistoryStoreKey());
+  } catch (e) {}
   window.renderWatchHistoryGrid();
   window.renderAnimeHistoryStandby();
 
