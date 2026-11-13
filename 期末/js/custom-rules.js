@@ -730,7 +730,7 @@
   function buildAiPrompt(kind, site, note) {
     const label = kindLabel(kind);
     const fields = FIELDS[`${kind}:xpath`]
-      .map(([key, name, required, hint]) => `- ${key}${required ? "（必填）" : "（選填）"}：${name.replace(/ [a-zA-Z]+$/, "")}${hint ? "。" + hint : ""}${BOOL_FIELDS.has(key) ? "（布林值 true/false）" : ""}`)
+      .map(([key, name, required, hint]) => `- ${key}${required ? "（必填）" : "（選填）"}：${name.endsWith(" " + key) ? name.slice(0, -key.length - 1) : name}${hint ? "。" + hint : ""}${BOOL_FIELDS.has(key) ? "（布林值 true/false）" : ""}`)
       .join("\n");
     const flow = {
       anime: "搜尋頁 → 每一筆結果的詳情頁 → 詳情頁裡的「播放線路」(chapterRoads) → 每條線路底下的集數連結 (chapterResult)",

@@ -4000,10 +4000,13 @@ async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
 
       if (sourceModal) sourceModal.hide();
 
+      const isCustom = !!(window.CustomRules && window.CustomRules.isCustomSource(customId));
       const epData = {
         ...episode,
         isBlockedIframe: data.isBlockedIframe,
         isDirectStream: data.isDirectStream,
+        // 自訂規則來源：記下來源 id，防內嵌提示要顯示不同說明
+        ...(isCustom ? { customSourceId: customId } : {}),
       };
 
       const animeCover =
@@ -4130,7 +4133,9 @@ function openTheaterWithUrl(
     modalTitle.innerHTML =
       `${escapeHtml(animeTitle)} - ${escapeHtml(epTitle)} ` +
       (isBlocked
-        ? `<span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-2" style="font-size: 0.72rem;" title="此來源設有防內嵌保護，請於新分頁觀看"><i class="bi bi-shield-lock-fill"></i> 防內嵌保護</span>`
+        ? currentEp && currentEp.customSourceId
+          ? `<span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-2" style="font-size: 0.72rem;" title="自訂來源沒有解析出影片網址，請於新分頁觀看"><i class="bi bi-exclamation-triangle-fill"></i> 無法站內播放</span>`
+          : `<span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-2" style="font-size: 0.72rem;" title="此來源設有防內嵌保護，請於新分頁觀看"><i class="bi bi-shield-lock-fill"></i> 防內嵌保護</span>`
         : isDirectVideo
           ? `<span class="badge bg-success-subtle text-success border border-success-subtle ms-2" style="font-size: 0.72rem;" title="原生播放器：支援畫面直接點擊暫停/播放與進度條雙向同步"><i class="bi bi-play-circle-fill"></i> 原生同步</span>`
           : `<span class="badge bg-secondary-subtle text-secondary border ms-2" style="font-size: 0.72rem;" title="內嵌播放器：受跨域安全限制，請用【空白鍵 Space】或下方控制條進行同步"><i class="bi bi-window"></i> 內嵌模式</span>`);
@@ -4178,15 +4183,32 @@ function openTheaterWithUrl(
       iframe.style.display = "none";
     }
 
+    // 自訂規則來源走到這裡，是因為後端沒從播放頁解析出可直接播放的影片網址（不是 lmm85 的防內嵌），提示要說清楚
+    const isCustomSource = !!(currentEp && currentEp.customSourceId);
+    let customHost = "";
+    try {
+      customHost = new URL(playerUrl).hostname;
+    } catch (_) {}
+
     if (fallbackCard) {
       fallbackCard.style.display = "block";
       const openBtn = document.getElementById("kazumiBlockedOpenTabBtn");
+      const titleEl = fallbackCard.querySelector("h5");
+      const msgEl = document.getElementById("kazumiBlockedMessage");
 
       if (openBtn) openBtn.href = playerUrl;
+      if (titleEl)
+        titleEl.textContent = isCustomSource ? "無法在站內播放這個自訂來源" : "此播放來源設有防內嵌保護";
+      if (msgEl)
+        msgEl.textContent = isCustomSource
+          ? `自訂規則來源（${customHost || "未知網站"}）的播放頁沒有解析出可直接播放的影片網址，可能是網站用 JavaScript 產生播放器，或影片本身已失效。可以在新分頁開啟原網站試試，或切換其他來源。`
+          : "此番劇來源（lmm85 / 站方安全源）限制在第三方內嵌播放。請點擊下方按鈕在新分頁順暢開啟，或一鍵切換至其他免跳轉來源！";
     }
 
     showToast(
-      "💡 此集來源因站方安全保護無法直接內嵌，請點擊中央【新分頁播放】或切換其他源！",
+      isCustomSource
+        ? "💡 這個自訂來源無法在站內播放，請點擊中央【在新分頁開啟播放】或切換其他源"
+        : "💡 此集來源因站方安全保護無法直接內嵌，請點擊中央【新分頁播放】或切換其他源！",
       "bi-info-circle-fill text-warning",
     );
   } else if (isDirectVideo) {
