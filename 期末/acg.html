@@ -860,9 +860,14 @@
                         </div>
                         <h5 class="fw-bold mb-1">📖 沉浸小說閱讀器</h5>
                         <p class="text-muted small mb-4">純淨文字排版，提供羊皮紙護眼黃、極簡白、深黑三種主題切換，支援 A- / A+ 字級縮放與章節導航。</p>
-                        <button class="btn btn-success w-100 mt-auto rounded-2" onclick="openLegadoReader(0)">
-                            <i class="bi bi-eyeglasses"></i> 開啟小說閱讀
-                        </button>
+                        <div class="mt-auto d-grid gap-2">
+                            <button class="btn btn-success w-100 rounded-2" onclick="openLegadoReader(0)">
+                                <i class="bi bi-eyeglasses"></i> 開啟小說閱讀
+                            </button>
+                            <button type="button" class="btn btn-outline-success btn-sm w-100 rounded-2" data-custom-rules-open="novel">
+                                <i class="bi bi-sliders"></i> 自訂小說來源規則
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

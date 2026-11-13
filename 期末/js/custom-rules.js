@@ -597,6 +597,13 @@
     });
     el.addEventListener("click", onManagerClick);
     el.addEventListener("change", onManagerChange);
+    // AI 指令畫面：網址 / 補充說明一改就重新產生指令
+    el.addEventListener("input", (e) => {
+      if (e.target.id !== "customRulesAiSite" && e.target.id !== "customRulesAiNote") return;
+      const site = document.getElementById("customRulesAiSite").value.trim();
+      const note = document.getElementById("customRulesAiNote").value.trim();
+      document.getElementById("customRulesAiPrompt").value = buildAiPrompt(managerKind, site, note);
+    });
     return el;
   }
 
@@ -628,6 +635,7 @@
     let content = "";
     if (managerView === "edit") content = editorHtml();
     else if (managerView === "import") content = importHtml();
+    else if (managerView === "ai") content = aiHtml();
     else content = listHtml();
     body.innerHTML = `<ul class="nav nav-pills gap-2 mb-3">${tabs}</ul>${content}`;
   }
@@ -670,6 +678,7 @@
       <p class="small text-white-50 mb-3">${intro}</p>
       <div class="d-flex flex-wrap gap-2 mb-3">
         <button type="button" class="btn btn-sm btn-info text-dark" data-act="import-view"><i class="bi bi-clipboard-plus"></i> 貼上${kind === "anime" ? " Kazumi" : ""} JSON 匯入</button>
+        <button type="button" class="btn btn-sm btn-warning text-dark" data-act="ai-view"><i class="bi bi-robot"></i> 用 AI 產生規則</button>
         <button type="button" class="btn btn-sm btn-outline-light" data-act="new" data-mode="xpath"><i class="bi bi-code-slash"></i> 新增 XPath 規則</button>
         <button type="button" class="btn btn-sm btn-outline-light" data-act="new" data-mode="jump"><i class="bi bi-box-arrow-up-right"></i> 新增搜尋跳轉</button>
       </div>
@@ -686,7 +695,10 @@
     return `
       <div class="mb-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div class="fw-semibold"><i class="bi bi-clipboard-plus"></i> 貼上${kind === "anime" ? " Kazumi " : ""}規則 JSON</div>
-        <button type="button" class="btn btn-xs btn-outline-secondary text-white" data-act="fill-sample-import"><i class="bi bi-magic"></i> 填入範例</button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-xs btn-outline-warning" data-act="ai-view"><i class="bi bi-robot"></i> 取得 AI 指令</button>
+          <button type="button" class="btn btn-xs btn-outline-secondary text-white" data-act="fill-sample-import"><i class="bi bi-magic"></i> 填入範例</button>
+        </div>
       </div>
       <p class="small text-white-50 mb-2">${
         kind === "anime"
@@ -699,6 +711,84 @@
       <div id="customRulesImportMsg" class="small mt-2"></div>
       <div class="d-flex gap-2 mt-3">
         <button type="button" class="btn btn-sm btn-info text-dark" data-act="import-do"><i class="bi bi-download"></i> 匯入</button>
+        <button type="button" class="btn btn-sm btn-outline-light" data-act="back"><i class="bi bi-arrow-left"></i> 返回</button>
+      </div>`;
+  }
+
+  // extractJson(text)：AI 回覆常會包 ```json 程式碼區塊或前後多一段說明文字，這裡只取出 JSON 本體再交給 JSON.parse。
+  function extractJson(text) {
+    const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fence) text = fence[1].trim();
+    if (/^[\[{]/.test(text)) return text;
+    const start = text.search(/[\[{]/);
+    const end = Math.max(text.lastIndexOf("}"), text.lastIndexOf("]"));
+    return start >= 0 && end > start ? text.slice(start, end + 1) : text;
+  }
+
+  // buildAiPrompt(kind, site, note)：產生一段可以貼給任何 AI（ChatGPT、Gemini、Claude…）的指令，
+  // 內容含欄位說明（直接取自 FIELDS，和表單保持一致）、範例 JSON 與輸出格式要求；AI 回覆的 JSON 再貼回「匯入」即可。
+  function buildAiPrompt(kind, site, note) {
+    const label = kindLabel(kind);
+    const fields = FIELDS[`${kind}:xpath`]
+      .map(([key, name, required, hint]) => `- ${key}${required ? "（必填）" : "（選填）"}：${name.replace(/ [a-zA-Z]+$/, "")}${hint ? "。" + hint : ""}${BOOL_FIELDS.has(key) ? "（布林值 true/false）" : ""}`)
+      .join("\n");
+    const flow = {
+      anime: "搜尋頁 → 每一筆結果的詳情頁 → 詳情頁裡的「播放線路」(chapterRoads) → 每條線路底下的集數連結 (chapterResult)",
+      manga: "搜尋頁 → 每一筆結果的詳情頁 → 章節區塊 (chapterList) 裡的章節連結 (chapterResult) → 章節頁裡的每一張內頁圖片 (pageImage)",
+      novel: "搜尋頁 → 每一筆結果的書籍詳情 / 目錄頁 → 目錄區塊 (chapterList) 裡的章節連結 (chapterResult) → 章節頁的正文 (contentNode)",
+    }[kind];
+    const typeLine = kind === "anime" ? `"api": "1", "type": "anime"` : `"type": "${kind}"`;
+    return `你是熟悉網頁結構與 XPath 1.0 的爬蟲規則工程師。請幫我替${site ? `網站「${site}」` : "我指定的網站"}寫一條「${label}來源規則」，輸出成 JSON。
+
+## 規則怎麼被使用
+我的網站後端會用這條規則依序抓取：${flow}。
+後端只抓靜態 HTML（不執行 JavaScript），所以 XPath 必須能在「檢視原始碼」看到的 HTML 上選到東西；若網站內容完全由 JS 動態產生，請直接告訴我不適用。
+
+## 欄位說明
+${fields}
+
+## XPath 撰寫規則
+1. searchList 是從整頁選出「每一筆搜尋結果」的節點，用 // 開頭。
+2. searchName、searchResult${kind === "anime" ? "" : "、searchCover"}${kind === "novel" ? "、searchAuthor" : ""} 是「相對於每一筆結果」的 XPath，請用 ./ 或 .// 開頭。
+3. 連結欄位可以選到 <a> 元素或直接取 @href；圖片欄位可以選到 <img> 或取 @src / @data-src。相對網址沒關係，會以 baseURL 補全。
+4. ${kind === "anime" ? "chapterRoads 在詳情頁選出每條線路的容器，chapterResult 相對於每條線路選出每一集的 <a>。" : kind === "manga" ? "chapterResult 相對於 chapterList 選出每一話的 <a>；pageImage 在章節頁選出每一張內頁 <img>。" : "chapterResult 相對於 chapterList 選出每一章的 <a>；contentNode 在章節頁選出正文容器或每一段 <p>。"}
+5. 只用 XPath 1.0 語法（可用 contains()、starts-with()、|），不要用 CSS 選擇器、正則或 JS。
+6. searchURL 必須是完整的 http(s) 網址，並用 @keyword 代表搜尋關鍵字，例如 https://example.com/search?q=@keyword。若網站搜尋是 POST 表單，把參數寫在 searchURL 的查詢字串並設 "usePost": true。
+
+## 輸出格式
+只輸出一個 JSON 物件（不要註解、不要多餘說明），必須包含 ${typeLine}。格式範例：
+${JSON.stringify(sampleOf(kind), null, 2)}
+${note ? `
+## 補充說明
+${note}
+` : ""}
+請先實際查看該網站的搜尋頁、詳情頁${kind === "anime" ? "" : "與章節頁"}的 HTML 結構再撰寫；不確定的選填欄位可以省略。`;
+  }
+
+  // aiHtml()：「用 AI 產生規則」畫面：填網站網址與補充說明 -> 產生指令 -> 複製去問其他 AI -> 把回覆貼到匯入畫面。
+  function aiHtml() {
+    const kind = managerKind;
+    return `
+      <div class="fw-semibold mb-1"><i class="bi bi-robot"></i> 用 AI 產生${kindLabel(kind)}規則</div>
+      <ol class="small text-white-50 ps-3 mb-3">
+        <li>填入想加入的網站（選填），按「複製指令」</li>
+        <li>貼給 ChatGPT、Gemini、Claude 等能上網的 AI，讓它產生規則 JSON</li>
+        <li>把 AI 的回覆整段貼到「匯入」（會自動去掉 \`\`\`json 區塊外的文字），再用「測試規則」確認</li>
+      </ol>
+      <div class="row g-2 mb-2">
+        <div class="col-12 col-md-6">
+          <label class="form-label small mb-1" for="customRulesAiSite">網站網址</label>
+          <input type="text" class="form-control form-control-sm bg-black text-white border-secondary" id="customRulesAiSite" placeholder="例如 https://example.com/">
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label small mb-1" for="customRulesAiNote">補充說明（選填）</label>
+          <input type="text" class="form-control form-control-sm bg-black text-white border-secondary" id="customRulesAiNote" placeholder="例如：搜尋結果頁網址是 /search/xxx">
+        </div>
+      </div>
+      <textarea class="form-control bg-black text-white border-secondary font-monospace small" id="customRulesAiPrompt" rows="12" readonly>${esc(buildAiPrompt(kind, "", ""))}</textarea>
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <button type="button" class="btn btn-sm btn-warning text-dark" data-act="ai-copy"><i class="bi bi-clipboard"></i> 複製指令</button>
+        <button type="button" class="btn btn-sm btn-info text-dark" data-act="import-view"><i class="bi bi-clipboard-plus"></i> 貼上 AI 回覆匯入</button>
         <button type="button" class="btn btn-sm btn-outline-light" data-act="back"><i class="bi bi-arrow-left"></i> 返回</button>
       </div>`;
   }
@@ -858,7 +948,7 @@
     }
     let parsed;
     try {
-      parsed = JSON.parse(text);
+      parsed = JSON.parse(extractJson(text));
     } catch (e) {
       msg.innerHTML = `<span class="text-danger">JSON 格式錯誤：${esc(e.message)}</span>`;
       return;
@@ -972,6 +1062,15 @@
         break;
       case "import-do":
         doImport();
+        break;
+      case "ai-view":
+        managerView = "ai";
+        renderManager();
+        break;
+      case "ai-copy":
+        copyText(document.getElementById("customRulesAiPrompt").value).then((ok) =>
+          toast(ok ? "已複製 AI 指令，貼給其他 AI 就能產生規則" : "複製失敗，請手動選取文字複製", ok ? "bi-clipboard-check text-success" : "bi-exclamation-triangle text-warning"),
+        );
         break;
       case "fill-sample-import":
         document.getElementById("customRulesImportText").value = JSON.stringify(sampleOf(managerKind), null, 2);
