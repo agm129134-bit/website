@@ -13622,10 +13622,93 @@ async function readDockerDenied(res) {
  * 若網站本身已經跑在 Docker 容器內（port 8095），就改顯示簡化版選單，
  * 並用 mode:"no-cors" 探測宿主機 8090 是否有開（no-cors 拿不到內容，但能連上就代表有開）。
  */
+// 畫出 8095（容器內）用的簡化 Docker 選單。port8090Active：null=檢查中、true/false=宿主機 8090 有沒有開
+function renderInDockerMenu(dropdownWrapper, port8090Active) {
+  dropdownWrapper.innerHTML = `
+            <div class="dropdown">
+                <button class="btn btn-outline-success btn-sm d-flex align-items-center gap-1.5 px-2.5 py-1.5 dropdown-toggle" type="button" id="dockerMenuBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Docker 容器運行中">
+                    <i class="bi bi-hdd-network-fill text-success"></i>
+                    <span class="d-none d-xl-inline">Docker</span>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill fs-xs">In Docker</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="dockerMenuBtn" style="min-width: 270px;">
+                    <li><h6 class="dropdown-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-box-seam me-1"></i> 當前容器狀態</span>
+                        <span class="badge bg-success rounded-pill">運行中</span>
+                    </h6></li>
+                    <li class="px-3 py-2 text-muted small border-bottom">
+                        <div class="fw-semibold text-dark"><i class="bi bi-check-circle-fill text-success me-1"></i> 🟢 容器運行中 (In Docker)</div>
+                        <div class="fs-xs mt-1">目前正透過 Port 8095 Docker 容器瀏覽本圖書館。</div>
+                    </li>
+                    <li><h6 class="dropdown-header mt-1">宿主機本地伺服器 (Port 8090)</h6></li>
+                    <li>
+                        ${
+                          port8090Active === null
+                            ? `
+                            <div class="dropdown-item d-flex align-items-center gap-2 py-2 text-muted" style="cursor: default;">
+                                <span class="spinner-border spinner-border-sm text-secondary"></span>
+                                <div class="fw-semibold text-secondary">正在檢查 8090...</div>
+                            </div>
+                        `
+                            : port8090Active
+                            ? `
+                            <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-primary" href="http://localhost:8090" target="_blank">
+                                <i class="bi bi-box-arrow-up-right fs-6"></i>
+                                <div>
+                                    <div class="fw-semibold">前往 8090 原生首頁</div>
+                                    <div class="text-success fs-xs"><i class="bi bi-record-fill"></i> 🟢 8090 伺服器正在運行</div>
+                                </div>
+                            </a>
+                        `
+                            : `
+                            <div class="dropdown-item d-flex align-items-center gap-2 py-2 text-muted" style="cursor: default; opacity: 0.85;">
+                                <i class="bi bi-slash-circle text-danger fs-6"></i>
+                                <div>
+                                    <div class="fw-semibold text-secondary">前往 8090 (目前未開啟)</div>
+                                    <div class="text-danger fs-xs"><i class="bi bi-x-circle-fill"></i> 🔴 8090 本機尚未啟動 node</div>
+                                </div>
+                            </div>
+                        `
+                        }
+                    </li>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li class="px-3 py-1.5 text-secondary fs-xs">
+                        <i class="bi bi-info-circle me-1"></i>如需關閉此容器，請在終端機輸入：<br>
+                        <code class="text-dark bg-light px-1 py-0.5 rounded border">docker compose -p web-library stop</code>
+                    </li>
+                </ul>
+            </div>
+        `;
+}
+
+// 用 mode:"no-cors" 探測宿主機 8090 是否有開（拿不到內容，但能連上就代表有開），1.5 秒逾時
+async function probeHost8090() {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
+    await fetch("http://localhost:8090/api/docker/status", {
+      method: "GET",
+      mode: "no-cors",
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
 window.checkDockerStatus = async function (isManual = false) {
   const badge = document.getElementById("dockerStatusBadge");
   const navBadge = document.getElementById("navDockerBadge");
   const dropdownWrapper = document.getElementById("dockerDropdownWrapper");
+
+  // 8095 一定是在 Docker 容器內：不等 API（第一次載入可能逾時而卡在完整管理選單），直接換成 In Docker 選單
+  if (window.location.port === "8095" && dropdownWrapper) {
+    renderInDockerMenu(dropdownWrapper, null);
+    renderInDockerMenu(dropdownWrapper, await probeHost8090());
+    return;
+  }
 
   try {
     const controller = new AbortController();
@@ -13652,74 +13735,7 @@ window.checkDockerStatus = async function (isManual = false) {
     const inDocker = !!(data.inContainer || isPort8095);
 
     if (inDocker && dropdownWrapper) {
-      // 在 8095 Docker 容器環境：不顯示管理按鈕，僅顯示「🟢 容器運行中 (In Docker)」與「前往 8090 (檢查是否開啟)」
-      let port8090Active = false;
-      try {
-        // 探測宿主機 8090 是否開啟 (設定 1.5 秒超時)
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1500);
-        await fetch(
-          "http://localhost:8090/api/docker/status",
-          {
-            method: "GET",
-            mode: "no-cors",
-            signal: controller.signal,
-          },
-        );
-        clearTimeout(timeoutId);
-        port8090Active = true;
-      } catch (err) {
-        port8090Active = false;
-      }
-
-      dropdownWrapper.innerHTML = `
-                <div class="dropdown">
-                    <button class="btn btn-outline-success btn-sm d-flex align-items-center gap-1.5 px-2.5 py-1.5 dropdown-toggle" type="button" id="dockerMenuBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Docker 容器運行中">
-                        <i class="bi bi-hdd-network-fill text-success"></i>
-                        <span class="d-none d-xl-inline">Docker</span>
-                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill fs-xs">In Docker</span>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="dockerMenuBtn" style="min-width: 270px;">
-                        <li><h6 class="dropdown-header d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-box-seam me-1"></i> 當前容器狀態</span>
-                            <span class="badge bg-success rounded-pill">運行中</span>
-                        </h6></li>
-                        <li class="px-3 py-2 text-muted small border-bottom">
-                            <div class="fw-semibold text-dark"><i class="bi bi-check-circle-fill text-success me-1"></i> 🟢 容器運行中 (In Docker)</div>
-                            <div class="fs-xs mt-1">目前正透過 Port 8095 Docker 容器瀏覽本圖書館。</div>
-                        </li>
-                        <li><h6 class="dropdown-header mt-1">宿主機本地伺服器 (Port 8090)</h6></li>
-                        <li>
-                            ${
-                              port8090Active
-                                ? `
-                                <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-primary" href="http://localhost:8090" target="_blank">
-                                    <i class="bi bi-box-arrow-up-right fs-6"></i>
-                                    <div>
-                                        <div class="fw-semibold">前往 8090 原生首頁</div>
-                                        <div class="text-success fs-xs"><i class="bi bi-record-fill"></i> 🟢 8090 伺服器正在運行</div>
-                                    </div>
-                                </a>
-                            `
-                                : `
-                                <div class="dropdown-item d-flex align-items-center gap-2 py-2 text-muted" style="cursor: default; opacity: 0.85;">
-                                    <i class="bi bi-slash-circle text-danger fs-6"></i>
-                                    <div>
-                                        <div class="fw-semibold text-secondary">前往 8090 (目前未開啟)</div>
-                                        <div class="text-danger fs-xs"><i class="bi bi-x-circle-fill"></i> 🔴 8090 本機尚未啟動 node</div>
-                                    </div>
-                                </div>
-                            `
-                            }
-                        </li>
-                        <li><hr class="dropdown-divider my-1"></li>
-                        <li class="px-3 py-1.5 text-secondary fs-xs">
-                            <i class="bi bi-info-circle me-1"></i>如需關閉此容器，請在終端機輸入：<br>
-                            <code class="text-dark bg-light px-1 py-0.5 rounded border">docker compose -p web-library stop</code>
-                        </li>
-                    </ul>
-                </div>
-            `;
+      renderInDockerMenu(dropdownWrapper, await probeHost8090());
       return;
     }
 
@@ -13883,12 +13899,13 @@ window.openDockerLogsModal = function () {
   modal.show();
 };
 
-// 頁面載入後自動偵測一次 Docker 狀態（延遲 1.2 秒，等導覽列等元素先渲染好）
+// 頁面載入後自動偵測一次 Docker 狀態（延遲 1.2 秒，等導覽列等元素先渲染好）；
+// 8095 容器內則立刻切換選單，避免一開始先看到錯的管理選項
 setTimeout(() => {
   if (typeof window.checkDockerStatus === "function") {
     window.checkDockerStatus();
   }
-}, 1200);
+}, window.location.port === "8095" ? 0 : 1200);
 
 // ==================== Task 2: 個人資料維護、頭像庫與偏好設定 ====================
 
