@@ -2,13 +2,13 @@
 // 用 NeDB（純 JavaScript 的嵌入式 NoSQL，資料存成 data/ 底下的 .db 文字檔，不用另外裝資料庫軟體）。
 // 其他檔案（主要是 api/sync.js）require 這支檔案來取得各集合 (collection) 並讀寫資料。
 // 這裡提供：
-//  1. 四個集合：accounts（帳號）、bookmarks（書籤）、bookshelf（書架）、music（音樂庫）
+//  1. 五個集合：accounts（帳號）、bookmarks（書籤）、bookshelf（書架）、music（音樂庫）、games（遊戲專區）
 //  2. 密碼雜湊 hashPassword / 驗證 verifyPassword（密碼不會明文存）
 //  3. autoMigrate：第一次啟動時，把舊的 JSON 檔自動匯入資料庫、並建立預設帳號
 // 資料夾位置：專案根目錄/data（Docker 內是 /app/data，用 volume 保存）。
 /**
  * Web Library - NeDB 嵌入式非同步資料庫核心模組 (nedb-promises)
- * 支援多集合管理 (accounts, bookmarks, bookshelf)、加鹽雜湊密碼安全防護與自動資料遷移
+ * 支援多集合管理 (accounts, bookmarks, bookshelf, music, games)、加鹽雜湊密碼安全防護與自動資料遷移
  */
 const Datastore = require('nedb-promises');
 const path = require('path');
@@ -28,11 +28,15 @@ if (!fs.existsSync(DATA_DIR)) {
 //  - bookmarks: user(唯一)、count、bookmarks[]（每位使用者一份文件，書籤陣列放在裡面）、updatedAt
 //  - bookshelf: user(唯一)、manga[]、novel[]、updatedAt
 //  - music    : user(唯一)、（音樂庫內容，由 sync.js 決定欄位）
-// 建立四個獨立的 NoSQL 集合
+//  - games    : 混合集合，分為兩種類型（以 type 欄位區分）：
+//               - 預設卡：{ type: 'default', order: 0..n, id, title, url, badge, badgeClass, tags, desc, isCustom: false, openInNewTab? }，一張卡一筆。
+//               - 使用者：{ type: 'user', user, custom: [], hidden: [], updatedAt }，每個帳號一筆。
+// 建立五個獨立的 NoSQL 集合
 const accountsDb = Datastore.create({ filename: path.join(DATA_DIR, 'accounts.db'), autoload: true });
 const bookmarksDb = Datastore.create({ filename: path.join(DATA_DIR, 'bookmarks.db'), autoload: true });
 const bookshelfDb = Datastore.create({ filename: path.join(DATA_DIR, 'bookshelf.db'), autoload: true });
 const musicDb = Datastore.create({ filename: path.join(DATA_DIR, 'music.db'), autoload: true });
+const gamesDb = Datastore.create({ filename: path.join(DATA_DIR, 'games.db'), autoload: true });
 
 // ensureIndex + unique:true：同一個 username / user 不能有兩筆，等於資料庫層的「不可重複」限制，
 // 同時加快用這個欄位查詢。.catch(() => {}) 是索引已存在或建立失敗時不要讓程式崩潰。
@@ -180,6 +184,23 @@ async function autoMigrate() {
             }
             console.log(`[NeDB] 成功自動遷移立體書架至 bookshelf.db`);
         }
+
+        // 步驟 4 遊戲專區：若 games.db 內無預設卡片 (type: 'default')，自 api/game-defaults.js 匯入初始卡片。
+        // 每筆卡片加上 type: 'default', order: index 插入資料庫。
+        // 只在沒有預設卡時才寫入，之後管理員手動修改 games.db 的內容不會被覆蓋。
+        // 4. 初始化遊戲專區 games.db 預設卡片
+        if (await gamesDb.count({ type: 'default' }) === 0) {
+            const defaultGames = require('./game-defaults');
+            if (Array.isArray(defaultGames) && defaultGames.length > 0) {
+                const docs = defaultGames.map((item, index) => ({
+                    type: 'default',
+                    order: index,
+                    ...item
+                }));
+                await gamesDb.insert(docs);
+                console.log(`[NeDB] 成功初始化 ${docs.length} 筆預設遊戲卡片至 games.db`);
+            }
+        }
     } catch (err) {
         console.error('[NeDB Auto-Migrate Error]:', err.message);
     }
@@ -189,12 +210,13 @@ async function autoMigrate() {
 // 立即觸發一次自檢與遷移
 autoMigrate();
 
-// 對外匯出：四個集合與密碼、遷移相關函式，給 api/sync.js 等模組使用。
+// 對外匯出：五個集合與密碼、遷移相關函式，給 api/sync.js 等模組使用。
 module.exports = {
     accountsDb,
     bookmarksDb,
     bookshelfDb,
     musicDb,
+    gamesDb,
     hashPassword,
     verifyPassword,
     autoMigrate

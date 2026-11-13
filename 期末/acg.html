@@ -1842,22 +1842,24 @@
         </div>
     </div>
 
-    <!-- 遊戲專區視窗：卡片格狀列出遊戲 Wiki／工具，上方可搜尋（filterGameHubGrid 即時過濾）、恢復被刪除的預設卡片、自訂加入。卡片由 JS 渲染進 #gameHubGridContainer。 -->
+    <!-- 遊戲專區視窗（Vue 3）：.modal-content 整塊是 Vue 模板，由 app.js 的 mountGameHub() 在第一次打開時掛載。
+         卡片清單（v-for）、搜尋（v-model 即時過濾）、恢復預設、自訂加入、刪除都由 Vue 管理；資料來源是 sessionStorage。
+         事件一律寫 v-on:/v-bind: 完整寫法（不用 @ / : 縮寫），因為無縫換頁會用 importNode 複製這段 HTML。 -->
     <!-- 4. ACG 遊戲專區與攻略庫 Modal -->
     <div class="modal fade" id="gameHubModal" tabindex="-1" aria-labelledby="gameHubModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl">
-            <div class="modal-content bg-dark text-white border-secondary rounded-4 shadow-lg overflow-hidden">
+            <div class="modal-content bg-dark text-white border-secondary rounded-4 shadow-lg overflow-hidden" id="gameHubApp">
                 <div class="modal-header border-bottom border-secondary py-3 px-4 bg-black">
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge bg-warning text-dark fw-bold">Game Hub</span>
                         <h5 class="modal-title fw-bold mb-0 text-white" id="gameHubModalLabel"><i class="bi bi-controller text-warning me-1"></i> ACG 遊戲專區與攻略資料庫</h5>
                     </div>
                     <div class="d-flex align-items-center gap-1.5 gap-md-2 ms-auto flex-shrink-0">
-                        <button class="btn btn-sm btn-outline-light game-hub-round-btn d-flex align-items-center justify-content-center" onclick="resetDefaultGames()" title="恢復所有被刪除的預設遊戲卡片">
+                        <button class="btn btn-sm btn-outline-light game-hub-round-btn d-flex align-items-center justify-content-center" v-on:click="resetDefaults" title="恢復所有被刪除的預設遊戲卡片">
                             <i class="bi bi-arrow-counterclockwise"></i>
                             <span class="d-none d-md-inline ms-1">恢復預設</span>
                         </button>
-                        <button class="btn btn-sm btn-outline-warning game-hub-round-btn d-flex align-items-center justify-content-center" onclick="openAddCustomGameModal()" title="自定義加入遊戲/Wiki">
+                        <button class="btn btn-sm btn-outline-warning game-hub-round-btn d-flex align-items-center justify-content-center" v-on:click="openAddForm" title="自定義加入遊戲/Wiki">
                             <i class="bi bi-plus-lg"></i>
                             <span class="d-none d-md-inline ms-1">自訂加入</span>
                         </button>
@@ -1870,7 +1872,7 @@
                         <div class="col-12 col-md-6">
                             <div class="input-group input-group-sm">
                                 <span class="input-group-text bg-black border-secondary text-white-50"><i class="bi bi-search"></i></span>
-                                <input type="text" id="gameHubSearchInput" class="form-control bg-black border-secondary text-white" placeholder="搜尋遊戲名稱、Wiki 或功能關鍵字..." oninput="filterGameHubGrid(this.value)">
+                                <input type="text" id="gameHubSearchInput" class="form-control bg-black border-secondary text-white" placeholder="搜尋遊戲名稱、Wiki 或功能關鍵字..." v-model="keyword">
                             </div>
                         </div>
                         <div class="col-12 col-md-6 text-md-end text-white-50 small">
@@ -1878,9 +1880,49 @@
                         </div>
                     </div>
 
-                    <!-- 遊戲卡片網格容器 (Grid) -->
+                    <!-- 遊戲卡片網格 (Grid)：每張卡片由 v-for 依 filteredGames 產生 -->
                     <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-3" id="gameHubGridContainer">
-                        <!-- 由 JavaScript 動態渲染 -->
+                        <div class="col" v-for="game in filteredGames" v-bind:key="game.id">
+                            <div class="card h-100 spotlight-card border-glow game-card-glass shadow-sm rounded-4 overflow-hidden text-white">
+                                <div class="card-body p-3 d-flex flex-column">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <span class="badge" v-bind:class="game.badgeClass || 'bg-warning text-dark fw-bold'">{{ game.badge || '熱門工具' }}</span>
+                                        <span class="small text-white-50"><i class="bi bi-controller fs-6 text-warning"></i></span>
+                                    </div>
+                                    <h6 class="fw-bold mb-1 text-white">{{ game.title }}</h6>
+                                    <div class="mb-2 d-flex flex-wrap gap-1">
+                                        <span v-for="t in (game.tags || [])" class="badge bg-secondary-subtle text-light border border-secondary border-opacity-50 small" style="font-size: 0.68rem;">{{ t }}</span>
+                                    </div>
+                                    <p class="small text-white-50 mb-3 flex-grow-1" style="font-size: 0.8rem; line-height: 1.45; color: #cbd5e1 !important;">{{ game.desc }}</p>
+                                    <div class="game-card-actions d-flex align-items-center gap-1.5 mt-auto pt-2 border-top border-secondary border-opacity-25">
+                                        <!-- itch.io / unityroom / B站小遊戲 禁止 iframe 嵌入：只給「開啟暢玩」另開分頁 -->
+                                        <button v-if="isExternal(game)" class="btn btn-sm btn-primary flex-grow-1 rounded-pill fw-semibold shadow-sm" v-on:click="openNewTab(game.url)">
+                                            <i class="bi bi-box-arrow-up-right"></i> 開啟暢玩
+                                        </button>
+                                        <template v-else>
+                                            <button class="btn btn-sm btn-primary flex-grow-1 rounded-pill fw-semibold shadow-sm text-nowrap" style="font-size: 0.8rem; padding: 0.32rem 0.5rem;" v-on:click="openInline(game)">
+                                                <i class="bi bi-window-fullscreen me-1"></i> 在線開啟
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-info rounded-pill text-nowrap" style="font-size: 0.8rem; padding: 0.32rem 0.55rem;" v-on:click="openNewTab(game.url)" title="另開新分頁跳轉原網頁">
+                                                <i class="bi bi-box-arrow-up-right"></i> 跳轉
+                                            </button>
+                                        </template>
+                                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2" v-on:click="removeGame(game)" v-bind:title="game.isCustom ? '刪除自定義卡片' : '移除此預設卡片'">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 最後一格固定是「新增自定義遊戲 / Wiki」 -->
+                        <div class="col">
+                            <div class="card h-100 border border-secondary border-opacity-50 shadow-sm rounded-3 d-flex flex-column align-items-center justify-content-center p-4 text-center cursor-pointer" style="background: rgba(30, 41, 59, 0.45); border-style: dashed !important; min-height: 180px; cursor: pointer; transition: background 0.2s;" v-on:click="openAddForm" title="點擊新增您喜愛的遊戲攻略或資料庫">
+                                <i class="bi bi-plus-circle-dotted fs-1 text-warning mb-2 opacity-75"></i>
+                                <h6 class="fw-bold text-white mb-1">新增自定義遊戲 / Wiki</h6>
+                                <p class="small text-white-50 mb-0" style="font-size: 0.78rem; color: #94a3b8 !important;">可自訂加入任何遊戲 Wiki 百科、素材工具或地圖</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

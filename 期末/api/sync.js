@@ -3,7 +3,7 @@
  *
  * 這個模組負責什麼：
  *   1) 使用者帳號：註冊、登入、重設密碼、個人資料、刪除帳號（密碼用加鹽雜湊，不存明文）；
- *   2) 跨電腦雲端同步：書籤、立體書架（漫畫/小說）、自訂來源規則、音樂庫，換電腦登入後資料還在；
+ *   2) 跨電腦雲端同步：書籤、立體書架（漫畫/小說）、自訂來源規則、音樂庫、遊戲專區，換電腦登入後資料還在；
  *   3) 快捷記事本截圖上傳 / 讀取（存成檔案）；
  *   4) 線上歌曲搜尋（網易雲，失敗時退回 iTunes）；
  *   5) Bangumi（動漫資料網站）的代理：瀏覽器直接呼叫會被 CORS 擋，所以由伺服器代為轉發。
@@ -13,13 +13,13 @@
  *
  * 主要 API 路由：
  *   /api/user/list | login | register | delete | clear | reset-password | profile
- *   /api/user/bookshelf（或 /api/bookshelf）、/api/user/custom-rules
+ *   /api/user/bookshelf（或 /api/bookshelf）、/api/user/custom-rules、/api/user/games
  *   /api/user/music（或 /api/music）、/api/music/search
  *   /api/bookmarks（或 /api/user/bookmarks）、/api/bookmarks/screenshot[/檔名]
  *   /api/bangumi/me | collection | search | episodes
  *
  * 資料從哪來往哪去：前端 JSON -> 本模組 -> db.js 的 NeDB 資料庫（accountsDb 帳號、bookmarksDb 書籤、
- *   bookshelfDb 書架、musicDb 音樂），截圖則存在 data/uploads/ 資料夾。NeDB 是純 JavaScript 的嵌入式資料庫，
+ *   bookshelfDb 書架、musicDb 音樂、gamesDb 遊戲），截圖則存在 data/uploads/ 資料夾。NeDB 是純 JavaScript 的嵌入式資料庫，
  *   資料存成檔案，不需要另外安裝資料庫伺服器。
  *
  * 同步衝突處理：這裡採「最後寫入者勝」——POST 時直接用客戶端傳來的整批資料覆蓋；
@@ -35,12 +35,13 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-// 從 db.js 取得四個資料表（accountsDb 等）與密碼雜湊 / 驗證工具。
+// 從 db.js 取得五個資料表（accountsDb 等）與密碼雜湊 / 驗證工具。
 const {
     accountsDb,
     bookmarksDb,
     bookshelfDb,
     musicDb,
+    gamesDb,
     hashPassword,
     verifyPassword
 } = require('./db');
@@ -189,34 +190,45 @@ function sanitizeUsername(username) {
     return clean || 'default';
 }
 
+function sanitizeOwner(v) {
+    if (!v) return '';
+    const s = String(v).trim();
+    if (!s) return '';
+    const clean = sanitizeUsername(s);
+    return clean === 'default' ? '' : clean;
+}
+
+// 擁有者帳號（只有私用的 Docker 會設定，展示用的 8090 不設）。沒設定時為空字串。
+const OWNER_USER = sanitizeOwner(process.env.OWNER_USER);
+
 // _currentSessionUser：伺服器記憶體裡的「目前最後活躍使用者」。Tampermonkey 腳本呼叫收藏時不會帶帳號，
 // 就用這個值決定要存給誰。注意它是全域變數，重啟伺服器就重置，且同時多人使用時只記得最後一位（專題簡化設計）。
-// 記憶當前伺服器中最後活躍登入的使用者（供 Tampermonkey 快捷收藏自動動態歸屬）
-let _currentSessionUser = 'jyun';
+// 記憶當前伺服器中最後活躍登入的使用者（供 Tampermonkey 快捷收藏自動動態歸屬，預設為擁有者或訪客）
+let _currentSessionUser = OWNER_USER || 'guest';
 
-// getDefaultActiveUser：決定「沒指定帳號時」該用誰：優先最後活躍者；若是展示/訪客等假帳號，退回 jyun，再不行取資料庫第一個帳號。
+// getDefaultActiveUser：決定「沒指定帳號時」該用誰：優先最後活躍者；若是假帳號/訪客，若有 OWNER_USER 且存在於資料庫則退回 OWNER_USER，否則回傳 guest。
 async function getDefaultActiveUser() {
-    if (_currentSessionUser && _currentSessionUser !== 'default' && _currentSessionUser !== '期末展示學生' && _currentSessionUser !== '訪客') {
+    if (_currentSessionUser && _currentSessionUser !== 'default' && _currentSessionUser !== 'guest' && _currentSessionUser !== '訪客') {
         return _currentSessionUser;
     }
     try {
-        const acc = await accountsDb.findOne({ username: 'jyun' });
-        if (acc) return 'jyun';
-        const first = await accountsDb.findOne({});
-        if (first) return first.username;
+        if (OWNER_USER) {
+            const acc = await accountsDb.findOne({ username: OWNER_USER });
+            if (acc) return OWNER_USER;
+        }
     } catch (e) {}
-    return 'default';
+    return 'guest';
 }
 
 // resolveRequestUser：把請求裡的帳號名稱轉成最終要操作的帳號。
-// 展示帳號 / default 會被導向到目前活躍使用者；真實帳號則同時更新「最後活躍者」記錄。回傳已純化的名稱。
-// 解析請求所屬帳號：展示/預設帳號歸屬至目前活躍使用者，真實帳號則記為最後活躍者；回傳純化後名稱
+// default 會被導向到目前活躍使用者；真實帳號則同時更新「最後活躍者」記錄。回傳已純化的名稱。
+// 解析請求所屬帳號：預設帳號歸屬至目前活躍使用者，真實帳號則記為最後活躍者；回傳純化後名稱
 async function resolveRequestUser(candidate) {
     const defaultUser = await getDefaultActiveUser();
     let username = candidate || defaultUser;
-    if ((username === '期末展示學生' || username === 'default') && defaultUser !== 'default') {
+    if (username === 'default' && defaultUser !== 'default') {
         username = defaultUser;
-    } else if (username && username !== 'default' && username !== '期末展示學生' && username !== '訪客') {
+    } else if (username && username !== 'default' && username !== 'guest' && username !== '訪客') {
         _currentSessionUser = sanitizeUsername(username);
     }
     return sanitizeUsername(username);
@@ -346,15 +358,15 @@ async function handleSyncRoute(req, res) {
         // 0. 取得本機已存在的所有使用者帳號清單 /api/user/list (NeDB 查詢)
         // ==========================================
         // GET /api/user/list —— 回傳所有帳號名稱（給登入頁下拉選單）。
-        // 回應：{ success:true, users:[...] }；jyun 是內建示範帳號，一定放在清單最前面。出錯時退回只有 jyun，不讓登入頁壞掉。
+        // 回應：{ success:true, users:[...] }；若有 OWNER_USER 則置於清單最前。出錯時依是否有 OWNER_USER 回傳，不讓登入頁壞掉。
         if (pathname === '/api/user/list') {
             try {
                 const accounts = await accountsDb.find({});
                 const userList = accounts.map(a => a.username).filter(Boolean);
-                if (!userList.includes('jyun')) userList.unshift('jyun');
+                if (OWNER_USER && !userList.includes(OWNER_USER)) userList.unshift(OWNER_USER);
                 return sendJson(res, 200, { success: true, users: userList });
             } catch (e) {
-                return sendJson(res, 200, { success: true, users: ['jyun'] });
+                return sendJson(res, 200, { success: true, users: OWNER_USER ? [OWNER_USER] : [] });
             }
         }
 
@@ -476,6 +488,7 @@ async function handleSyncRoute(req, res) {
             await bookmarksDb.remove({ user: cleanUser }, { multi: true });
             await bookshelfDb.remove({ user: cleanUser }, { multi: true });
             await musicDb.remove({ user: cleanUser }, { multi: true }); // 音樂庫也要刪，否則同名新帳號會繼承舊歌單
+            await gamesDb.remove({ type: 'user', user: cleanUser }, { multi: true }); // 避免同名新帳號繼承舊卡片
 
             return sendJson(res, 200, {
                 success: true,
@@ -747,6 +760,130 @@ async function handleSyncRoute(req, res) {
                     { upsert: true }
                 );
                 return sendJson(res, 200, { success: true, user: safeUser, count: rules.length, updatedAt });
+            }
+        }
+
+        // ==========================================
+        // 0.93 ACG 遊戲專區與攻略庫 /api/user/games (NeDB 存取)
+        // 預設卡片 (type: 'default') 全站共用，依 order 排序；
+        // 自訂卡片與隱藏清單 (type: 'user') 每個帳號獨立儲存，換電腦可同步；
+        // 訪客 (guest / 訪客 / 沒帶 user) 不存伺服器，直接回傳預設卡
+        // ==========================================
+        if (pathname === '/api/user/games') {
+            if (req.method === 'GET') {
+                // 先查 gamesDb.find({ type: 'default' })，依 order 排序，每筆去掉 _id、type、order 欄位 → defaults
+                const defaultDocs = await gamesDb.find({ type: 'default' });
+                defaultDocs.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+                const defaults = defaultDocs.map(doc => {
+                    const item = { ...doc };
+                    delete item._id;
+                    delete item.type;
+                    delete item.order;
+                    return item;
+                });
+
+                const rawUser = (query.user || query.username || '').trim().toLowerCase();
+                // 若 query 沒有 user/username，或是 guest / 訪客：不要呼叫 resolveRequestUser（避免退回別人的帳號）
+                if (!rawUser || rawUser === 'guest' || rawUser === '訪客') {
+                    return sendJson(res, 200, {
+                        success: true,
+                        defaults,
+                        custom: [],
+                        hidden: []
+                    });
+                }
+
+                const safeUser = await resolveRequestUser(rawUser);
+                const record = await gamesDb.findOne({ type: 'user', user: safeUser });
+                return sendJson(res, 200, {
+                    success: true,
+                    user: safeUser,
+                    defaults,
+                    custom: record && Array.isArray(record.custom) ? record.custom : [],
+                    hidden: record && Array.isArray(record.hidden) ? record.hidden : [],
+                    updatedAt: (record && record.updatedAt) || null
+                });
+            }
+
+            if (req.method === 'POST') {
+                const body = await parseRequestBody(req);
+                const rawUser = String(body.user || body.username || '').trim().toLowerCase();
+
+                // 沒帶 user 或是 guest / 訪客 → 400
+                if (!rawUser || rawUser === 'guest' || rawUser === '訪客') {
+                    return sendJson(res, 400, { success: false, error: '訪客資料不寫入伺服器' });
+                }
+
+                // custom 必須是陣列且 ≤ 100 筆，hidden 必須是陣列且 ≤ 100 筆，否則 400
+                if (!Array.isArray(body.custom) || body.custom.length > 100) {
+                    return sendJson(res, 400, { success: false, error: 'custom 必須是陣列且不得超過 100 筆' });
+                }
+                if (!Array.isArray(body.hidden) || body.hidden.length > 100) {
+                    return sendJson(res, 400, { success: false, error: 'hidden 必須是陣列且不得超過 100 筆' });
+                }
+
+                // custom 每筆重新組裝白名單欄位（不要直接存 body 原物件）
+                // { id: String, title: String, url: String, badge: String, badgeClass: String, tags: 字串陣列(最多 20 個), desc: String, isCustom: true }
+                // 字串截長度（title/badge ≤ 100、desc ≤ 500、url ≤ 2000、badgeClass ≤ 200、每個 tag ≤ 40）
+                // url 必須以 http:// 或 https:// 開頭，否則該筆丟掉；title 空的丟掉；id 空的丟掉
+                const custom = [];
+                for (const rawItem of body.custom) {
+                    if (!rawItem || typeof rawItem !== 'object') continue;
+
+                    const id = String(rawItem.id || '').trim();
+                    const title = String(rawItem.title || '').trim();
+                    const url = String(rawItem.url || '').trim();
+
+                    if (!id || !title) continue;
+                    if (!url.startsWith('http://') && !url.startsWith('https://')) continue;
+
+                    const badge = String(rawItem.badge || '').trim().slice(0, 100);
+                    const badgeClass = String(rawItem.badgeClass || '').trim().slice(0, 200);
+                    const desc = String(rawItem.desc || '').trim().slice(0, 500);
+
+                    let tags = [];
+                    if (Array.isArray(rawItem.tags)) {
+                        tags = rawItem.tags
+                            .map(t => String(t || '').trim().slice(0, 40))
+                            .filter(Boolean)
+                            .slice(0, 20);
+                    }
+
+                    const cleanCard = {
+                        id: id.slice(0, 100),
+                        title: title.slice(0, 100),
+                        url: url.slice(0, 2000),
+                        badge,
+                        badgeClass,
+                        tags,
+                        desc,
+                        isCustom: true
+                    };
+                    if (rawItem.openInNewTab) cleanCard.openInNewTab = true;
+                    custom.push(cleanCard);
+                }
+
+                // hidden 只留字串、每個 ≤ 100 字
+                const hidden = body.hidden
+                    .map(h => String(h || '').trim().slice(0, 100))
+                    .filter(Boolean);
+
+                const safeUser = await resolveRequestUser(rawUser);
+                const updatedAt = new Date().toISOString();
+
+                await gamesDb.update(
+                    { type: 'user', user: safeUser },
+                    { $set: { type: 'user', user: safeUser, custom, hidden, updatedAt } },
+                    { upsert: true }
+                );
+
+                return sendJson(res, 200, {
+                    success: true,
+                    user: safeUser,
+                    customCount: custom.length,
+                    hiddenCount: hidden.length,
+                    updatedAt
+                });
             }
         }
 

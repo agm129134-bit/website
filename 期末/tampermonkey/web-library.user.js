@@ -1697,11 +1697,11 @@
                 onload: function(getRes) {
                     if (getRes.status >= 200 && getRes.status < 300) {
                         let existing = [];
-                        let username = 'jyun';
+                        let username = 'guest';
                         try {
                             const json = JSON.parse(getRes.responseText);
                             if (Array.isArray(json.bookmarks)) existing = json.bookmarks;
-                            if (json.user && json.user !== 'default' && json.user !== '期末展示學生') username = json.user;
+                            if (json.user && json.user !== 'default') username = json.user;
                         } catch (e) {}
 
                         // 去掉舊清單裡網址相同的書籤，再把新的放最前面，達到「同網址只留一筆、最新在前」。
@@ -2120,12 +2120,12 @@
         // 逐個伺服器嘗試；用 continue 代表「這台不行，換下一台」，成功則 return 結束整個函式
         for (const apiUrl of candidates) {
             let existing = [];
-            let username = "jyun";
+            let username = "guest";
             try {
                 const getRes = await wlNoteRequest({ method: "GET", url: apiUrl, timeout: 2000 });
                 const json = JSON.parse(getRes.responseText);
                 if (Array.isArray(json.bookmarks)) existing = json.bookmarks;
-                if (json.user && json.user !== "default" && json.user !== "期末展示學生") username = json.user;
+                if (json.user && json.user !== "default") username = json.user;
             } catch (e) {
                 continue; // 這台伺服器連不上，換下一個
             }

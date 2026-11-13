@@ -674,7 +674,7 @@
                         const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 天效期
                         localStorage.setItem('rememberedUser', JSON.stringify({ user, expiresAt }));
                         localStorage.setItem('currentUser', JSON.stringify(user));
-                        localStorage.setItem('web_library_user', user.username || 'jyun');
+                        localStorage.setItem('web_library_user', user.username || 'guest');
                     } else {
                         localStorage.removeItem('rememberedUser');
                         localStorage.removeItem('currentUser');
@@ -902,10 +902,11 @@
                     const inst = bootstrap.Modal.getInstance(easterEggModalEl);
                     if (inst) inst.hide();
                 }
+                const fallbackUsername = document.getElementById('forgotUsernameInput')?.value.trim() || '';
                 const targetUser = pendingEasterEggUser || {
-                    username: document.getElementById('forgotUsernameInput')?.value.trim() || 'jyun',
-                    name: 'Jyun',
-                    role: '核心會員'
+                    username: fallbackUsername,
+                    name: fallbackUsername || '使用者',
+                    role: '一般會員'
                 };
                 sessionStorage.setItem('currentUser', JSON.stringify({
                     username: targetUser.username,

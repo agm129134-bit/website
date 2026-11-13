@@ -33,6 +33,9 @@ services:
       # ${變數:-} 是 compose 的語法：讀本機 .env 的值，沒設定就用空字串。
       # 機密從同資料夾的 .env 帶入（見 .env.example），沒設定就是空值
       - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:-}
+      # 擁有者帳號：只給私用的 Docker。值來自 .env 的 DOCKER_OWNER_USER（不叫 OWNER_USER，
+      # 是為了避免本機 node server.js 讀同一份 .env 時也把展示站設成擁有者模式）
+      - OWNER_USER=${DOCKER_OWNER_USER:-}
       - DANDANPLAY_APP_ID=${DANDANPLAY_APP_ID:-}
       - DANDANPLAY_APP_SECRET=${DANDANPLAY_APP_SECRET:-}
       - COPYMANGA_TOKEN=${COPYMANGA_TOKEN:-}

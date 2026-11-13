@@ -217,6 +217,16 @@ async function seamlessNavigateTo(url, isPopState = false) {
         if (tween.targets().some((t) => t instanceof Element && !t.isConnected)) tween.kill();
       });
     }
+    // 舊頁面的遊戲專區 (Vue) 也已被移除：卸載它的 Vue app；新頁面的會在第一次打開遊戲專區時再掛載
+    if (typeof window.cleanupDetachedGameHub === "function") window.cleanupDetachedGameHub();
+
+    // 換頁時若有 Modal 還開著，Bootstrap 加在 body 上的捲動鎖 (modal-open、overflow:hidden、padding-right)
+    // 不會跟著舊節點一起消失，新頁面就無法捲動。留下來的常駐視窗都沒開著時才清除。
+    if (!document.querySelector(".modal.show")) {
+      document.body.classList.remove("modal-open");
+      document.body.style.removeProperty("overflow");
+      document.body.style.removeProperty("padding-right");
+    }
 
     document.title = newDoc.title;
     if (!isPopState) {
@@ -280,7 +290,7 @@ const state = {
   searchQuery: "",
   sortMode: "newest",
   viewMode: sessionStorage.getItem("web_library_view_mode") || "grid", // 'grid' | 'list' (持久化視圖偏好)
-  currentUser: sessionStorage.getItem("web_library_user") || "jyun",
+  currentUser: sessionStorage.getItem("web_library_user") || "guest",
   isBatchMode: false,
   selectedBookmarkIds: new Set(),
 };
@@ -322,7 +332,7 @@ function initApp() {
     }
 
     // 載入使用者自訂的預設排序與預設啟動分類分頁
-    const curU = (state.currentUser || 'jyun').toLowerCase().trim();
+    const curU = (state.currentUser || 'guest').toLowerCase().trim();
     const applyHomePrefs = (sort, cat) => {
       cat = normalizeCategoryFilter(cat);
       state.sortMode = sort;
@@ -410,7 +420,7 @@ function loadFromStorage() {
       state.bookmarks = [];
     }
   } else {
-    // 注意：此時還不知道登入者，絕不能 saveToStorage() (會把空清單上傳到預設帳號 jyun)
+    // 注意：此時還不知道登入者，絕不能 saveToStorage() (會把空清單上傳到預設帳號)
     state.bookmarks = [];
   }
 
@@ -422,20 +432,11 @@ function loadFromStorage() {
       const authUser = JSON.parse(authUserStr);
 
       if (authUser) {
-        // 關鍵修復：state.currentUser 永遠使用純淨的 username (如 'jyun', 'admin', 'student') 作為伺服器同步識別碼！
+        // 關鍵修復：state.currentUser 一律用純淨的 username 當伺服器同步識別碼！
         let rawU = (authUser.username || authUser.name || "").trim();
         // 正規表示式：移除所有「不是英數字、底線、中文」的字元（空白、括號等），避免帳號字串夾雜雜訊
         let cleanU = rawU.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, "").trim();
-
-        if (cleanU.startsWith("Jyun") || cleanU.startsWith("jyun"))
-          state.currentUser = "jyun";
-        else if (cleanU.startsWith("Test1") || cleanU.startsWith("test1"))
-          state.currentUser = "test1";
-        else if (cleanU.startsWith("admin")) state.currentUser = "admin";
-        else if (cleanU.startsWith("student")) state.currentUser = "student";
-        else if (authUser.username)
-          state.currentUser = authUser.username.toLowerCase().trim();
-        else state.currentUser = cleanU.toLowerCase();
+        state.currentUser = (authUser.username || cleanU).toLowerCase().trim();
         let rawDisp = authUser.name || authUser.username || state.currentUser;
 
         // displayUserName 是畫面上顯示的名字，這裡把「(專案開發者)」這種後綴拿掉，只留名字
@@ -545,7 +546,7 @@ window.confirmDeleteCurrentAccount = async function () {
     // 這些資料不分帳號存在本機，也屬於被刪帳號：自訂來源規則 (會自動同步回同名新帳號)、觀看/漫畫歷史、自訂遊戲
     localStorage.removeItem("web_library_custom_rules_v1");
     ["web_library_watch_history", "web_library_anime_history", "web_library_manga_history",
-     "web_library_custom_games", "web_library_hidden_default_games"]
+     "web_library_custom_games", "web_library_hidden_default_games", "web_library_games_owner"]
       .forEach((k) => sessionStorage.removeItem(k));
 
     sessionStorage.removeItem("web_library_user");
@@ -574,6 +575,10 @@ function clearLoginStorage() {
   localStorage.removeItem("rememberedUser");
   localStorage.removeItem("currentUser");
   localStorage.removeItem("web_library_user");
+  // 登出時清掉遊戲專區的本頁工作副本
+  sessionStorage.removeItem("web_library_custom_games");
+  sessionStorage.removeItem("web_library_hidden_default_games");
+  sessionStorage.removeItem("web_library_games_owner");
 }
 
 // 跨電腦雲端自動同步計時器 (支援防抖 Debounce 與刪除操作立即同步)
@@ -634,9 +639,9 @@ async function syncFromServer(username, isFocusSync = false) {
 
   let user = username || state.currentUser;
 
-  if (!user || user === "期末展示學生" || user === "default") user = "jyun";
+  if (!user || user === "default") user = "guest";
 
-  if (user === "訪客") return;
+  if (user === "訪客" || user === "guest") return;
 
   try {
     const res = await fetch(
@@ -981,7 +986,7 @@ function updateUI() {
   const navUsername = document.getElementById("navUsername");
 
   if (navUsername) {
-    let cleanName = (state.displayUserName || state.currentUser || "Jyun")
+    let cleanName = (state.displayUserName || state.currentUser || "訪客")
       .replace(/\s*[\(（]專案開發者[\)）]/g, "")
       .trim();
     navUsername.textContent = cleanName;
@@ -2606,7 +2611,7 @@ function initDynamicIslandMusic() {
   });
 
   // 取得目前登入使用者名稱 (優先讀取全域狀態與有效 session 會話，杜絕跨帳號串位)
-  // 登入身分 (sessionStorage.currentUser) 優先：模組初始化時 state.currentUser 可能還是預設的 "jyun"
+  // 登入身分 (sessionStorage.currentUser) 優先：模組初始化時 state.currentUser 可能還是預設的 "guest"
   // 訪客回傳 null → 音樂庫只留在本頁，不讀寫伺服器
   function getCurrentUser() {
     let user = null;
@@ -7241,7 +7246,7 @@ function resolveBookshelfUser(explicitUser) {
       if (uStr) user = JSON.parse(uStr).username;
     } catch (e) {}
   }
-  user = (user || sessionStorage.getItem("web_library_user") || "jyun").toLowerCase().trim();
+  user = (user || sessionStorage.getItem("web_library_user") || "guest").toLowerCase().trim();
   return !user || user === "訪客" || user === "guest" ? null : user;
 }
 
@@ -12877,222 +12882,272 @@ document.addEventListener("DOMContentLoaded", initApp);
 // ACG 專區：遊戲專區與工具攻略庫 (Game Hub)
 // ==========================================
 
-// 內建的預設遊戲/工具攻略站清單（每筆有 id、標題、網址、徽章、標籤、說明）。
-// isCustom: false 表示系統預設；使用者自己新增的會是 true，並存在 localStorage。
-const DEFAULT_ACG_GAMES = [
-  {
-    id: "game_fgo_chaldea",
-    title: "Fate/Grand Order - Chaldea 迦勒底",
-    url: "https://chaldea.center/",
-    badge: "FGO 官方/開源神器",
-    badgeClass: "bg-danger text-white",
-    tags: ["FGO", "迦勒底", "素材規劃", "從者養成", "活動周回"],
-    desc: "跨平台開源 FGO 規劃工具，支援從者養成計算、素材需求掉落統計、活動周回規劃與抽卡模擬，支援在當前視窗即開即用！",
-    isCustom: false,
-  },
-  {
-    id: "game_fgo_mooncell",
-    title: "Mooncell Wiki - FGO 繁簡中文百科",
-    url: "https://fgo.wiki/",
-    badge: "權威百科",
-    badgeClass: "bg-primary text-white",
-    tags: ["FGO", "中文百科", "指令卡數據", "關卡掉落"],
-    desc: "中文圈最詳盡的 Fate/Grand Order 中文資料庫，完整收錄從者數值、指令卡參數、寶具傷害、敵方配置與最新活動攻略。",
-    isCustom: false,
-  },
-  {
-    id: "game_mfme_wiki",
-    title: "魔法紀錄：魔法少女小圓外傳 - GameKee 攻略百科",
-    url: "https://www.gamekee.com/mfme/",
-    badge: "Wiki 百科",
-    badgeClass: "bg-danger-subtle text-danger border border-danger-subtle",
-    tags: ["魔法紀錄", "小圓外傳", "GameKee", "角色圖鑑", "活動攻略"],
-    desc: "魔法少女小圓外傳最齊全的中文圖鑑與攻略站，收錄魔法少女養成數據、記憶結晶評價與活動關卡打法。",
-    isCustom: false,
-  },
-  {
-    id: "game_madoka_exedra",
-    title: "魔法少女小圓 Magia Exedra - Game8 攻略Wiki",
-    url: "https://game8.jp/madoka-exedra",
-    badge: "新作攻略Wiki",
-    badgeClass: "bg-danger text-white",
-    tags: ["魔法少女小圓", "Magia Exedra", "Game8", "首抽推薦", "最新攻略"],
-    desc: "Game8 官方認證《魔法少女小圓 Magia Exedra》綜合攻略Wiki，提供首抽節奏榜、最強角色養成、活動關卡攻略與最新情報速報。",
-    isCustom: false,
-  },
-  {
-    id: "game_adx_charts",
-    title: "AstroDX 譜面資源庫 (ADX Charts) - maimai 譜面下載與社群資源",
-    url: "https://adxdls.saop.cc/",
-    badge: "maimai 譜面庫",
-    badgeClass: "bg-primary text-white",
-    tags: ["AstroDX", "maimai", "音遊", "街機模擬器", "譜面下載", "ADX Charts"],
-    desc: "專為 maimai 模擬器 AstroDX 打造的社群譜面資源庫，收錄數千首社群與官方精選譜面、版本與曲風瀏覽、線上試聽試玩與一鍵匯入導入指南。",
-    isCustom: false,
-  },
-  {
-    id: "game_bilibili_fx_toy",
-    title: "FX 簡單！(外匯模擬交易) - Bilibili Toy",
-    url: "https://www.bilibili.com/toy/fx-simple/index.html",
-    badge: "B站小遊戲",
-    badgeClass: "bg-info-subtle text-info border border-info-subtle",
-    tags: ["Bilibili", "外匯模擬", "趣味挑戰", "互動網頁"],
-    desc: "Bilibili Toy 推出之趣味外匯模擬交易小遊戲，輕鬆體驗低買高賣的刺激心跳！",
-    isCustom: false,
-    openInNewTab: true,
-  },
-  {
-    id: "game_powerful_wind_cabbages",
-    title: "強風大背頭",
-    url: "https://asyncfish.itch.io/powerful-wind-slicked-back-cabbages",
-    badge: "節奏獨立小遊戲",
-    badgeClass: "bg-success-subtle text-success border border-success-subtle",
-    tags: ["強風大背頭", "節奏", "獨立小遊戲", "Itch.io"],
-    desc: "節奏獨立小遊戲。由迷因神曲《強風大背頭》改編的魔性節奏獨立小遊戲，畫風超可愛治癒！",
-    isCustom: false,
-    openInNewTab: true,
-  },
-  {
-    id: "game_dabuchi_unityroom",
-    title: "狂吃雙吉堡 (ダブチを食べまくるゲーム)",
-    url: "https://unityroom.com/games/dabuchitabemakurugame",
-    badge: "Unity 遊戲",
-    badgeClass: "bg-warning-subtle text-warning border border-warning-subtle",
-    tags: ["Unityroom", "雙吉堡", "吃漢堡", "休閒挑戰"],
-    desc: "日本 Unityroom 熱門小遊戲「ダブチを食べまくるゲーム」（狂吃麥當勞雙層牛肉吉事堡），操控角色爽快狂吃漢堡挑戰最高得分！",
-    isCustom: false,
-    openInNewTab: true,
-  },
-];
+// ---------- 遊戲專區 Vue 3 版 ----------
+// 卡片版面寫在 acg.html 的 #gameHubApp（Vue 模板），這裡只管資料與動作。
+// 資料來源：
+//  1. 8 張系統預設卡片：存在伺服器 NeDB (data/games.db)，前端透過 GET /api/user/games 取得並快取於 gameHubDefaults。
+//  2. 使用者自訂卡片與隱藏預設卡：登入帳號各自獨立儲存於 games.db，跨電腦可見；
+//     本分頁同時存在 sessionStorage (web_library_custom_games / web_library_hidden_default_games) 作為工作副本。
+//  3. 訪客 (guest / 訪客 / 沒登入)：維持只存本頁 sessionStorage，不寫入伺服器。
+const GAME_HUB_HIDDEN_KEY = "web_library_hidden_default_games";
+const GAME_HUB_CUSTOM_KEY = "web_library_custom_games";
+const GAME_HUB_OWNER_KEY = "web_library_games_owner";
 
-// 取得遊戲專區要顯示的所有卡片 = 「沒被使用者隱藏的預設卡片」+「使用者自訂卡片」。
-// 兩份設定都存在 sessionStorage：web_library_hidden_default_games（被移除的預設卡 id 清單）、
-// web_library_custom_games（自訂卡片陣列）。讀取失敗就退回完整預設清單。
-function getGameHubItems() {
+// 伺服器給的預設卡片清單快取（從 /api/user/games 取得，存於 games.db）
+let gameHubDefaults = [];
+
+// 取得目前登入使用者名稱（優先順序：sessionStorage currentUser -> localStorage rememberedUser -> state.currentUser）
+// 轉小寫去空白；若為訪客（guest / 訪客）或未登入則回傳 null（只存本分頁 sessionStorage，不寫伺服器）
+function getGameHubUser() {
+  let user = null;
   try {
-    const hiddenDefaults = JSON.parse(
-      sessionStorage.getItem("web_library_hidden_default_games") || "[]",
-    );
+    const sessionStored = sessionStorage.getItem("currentUser");
+    const remStored = localStorage.getItem("rememberedUser");
+    if (sessionStored) user = JSON.parse(sessionStored)?.username;
+    else if (remStored) user = JSON.parse(remStored)?.user?.username;
+  } catch (e) {}
+  user = (user || (typeof state !== "undefined" && state && state.currentUser) || "").toLowerCase().trim();
+  return !user || user === "訪客" || user === "guest" ? null : user;
+}
 
-    const visibleDefaults = DEFAULT_ACG_GAMES.filter(
-      (g) => !hiddenDefaults.includes(g.id),
-    );
+// 從伺服器拉取最新遊戲專區資料（預設卡片 + 使用者自訂/隱藏清單）
+// 登入者會同步更新 sessionStorage 快取；訪客只拉取預設卡片
+async function pullGameHubFromServer() {
+  const user = getGameHubUser();
 
-    const stored = JSON.parse(
-      sessionStorage.getItem("web_library_custom_games") || "[]",
-    );
-    return [...visibleDefaults, ...stored];
-  } catch (e) {
-    return DEFAULT_ACG_GAMES;
+  // sessionStorage 的工作副本屬於誰：換了帳號（或登出變訪客）就先清掉，避免看到前一個人的自訂卡
+  const ownerTag = user || "guest";
+  if (sessionStorage.getItem(GAME_HUB_OWNER_KEY) !== ownerTag) {
+    sessionStorage.removeItem(GAME_HUB_CUSTOM_KEY);
+    sessionStorage.removeItem(GAME_HUB_HIDDEN_KEY);
+    sessionStorage.setItem(GAME_HUB_OWNER_KEY, ownerTag);
+  }
+
+  const url = "/api/user/games" + (user ? `?user=${encodeURIComponent(user)}` : "");
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`伺服器回應錯誤 (${res.status})`);
+  }
+  const data = await res.json();
+  if (!data || !data.success) {
+    throw new Error((data && data.error) || "拉取遊戲專區資料失敗");
+  }
+
+  gameHubDefaults = Array.isArray(data.defaults) ? data.defaults : [];
+
+  if (user !== null) {
+    const customList = Array.isArray(data.custom) ? data.custom : [];
+    const hiddenList = Array.isArray(data.hidden) ? data.hidden : [];
+    sessionStorage.setItem(GAME_HUB_CUSTOM_KEY, JSON.stringify(customList));
+    sessionStorage.setItem(GAME_HUB_HIDDEN_KEY, JSON.stringify(hiddenList));
   }
 }
 
-// 開啟遊戲專區視窗：先渲染卡片再顯示 Bootstrap Modal
-window.openGameHubModal = function () {
-  window.renderGameHubGrid();
-  const modalEl = document.getElementById("gameHubModal");
+// 將本頁 sessionStorage 的自訂卡片與隱藏預設卡同步回伺服器 NeDB (games.db)
+// 訪客 (user === null) 不會同步；若網路連線中斷或失敗，提示使用者已暫存在本頁，不中斷前端流程
+function pushGameHubToServer() {
+  const user = getGameHubUser();
+  if (!user) return;
 
-  if (modalEl) {
-    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const payload = {
+    user,
+    custom: readGameHubList(GAME_HUB_CUSTOM_KEY),
+    hidden: readGameHubList(GAME_HUB_HIDDEN_KEY),
+  };
 
-    modal.show();
+  fetch("/api/user/games", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+    .then((res) => {
+      if (!res.ok) {
+        showToast(
+          "遊戲專區變更未能同步到伺服器（已暫存在本頁）",
+          "bi-cloud-slash text-warning"
+        );
+      }
+    })
+    .catch((err) => {
+      console.warn("同步遊戲專區至伺服器失敗:", err);
+      showToast(
+        "遊戲專區變更未能同步到伺服器（已暫存在本頁）",
+        "bi-cloud-slash text-warning"
+      );
+    });
+}
+
+// 讀 sessionStorage 裡的陣列；壞掉或不是陣列就當成空陣列，避免整個遊戲專區打不開
+function readGameHubList(key) {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(key) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (e) {
+    return [];
   }
+}
+
+// 需要時才載入本地的 Vue（js/vendor/vue.global.prod.js）。
+// 首頁 index.html 沒放 Vue；而且從首頁「無縫換頁」進 ACG 時，新頁面的 <script> 不會被執行，
+// 所以不能只靠 acg.html 的 <script> 標籤，一律由這裡確保 Vue 已載入。載入失敗會清掉快取，下次可重試。
+let vueLoadingPromise = null;
+function ensureVueLoaded() {
+  if (window.Vue) return Promise.resolve(window.Vue);
+  if (!vueLoadingPromise) {
+    vueLoadingPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "js/vendor/vue.global.prod.js";
+      script.onload = () => resolve(window.Vue);
+      script.onerror = () => {
+        vueLoadingPromise = null;
+        script.remove();
+        reject(new Error("Vue 載入失敗"));
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return vueLoadingPromise;
+}
+
+// Vue 元件設定：data 是畫面用到的狀態，computed 會在狀態改變時自動重算，methods 是按鈕動作
+const gameHubComponent = {
+  data() {
+    return {
+      keyword: "",
+      defaults: gameHubDefaults,
+      hiddenIds: readGameHubList(GAME_HUB_HIDDEN_KEY),
+      customGames: readGameHubList(GAME_HUB_CUSTOM_KEY),
+    };
+  },
+  computed: {
+    // 要顯示的所有卡片 =「沒被隱藏的預設卡片」+「使用者自訂卡片」
+    allGames() {
+      return [
+        ...this.defaults.filter((g) => !this.hiddenIds.includes(g.id)),
+        ...this.customGames,
+      ];
+    },
+    // 依搜尋關鍵字過濾（比對標題 / 說明 / 標籤，不分大小寫）；keyword 一變畫面就自動更新
+    filteredGames() {
+      const term = this.keyword.trim().toLowerCase();
+      if (!term) return this.allGames;
+      return this.allGames.filter(
+        (g) =>
+          String(g.title || "").toLowerCase().includes(term) ||
+          String(g.desc || "").toLowerCase().includes(term) ||
+          (Array.isArray(g.tags) &&
+            g.tags.some((t) => String(t).toLowerCase().includes(term))),
+      );
+    },
+  },
+  methods: {
+    // 從 sessionStorage 重新讀資料；clearKeyword 為 true 時順便清空搜尋框（打開視窗時用）
+    reload(clearKeyword = false) {
+      this.defaults = gameHubDefaults;
+      this.hiddenIds = readGameHubList(GAME_HUB_HIDDEN_KEY);
+      this.customGames = readGameHubList(GAME_HUB_CUSTOM_KEY);
+      if (clearKeyword) this.keyword = "";
+    },
+    // itch.io、unityroom、B站小遊戲禁止被 iframe 嵌入，只能另開分頁
+    isExternal(game) {
+      const url = String(game.url || "");
+      return !!(
+        game.openInNewTab ||
+        url.includes("itch.io") ||
+        url.includes("unityroom.com") ||
+        url.includes("bilibili.com/toy")
+      );
+    },
+    openNewTab(url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    },
+    openInline(game) {
+      window.openGameToolViewer(game.title, game.url);
+    },
+    openAddForm() {
+      window.openAddCustomGameModal();
+    },
+    removeGame(game) {
+      window.deleteGameHubCard(game.id, !!game.isCustom);
+    },
+    resetDefaults() {
+      window.resetDefaultGames();
+    },
+  },
 };
 
-// 渲染遊戲卡片格。keyword 不為空時，會比對標題/說明/標籤（不分大小寫）做搜尋過濾。
-// 某些網站（itch.io、unityroom、B站小遊戲）禁止被 iframe 嵌入，所以只提供「另開新分頁」；
-// 其餘提供「在線開啟」（站內 iframe 視窗）與「跳轉」兩種按鈕。最後一格固定是「新增自訂卡片」。
-window.renderGameHubGrid = function (keyword = "") {
-  const container = document.getElementById("gameHubGridContainer");
+// 目前掛載的狀態：{ el: 掛載的元素, app: Vue app, vm: 元件實例, promise: 掛載中的 Promise }
+let gameHubMount = null;
 
-  if (!container) return;
-  const term = (keyword || "").trim().toLowerCase();
-  const items = getGameHubItems();
+// 把 Vue 掛到 #gameHubApp。同一個元素只掛一次；
+// 無縫換頁後 #gameHubApp 會變成新的元素，這時先卸載舊的 app（釋放記憶體），再掛到新元素上。
+function mountGameHub() {
+  const el = document.getElementById("gameHubApp");
+  if (!el) return Promise.resolve(null);
+  if (gameHubMount && gameHubMount.el === el) return gameHubMount.promise;
 
-  const filtered = items.filter((g) => {
-    if (!term) return true;
+  unmountGameHub();
+  const entry = { el, app: null, vm: null, promise: null };
+  entry.promise = ensureVueLoaded()
+    .then((Vue) => {
+      // 等 Vue 載入的期間如果又換頁了，這次掛載就作廢
+      if (gameHubMount !== entry || !el.isConnected) return null;
+      entry.app = Vue.createApp(gameHubComponent);
+      entry.vm = entry.app.mount(el);
+      return entry.vm;
+    })
+    .catch((e) => {
+      if (gameHubMount === entry) gameHubMount = null;
+      throw e;
+    });
+  gameHubMount = entry;
+  return entry.promise;
+}
 
-    return (
-      g.title.toLowerCase().includes(term) ||
-      g.desc.toLowerCase().includes(term) ||
-      (Array.isArray(g.tags) &&
-        g.tags.some((t) => t.toLowerCase().includes(term)))
-    );
-  });
-  container.innerHTML = "";
+// 卸載目前的 Vue app（無縫換頁把遊戲專區的 DOM 換掉時呼叫）
+function unmountGameHub() {
+  if (gameHubMount && gameHubMount.app) gameHubMount.app.unmount();
+  gameHubMount = null;
+}
 
-  filtered.forEach((game) => {
-    const isExternal = !!(
-      game.openInNewTab ||
-      (game.url &&
-        (game.url.includes("itch.io") ||
-          game.url.includes("unityroom.com") ||
-          game.url.includes("bilibili.com/toy")))
-    );
-    const col = document.createElement("div");
-    col.className = "col";
-
-    col.innerHTML = `
-            <div class="card h-100 spotlight-card border-glow game-card-glass shadow-sm rounded-4 overflow-hidden text-white">
-                <div class="card-body p-3 d-flex flex-column">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="badge ${game.badgeClass || "bg-warning text-dark fw-bold"}">${escapeHtml(game.badge || "熱門工具")}</span>
-                        <span class="small text-white-50"><i class="bi bi-controller fs-6 text-warning"></i></span>
-                    </div>
-                    <h6 class="fw-bold mb-1 text-white">${escapeHtml(game.title)}</h6>
-                    <div class="mb-2 d-flex flex-wrap gap-1">
-                        ${(game.tags || []).map((t) => `<span class="badge bg-secondary-subtle text-light border border-secondary border-opacity-50 small" style="font-size: 0.68rem;">${escapeHtml(t)}</span>`).join("")}
-                    </div>
-                    <p class="small text-white-50 mb-3 flex-grow-1" style="font-size: 0.8rem; line-height: 1.45; color: #cbd5e1 !important;">
-                        ${escapeHtml(game.desc)}
-                    </p>
-                    <div class="game-card-actions d-flex align-items-center gap-1.5 mt-auto pt-2 border-top border-secondary border-opacity-25">
-                        ${
-                          isExternal
-                            ? `
-                        <button class="btn btn-sm btn-primary flex-grow-1 rounded-pill fw-semibold shadow-sm" onclick="window.open('${escapeHtml(game.url)}', '_blank')">
-                            <i class="bi bi-box-arrow-up-right"></i> 開啟暢玩
-                        </button>
-                        `
-                            : `
-                        <button class="btn btn-sm btn-primary flex-grow-1 rounded-pill fw-semibold shadow-sm text-nowrap" style="font-size: 0.8rem; padding: 0.32rem 0.5rem;" onclick="openGameToolViewer('${escapeHtml(game.title)}', '${escapeHtml(game.url)}')">
-                            <i class="bi bi-window-fullscreen me-1"></i> 在線開啟
-                        </button>
-                        <button class="btn btn-sm btn-outline-info rounded-pill text-nowrap" style="font-size: 0.8rem; padding: 0.32rem 0.55rem;" onclick="window.open('${escapeHtml(game.url)}', '_blank')" title="另開新分頁跳轉原網頁">
-                            <i class="bi bi-box-arrow-up-right"></i> 跳轉
-                        </button>
-                        `
-                        }
-                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2" onclick="deleteGameHubCard('${game.id}', ${!!game.isCustom})" title="${game.isCustom ? "刪除自定義卡片" : "移除此預設卡片"}">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-
-    container.appendChild(col);
-  });
-
-  // 最後添加「新增自定義遊戲 / Wiki 卡片插槽」
-  const addCol = document.createElement("div");
-
-  addCol.className = "col";
-
-  addCol.innerHTML = `
-        <div class="card h-100 border border-secondary border-opacity-50 shadow-sm rounded-3 d-flex flex-column align-items-center justify-content-center p-4 text-center cursor-pointer" style="background: rgba(30, 41, 59, 0.45); border-style: dashed !important; min-height: 180px; cursor: pointer; transition: background 0.2s;" onclick="openAddCustomGameModal()" title="點擊新增您喜愛的遊戲攻略或資料庫">
-            <i class="bi bi-plus-circle-dotted fs-1 text-warning mb-2 opacity-75"></i>
-            <h6 class="fw-bold text-white mb-1">新增自定義遊戲 / Wiki</h6>
-            <p class="small text-white-50 mb-0" style="font-size: 0.78rem; color: #94a3b8 !important;">可自訂加入任何遊戲 Wiki 百科、素材工具或地圖</p>
-        </div>
-    `;
-
-  container.appendChild(addCol);
+// 無縫換頁換完 DOM 後呼叫：舊的 #gameHubApp 已經不在頁面上，就把它的 Vue app 卸載掉
+window.cleanupDetachedGameHub = function () {
+  if (gameHubMount && !gameHubMount.el.isConnected) unmountGameHub();
 };
 
-// 搜尋框輸入時呼叫，等於用關鍵字重新渲染
-window.filterGameHubGrid = function (keyword) {
-  window.renderGameHubGrid(keyword);
+// 開啟遊戲專區視窗：先確保 Vue 掛好、重新讀取資料並清空搜尋，再顯示 Bootstrap Modal。
+// Vue 載入失敗就不打開（否則會看到還沒處理的 {{ }} 模板），改顯示錯誤提示。
+window.openGameHubModal = async function () {
+  const modalEl = document.getElementById("gameHubModal");
+  if (!modalEl) return;
+  let vm = null;
+  try {
+    vm = await mountGameHub();
+    if (!vm) return; // 沒掛上 Vue 就不開，避免露出 {{ }} 模板
+  } catch (e) {
+    console.error("遊戲專區載入失敗:", e);
+    showToast("遊戲專區載入失敗，請重新整理頁面再試", "bi-x-circle text-danger");
+    return;
+  }
+
+  try {
+    await pullGameHubFromServer();
+  } catch (e) {
+    console.warn("無法連線伺服器拉取遊戲資料:", e);
+    showToast("無法連線伺服器，顯示本頁暫存的遊戲清單", "bi-wifi-off text-warning");
+  }
+
+  if (vm) vm.reload(true);
+
+  // await 期間可能已經換頁，元素不在了就不開
+  if (!modalEl.isConnected) return;
+  bootstrap.Modal.getOrCreateInstance(modalEl).show();
+};
+
+// 讓 Vue 重新從 sessionStorage 讀資料（保留目前搜尋字）。
+// 新增 / 刪除 / 恢復預設這些舊函式改完 sessionStorage 後都會呼叫它；還沒掛載就什麼都不做，下次打開時會重新讀。
+window.renderGameHubGrid = function () {
+  if (gameHubMount && gameHubMount.vm) gameHubMount.vm.reload(false);
 };
 
 // 在站內的 iframe 視窗開啟某個工具網站：先收起清單視窗，再顯示工具視窗。
@@ -13169,23 +13224,21 @@ window.openGameToolInNewTab = function () {
 };
 
 // 從工具視窗返回遊戲清單：關閉工具視窗、把 iframe 設成 about:blank 釋放記憶體，
-// 延遲 150ms 再開清單（等前一個 Modal 的關閉動畫跑完，避免兩個 Modal 互相卡住）。
+// 等工具視窗的關閉動畫真的結束 (hidden.bs.modal) 再開遊戲庫
 window.backToGameHub = function () {
   const toolModalEl = document.getElementById("gameToolModal");
-
-  if (toolModalEl) {
-    const toolModal = bootstrap.Modal.getInstance(toolModalEl);
-
-    if (toolModal) toolModal.hide();
-  }
-
   const iframe = document.getElementById("gameToolIframe");
 
   if (iframe) iframe.src = "about:blank"; // 釋放記憶體
 
-  setTimeout(() => {
+  // 等工具視窗的關閉動畫真的結束 (hidden.bs.modal) 再開遊戲庫；
+  // 用固定 150ms 會在動畫中途開新視窗，舊視窗結束時把 body 的 modal-open 一起拿掉。
+  if (toolModalEl && toolModalEl.classList.contains("show")) {
+    toolModalEl.addEventListener("hidden.bs.modal", () => window.openGameHubModal(), { once: true });
+    bootstrap.Modal.getOrCreateInstance(toolModalEl).hide();
+  } else {
     window.openGameHubModal();
-  }, 150);
+  }
 };
 
 // 關閉工具視窗時清空 iframe，停止網站繼續在背景執行（例如影音）
@@ -13277,7 +13330,7 @@ window.saveCustomGame = function () {
     sessionStorage.setItem("web_library_custom_games", JSON.stringify(stored));
 
     showToast(
-      `🎉 已成功加入《${title}》至遊戲專區！`,
+      `🎉 已成功加入《${escapeHtml(title)}》至遊戲專區！`, // showToast 用 innerHTML，使用者輸入要先跳脫
       "bi-check-circle-fill text-success",
     );
     const modalEl = document.getElementById("addCustomGameModal");
@@ -13288,6 +13341,7 @@ window.saveCustomGame = function () {
       if (modal) modal.hide();
     }
 
+    pushGameHubToServer();
     window.renderGameHubGrid();
   } catch (e) {
     showToast("儲存失敗：" + e.message, "bi-x-circle text-danger");
@@ -13337,6 +13391,7 @@ window.deleteGameHubCard = function (id, isCustom) {
       );
     }
 
+    pushGameHubToServer();
     window.renderGameHubGrid();
   } catch (e) {
     console.error("移除遊戲卡片失敗:", e);
@@ -13351,6 +13406,7 @@ window.resetDefaultGames = function () {
     "🎉 已成功恢復所有預設遊戲卡片！",
     "bi-arrow-counterclockwise text-success",
   );
+  pushGameHubToServer();
   window.renderGameHubGrid();
 };
 
@@ -13732,10 +13788,10 @@ const AVATAR_PRESETS = [
 function updateNavUserAvatar(avatar) {
     const wrapper = document.getElementById('navUserAvatarWrapper');
     if (!wrapper) return;
-    // 登入身分 (sessionStorage.currentUser) 優先，避免剛登入時誤顯示預設帳號 jyun 的頭像
+    // 登入身分 (sessionStorage.currentUser) 優先，避免剛登入時誤顯示預設帳號的頭像
     let loginUser = null;
     try { loginUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null')?.username; } catch (e) {}
-    const effectiveUser = (loginUser || state.currentUser || 'jyun').toLowerCase().trim();
+    const effectiveUser = (loginUser || state.currentUser || 'guest').toLowerCase().trim();
     if (!avatar) {
         avatar = sessionStorage.getItem('web_library_custom_avatar_' + effectiveUser) || 'default';
     }
@@ -13813,7 +13869,7 @@ function populateProfileForm(profileData, savedCustomAvatar) {
     const isSpotlightOn = sessionStorage.getItem('web_library_spotlight_pref') !== 'false';
     if (glowPrefSwitch) glowPrefSwitch.checked = isSpotlightOn;
 
-    const curPrefUser = (profileData.username || sessionStorage.getItem('web_library_user') || 'jyun').toLowerCase().trim();
+    const curPrefUser = (profileData.username || sessionStorage.getItem('web_library_user') || 'guest').toLowerCase().trim();
     const savedSortPref = sessionStorage.getItem('web_library_default_sort_' + curPrefUser) || profileData.defaultSort || 'newest';
     const savedCatPref = sessionStorage.getItem('web_library_default_category_' + curPrefUser) || profileData.defaultCategory || 'all';
 
@@ -13878,7 +13934,7 @@ window.openEditProfileModal = function() {
         return;
     }
 
-    // 用已解析的登入身分；過去預設 'admin' 會讓 jyun 的修改被存進 admin 帳號
+    // 用已解析的登入身分；過去預設 'admin' 會讓使用者的修改被存進 admin 帳號
     const username = state.currentUser || sessionStorage.getItem('web_library_user');
     if (!username || username === 'guest' || username === '訪客') {
         showToast('訪客模式無法修改個人資料，請先登入', 'bi-info-circle text-info');
@@ -13962,7 +14018,7 @@ window.saveUserProfile = async function(e) {
     const glowPref = document.getElementById('profileCardGlowPref')?.checked;
 
     // 同步儲存個人首頁書籤偏好
-    const curSaveUser = (username || sessionStorage.getItem('web_library_user') || 'jyun').toLowerCase().trim();
+    const curSaveUser = (username || sessionStorage.getItem('web_library_user') || 'guest').toLowerCase().trim();
     sessionStorage.setItem('web_library_default_sort_' + curSaveUser, defaultSort);
     sessionStorage.setItem('web_library_default_category_' + curSaveUser, defaultCategory);
 
@@ -13995,7 +14051,7 @@ window.saveUserProfile = async function(e) {
     const isSamePassword = !!newPassword && (
         (oldPassword && newPassword === oldPassword) ||
         (existingPwdVal && newPassword === existingPwdVal) ||
-        (!existingPwdVal && !oldPassword && (newPassword === '123456' || newPassword === 'admin' || newPassword === 'jyun'))
+        (!existingPwdVal && !oldPassword && (newPassword === '123456' || newPassword === 'admin'))
     );
 
     if (!name) {
