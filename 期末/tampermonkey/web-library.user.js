@@ -4,7 +4,7 @@
 
 // @namespace    http://tampermonkey.net/
 
-// @version      1.8.0
+// @version      1.9.0
 
 // @description  完美相容 YouTube、Bangumi、動漫劇院全域影片/彈幕雙向秒級同步橋樑 (解決跨域 iframe 暫停/跳轉割裂)、自由拖曳移動位置、開關懸浮球與 Alt + B 快捷鍵收藏！Alt + N 開啟快捷記事本 (可附畫面截圖) 一鍵存進圖書館。
 
@@ -375,6 +375,68 @@
     // 舊版「個人 API Token」後端從未驗證，已移除；順手清掉殘留的設定值
 
     GM_deleteValue("wl_api_token");
+
+
+
+    /*
+     * 登入憑證綁定：伺服器現在只認「登入憑證 (token)」決定書籤存進誰的帳號，不再相信請求裡寫的帳號。
+     * 腳本本身沒有登入畫面，所以借用網站的登入：當你在 Web Library 網站 (8090 / 8095 / 自訂伺服器) 登入後，
+     * 腳本在那個網站上執行時會把該站的 token 記在 Tampermonkey 自己的儲存空間 (GM_setValue，一般網頁讀不到)，
+     * 之後在別的網站收藏時就用對應伺服器的 token。訪客沒有 token，收藏不會寫伺服器 (改複製到剪貼簿)。
+     *   wl_tokens 格式：{ "http://localhost:8095": { token, user, savedAt }, ... }
+     */
+    const WL_DEFAULT_API_URLS = [
+        "http://localhost:8090/api/user/bookmarks",
+        "http://localhost:8095/api/user/bookmarks",
+        "http://127.0.0.1:8090/api/user/bookmarks",
+        "http://127.0.0.1:8095/api/user/bookmarks"
+    ];
+
+    // 候選書籤 API：設定面板填了其他伺服器 (非 8090/8095) 時優先使用該網址
+    function wlCandidateUrls() {
+        const customUrl = config.serverUrl;
+        return customUrl && !WL_DEFAULT_API_URLS.includes(customUrl) ? [customUrl, ...WL_DEFAULT_API_URLS] : WL_DEFAULT_API_URLS;
+    }
+
+    function wlOriginOf(url) {
+        try { return new URL(url).origin; } catch (e) { return ""; }
+    }
+
+    function wlReadTokens() {
+        try { return JSON.parse(GM_getValue("wl_tokens", "{}") || "{}") || {}; } catch (e) { return {}; }
+    }
+
+    // 取得某個 API 網址所屬伺服器的 token；沒有綁定回傳空字串
+    function wlTokenFor(url) {
+        const entry = wlReadTokens()[wlOriginOf(url)];
+        return entry && entry.token ? entry.token : "";
+    }
+
+    // 伺服器回 401 (登出、改密碼、刪帳號或過期) 時忘掉該站的 token
+    function wlForgetToken(url) {
+        const tokens = wlReadTokens();
+        delete tokens[wlOriginOf(url)];
+        GM_setValue("wl_tokens", JSON.stringify(tokens));
+    }
+
+    // 在 Web Library 網站本身執行時：讀出目前登入者的 token 並記下來
+    (function wlBindTokenFromSite() {
+        const origin = window.location.origin;
+        if (!wlCandidateUrls().some(u => wlOriginOf(u) === origin)) return;
+        let user = null;
+        try { user = JSON.parse(sessionStorage.getItem("currentUser") || "null"); } catch (e) {}
+        if (!user || !user.token) {
+            try {
+                const r = JSON.parse(localStorage.getItem("rememberedUser") || "null");
+                if (r && r.user && r.user.token && (!r.expiresAt || Date.now() < r.expiresAt)) user = r.user;
+            } catch (e) {}
+        }
+        if (!user || !user.token) return; // 訪客或沒登入：不動已存的綁定
+        const tokens = wlReadTokens();
+        if (tokens[origin] && tokens[origin].token === user.token) return;
+        tokens[origin] = { token: user.token, user: user.username || "", savedAt: new Date().toISOString() };
+        GM_setValue("wl_tokens", JSON.stringify(tokens));
+    })();
 
 
 
@@ -1664,54 +1726,52 @@
             btn.textContent = "傳送中...";
         }
 
-        // 候選端點：每次都先試本機 8090，連不上才送 Docker 8095 (兩邊資料各自獨立)
-        // 只有在設定面板填了其他伺服器 (非 8090/8095) 時才優先使用該網址
-        const defaultUrls = [
-            "http://localhost:8090/api/user/bookmarks",
-            "http://localhost:8095/api/user/bookmarks",
-            "http://127.0.0.1:8090/api/user/bookmarks",
-            "http://127.0.0.1:8095/api/user/bookmarks"
-        ];
-        const customUrl = config.serverUrl;
-        const candidateUrls = customUrl && !defaultUrls.includes(customUrl)
-            ? [customUrl, ...defaultUrls]
-            : defaultUrls;
+        // 候選端點：本機 8090 → Docker 8095 (兩邊資料各自獨立)；設定面板的自訂網址優先。
+        // 只送給「已綁定登入憑證」的伺服器 (曾在該站登入過)，沒綁定的伺服器反正會回 401，直接跳過。
+        const candidateUrls = wlCandidateUrls().filter(u => wlTokenFor(u));
+        if (candidateUrls.length === 0) {
+            handleLocalFallback(payload, "🔑 尚未綁定 Web Library 帳號：請先在瀏覽器開啟並登入 Web Library 網站一次 (訪客收藏不會存到伺服器)。收藏已複製到剪貼簿。");
+            return;
+        }
 
-        // currentIndex 記錄試到第幾個候選網址了
+        // currentIndex 記錄試到第幾個候選網址了；authFailed 記錄是否有伺服器回 401 (憑證失效)
         let currentIndex = 0;
+        let authFailed = false;
 
         // tryNext：試下一個候選伺服器 (先 GET 再交給 executePost)；用完所有網址就走本機備援
         function tryNext() {
             if (currentIndex >= candidateUrls.length) {
-                handleLocalFallback(payload);
+                handleLocalFallback(payload, authFailed
+                    ? "🔑 Web Library 登入已失效：請重新登入網站一次，收藏已複製到剪貼簿。"
+                    : undefined);
                 return;
             }
 
             const currentUrl = candidateUrls[currentIndex++];
 
-            // 1. 先 GET 現有書籤合併 (防止覆蓋已有書籤)
+            // 1. 先 GET 現有書籤合併 (防止覆蓋已有書籤)；帳號由 X-WL-Token 決定，不用帶 user
             GM_xmlhttpRequest({
                 method: "GET",
                 url: currentUrl,
+                headers: { "X-WL-Token": wlTokenFor(currentUrl) },
                 timeout: 2000,
                 onload: function(getRes) {
                     if (getRes.status >= 200 && getRes.status < 300) {
                         let existing = [];
-                        let username = 'guest';
                         try {
                             const json = JSON.parse(getRes.responseText);
                             if (Array.isArray(json.bookmarks)) existing = json.bookmarks;
-                            if (json.user && json.user !== 'default') username = json.user;
                         } catch (e) {}
 
                         // 去掉舊清單裡網址相同的書籤，再把新的放最前面，達到「同網址只留一筆、最新在前」。
                         // 這裡送整份 bookmarks 是因為後端以「整份清單」方式儲存，不先合併會把原有書籤洗掉。
                         const filtered = existing.filter(b => b.url !== payload.url);
                         const merged = [payload, ...filtered];
-                        const postBody = { user: username, bookmark: payload, bookmarks: merged };
-                        executePost(currentUrl, postBody);
+                        executePost(currentUrl, { bookmark: payload, bookmarks: merged });
                     } else {
-                        executePost(currentUrl, { bookmark: payload, bookmarks: [payload] });
+                        // 401 = 該站的登入憑證已失效 (登出 / 改密碼 / 刪帳號)：忘掉它，換下一台
+                        if (getRes.status === 401) { wlForgetToken(currentUrl); authFailed = true; }
+                        tryNext();
                     }
                 },
                 onerror: () => tryNext(),
@@ -1725,7 +1785,8 @@
                 method: "POST",
                 url: url,
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "X-WL-Token": wlTokenFor(url)
                 },
                 data: JSON.stringify(postBody),
                 timeout: 3000,
@@ -1740,6 +1801,7 @@
                         const modal = document.getElementById("wl-collector-modal");
                         if (modal) modal.style.setProperty("display", "none", "important");
                     } else {
+                        if (res.status === 401) { wlForgetToken(url); authFailed = true; }
                         tryNext();
                     }
                 },
@@ -1755,7 +1817,7 @@
      * 備援：所有伺服器都連不上時呼叫。
      * 把書籤 JSON 複製到剪貼簿，使用者可以之後到圖書館網站手動貼上新增，資料就不會白白遺失。
      */
-    function handleLocalFallback(payload) {
+    function handleLocalFallback(payload, notice) {
 
         const btn = document.getElementById("wl-submit-btn");
 
@@ -1767,7 +1829,7 @@
 
         navigator.clipboard.writeText(JSON.stringify(payload));
 
-        showNotice("✨ 伺服器未開啟，收藏已複製！可回圖書館貼上新增。");
+        showNotice(notice || "✨ 伺服器未開啟，收藏已複製！可回圖書館貼上新增。");
 
         document.getElementById("wl-collector-modal").style.setProperty("display", "none", "important");
 
@@ -2056,7 +2118,7 @@
             GM_xmlhttpRequest({
                 timeout: 3000,
                 ...opts,
-                onload: r => (r.status >= 200 && r.status < 300 ? resolve(r) : reject(new Error("HTTP " + r.status))),
+                onload: r => (r.status >= 200 && r.status < 300 ? resolve(r) : reject(Object.assign(new Error("HTTP " + r.status), { status: r.status }))),
                 onerror: () => reject(new Error("連線失敗")),
                 ontimeout: () => reject(new Error("逾時"))
             });
@@ -2106,28 +2168,21 @@
             createdAt: new Date().toISOString()
         };
 
-        // 與收藏面板相同的候選端點順序：本機 8090 → Docker 8095 (設定面板的自訂網址優先)
-        const defaultUrls = [
-            "http://localhost:8090/api/user/bookmarks",
-            "http://localhost:8095/api/user/bookmarks",
-            "http://127.0.0.1:8090/api/user/bookmarks",
-            "http://127.0.0.1:8095/api/user/bookmarks"
-        ];
-        const customUrl = config.serverUrl;
-        const candidates = customUrl && !defaultUrls.includes(customUrl) ? [customUrl, ...defaultUrls] : defaultUrls;
+        // 與收藏面板相同的候選端點順序，且只送給已綁定登入憑證的伺服器
+        const candidates = wlCandidateUrls().filter(u => wlTokenFor(u));
 
         wlNoteUi.status.textContent = "傳送中…";
         // 逐個伺服器嘗試；用 continue 代表「這台不行，換下一台」，成功則 return 結束整個函式
         for (const apiUrl of candidates) {
             let existing = [];
-            let username = "guest";
+            const authHeader = { "X-WL-Token": wlTokenFor(apiUrl) };
             try {
-                const getRes = await wlNoteRequest({ method: "GET", url: apiUrl, timeout: 2000 });
+                const getRes = await wlNoteRequest({ method: "GET", url: apiUrl, headers: authHeader, timeout: 2000 });
                 const json = JSON.parse(getRes.responseText);
                 if (Array.isArray(json.bookmarks)) existing = json.bookmarks;
-                if (json.user && json.user !== "default") username = json.user;
             } catch (e) {
-                continue; // 這台伺服器連不上，換下一個
+                if (e.status === 401) wlForgetToken(apiUrl); // 憑證失效就忘掉
+                continue; // 這台伺服器連不上或憑證失效，換下一個
             }
 
             // 截圖上傳到同一台伺服器，存成檔案後只把網址寫進書籤 cover
@@ -2140,7 +2195,7 @@
                     const upRes = await wlNoteRequest({
                         method: "POST",
                         url: new URL(apiUrl).origin + "/api/bookmarks/screenshot",
-                        headers: { "Content-Type": "application/json" },
+                        headers: { "Content-Type": "application/json", ...authHeader },
                         data: JSON.stringify({ image: shot }),
                         timeout: 15000
                     });
@@ -2156,10 +2211,11 @@
                 await wlNoteRequest({
                     method: "POST",
                     url: apiUrl,
-                    headers: { "Content-Type": "application/json" },
-                    data: JSON.stringify({ user: username, bookmark: payload, bookmarks: merged })
+                    headers: { "Content-Type": "application/json", ...authHeader },
+                    data: JSON.stringify({ bookmark: payload, bookmarks: merged })
                 });
             } catch (e) {
+                if (e.status === 401) wlForgetToken(apiUrl);
                 continue;
             }
 
@@ -2173,11 +2229,16 @@
             return;
         }
 
-        // 所有伺服器都連不上：草稿保留在記事本裡，另把筆記 JSON (不含截圖) 複製到剪貼簿
+        // 所有伺服器都連不上 (或還沒綁定帳號)：草稿保留在記事本裡，另把筆記 JSON (不含截圖) 複製到剪貼簿
         wlNoteUi.save.disabled = false;
-        wlNoteUi.status.textContent = "伺服器未開啟，草稿已保留";
         try { navigator.clipboard.writeText(JSON.stringify(payload)); } catch (e) {}
-        showNotice("✨ 伺服器未開啟，筆記草稿已保留並複製到剪貼簿，開啟伺服器後再按一次存檔即可。");
+        if (candidates.length === 0) {
+            wlNoteUi.status.textContent = "尚未綁定帳號，草稿已保留";
+            showNotice("🔑 尚未綁定 Web Library 帳號：請先在瀏覽器開啟並登入 Web Library 網站一次，筆記草稿已保留並複製到剪貼簿。");
+        } else {
+            wlNoteUi.status.textContent = "伺服器未開啟，草稿已保留";
+            showNotice("✨ 伺服器未開啟，筆記草稿已保留並複製到剪貼簿，開啟伺服器後再按一次存檔即可。");
+        }
     }
 
     // 記事本快捷鍵：Alt + N 開關 (限定只按 Alt+N，不含 Ctrl/Shift/Meta，避免誤觸其他組合)；

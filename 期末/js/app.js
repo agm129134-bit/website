@@ -15,6 +15,60 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
+// ==================== 登入憑證 (session token) ====================
+// 登入 / 註冊成功時伺服器會發一組 token，登入頁把它存在 currentUser（勾「記住我」時也在 rememberedUser）。
+// 伺服器只認 token 不認帳號名稱，所以所有帳號相關 API 都要在 X-WL-Token 標頭帶上它。
+// 這裡把全站的 fetch 包一層：呼叫本站的帳號 API 時自動補上標頭，各功能原本的 fetch 寫法都不用改。
+// 訪客沒有 token，帳號 API 會回 401，訪客資料本來就只留在瀏覽器。
+function getAuthToken() {
+  try {
+    const u = JSON.parse(sessionStorage.getItem("currentUser") || "null");
+    if (u && u.token) return u.token;
+  } catch (e) {}
+  try {
+    const r = JSON.parse(localStorage.getItem("rememberedUser") || "null");
+    if (r && r.user && r.user.token && (!r.expiresAt || Date.now() < r.expiresAt)) return r.user.token;
+  } catch (e) {}
+  return "";
+}
+
+(function installAuthFetch() {
+  if (window._wlAuthFetchInstalled) return;
+  window._wlAuthFetchInstalled = true;
+  const AUTH_PREFIXES = ["/api/user", "/api/bookmarks", "/api/bookshelf", "/api/music"];
+  const nativeFetch = window.fetch.bind(window);
+  let expiredHandled = false;
+
+  window.fetch = function (input, init) {
+    let url;
+    try {
+      url = new URL(typeof input === "string" || input instanceof URL ? input : input.url, location.href);
+    } catch (e) {
+      return nativeFetch(input, init);
+    }
+    const token = getAuthToken();
+    const isAuthApi = url.origin === location.origin && AUTH_PREFIXES.some((p) => url.pathname.startsWith(p));
+    if (!isAuthApi || !token) return nativeFetch(input, init);
+
+    const headers = new Headers((init && init.headers) || (input instanceof Request ? input.headers : undefined));
+    headers.set("X-WL-Token", token);
+    return nativeFetch(input, { ...(init || {}), headers }).then((res) => {
+      // 帶了 token 卻被拒 = 登入已失效（過期、在別處改了密碼或帳號已刪除）→ 請使用者重新登入
+      if (res.status === 401 && !expiredHandled && !url.pathname.startsWith("/api/user/logout")) {
+        expiredHandled = true;
+        sessionStorage.removeItem("currentUser");
+        localStorage.removeItem("rememberedUser");
+        localStorage.removeItem("currentUser");
+        if (typeof showToast === "function") {
+          showToast("登入已失效，請重新登入", "bi-shield-exclamation text-warning");
+        }
+        setTimeout(() => window.location.replace("login.html"), 1500);
+      }
+      return res;
+    });
+  };
+})();
+
 // "MM:SS" 時間格式 (彈幕時間軸、觀看紀錄進度)；非數值/負值一律回傳 "00:00"
 function formatMmSs(sec) {
   const s = Math.floor(Number(sec));
@@ -460,6 +514,8 @@ function loadFromStorage() {
 // 清掉 sessionStorage/localStorage 裡的登入資訊（含「30天免登入」的 rememberedUser），0.5 秒後導回 login.html。
 window.logoutUser = function () {
   if (confirm("確定要登出個人圖書館帳號嗎？")) {
+    // 先通知伺服器撤銷登入憑證（要在清掉本機 token 之前送出；keepalive 讓頁面跳走後請求仍會送完）
+    fetch("/api/user/logout", { method: "POST", keepalive: true }).catch(() => {});
     sessionStorage.removeItem("currentUser");
     localStorage.removeItem("rememberedUser");
     localStorage.removeItem("currentUser");
@@ -493,10 +549,13 @@ window.confirmDeleteCurrentAccount = async function () {
   if (!confirm(confirmMsg)) return;
 
   try {
-    // 1. 向伺服器發送刪除請求
-    await fetch(`/api/user/delete?user=${encodeURIComponent(user)}`, {
-      method: "POST",
-    });
+    // 1. 向伺服器發送刪除請求（伺服器依登入憑證判斷要刪誰，不看網址帳號）
+    const delRes = await fetch("/api/user/delete", { method: "POST" });
+    if (!delRes.ok) {
+      // 401 會由 fetch 包裝自動導回登入頁；其他錯誤就提示、不假裝已刪除
+      if (delRes.status !== 401) showToast("帳號刪除失敗，請稍後再試", "bi-exclamation-triangle text-danger");
+      return;
+    }
 
     // 2. 清除本機 registeredUsers 清單中的此帳號，並加入永久刪除黑名單
     try {
@@ -2361,7 +2420,8 @@ function showToast(message, iconClass = "bi-check-circle-fill text-success") {
 
   if (island && notifIcon && notifText) {
     notifIcon.innerHTML = `<i class="bi ${iconClass}"></i>`;
-    notifText.innerHTML = message;
+    // 用 textContent 而非 innerHTML：訊息常夾帶書名、彈幕、伺服器錯誤等外部資料，當純文字顯示才不會被注入 HTML/腳本 (XSS)
+    notifText.textContent = message;
     presentIslandNotification(island);
     return;
   }

@@ -22,6 +22,10 @@
  *   bookshelfDb 書架、musicDb 音樂、gamesDb 遊戲），截圖則存在 data/uploads/ 資料夾。NeDB 是純 JavaScript 的嵌入式資料庫，
  *   資料存成檔案，不需要另外安裝資料庫伺服器。
  *
+ * 身分驗證：登入 / 註冊成功時發一組登入憑證 (token，見 api/auth.js)，前端與 Tampermonkey 之後都在
+ *   X-WL-Token 標頭帶上它。帳號相關路由一律用 token 查出「是誰」，請求裡的 user 參數不再採信；
+ *   沒帶有效 token 回 401。訪客 (guest) 沒有 token，資料只留在瀏覽器，不寫伺服器。
+ *
  * 同步衝突處理：這裡採「最後寫入者勝」——POST 時直接用客戶端傳來的整批資料覆蓋；
  *   只有少數情況會合併（例如 Tampermonkey 單筆收藏會依網址去重/更新，音樂單首依 id 去重）。
  */
@@ -45,6 +49,8 @@ const {
     hashPassword,
     verifyPassword
 } = require('./db');
+// 登入憑證 (session token)：伺服器用它認人，不再相信請求裡寫的 user 參數
+const { createSession, getSessionUser, revokeRequestSession, revokeUserSessions } = require('./auth');
 
 // sendJson：統一的 JSON 回應函式。參數：res 回應物件、statusCode 狀態碼、payload 要回傳的物件。
 // 加上 CORS 標頭（允許跨網域呼叫，Tampermonkey 腳本從別的網站呼叫時需要）。writableEnded 檢查避免重複回應。
@@ -53,7 +59,7 @@ function sendJson(res, statusCode, payload) {
     if (res.writableEnded) return;
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PATCH, PUT, DELETE');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-WL-Token');
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.statusCode = statusCode;
     res.end(JSON.stringify(payload));
@@ -199,50 +205,33 @@ function sanitizeOwner(v) {
 }
 
 // 擁有者帳號（只有私用的 Docker 會設定，展示用的 8090 不設）。沒設定時為空字串。
+// 現在只用來把擁有者排在登入頁帳號清單最前面；資料歸屬一律由登入憑證決定。
 const OWNER_USER = sanitizeOwner(process.env.OWNER_USER);
 
-// _currentSessionUser：伺服器記憶體裡的「目前最後活躍使用者」。Tampermonkey 腳本呼叫收藏時不會帶帳號，
-// 就用這個值決定要存給誰。注意它是全域變數，重啟伺服器就重置，且同時多人使用時只記得最後一位（專題簡化設計）。
-// 記憶當前伺服器中最後活躍登入的使用者（供 Tampermonkey 快捷收藏自動動態歸屬，預設為擁有者或訪客）
-let _currentSessionUser = OWNER_USER || 'guest';
+// 訪客 / 示範用的特殊名稱：這些身分不寫伺服器
+const GUEST_NAMES = new Set(['guest', '訪客', 'default']);
 
-// getDefaultActiveUser：決定「沒指定帳號時」該用誰：優先最後活躍者；若是假帳號/訪客，若有 OWNER_USER 且存在於資料庫則退回 OWNER_USER，否則回傳 guest。
-async function getDefaultActiveUser() {
-    if (_currentSessionUser && _currentSessionUser !== 'default' && _currentSessionUser !== 'guest' && _currentSessionUser !== '訪客') {
-        return _currentSessionUser;
-    }
-    try {
-        if (OWNER_USER) {
-            const acc = await accountsDb.findOne({ username: OWNER_USER });
-            if (acc) return OWNER_USER;
-        }
-    } catch (e) {}
-    return 'guest';
+// requireUser：帳號相關路由的守門員。用 X-WL-Token 標頭查出登入者並確認帳號還存在；
+// 失敗就直接回 401 並回傳 null（呼叫端看到 null 就 return）。
+// 請求裡的 ?user= 或 body.user 一律忽略，所以不能讀寫別人的帳號。
+async function requireUser(req, res) {
+    const username = await getSessionUser(req);
+    if (username && await accountsDb.findOne({ username })) return username;
+    sendJson(res, 401, { success: false, code: 'UNAUTHORIZED', error: '尚未登入或登入已失效，請重新登入' });
+    return null;
 }
 
-// resolveRequestUser：把請求裡的帳號名稱轉成最終要操作的帳號。
-// default 會被導向到目前活躍使用者；真實帳號則同時更新「最後活躍者」記錄。回傳已純化的名稱。
-// 解析請求所屬帳號：預設帳號歸屬至目前活躍使用者，真實帳號則記為最後活躍者；回傳純化後名稱
-async function resolveRequestUser(candidate) {
-    const defaultUser = await getDefaultActiveUser();
-    let username = candidate || defaultUser;
-    if (username === 'default' && defaultUser !== 'default') {
-        username = defaultUser;
-    } else if (username && username !== 'default' && username !== 'guest' && username !== '訪客') {
-        _currentSessionUser = sanitizeUsername(username);
-    }
-    return sanitizeUsername(username);
-}
-
-// readUserParam：取得要操作的帳號——先看網址 ?user=，沒有的話 POST/DELETE 再從 body 找。
-// 讀取 user 參數：優先 query，其次 POST/DELETE body
-async function readUserParam(req, query) {
-    if (query.user) return query.user;
-    if (req.method === 'POST' || req.method === 'DELETE') {
-        const body = await parseRequestBody(req);
-        return body.user || body.username;
-    }
-    return undefined;
+// publicUser：登入 / 註冊回應給前端的帳號資料（不含密碼雜湊）
+function publicUser(acc) {
+    return {
+        username: acc.username,
+        name: acc.name || acc.username,
+        role: acc.role || '一般會員',
+        avatar: acc.avatar || 'default',
+        bio: acc.bio || '',
+        sortPref: acc.sortPref || 'clicks',
+        themePref: acc.themePref || 'dark'
+    };
 }
 
 // saveMusicTracks：把整份曲目清單存回資料庫並回傳更新時間。
@@ -348,7 +337,7 @@ async function handleSyncRoute(req, res) {
         res.writeHead(204, {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PATCH, PUT, DELETE',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-WL-Token'
         });
         return res.end();
     }
@@ -362,8 +351,8 @@ async function handleSyncRoute(req, res) {
         if (pathname === '/api/user/list') {
             try {
                 const accounts = await accountsDb.find({});
-                const userList = accounts.map(a => a.username).filter(Boolean);
-                if (OWNER_USER && !userList.includes(OWNER_USER)) userList.unshift(OWNER_USER);
+                const userList = accounts.map(a => a.username).filter(u => u && u !== OWNER_USER);
+                if (OWNER_USER) userList.unshift(OWNER_USER); // 擁有者固定排第一
                 return sendJson(res, 200, { success: true, users: userList });
             } catch (e) {
                 return sendJson(res, 200, { success: true, users: OWNER_USER ? [OWNER_USER] : [] });
@@ -402,20 +391,14 @@ async function handleSyncRoute(req, res) {
                 console.log(`[NeDB Security] 帳號 ${username} 密碼已自動平滑升級為加鹽雜湊`);
             }
 
-            _currentSessionUser = username;
+            // 發給前端登入憑證；之後的帳號相關請求都要帶它 (X-WL-Token 標頭)
+            const token = await createSession(username);
 
             return sendJson(res, 200, {
                 success: true,
                 message: '登入驗證成功',
-                user: {
-                    username: acc.username,
-                    name: acc.name || acc.username,
-                    role: acc.role || '一般會員',
-                    avatar: acc.avatar || 'default',
-                    bio: acc.bio || '',
-                    sortPref: acc.sortPref || 'clicks',
-                    themePref: acc.themePref || 'dark'
-                }
+                token,
+                user: publicUser(acc)
             });
         }
 
@@ -434,6 +417,10 @@ async function handleSyncRoute(req, res) {
 
             if (!username || username.length < 2) {
                 return sendJson(res, 400, { success: false, error: '帳號至少需 2 個字元' });
+            }
+            // guest / 訪客 / default 是訪客身分專用名稱，不能註冊成真帳號
+            if (GUEST_NAMES.has(username)) {
+                return sendJson(res, 400, { success: false, error: '此帳號名稱為系統保留，請選擇其他帳號' });
             }
             if (!password || password.length < 3) {
                 return sendJson(res, 400, { success: false, error: '密碼至少需 3 個字元' });
@@ -458,11 +445,13 @@ async function handleSyncRoute(req, res) {
             };
 
             await accountsDb.insert(newUser);
-            _currentSessionUser = username;
+            // 註冊完直接登入，所以也發登入憑證
+            const token = await createSession(username);
 
             return sendJson(res, 200, {
                 success: true,
                 message: '註冊成功！密碼已安全加密儲存於 NeDB 資料庫。',
+                token,
                 user: {
                     username: newUser.username,
                     name: newUser.name,
@@ -475,20 +464,19 @@ async function handleSyncRoute(req, res) {
         // ==========================================
         // 0.5 刪除使用者帳號及其所有雲端書籤 /api/user/delete (NeDB 同步清理)
         // ==========================================
-        // /api/user/delete —— 刪除帳號及該帳號的所有書籤與書架資料。參數 user 可放在網址或 body。
-        // remove 的 multi:true 表示符合條件的紀錄全部刪除，而不是只刪第一筆。缺 user 回 400。
-        if (pathname === '/api/user/delete') {
-            const username = await readUserParam(req, query);
-            if (!username) {
-                return sendJson(res, 400, { success: false, error: '缺少 user 參數' });
-            }
+        // POST /api/user/delete —— 刪除「目前登入的」帳號及該帳號的所有書籤、書架、音樂、遊戲資料。
+        // 帳號由登入憑證決定，網址或 body 寫別人的帳號也沒用；沒帶有效憑證回 401。
+        // remove 的 multi:true 表示符合條件的紀錄全部刪除，而不是只刪第一筆。
+        if (pathname === '/api/user/delete' && req.method === 'POST') {
+            const cleanUser = await requireUser(req, res);
+            if (!cleanUser) return;
 
-            const cleanUser = sanitizeUsername(username);
             await accountsDb.remove({ username: cleanUser }, { multi: true });
             await bookmarksDb.remove({ user: cleanUser }, { multi: true });
             await bookshelfDb.remove({ user: cleanUser }, { multi: true });
             await musicDb.remove({ user: cleanUser }, { multi: true }); // 音樂庫也要刪，否則同名新帳號會繼承舊歌單
             await gamesDb.remove({ type: 'user', user: cleanUser }, { multi: true }); // 避免同名新帳號繼承舊卡片
+            await revokeUserSessions(cleanUser); // 所有裝置（含 Tampermonkey）的登入憑證一併作廢
 
             return sendJson(res, 200, {
                 success: true,
@@ -501,13 +489,9 @@ async function handleSyncRoute(req, res) {
         // 0.6 清空使用者帳號書籤 /api/user/clear (NeDB 書籤重設)
         // ==========================================
         // /api/user/clear —— 只清空該帳號的書籤(保留帳號)。作法是把 bookmarks 設成空陣列，upsert 確保沒有紀錄時也會建立。
-        if (pathname === '/api/user/clear') {
-            const username = await readUserParam(req, query);
-            if (!username) {
-                return sendJson(res, 400, { success: false, error: '缺少 user 參數' });
-            }
-
-            const cleanUser = sanitizeUsername(username);
+        if (pathname === '/api/user/clear' && req.method === 'POST') {
+            const cleanUser = await requireUser(req, res);
+            if (!cleanUser) return;
             await bookmarksDb.update(
                 { user: cleanUser },
                 { $set: { user: cleanUser, count: 0, bookmarks: [], updatedAt: new Date().toISOString() } },
@@ -525,52 +509,69 @@ async function handleSyncRoute(req, res) {
         // ==========================================
         // 0.7 忘記密碼與重設密碼 /api/user/reset-password (加鹽雜湊更新)
         // ==========================================
-        // POST /api/user/reset-password —— 忘記密碼重設。body：{ username, newPassword }。
-        // 先比對新密碼是否和舊的相同(回傳 isSamePassword 讓前端顯示不同訊息)，再用加鹽雜湊覆蓋；
-        // 帳號不存在時會直接建立一個新帳號。（專題簡化：沒有寄信驗證，正式系統應該要驗證身分。）
+        // POST /api/user/reset-password —— 忘記密碼。body：{ username, newPassword }。
+        // 這個網站沒有 Email / 簡訊可以驗證「你真的是本人」，若開放任何人輸入帳號就改密碼，等於誰都能搶走別人的帳號。
+        // 所以規則是：
+        //  1. 新密碼剛好就是目前的密碼 → 等於證明知道密碼（和登入一樣），回傳 isSamePassword 與登入憑證（登入頁的彩蛋）；
+        //  2. 新密碼不同 → 只有伺服器設定 ALLOW_PASSWORD_RESET=true 時才真的改（給信任的私人環境救急），
+        //     改完撤銷該帳號所有登入憑證；沒設定就回 403，請使用者登入後到個人設定改密碼或聯絡管理員。
+        //  帳號不存在不會再自動建立帳號（要建立請走註冊）。
         if (pathname === '/api/user/reset-password' && req.method === 'POST') {
             const body = await parseRequestBody(req);
             const username = sanitizeUsername(body.username || body.user || '');
             const newPassword = String(body.newPassword || body.password || '').trim();
 
-            if (!username) {
+            if (!username || GUEST_NAMES.has(username)) {
                 return sendJson(res, 400, { success: false, error: '請提供欲重設之使用者帳號' });
             }
             if (!newPassword || newPassword.length < 3) {
                 return sendJson(res, 400, { success: false, error: '新密碼至少需 3 個字元' });
             }
 
-            let acc = await accountsDb.findOne({ username });
-            let isSamePassword = false;
+            const acc = await accountsDb.findOne({ username });
+            if (!acc) {
+                return sendJson(res, 400, { success: false, error: '帳號不存在，請先註冊' });
+            }
 
-            if (acc) {
-                isSamePassword = verifyPassword(newPassword, acc.password);
-                await accountsDb.update(
-                    { username },
-                    { $set: { password: hashPassword(newPassword), updatedAt: new Date().toISOString() } }
-                );
-            } else {
-                await accountsDb.insert({
-                    username: username,
-                    password: hashPassword(newPassword),
-                    name: username,
-                    role: '註冊使用者',
-                    avatar: 'default',
-                    bio: '',
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
+            if (verifyPassword(newPassword, acc.password)) {
+                const token = await createSession(username);
+                return sendJson(res, 200, {
+                    success: true,
+                    user: publicUser(acc),
+                    token,
+                    samePassword: true,
+                    isSamePassword: true,
+                    message: '哈哈！你輸入了跟先前一模一樣的密碼！系統已為您完成密碼確認重設。'
                 });
             }
+
+            const allowReset = /^(1|true|yes)$/i.test(String(process.env.ALLOW_PASSWORD_RESET || '').trim());
+            if (!allowReset) {
+                return sendJson(res, 403, {
+                    success: false,
+                    error: '此伺服器未開放自助重設密碼（沒有 Email 驗證，開放會讓任何人改掉別人的密碼）。請登入後到個人設定修改，或聯絡網站管理員。'
+                });
+            }
+
+            await accountsDb.update(
+                { username },
+                { $set: { password: hashPassword(newPassword), updatedAt: new Date().toISOString() } }
+            );
+            await revokeUserSessions(username); // 舊憑證全部作廢，避免原本登入的人繼續使用
 
             return sendJson(res, 200, {
                 success: true,
                 user: username,
-                samePassword: isSamePassword,
-                isSamePassword: isSamePassword,
-                message: isSamePassword
-                    ? '哈哈！你輸入了跟先前一模一樣的密碼！系統已為您完成密碼確認重設。'
-                    : '密碼已成功以加鹽雜湊演算法加密並重設！請使用新密碼登入。'
+                samePassword: false,
+                isSamePassword: false,
+                message: '密碼已成功以加鹽雜湊演算法加密並重設！請使用新密碼登入。'
             });
+        }
+
+        // POST /api/user/logout —— 登出：撤銷這次請求帶的登入憑證（沒帶也回成功，讓前端照常清本機資料）。
+        if (pathname === '/api/user/logout' && req.method === 'POST') {
+            await revokeRequestSession(req);
+            return sendJson(res, 200, { success: true });
         }
 
         // ==========================================
@@ -578,19 +579,11 @@ async function handleSyncRoute(req, res) {
         // ==========================================
         // /api/user/profile —— 個人資料。GET 讀取、POST 更新。回應只挑選要公開的欄位，所以絕對不會把密碼雜湊傳給前端。
         if (pathname === '/api/user/profile') {
+            // GET：只能讀「目前登入者」自己的資料（?username= 會被忽略），沒帶有效憑證回 401。
             if (req.method === 'GET') {
-                const defaultUser = await getDefaultActiveUser();
-                const username = sanitizeUsername(query.user || query.username || defaultUser);
-                // GET：找不到帳號時用一份預設資料代替，避免前端拿到 null 出錯。
-                const acc = await accountsDb.findOne({ username }) || {
-                    username: username,
-                    name: username,
-                    role: '使用者',
-                    avatar: 'default',
-                    bio: '探索個人化網頁圖書館',
-                    sortPref: 'clicks',
-                    themePref: 'dark'
-                };
+                const username = await requireUser(req, res);
+                if (!username) return;
+                const acc = await accountsDb.findOne({ username });
                 return sendJson(res, 200, {
                     success: true,
                     profile: {
@@ -608,18 +601,12 @@ async function handleSyncRoute(req, res) {
                 });
             }
 
+            // POST：更新目前登入者自己的資料；body 裡的 username 會被忽略。
             if (req.method === 'POST') {
+                const username = await requireUser(req, res);
+                if (!username) return;
                 const body = await parseRequestBody(req);
-                const username = sanitizeUsername(body.username || body.user || '');
-                if (!username) {
-                    return sendJson(res, 400, { success: false, error: '缺少帳號 username' });
-                }
-
-                let acc = await accountsDb.findOne({ username });
-                if (!acc) {
-                    acc = { username: username, password: '', name: username, role: '使用者', avatar: 'default', bio: '' };
-                    await accountsDb.insert(acc);
-                }
+                const acc = await accountsDb.findOne({ username });
 
                 const updates = { updatedAt: new Date().toISOString() };
 
@@ -632,6 +619,8 @@ async function handleSyncRoute(req, res) {
                         return sendJson(res, 400, { success: false, error: '原登入密碼不正確，無法修改密碼！' });
                     }
                     updates.password = hashPassword(newPw); // 加鹽加密儲存
+                    // 改密碼後，其他裝置的登入憑證全部作廢（保留這次請求自己的，不會把自己登出）
+                    await revokeUserSessions(username, req);
                 }
 
                 // 只更新「有帶進來」的欄位（!== undefined 判斷），沒帶的欄位維持原值，所以前端可以只送想改的部分。
@@ -675,7 +664,8 @@ async function handleSyncRoute(req, res) {
         if (pathname === '/api/user/bookshelf' || pathname === '/api/bookshelf') {
             // GET: 從 NeDB 拉取該帳號最新漫畫與小說立體書架
             if (req.method === 'GET') {
-                const safeUser = await resolveRequestUser(query.user || query.username);
+                const safeUser = await requireUser(req, res);
+                if (!safeUser) return;
 
                 const record = await bookshelfDb.findOne({ user: safeUser });
                 if (!record) {
@@ -701,8 +691,9 @@ async function handleSyncRoute(req, res) {
             }
             // POST: 將客戶端立體書架 (條漫與沉浸小說) 寫入 NeDB
             else if (req.method === 'POST') {
+                const safeUser = await requireUser(req, res);
+                if (!safeUser) return;
                 const body = await parseRequestBody(req);
-                const safeUser = await resolveRequestUser(body.user || body.username || query.user);
 
                 // POST 合併策略：body 有帶陣列才覆蓋，沒帶就保留資料庫原本的值。
                 // 好處：只更新漫畫的請求不會把小說清空。這也是「最後寫入者勝」的欄位級版本。
@@ -738,7 +729,8 @@ async function handleSyncRoute(req, res) {
         // 安全限制：規則必須是陣列、最多 200 條、單條序列化後不超過 16KB，避免有人塞入超大資料拖垮資料庫。
         if (pathname === '/api/user/custom-rules') {
             if (req.method === 'GET') {
-                const safeUser = await resolveRequestUser(query.user || query.username);
+                const safeUser = await requireUser(req, res);
+                if (!safeUser) return;
                 const record = await bookshelfDb.findOne({ user: safeUser });
                 return sendJson(res, 200, {
                     success: true,
@@ -748,8 +740,9 @@ async function handleSyncRoute(req, res) {
                 });
             }
             if (req.method === 'POST') {
+                const safeUser = await requireUser(req, res);
+                if (!safeUser) return;
                 const body = await parseRequestBody(req);
-                const safeUser = await resolveRequestUser(body.user || body.username || query.user);
                 if (!Array.isArray(body.rules)) return sendJson(res, 400, { success: false, error: 'rules 必須是陣列' });
                 if (body.rules.length > 200) return sendJson(res, 400, { success: false, error: '自訂規則最多 200 條' });
                 const rules = body.rules.filter(r => r && typeof r === 'object' && JSON.stringify(r).length <= 16 * 1024);
@@ -782,9 +775,9 @@ async function handleSyncRoute(req, res) {
                     return item;
                 });
 
-                const rawUser = (query.user || query.username || '').trim().toLowerCase();
-                // 若 query 沒有 user/username，或是 guest / 訪客：不要呼叫 resolveRequestUser（避免退回別人的帳號）
-                if (!rawUser || rawUser === 'guest' || rawUser === '訪客') {
+                // 有帶有效登入憑證才回傳該帳號的自訂卡片；訪客 / 沒登入只拿預設卡（不回 401，預設卡是公開的）
+                const safeUser = await getSessionUser(req);
+                if (!safeUser) {
                     return sendJson(res, 200, {
                         success: true,
                         defaults,
@@ -793,7 +786,6 @@ async function handleSyncRoute(req, res) {
                     });
                 }
 
-                const safeUser = await resolveRequestUser(rawUser);
                 const record = await gamesDb.findOne({ type: 'user', user: safeUser });
                 return sendJson(res, 200, {
                     success: true,
@@ -806,13 +798,10 @@ async function handleSyncRoute(req, res) {
             }
 
             if (req.method === 'POST') {
+                // 必須登入（訪客沒有登入憑證 → 401，訪客資料本來就不寫伺服器）
+                const safeUser = await requireUser(req, res);
+                if (!safeUser) return;
                 const body = await parseRequestBody(req);
-                const rawUser = String(body.user || body.username || '').trim().toLowerCase();
-
-                // 沒帶 user 或是 guest / 訪客 → 400
-                if (!rawUser || rawUser === 'guest' || rawUser === '訪客') {
-                    return sendJson(res, 400, { success: false, error: '訪客資料不寫入伺服器' });
-                }
 
                 // custom 必須是陣列且 ≤ 100 筆，hidden 必須是陣列且 ≤ 100 筆，否則 400
                 if (!Array.isArray(body.custom) || body.custom.length > 100) {
@@ -868,7 +857,6 @@ async function handleSyncRoute(req, res) {
                     .map(h => String(h || '').trim().slice(0, 100))
                     .filter(Boolean);
 
-                const safeUser = await resolveRequestUser(rawUser);
                 const updatedAt = new Date().toISOString();
 
                 await gamesDb.update(
@@ -891,8 +879,10 @@ async function handleSyncRoute(req, res) {
         // 0.95 個人 Apple Watch 音樂庫管理 /api/user/music (NeDB 存取)
         // ==========================================
         // /api/user/music（或 /api/music）—— 個人音樂庫。GET 取清單、POST 新增或整批覆寫、DELETE 刪單曲或清空。
-        if (pathname === '/api/user/music' || pathname === '/api/music') {
-            const safeUser = await resolveRequestUser(query.user || query.username);
+        if ((pathname === '/api/user/music' || pathname === '/api/music') && ['GET', 'POST', 'DELETE'].includes(req.method)) {
+            // 音樂庫一律屬於登入者本人（?user= / body.user 會被忽略）
+            const safeUser = await requireUser(req, res);
+            if (!safeUser) return;
 
             // 1. GET: 取得目前使用者收藏的所有音樂曲目清單
             if (req.method === 'GET') {
@@ -910,7 +900,7 @@ async function handleSyncRoute(req, res) {
             // 2. POST: 收藏新曲目或覆寫儲存整個音樂庫
             if (req.method === 'POST') {
                 const body = await parseRequestBody(req);
-                const targetUser = sanitizeUsername(body.user || body.username || safeUser);
+                const targetUser = safeUser;
                 const record = await musicDb.findOne({ user: targetUser });
                 let tracks = record && Array.isArray(record.tracks) ? [...record.tracks] : [];
 
@@ -957,7 +947,7 @@ async function handleSyncRoute(req, res) {
 
             // 3. DELETE: 刪除指定的收藏歌曲或清空
             if (req.method === 'DELETE') {
-                const targetUser = sanitizeUsername(query.user || safeUser);
+                const targetUser = safeUser;
                 const trackId = query.id || query.trackId;
                 const record = await musicDb.findOne({ user: targetUser });
                 let tracks = record && Array.isArray(record.tracks) ? [...record.tracks] : [];
@@ -1142,7 +1132,9 @@ async function handleSyncRoute(req, res) {
         // 0.9 快捷記事本截圖：上傳存成檔案 (避免把 dataURL 塞進 NeDB)，再以網址讀回
         // ==========================================
         // 截圖：POST 上傳存檔、GET 讀取。圖檔放在資料夾而不是資料庫，因為 dataURL 動輒數百 KB，塞進 NeDB 會讓資料庫變肥變慢。
+        // 上傳要登入（避免任何人灌檔案塞爆硬碟）；讀取不用，因為 <img> 無法帶標頭，檔名本身是猜不到的隨機字串
         if (pathname === '/api/bookmarks/screenshot' && req.method === 'POST') {
+            if (!await requireUser(req, res)) return;
             return await handleScreenshotUpload(req, res);
         }
         if (pathname.startsWith('/api/bookmarks/screenshot/') && req.method === 'GET') {
@@ -1157,7 +1149,8 @@ async function handleSyncRoute(req, res) {
         if (pathname === '/api/user/bookmarks' || pathname === '/api/bookmarks') {
             // GET: 從 NeDB 拉取該帳號最新收藏
             if (req.method === 'GET') {
-                const safeUser = await resolveRequestUser(query.user);
+                const safeUser = await requireUser(req, res);
+                if (!safeUser) return;
 
                 const record = await bookmarksDb.findOne({ user: safeUser });
                 if (!record) {
@@ -1182,8 +1175,9 @@ async function handleSyncRoute(req, res) {
             }
             // POST: 將客戶端收藏寫入 NeDB
             else if (req.method === 'POST') {
+                const safeUser = await requireUser(req, res);
+                if (!safeUser) return;
                 const body = await parseRequestBody(req);
-                const safeUser = await resolveRequestUser(body.user || query.user);
 
                 const existing = await bookmarksDb.findOne({ user: safeUser }) || { bookmarks: [] };
                 let bookmarksList = Array.isArray(existing.bookmarks) ? existing.bookmarks : [];

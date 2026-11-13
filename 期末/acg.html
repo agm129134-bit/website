@@ -17,13 +17,16 @@
       // 立即執行函式，變數不外洩到全域
       (function authGuard() {
         // 取出目前登入者（字串 JSON），沒有則為 null
+        // 有效登入 = 訪客，或帶有伺服器發的登入憑證 (token)；舊版沒有 token 的登入狀態要重新登入
+        const isValidLogin = (u) => !!(u && u.username && (u.token || u.username === "guest" || u.username === "訪客"));
         let user = sessionStorage.getItem("currentUser");
+        try { if (user && !isValidLogin(JSON.parse(user))) { sessionStorage.removeItem("currentUser"); user = null; } } catch(e) { user = null; }
         if (!user) {
           // 沒登入時，嘗試用「記住我」資料自動登入；JSON 壞掉會丟錯，所以包 try/catch
           try {
             const remembered = JSON.parse(localStorage.getItem("rememberedUser") || "null");
             // expiresAt 是到期時間戳；沒設定代表不過期，有設定就要比現在時間晚才有效
-            if (remembered && remembered.user && (!remembered.expiresAt || Date.now() < remembered.expiresAt)) {
+            if (remembered && isValidLogin(remembered.user) && (!remembered.expiresAt || Date.now() < remembered.expiresAt)) {
               sessionStorage.setItem("currentUser", JSON.stringify(remembered.user));
               user = JSON.stringify(remembered.user);
             }

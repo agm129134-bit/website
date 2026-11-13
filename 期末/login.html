@@ -161,13 +161,17 @@
         // 置頂優先檢查 30 天記住登入憑證
         (function headFastAutoLogin() {
             try {
+                // 有效登入 = 訪客，或帶有伺服器發的登入憑證 (token)；舊版沒有 token 的登入資料直接清掉、重新登入
+                const isValidLogin = (u) => !!(u && u.username && (u.token || u.username === 'guest' || u.username === '訪客'));
                 // 目前登入者（字串 JSON）
                 let current = sessionStorage.getItem('currentUser');
+                if (current && !isValidLogin(JSON.parse(current))) { sessionStorage.removeItem('currentUser'); current = null; }
                 if (!current) {
                     // 讀取「記住我」資料；沒有就是 null
                     const remembered = JSON.parse(localStorage.getItem('rememberedUser') || 'null');
+                    if (remembered && !isValidLogin(remembered.user)) localStorage.removeItem('rememberedUser');
                     // 有資料且沒過期（expiresAt 是到期時間戳）-> 還原成本次登入
-                    if (remembered && remembered.user && (!remembered.expiresAt || Date.now() < remembered.expiresAt)) {
+                    if (remembered && isValidLogin(remembered.user) && (!remembered.expiresAt || Date.now() < remembered.expiresAt)) {
                         sessionStorage.setItem('currentUser', JSON.stringify(remembered.user));
                         current = JSON.stringify(remembered.user);
                     // 已過期 -> 清掉舊憑證
@@ -438,10 +442,12 @@
         // 2. 雙重守衛：檢查 30 天記住登入 (localStorage) 與會話 (sessionStorage)，有效則立即直通首頁
         (function checkAlreadyLoggedIn() {
             try {
+                const isValidLogin = (u) => !!(u && u.username && (u.token || u.username === 'guest' || u.username === '訪客'));
                 let current = sessionStorage.getItem('currentUser');
+                if (current && !isValidLogin(JSON.parse(current))) { sessionStorage.removeItem('currentUser'); current = null; }
                 if (!current) {
                     const remembered = JSON.parse(localStorage.getItem('rememberedUser') || 'null');
-                    if (remembered && remembered.user && (!remembered.expiresAt || Date.now() < remembered.expiresAt)) {
+                    if (remembered && isValidLogin(remembered.user) && (!remembered.expiresAt || Date.now() < remembered.expiresAt)) {
                         sessionStorage.setItem('currentUser', JSON.stringify(remembered.user));
                         current = JSON.stringify(remembered.user);
                     } else if (remembered && remembered.expiresAt && Date.now() >= remembered.expiresAt) {
@@ -559,7 +565,7 @@
         function showAlert(msg) {
             const alertBox = document.getElementById('loginAlertBox');
             const alertText = document.getElementById('loginAlertText');
-            if (alertText) alertText.innerHTML = msg;
+            if (alertText) alertText.textContent = msg; // 伺服器錯誤訊息當純文字顯示，避免 XSS
             if (alertBox) {
                 alertBox.classList.remove('d-none');
                 if (typeof gsap !== 'undefined') {
@@ -582,7 +588,11 @@
         function showToast(message, iconClass = "bi-check-circle-fill text-success") {
             const toastEl = document.getElementById('loginToast');
             const toastMsg = document.getElementById('toastMessage');
-            if (toastMsg) toastMsg.innerHTML = `<i class="bi ${iconClass} fs-5"></i> <span>${message}</span>`;
+            // 訊息可能含使用者暱稱等資料，用 textContent 放進 span，避免被當成 HTML 執行 (XSS)
+            if (toastMsg) {
+                toastMsg.innerHTML = `<i class="bi ${iconClass} fs-5"></i> <span></span>`;
+                toastMsg.querySelector('span').textContent = message;
+            }
             if (toastEl && typeof bootstrap !== 'undefined') {
                 const toast = new bootstrap.Toast(toastEl, { delay: 2600 });
                 toast.show();
@@ -665,7 +675,8 @@
 
                     if (btnText) btnText.textContent = "驗證成功，正在進入...";
                     // 登入成功：user 是後端回傳的使用者資料（不含密碼）；存進 sessionStorage 供其他頁面的登入守衛檢查
-                    const user = data.user;
+                    // token 是伺服器發的登入憑證，之後同步書籤等請求都靠它證明身分，跟著 user 一起存
+                    const user = { ...data.user, token: data.token };
                     sessionStorage.setItem('currentUser', JSON.stringify(user));
 
                     // 「記住我」：勾選就存 30 天期限的憑證到 localStorage，下次開網站可免登入；沒勾選就清掉舊憑證
@@ -776,7 +787,7 @@
                         return;
                     }
 
-                    const user = data.user;
+                    const user = { ...data.user, token: data.token };
                     // 新帳號：清掉同名舊帳號殘留的頭像 / 偏好快取，避免出現之前帳號的頭像
                     ['web_library_custom_avatar_', 'web_library_default_sort_', 'web_library_default_category_']
                         .forEach(k => sessionStorage.removeItem(k + String(user.username || '').toLowerCase()));
@@ -862,7 +873,8 @@
 
                     // 新舊密碼相同：記下要登入的使用者並打開彩蛋 Modal；Modal 元件不存在時退而求其次用提示框
                     if (data.isSamePassword || data.samePassword) {
-                        pendingEasterEggUser = { username: username, name: username, role: '一般會員' };
+                        // 新密碼與舊密碼相同 = 證明知道密碼，伺服器已發登入憑證；彩蛋按鈕用它登入
+                        pendingEasterEggUser = data.token ? { ...data.user, token: data.token } : null;
                         const easterEggModalEl = document.getElementById('samePasswordEasterEggModal');
                         if (easterEggModalEl && typeof bootstrap !== 'undefined') {
                             const easterEggModal = bootstrap.Modal.getOrCreateInstance(easterEggModalEl);
@@ -902,18 +914,14 @@
                     const inst = bootstrap.Modal.getInstance(easterEggModalEl);
                     if (inst) inst.hide();
                 }
-                const fallbackUsername = document.getElementById('forgotUsernameInput')?.value.trim() || '';
-                const targetUser = pendingEasterEggUser || {
-                    username: fallbackUsername,
-                    name: fallbackUsername || '使用者',
-                    role: '一般會員'
-                };
-                sessionStorage.setItem('currentUser', JSON.stringify({
-                    username: targetUser.username,
-                    name: targetUser.name || targetUser.username,
-                    role: targetUser.role || '一般會員',
-                    loginTime: new Date().toISOString()
-                }));
+                // 只有伺服器剛發了登入憑證才能直接登入；沒有憑證就請使用者用一般登入（不再純前端假登入）
+                const targetUser = pendingEasterEggUser;
+                if (!targetUser || !targetUser.token) {
+                    switchAuthMode('login');
+                    showAlert('請使用帳號密碼登入');
+                    return;
+                }
+                sessionStorage.setItem('currentUser', JSON.stringify({ ...targetUser, loginTime: new Date().toISOString() }));
                 showToast(`🎉 歡迎回來，${targetUser.name || targetUser.username}！正在為您自動登入...`, 'bi-check-circle-fill text-success');
                 setTimeout(() => {
                     window.location.href = 'index.html';
