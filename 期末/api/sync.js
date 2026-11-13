@@ -649,6 +649,8 @@ async function handleSyncRoute(req, res) {
                         manga: [],
                         novel: [],
                         mangaHistory: [],
+                        watchHistory: [],
+                        novelHistory: [],
                         isNew: true,
                         message: '帳號尚無 NeDB 立體書架存檔'
                     });
@@ -660,6 +662,8 @@ async function handleSyncRoute(req, res) {
                     manga: Array.isArray(record.manga) ? record.manga : [],
                     novel: Array.isArray(record.novel) ? record.novel : [],
                     mangaHistory: Array.isArray(record.mangaHistory) ? record.mangaHistory : [],
+                    watchHistory: Array.isArray(record.watchHistory) ? record.watchHistory : [],
+                    novelHistory: Array.isArray(record.novelHistory) ? record.novelHistory : [],
                     updatedAt: record.updatedAt || null
                 });
             }
@@ -676,11 +680,14 @@ async function handleSyncRoute(req, res) {
                 let novel = Array.isArray(body.novel) ? body.novel : (existing.novel || []);
                 // 漫畫閱讀歷史 (最多 20 筆)；沒帶這個欄位的請求保留原值
                 const mangaHistory = Array.isArray(body.mangaHistory) ? body.mangaHistory.slice(0, 20) : (existing.mangaHistory || []);
+                // 動漫觀看紀錄 (最多 30 筆)、小說閱讀紀錄 (最多 20 筆)；同樣沒帶就保留原值
+                const watchHistory = Array.isArray(body.watchHistory) ? body.watchHistory.slice(0, 30) : (existing.watchHistory || []);
+                const novelHistory = Array.isArray(body.novelHistory) ? body.novelHistory.slice(0, 20) : (existing.novelHistory || []);
                 const updatedAt = new Date().toISOString();
 
                 await bookshelfDb.update(
                     { user: safeUser },
-                    { $set: { user: safeUser, manga, novel, mangaHistory, updatedAt } },
+                    { $set: { user: safeUser, manga, novel, mangaHistory, watchHistory, novelHistory, updatedAt } },
                     { upsert: true }
                 );
 

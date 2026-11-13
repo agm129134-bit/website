@@ -605,7 +605,7 @@ window.confirmDeleteCurrentAccount = async function () {
     // 這些資料不分帳號存在本機，也屬於被刪帳號：自訂來源規則 (會自動同步回同名新帳號)、觀看/漫畫歷史、自訂遊戲
     localStorage.removeItem("web_library_custom_rules_v1");
     localStorage.removeItem("web_library_watch_history_" + userKey);
-    ["web_library_watch_history", "web_library_anime_history", "web_library_manga_history",
+    ["web_library_watch_history", "web_library_anime_history", "web_library_manga_history", "web_library_novel_history",
      "web_library_custom_games", "web_library_hidden_default_games", "web_library_games_owner"]
       .forEach((k) => sessionStorage.removeItem(k));
 
@@ -7381,6 +7381,32 @@ window.syncBookshelfFromServer = async function(username) {
           window.renderNovelBookshelf();
         }
       }
+      // 動漫觀看紀錄：伺服器是權威來源。伺服器還沒有紀錄時，把本機舊紀錄
+      // (上一版的 localStorage 或本分頁快取) 上傳一次，之後清掉 localStorage 舊鍵
+      if (Array.isArray(data.watchHistory)) {
+        let list = data.watchHistory;
+        const legacyKey = legacyWatchHistoryLocalKey(user);
+        if (list.length === 0) {
+          let local = [];
+          try {
+            local = JSON.parse(localStorage.getItem(legacyKey) || "null") ||
+              JSON.parse(window.readWatchHistoryStore());
+          } catch (e) {}
+          if (Array.isArray(local) && local.length > 0) {
+            list = local;
+            window.writeWatchHistoryStore(list, true);
+          }
+        }
+        try { localStorage.removeItem(legacyKey); } catch (e) {}
+        window.writeWatchHistoryStore(list, false);
+        if (typeof window.renderWatchHistoryGrid === "function") window.renderWatchHistoryGrid();
+        if (typeof window.renderAnimeHistoryStandby === "function") window.renderAnimeHistoryStandby();
+      }
+      // 小說閱讀紀錄：同漫畫，伺服器是權威來源
+      if (Array.isArray(data.novelHistory)) {
+        sessionStorage.setItem(NOVEL_HISTORY_KEY, JSON.stringify(data.novelHistory));
+        if (typeof window.renderNovelHistoryStandby === "function") window.renderNovelHistoryStandby();
+      }
       // 漫畫閱讀歷史：伺服器是權威來源 (只寫快取，不回傳伺服器)
       if (Array.isArray(data.mangaHistory)) {
         sessionStorage.setItem("web_library_manga_history", JSON.stringify(data.mangaHistory));
@@ -7838,6 +7864,7 @@ window.removeBookFromMangaShelf = function (title) {
 window.renderNovelBookshelf = function () {
   const grid = document.getElementById("novelBookshelfGrid");
   if (!grid) return;
+  if (typeof window.renderNovelHistoryStandby === "function") window.renderNovelHistoryStandby();
   const shelf = window.getNovelBookshelf ? window.getNovelBookshelf() : [];
   grid.innerHTML = "";
   window.setupGlobalBookshelfTrashBin();
@@ -9408,6 +9435,11 @@ window.loadNovelChapter = async function (
 
   novelState.currentChapterIdx = chapterIdx;
   novelState.currentParagraphs = loadedParagraphs;
+
+  // 章節成功載入才記入小說閱讀紀錄（本機上傳的小說無法從伺服器重新開啟，不記錄）
+  if (loadedChapterTitle !== "章節載入失敗" && typeof window.saveNovelReadHistory === "function") {
+    window.saveNovelReadHistory(chapterId, chapterIdx, loadedChapterTitle);
+  }
 
   const effectiveTitle =
     novelTitle ||
@@ -11999,29 +12031,39 @@ window.applyBangumiStatusChange = async function (
 
 // ==================== 全方位觀看歷史紀錄系統 (支援動漫/YouTube/Bilibili/直連串流) ====================
 
-// 觀看歷史改存 localStorage（依帳號分開），重開網頁/分頁後紀錄仍在。
-// 舊版存在 sessionStorage 的紀錄會在第一次讀取時搬過來。
-function watchHistoryStoreKey() {
-  const u = (typeof state !== "undefined" && state.currentUser) || "guest";
-  return "web_library_watch_history_" + String(u).toLowerCase().trim();
+// 觀看歷史：sessionStorage 只當本分頁快取；登入帳號另存到伺服器 (bookshelf.watchHistory)，
+// 重開網頁後由 syncBookshelfFromServer 取回。訪客只留在本分頁（同漫畫紀錄的做法）。
+const WATCH_HISTORY_KEY = "web_library_watch_history";
+let _watchHistorySyncTimer = null;
+
+// 上一版暫存在 localStorage 的鍵（依帳號分開），只用來把舊紀錄搬到伺服器
+function legacyWatchHistoryLocalKey(user) {
+  return "web_library_watch_history_" + String(user || "guest").toLowerCase().trim();
 }
+
 window.readWatchHistoryStore = function () {
-  try {
-    const raw = localStorage.getItem(watchHistoryStoreKey());
-    if (raw) return raw;
-  } catch (e) {}
-  return sessionStorage.getItem("web_library_watch_history") || "[]";
-};
-window.writeWatchHistoryStore = function (list) {
-  const json = JSON.stringify(list || []);
-  try {
-    localStorage.setItem(watchHistoryStoreKey(), json);
-  } catch (e) {
-    sessionStorage.setItem("web_library_watch_history", json);
-  }
+  return sessionStorage.getItem(WATCH_HISTORY_KEY) || "[]";
 };
 
-// 取得「觀看歷史」陣列。歷史存在 localStorage 的 web_library_watch_history_<帳號> 鍵。
+// 寫入觀看歷史：更新本分頁快取與 Vue 畫面；sync 為 true 且有登入時，1.5 秒防抖後送到伺服器
+window.writeWatchHistoryStore = function (list, sync = true) {
+  list = Array.isArray(list) ? list : [];
+  sessionStorage.setItem(WATCH_HISTORY_KEY, JSON.stringify(list));
+  if (window._watchHistoryStore) window._watchHistoryStore.list = list;
+  if (!sync) return;
+  const user = resolveBookshelfUser();
+  if (!user) return;
+  clearTimeout(_watchHistorySyncTimer);
+  _watchHistorySyncTimer = setTimeout(() => {
+    fetch("/api/user/bookshelf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user, watchHistory: list }),
+    }).catch((e) => console.warn("[Watch History] 同步至伺服器失敗 (離線屬正常):", e.message));
+  }, 1500);
+};
+
+// 取得「觀看歷史」陣列（來源見上方 readWatchHistoryStore）。
 // 讀取時順便做資料清洗（舊格式遷移、補封面、清掉無效的待命紀錄），有修正就寫回去。
 // 壞掉的 JSON 會被 try/catch 接住，回傳空陣列。
 window.getWatchHistoryList = function () {
@@ -12103,7 +12145,7 @@ window.getWatchHistoryList = function () {
     }
 
     if (hasFixed) {
-      window.writeWatchHistoryStore(list);
+      window.writeWatchHistoryStore(list, false);
     }
 
     return list;
@@ -12426,103 +12468,130 @@ window.renderAnimeHistoryStandby = function () {
   }
 };
 
-// 渲染獨立觀看歷史網格 (支援動漫專區 acg.html 與首頁模態框，緊湊精緻排版)
-window.renderWatchHistoryGrid = function () {
-  const containers = [
-    document.getElementById("watchHistoryGrid"),
-    document.getElementById("modalWatchHistoryGrid"),
-  ].filter(Boolean);
-
-  if (containers.length === 0) return;
-
-  const history = window.getWatchHistoryList();
-
-  // 更新計數徽章
-  const badges = [
-    document.getElementById("watchHistoryBadge"),
-    document.getElementById("modalWatchHistoryBadge"),
-    document.getElementById("navWatchHistoryBadge"),
-  ].filter(Boolean);
-
-  badges.forEach((b) => {
-    b.textContent = `${history.length} 部`;
-  });
-
-  containers.forEach((container) => {
-    if (history.length === 0) {
-      container.innerHTML = `
-                <div class="col-12 py-5 text-center text-muted">
-                    <i class="bi bi-clock-history fs-1 d-block mb-3 text-secondary opacity-50"></i>
-                    <h6 class="fw-bold">目前尚無任何播放紀錄</h6>
-                    <p class="small text-muted mb-0">當你在圖書館觀看動漫劇院、Bilibili 或 YouTube 影片時，系統會自動為你記錄集數與進度，隨時一鍵接續開播！</p>
-                </div>
-            `;
-
-      return;
-    }
-
-    container.innerHTML = history
-      .map((item) => {
+// 觀看歷史網格改用 Vue 3：兩個網格 (#watchHistoryGrid 動漫專區、#modalWatchHistoryGrid 歷史視窗)
+// 各掛一個小 Vue app，共用同一份 Vue.reactive 資料 (window._watchHistoryStore)，
+// 紀錄一改 (writeWatchHistoryStore 會更新 store.list)，兩個網格就自動重畫，不用再手動拼 HTML。
+const watchHistoryGridComponent = {
+  data() {
+    return { store: window._watchHistoryStore };
+  },
+  computed: {
+    // 把每筆紀錄算好畫面要用的進度百分比、時間字串、平台標籤
+    items() {
+      return this.store.list.map((item) => {
         const pct =
           item.duration > 0 && item.currentTime > 0
-            ? Math.min(
-                100,
-                Math.round((item.currentTime / item.duration) * 100),
-              )
+            ? Math.min(100, Math.round((item.currentTime / item.duration) * 100))
             : 0;
-
         const timeStr =
           item.currentTime > 0
             ? `${formatMmSs(item.currentTime)} / ${item.duration > 0 ? formatMmSs(item.duration) : "--:--"}`
             : "剛剛開始";
-        let platformBadge = "";
-
-        if (item.platform === "youtube") {
-          platformBadge = `<span class="badge bg-danger watch-history-badge"><i class="bi bi-youtube me-1"></i>YouTube</span>`;
-        } else if (item.platform === "bilibili") {
-          platformBadge = `<span class="badge watch-history-badge" style="background-color: #00aeec !important; color: #fff;"><i class="bi bi-tv me-1"></i>Bilibili</span>`;
-        } else {
-          platformBadge = `<span class="badge bg-warning text-dark watch-history-badge"><i class="bi bi-film me-1"></i>動漫劇院</span>`;
-        }
-
-        const defaultGridImg = window.getFallbackAnimeCover
+        const platform =
+          item.platform === "youtube"
+            ? { cls: "bg-danger", style: "", icon: "bi-youtube", label: "YouTube" }
+            : item.platform === "bilibili"
+              ? { cls: "", style: "background-color: #00aeec !important; color: #fff;", icon: "bi-tv", label: "Bilibili" }
+              : { cls: "bg-warning text-dark", style: "", icon: "bi-film", label: "動漫劇院" };
+        const fallback = window.getFallbackAnimeCover
           ? window.getFallbackAnimeCover(item.title, item.platform)
           : "";
+        return { item, pct, timeStr, platform, fallback };
+      });
+    },
+  },
+  methods: {
+    resume(id) {
+      window.resumeWatchHistory(id);
+    },
+    remove(id, e) {
+      window.deleteWatchHistoryItem(id, e);
+    },
+    // 封面載入失敗就換成備用圖（只換一次，避免備用圖也失敗時無限觸發）
+    useFallback(e, fallback) {
+      if (fallback && e.target.src !== fallback) e.target.src = fallback;
+    },
+  },
+  template: `
+    <div v-if="items.length === 0" class="col-12 py-5 text-center text-muted">
+      <i class="bi bi-clock-history fs-1 d-block mb-3 text-secondary opacity-50"></i>
+      <h6 class="fw-bold">目前尚無任何播放紀錄</h6>
+      <p class="small text-muted mb-0">當你在圖書館觀看動漫劇院、Bilibili 或 YouTube 影片時，系統會自動為你記錄集數與進度，隨時一鍵接續開播！</p>
+    </div>
+    <div v-for="r in items" :key="r.item.id" class="col-6 col-md-4 col-lg-3 col-xl-2">
+      <div class="card watch-history-card watch-history-card-compact h-100 shadow-sm border-0 position-relative">
+        <div class="watch-history-cover-wrap">
+          <span class="badge watch-history-badge" :class="r.platform.cls" :style="r.platform.style"><i class="bi me-1" :class="r.platform.icon"></i>{{ r.platform.label }}</span>
+          <button type="button" class="watch-history-del-btn" @click="remove(r.item.id, $event)" title="刪除此紀錄">
+            <i class="bi bi-x-lg"></i>
+          </button>
+          <img :src="r.item.cover || r.fallback" class="watch-history-cover" :alt="r.item.title" loading="lazy" @error="useFallback($event, r.fallback)">
+          <div class="watch-history-progress-bar">
+            <div class="watch-history-progress-fill" :style="{ width: r.pct + '%' }"></div>
+          </div>
+        </div>
+        <div class="card-body p-2 d-flex flex-column">
+          <h6 class="fw-bold mb-1 text-truncate" :title="r.item.title" style="font-size: 0.82rem;">{{ r.item.title }}</h6>
+          <div class="history-ep-title-badge text-truncate mb-1">{{ r.item.epTitle || "" }}</div>
+          <div class="d-flex align-items-center justify-content-between text-muted small mt-auto mb-2" style="font-size: 0.72rem;">
+            <span><i class="bi bi-clock me-1"></i>{{ r.timeStr }}</span>
+            <span class="fw-bold text-secondary">{{ r.pct > 0 ? r.pct + "%" : "未看完" }}</span>
+          </div>
+          <button class="btn btn-danger btn-sm rounded-pill w-100 fw-semibold d-flex align-items-center justify-content-center gap-1 shadow-sm" @click="resume(r.item.id)">
+            <i class="bi bi-play-fill fs-6"></i> 繼續播放
+          </button>
+        </div>
+      </div>
+    </div>
+  `,
+};
 
-        return `
-                <div class="col-6 col-md-4 col-lg-3 col-xl-2">
-                    <div class="card watch-history-card watch-history-card-compact h-100 shadow-sm border-0 position-relative">
-                        <div class="watch-history-cover-wrap">
-                            ${platformBadge}
-                            <button type="button" class="watch-history-del-btn" onclick="deleteWatchHistoryItem('${item.id}', event)" title="刪除此紀錄">
-                                <i class="bi bi-x-lg"></i>
-                            </button>
-                            <img src="${escapeHtml(item.cover || defaultGridImg)}" 
-                                 class="watch-history-cover" 
-                                 alt="${escapeHtml(item.title)}" 
-                                 loading="lazy" 
-                                 onerror="this.src='${escapeHtml(defaultGridImg)}'">
-                            <div class="watch-history-progress-bar">
-                                <div class="watch-history-progress-fill" style="width: ${pct}%;"></div>
-                            </div>
-                        </div>
-                        <div class="card-body p-2 d-flex flex-column">
-                            <h6 class="fw-bold mb-1 text-truncate" title="${escapeHtml(item.title)}" style="font-size: 0.82rem;">${escapeHtml(item.title)}</h6>
-                            <div class="history-ep-title-badge text-truncate mb-1">${escapeHtml(item.epTitle || "")}</div>
-                            <div class="d-flex align-items-center justify-content-between text-muted small mt-auto mb-2" style="font-size: 0.72rem;">
-                                <span><i class="bi bi-clock me-1"></i>${timeStr}</span>
-                                <span class="fw-bold text-secondary">${pct > 0 ? pct + "%" : "未看完"}</span>
-                            </div>
-                            <button class="btn btn-danger btn-sm rounded-pill w-100 fw-semibold d-flex align-items-center justify-content-center gap-1 shadow-sm" onclick="resumeWatchHistory('${item.id}')">
-                                <i class="bi bi-play-fill fs-6"></i> 繼續播放
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-      })
-      .join("");
+// 已掛載的網格：[{ el, app }]。無縫換頁後舊元素離開頁面，就卸載它的 app 再掛到新元素
+let watchHistoryGridMounts = [];
+
+function mountWatchHistoryGrids() {
+  watchHistoryGridMounts = watchHistoryGridMounts.filter((m) => {
+    if (m.el.isConnected) return true;
+    m.app.unmount();
+    return false;
   });
+  const pending = ["watchHistoryGrid", "modalWatchHistoryGrid"]
+    .map((id) => document.getElementById(id))
+    .filter((el) => el && !watchHistoryGridMounts.some((m) => m.el === el));
+  if (pending.length === 0) return Promise.resolve();
+
+  return ensureVueLoaded().then((Vue) => {
+    if (!window._watchHistoryStore) {
+      window._watchHistoryStore = Vue.reactive({ list: window.getWatchHistoryList() });
+    }
+    pending.forEach((el) => {
+      // 等 Vue 載入期間元素可能已被換掉或已被另一次呼叫掛好
+      if (!el.isConnected || watchHistoryGridMounts.some((m) => m.el === el)) return;
+      el.innerHTML = "";
+      const app = Vue.createApp(watchHistoryGridComponent);
+      app.mount(el);
+      watchHistoryGridMounts.push({ el, app });
+    });
+  });
+}
+
+// 更新觀看歷史網格：同步 Vue 資料、更新計數徽章，並確保網格已掛上 Vue
+window.renderWatchHistoryGrid = function () {
+  const history = window.getWatchHistoryList();
+
+  if (window._watchHistoryStore) window._watchHistoryStore.list = history;
+
+  [
+    document.getElementById("watchHistoryBadge"),
+    document.getElementById("modalWatchHistoryBadge"),
+    document.getElementById("navWatchHistoryBadge"),
+  ]
+    .filter(Boolean)
+    .forEach((b) => {
+      b.textContent = `${history.length} 部`;
+    });
+
+  mountWatchHistoryGrids().catch((e) => console.error("觀看歷史網格載入 Vue 失敗:", e));
 };
 
 // 接續恢復觀看：依 id 找到歷史紀錄，動漫走劇院播放器、其餘（YouTube/B站）走一般播放器。
@@ -12610,9 +12679,7 @@ window.clearAllWatchHistory = function () {
 
   sessionStorage.removeItem("web_library_anime_history");
 
-  try {
-    localStorage.removeItem(watchHistoryStoreKey());
-  } catch (e) {}
+  window.writeWatchHistoryStore([]);
   window.renderWatchHistoryGrid();
   window.renderAnimeHistoryStandby();
 
@@ -12857,6 +12924,139 @@ window.clearMangaHistory = function () {
   window.renderMangaHistoryStandby();
 
   showToast("已清除漫畫閱讀歷史！", "bi-trash text-secondary");
+};
+
+// 小說閱讀紀錄系統（做法同漫畫）：sessionStorage 當本分頁快取，登入帳號另存到伺服器 (bookshelf.novelHistory)
+const NOVEL_HISTORY_KEY = "web_library_novel_history";
+let _novelHistorySyncTimer = null;
+
+function getNovelHistory() {
+  try {
+    const list = JSON.parse(sessionStorage.getItem(NOVEL_HISTORY_KEY) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function setNovelHistory(history) {
+  sessionStorage.setItem(NOVEL_HISTORY_KEY, JSON.stringify(history));
+  const user = resolveBookshelfUser();
+  if (!user) return;
+  clearTimeout(_novelHistorySyncTimer);
+  _novelHistorySyncTimer = setTimeout(() => {
+    fetch("/api/user/bookshelf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user, novelHistory: history }),
+    }).catch((e) => console.warn("[Novel History] 同步至伺服器失敗 (離線屬正常):", e.message));
+  }, 300);
+}
+
+// 記錄目前這本線上小說讀到哪一章：同一本先刪舊的再放最前面，最多 20 筆
+window.saveNovelReadHistory = function (chapterId, chapterIdx, chapterTitle) {
+  const n = novelState.currentNovel;
+  if (!n || !n.id || !n.title || n.isLocal || n.source === "local") return;
+
+  let history = getNovelHistory().filter(
+    (h) => !(h.novelId === n.id && h.source === n.source) && h.title !== n.title,
+  );
+  history.unshift({
+    novelId: n.id,
+    title: n.title,
+    cover: n.cover || "",
+    author: n.author || "",
+    source: n.source || "",
+    chapterId,
+    chapterIdx,
+    chapterTitle: chapterTitle || `第 ${chapterIdx + 1} 章`,
+    updatedAt: Date.now(),
+  });
+  if (history.length > 20) history = history.slice(0, 20);
+  setNovelHistory(history);
+  window.renderNovelHistoryStandby();
+};
+
+// 在小說書房下方列出閱讀紀錄（沒有紀錄就整個隱藏）
+window.renderNovelHistoryStandby = function () {
+  const box = document.getElementById("novelRecentHistoryBox");
+  if (!box) return;
+  const history = getNovelHistory();
+
+  if (history.length === 0) {
+    box.style.display = "none";
+    box.innerHTML = "";
+    return;
+  }
+
+  box.style.display = "block";
+  box.innerHTML = `
+            <div class="card border border-success border-opacity-50 p-2 shadow-sm rounded-3">
+                <div class="d-flex align-items-center justify-content-between mb-2 pb-1 border-bottom border-secondary border-opacity-25">
+                    <small class="text-success fw-bold"><i class="bi bi-clock-history me-1"></i>小說閱讀歷史紀錄 (${history.length})</small>
+                    <button type="button" class="btn btn-link btn-xs text-secondary p-0 text-decoration-none" onclick="clearNovelHistory()" title="清除全部紀錄">清除全部</button>
+                </div>
+                <div class="d-flex flex-column gap-2" style="max-height: 220px; overflow-y: auto; scrollbar-width: thin;">
+                    ${history
+                      .map(
+                        (item, idx) => `
+                        <div class="d-flex align-items-center gap-2 p-1 rounded-2 border border-secondary border-opacity-25">
+                            ${item.cover ? `<img src="${escapeHtml(item.cover)}" style="width: 38px; height: 50px; object-fit: cover; border-radius: 4px; flex-shrink: 0;" onerror="this.style.display='none'" alt="">` : `<i class="bi bi-book fs-3 text-success flex-shrink-0"></i>`}
+                            <div class="flex-grow-1 overflow-hidden">
+                                <div class="fw-semibold small text-truncate" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
+                                <div class="text-success small text-truncate" style="font-size: 0.75rem;">${escapeHtml(item.chapterTitle || "")}</div>
+                            </div>
+                            <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                <button class="btn btn-xs btn-success px-2 text-nowrap rounded-pill" onclick="resumeNovelHistory(${idx})">
+                                    <i class="bi bi-book-half"></i> 續讀
+                                </button>
+                                <button class="btn btn-xs btn-link text-secondary p-1" onclick="removeNovelHistoryItem(${idx})" title="刪除此紀錄">
+                                    <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `,
+                      )
+                      .join("")}
+                </div>
+            </div>
+        `;
+};
+
+window.removeNovelHistoryItem = function (idx) {
+  const history = getNovelHistory();
+  if (idx < 0 || idx >= history.length) return;
+  history.splice(idx, 1);
+  setNovelHistory(history);
+  window.renderNovelHistoryStandby();
+};
+
+// 接續閱讀：先用 selectNovel 開啟作品並載入目錄，再直接跳到上次的章節
+window.resumeNovelHistory = async function (idx = 0) {
+  const item = getNovelHistory()[idx];
+  if (!item) return;
+  try {
+    await window.selectNovel(item.novelId, item.title, item.cover, item.author, "", item.source);
+    const chapters = novelState.chapters || [];
+    const target =
+      chapters.find((c) => c.id === item.chapterId) ||
+      chapters.find((c) => c.title === item.chapterTitle);
+    const targetIdx = target ? chapters.indexOf(target) : item.chapterIdx;
+    await window.loadNovelChapter(
+      item.novelId,
+      target ? target.id : item.chapterId,
+      targetIdx,
+      item.title,
+    );
+  } catch (e) {
+    console.error("恢復小說閱讀失敗:", e);
+  }
+};
+
+window.clearNovelHistory = function () {
+  setNovelHistory([]);
+  window.renderNovelHistoryStandby();
+  showToast("已清除小說閱讀歷史！", "bi-trash text-secondary");
 };
 
 // 相容性全域函式守護 (預防歷史模組與 ACG 擴充調用 ReferenceError)
