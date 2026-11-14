@@ -197,6 +197,9 @@ function updatePlayModeUI() {
 // 而是用 fetch 抓新頁面再局部替換，這樣頂部的音樂靈動島不會中斷播放。
 // 同時監聽瀏覽器的上一頁/下一頁(popstate)，讓歷史紀錄也能正常運作。
 function initSeamlessPageTransitions() {
+  // 記住目前 SPA 所在的頁面路徑，用來判斷 popstate 是否為「真的換頁」。
+  window._lastSpaPath = window.location.pathname;
+
   // 事件委派：把監聽器綁在 document 上，用 closest("a") 找到被點的連結，新換上的元素也不用重綁
   document.addEventListener("click", (e) => {
     const link = e.target.closest("a");
@@ -214,11 +217,16 @@ function initSeamlessPageTransitions() {
     }
   });
 
-  window.addEventListener("popstate", (e) => {
+  window.addEventListener("popstate", () => {
     const pathName = window.location.pathname;
-    if (pathName.includes("acg.html") || pathName.includes("index.html")) {
-      seamlessNavigateTo(pathName, true);
-    }
+    if (!(pathName.includes("acg.html") || pathName.includes("index.html"))) return;
+
+    // 只有「路徑真的變了」才重繪。像 <a href="#"> 這種純錨點（下拉選單項目、品牌 logo）只會改變
+    // hash、路徑不變，若也拿來重繪，會把整個頁面重新 fetch/替換，批量模式等前端狀態就被清掉
+    // （實測批量「變更分類」會退出批量模式）。
+    if (pathName === window._lastSpaPath) return;
+
+    seamlessNavigateTo(pathName, true);
   });
 }
 
@@ -286,6 +294,8 @@ async function seamlessNavigateTo(url, isPopState = false) {
     if (!isPopState) {
       history.pushState({ url }, newDoc.title, url);
     }
+    // 更新「目前 SPA 路徑」，讓 popstate 能分辨是換頁還是單純 hash 變更
+    window._lastSpaPath = window.location.pathname;
 
     // 重新初始化新頁面組件
     // （換上來的是新 DOM，舊的事件監聽與動畫都不在了，所以要重跑各頁面的初始化函式；
@@ -316,6 +326,18 @@ async function seamlessNavigateTo(url, isPopState = false) {
     }
 
     window.scrollTo({ top: 0, behavior: "instant" });
+
+    // 新頁面不會延續舊頁面的閱讀器書架狀態：清掉殘留的 body class 並重算垃圾桶可見度，
+    // 避免舊頁面在閱讀中換頁時 bookshelf-reader-mode 留下來、讓新頁面的垃圾桶永遠被 CSS 藏住。
+    document.body.classList.remove("bookshelf-shelf-mode", "bookshelf-reader-mode");
+    if (typeof window.updateBookshelfTrashVisibility === "function") {
+      window.updateBookshelfTrashVisibility();
+    }
+    // 舊頁面的 Modal 節點已脫離畫面：對新頁面的節點重新掛上觀察器
+    if (typeof window.ensureBookshelfTrashObserver === "function") {
+      window.ensureBookshelfTrashObserver();
+    }
+
     // 只有正在播音樂時才提示「音樂持續播放」；沒播就靜默切換
     const musicPlaying = typeof islandAudio !== "undefined" && islandAudio.src && !islandAudio.paused && !islandAudio.ended;
     if (musicPlaying) {
@@ -7532,20 +7554,131 @@ function bindBookshelfWaveEffect(bookEl) {
 
 // 渲染條漫立體書架
 
-// 判斷當前是否處於漫畫或小說立體書架頁面 (首頁、其他分頁一律不顯示垃圾桶)
+// 判斷元素在畫面上是否真的可見（display:none / hidden / 不在版面流上都算不可見）
+function isElementShown(el) {
+  if (!el) return false;
+  if (el.hidden) return false;
+  const style = window.getComputedStyle(el);
+  if (!style || style.display === "none" || style.visibility === "hidden") return false;
+  // offsetParent 為 null 代表被祖先 display:none 藏住；position:fixed 的元素例外（它本來就沒有 offsetParent）
+  return el.offsetParent !== null || style.position === "fixed";
+}
+
+// 判斷目標 Modal 是否真的開著（Bootstrap 會加 .show；某些舊流程用 inline display:block）
+function isModalShown(id) {
+  const modal = document.getElementById(id);
+  return !!modal && (modal.classList.contains("show") || modal.style.display === "block");
+}
+
+// 判斷當前是否處於「漫畫或小說的立體書架畫面」。
+// 重要：只有在書架待命畫面才算，進入閱讀（條漫瀑布流／小說正文）後一律不算。
+//   - 漫畫：開始閱讀時 renderMangaWaterfall() 會把整個 #mangaPageWrapper 換成圖片，
+//     #tachimangaPlaceholder 會消失；所以「placeholder 存在且可見」才是書架畫面。
+//   - 小說：開始閱讀時 legadoPlaceholder 被設為 display:none，正文區 novelReadingArea 顯示。
+// 首頁、ACG 專區等其他分頁沒有這兩個 placeholder 或 Modal 沒開，自然回傳 false。
 window.isBookshelfPageActive = function() {
-  const mangaModal = document.getElementById("mangaReaderModal");
-  const isMangaModalOpen = mangaModal && (mangaModal.classList.contains("show") || mangaModal.style.display === "block");
-  const mangaPlaceholder = document.getElementById("tachimangaPlaceholder");
-  const isMangaShelfVisible = isMangaModalOpen && (!mangaPlaceholder || mangaPlaceholder.style.display !== "none");
-
-  const novelModal = document.getElementById("novelReaderModal");
-  const isNovelModalOpen = novelModal && (novelModal.classList.contains("show") || novelModal.style.display === "block");
-  const novelReadingArea = document.getElementById("novelReadingArea");
-  const isNovelShelfVisible = isNovelModalOpen && (!novelReadingArea || novelReadingArea.style.display === "none");
-
+  const isMangaShelfVisible = isModalShown("mangaReaderModal") && isElementShown(document.getElementById("tachimangaPlaceholder"));
+  const isNovelShelfVisible = isModalShown("novelReaderModal") && isElementShown(document.getElementById("legadoPlaceholder"));
   return !!(isMangaShelfVisible || isNovelShelfVisible);
 };
+
+// 判斷現在是否「在閱讀畫面」（Modal 開著但書架畫面不在）：用來加 body class，讓 CSS 也能強制藏垃圾桶
+function isReaderViewActive() {
+  const anyReaderOpen = isModalShown("mangaReaderModal") || isModalShown("novelReaderModal");
+  return anyReaderOpen && !(typeof window.isBookshelfPageActive === "function" && window.isBookshelfPageActive());
+}
+
+// Bootstrap 5 的 ESC 關閉邏輯綁在「Modal 元素」上，不是 document：按 ESC 時事件只會送給
+// 「目前有焦點」的那個 Modal。同時開兩層（閱讀器＋章節目錄、遊戲專區＋自訂加入）時，
+// 若焦點留在底層，ESC 就會關掉底層、上層卻留在畫面上。
+// 這裡在 capture 階段先攔 ESC：依實際開啟順序關掉最上層的 Modal。只有「單層 Modal 且焦點
+// 就在該 Modal 裡面」時才放行給 Bootstrap 原生處理，其餘情況（多層、或焦點跑到 body）都由
+// 這裡統一關閉，避免關錯層或 ESC 完全失效。
+window.ensureStackedModalEscGuard = function() {
+  if (window._stackedModalEscGuardBound) return;
+  window._stackedModalEscGuardBound = true;
+
+  // 記錄 Modal 的實際開啟順序（DOM 順序不等於開啟順序），關閉時移除。
+  // 同時監聽 show 與 shown：若使用者在開場動畫還沒結束就按 ESC，開啟順序也已經記錄好了。
+  const modalOpenOrder = (window._modalOpenOrder = window._modalOpenOrder || []);
+  const rememberModalOpen = (e) => {
+    const id = e.target && e.target.id;
+    if (!id) return;
+    const i = modalOpenOrder.indexOf(id);
+    if (i !== -1) modalOpenOrder.splice(i, 1);
+    modalOpenOrder.push(id);
+  };
+  document.addEventListener("show.bs.modal", rememberModalOpen);
+  document.addEventListener("shown.bs.modal", rememberModalOpen);
+  document.addEventListener("hidden.bs.modal", (e) => {
+    const id = e.target && e.target.id;
+    const i = modalOpenOrder.indexOf(id);
+    if (i !== -1) modalOpenOrder.splice(i, 1);
+    // Bootstrap 關閉任一層時會無條件移除 body.modal-open（即使底下還有 Modal 開著），這裡補回
+    if (document.querySelector(".modal.show")) document.body.classList.add("modal-open");
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" && e.key !== "Esc") return;
+    // 輸入法組字中的 ESC 是在取消組字，不要插手
+    if (e.isComposing || e.keyCode === 229) return;
+
+    // 「開著」包含兩個階段：已經有 .show，或 Bootstrap 剛把 display 設成 block、動畫還沒播完。
+    // 只檢查畫面上可見的 modal 還不夠：上層 Modal 開場動畫中按 ESC 時它可能還沒套上 .show，
+    // 因此另外參考 _modalOpenOrder（show.bs.modal 已經記錄開啟順序）判斷是不是「正在疊第二層」。
+    const isOpenModal = (m) => !!m && (m.classList.contains("show") || m.style.display === "block");
+    const visibleModals = Array.from(document.querySelectorAll(".modal")).filter(isOpenModal);
+    const orderedModals = modalOpenOrder
+      .map((id) => document.getElementById(id))
+      // 只留真的開著（或 Bootstrap 正在開啟中，_isShown 已為 true）的 Modal，
+      // 過濾掉換頁等情況沒觸發 hidden.bs.modal 而殘留的過期紀錄
+      .filter((m) => {
+        if (!m || !m.classList.contains("modal")) return false;
+        const inst = window.bootstrap && bootstrap.Modal ? bootstrap.Modal.getInstance(m) : null;
+        return isOpenModal(m) || !!(inst && inst._isShown);
+      });
+    const hasStackedModal = orderedModals.length > 1;
+
+    if (!visibleModals.length && !hasStackedModal) return;
+
+    // 只有一層、而且焦點就在該 Modal 裡面：交給 Bootstrap 原生處理（行為完全一致）
+    if (visibleModals.length === 1 && !hasStackedModal && visibleModals[0].contains(e.target)) return;
+
+    // 到這裡代表：①多層 Modal（含正在開場動畫的上層），焦點可能留在底層，原生會關錯層，或
+    // ②只有一層但焦點已跑到 Modal 外面（例如剛關掉上層目錄後焦點回到 body，ESC 會失效）。
+    // 兩種情況都統一由這裡關閉最上層那一個。
+    e.preventDefault();
+    if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
+    e.stopPropagation();
+
+    // 依實際開啟順序找最上層；順序資料缺失時退回畫面上最後一個
+    const top = orderedModals.length
+      ? orderedModals[orderedModals.length - 1]
+      : visibleModals[visibleModals.length - 1];
+    try {
+      if (window.bootstrap && bootstrap.Modal) {
+        const instance = bootstrap.Modal.getOrCreateInstance(top);
+        // 上層 Modal 可能還在開場動畫中（還沒套上 .show）：直接 hide() 會被 Bootstrap 的
+        // _isTransitioning 擋掉，改成等 shown 之後再關，避免「按了 ESC 卻沒反應」。
+        if (!isOpenModal(top) || instance._isTransitioning) {
+          top.addEventListener("shown.bs.modal", () => {
+            bootstrap.Modal.getOrCreateInstance(top).hide();
+          }, { once: true });
+        } else {
+          instance.hide();
+        }
+      } else {
+        top.classList.remove("show");
+        top.style.display = "none";
+        top.setAttribute("aria-hidden", "true");
+      }
+    } catch (err) {
+      console.warn("關閉上層 Modal 失敗：", err);
+    }
+  }, true);
+};
+
+window.ensureStackedModalEscGuard();
 
 // 灰燼粉末慢速升騰特效 (出現在垃圾桶/滑鼠放開處，調慢至 1.4~1.8 秒浪漫慢速漂浮)
 window.disintegrateBookToPowder = function(bookElement, onComplete, originCoords) {
@@ -7727,33 +7860,54 @@ window.setupGlobalBookshelfTrashBin = function() {
     if (modal && !modal.dataset.trashBound) {
       modal.dataset.trashBound = 'true';
       modal.addEventListener('hidden.bs.modal', () => {
-        const t = document.getElementById("globalBookshelfTrashBin");
-        if (t) t.style.display = "none";
+        // 關閉閱讀器時交給統一函式處理：一併隱藏垃圾桶並清掉 body 的狀態 class
+        if (typeof window.updateBookshelfTrashVisibility === 'function') {
+          window.updateBookshelfTrashVisibility();
+        } else {
+          const t = document.getElementById("globalBookshelfTrashBin");
+          if (t) t.style.display = "none";
+        }
       });
       modal.addEventListener('shown.bs.modal', () => {
+        window.ensureBookshelfTrashObserver();
         if (typeof window.updateBookshelfTrashVisibility === 'function') {
           window.updateBookshelfTrashVisibility();
         }
       });
     }
   });
+
+  // 記錄閱讀器畫面的任何 DOM 變化（換章節、切回書架…），自動重算垃圾桶可見度
+  window.ensureBookshelfTrashObserver();
 };
 
-// 更新右下角垃圾桶可見度：嚴格限定只有在漫畫或小說的書架頁面才顯示
+// 更新右下角垃圾桶可見度：嚴格限定只有在漫畫或小說的「立體書架畫面」才顯示。
+// 閱讀畫面（條漫瀑布流、小說正文、章節目錄）一律隱藏，並同步切換 body 的
+// bookshelf-shelf-mode / bookshelf-reader-mode 兩個 class，讓 CSS 也有一層保險，
+// 即使未來新增的流程漏呼叫這段，垃圾桶也不會壓在閱讀內容上。
+// （多層 Modal 關閉後遺失 body.modal-open 的修復統一由 ensureStackedModalEscGuard 的
+//   hidden.bs.modal 監聽處理，不在這裡重複做。）
 window.updateBookshelfTrashVisibility = function() {
   const trash = document.getElementById("globalBookshelfTrashBin");
+  const shelfActive = typeof window.isBookshelfPageActive === "function" && window.isBookshelfPageActive();
+
+  if (document.body) {
+    document.body.classList.toggle("bookshelf-shelf-mode", shelfActive);
+    document.body.classList.toggle("bookshelf-reader-mode", !shelfActive && isReaderViewActive());
+  }
+
   if (!trash) return;
 
-  // 若非漫畫或小說書架頁面，強制隱藏
-  if (typeof window.isBookshelfPageActive === 'function' && !window.isBookshelfPageActive()) {
+  // 不是書架畫面（閱讀中、Modal 關閉、其他任何頁面）：強制隱藏並清掉拖曳狀態
+  if (!shelfActive) {
     trash.style.display = "none";
+    trash.classList.remove("trash-ready", "trash-hover", "trash-dumped");
     return;
   }
 
-  const mangaModal = document.getElementById("mangaReaderModal");
-  const isMangaOpen = mangaModal && (mangaModal.classList.contains("show") || mangaModal.style.display === "block");
-  const novelModal = document.getElementById("novelReaderModal");
-  const isNovelOpen = novelModal && (novelModal.classList.contains("show") || novelModal.style.display === "block");
+  // 書架畫面：有書才顯示（空書架沒有東西可以拖進去）
+  const isMangaOpen = isModalShown("mangaReaderModal");
+  const isNovelOpen = isModalShown("novelReaderModal");
 
   const mangaCount = (typeof window.getMangaBookshelf === 'function' ? window.getMangaBookshelf().length : 0);
   const novelCount = (typeof window.getNovelBookshelf === 'function' ? window.getNovelBookshelf().length : 0);
@@ -7763,6 +7917,47 @@ window.updateBookshelfTrashVisibility = function() {
   } else {
     trash.style.display = "none";
   }
+};
+
+// 監聽兩個閱讀器 Modal 的 DOM 變化（漫畫換章節會整塊換掉 wrapper、小說切換正文區…）。
+// 任何畫面切換都自動重算一次垃圾桶可見度；用 requestAnimationFrame 合併同一影格的多筆觸發。
+// 注意：SPA 無縫換頁（seamlessNavigateTo）會把整個 body 內容換掉，舊的 Modal 節點會脫離畫面，
+// 因此每次書架重新渲染時都「先斷開舊 Observer 再對目前的節點重綁」，避免監聽失效。
+window.ensureBookshelfTrashObserver = function() {
+  if (typeof MutationObserver === "undefined") return;
+
+  if (window._bookshelfTrashObserver) {
+    try { window._bookshelfTrashObserver.disconnect(); } catch (e) {}
+    window._bookshelfTrashObserver = null;
+  }
+
+  let scheduled = false;
+  const scheduleUpdate = () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      if (typeof window.updateBookshelfTrashVisibility === "function") {
+        window.updateBookshelfTrashVisibility();
+      }
+    });
+  };
+
+  const observer = new MutationObserver(scheduleUpdate);
+  // 只監聽兩個閱讀器 Modal：樹狀目錄／選集抽屜屬於「上層 Modal」，關閉時的 body.modal-open
+  // 修復由 ensureStackedModalEscGuard 的 hidden.bs.modal 監聽負責，不需要在這裡重複觀察整棵子樹。
+  ["mangaReaderModal", "novelReaderModal"].forEach((id) => {
+    const modal = document.getElementById(id);
+    if (modal) {
+      observer.observe(modal, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["style", "class", "hidden"],
+      });
+    }
+  });
+  window._bookshelfTrashObserver = observer;
 };
 
 // 綁定書本拖曳至垃圾桶的事件；回傳 { active } 供點擊事件判斷是否正在拖曳
@@ -8657,6 +8852,11 @@ function renderMangaWaterfall(pages) {
   if (!wrapper) return;
   wrapper.innerHTML = "";
 
+  // 一進入條漫瀑布流閱讀，「立體書架畫面」就結束了：立刻把右下角垃圾桶收起來
+  if (typeof window.updateBookshelfTrashVisibility === "function") {
+    window.updateBookshelfTrashVisibility();
+  }
+
   if (!pages || pages.length === 0) {
     wrapper.innerHTML = `<div class="text-secondary text-center py-5">本話暫無可顯示的條漫長圖</div>`;
 
@@ -9468,6 +9668,11 @@ window.loadNovelChapter = async function (
 
   if (readingArea) readingArea.style.display = "block";
 
+  // 已切換到沉浸閱讀畫面：隱藏右下角垃圾桶（只在立體書架畫面顯示）
+  if (typeof window.updateBookshelfTrashVisibility === "function") {
+    window.updateBookshelfTrashVisibility();
+  }
+
   if (paragraphsEl) {
     paragraphsEl.innerHTML = `
             <div class="text-center py-5 text-secondary">
@@ -9720,6 +9925,11 @@ window.closeCurrentNovel = function (silent = false) {
 
   if (paragraphsEl) paragraphsEl.innerHTML = "";
 
+  // 回到小說立體書房畫面：重新計算垃圾桶可見度（書架有藏書才顯示）
+  if (typeof window.updateBookshelfTrashVisibility === "function") {
+    window.updateBookshelfTrashVisibility();
+  }
+
   updateNovelNavButtons();
 
   if (!silent) {
@@ -9788,8 +9998,19 @@ function parseAndLoadTxtBook(file, bookTitle) {
     let m;
 
     while ((m = chapterRegex.exec(content)) !== null) {
+      const candidate = m[1].trim();
+
+      // 正文裡也可能出現「第二章開始了。他在書架間穿梭……」這種以第X章開頭的一般句子，
+      // 這裡用兩個條件把它濾掉，避免目錄多出不存在的章節：
+      //  1. 標題太長（超過 40 字）通常是句子，不是章名
+      //  2. 句中出現句號／逗號／分號，而且「第X章」後面沒有接分隔符（空白、冒號、頓號…）
+      // 注意：合法章名可能以 ！？. 結尾（例如「第一章 相遇！」），所以不能只看結尾標點，
+      //       否則會把真正的章節併進上一章。
+      const hasChapterSeparator = /^(第[\s0-9一二三四五六七八九十百千]+[章回節卷集話篇]|Chapter\s*\d+)([\s\u3000：:、.\-]|$)/i.test(candidate);
+      if (candidate.length > 40 || (/[。，；]/.test(candidate) && !hasChapterSeparator)) continue;
+
       matches.push({
-        title: m[1].trim(),
+        title: candidate,
         index: m.index,
       });
     }
@@ -10151,6 +10372,12 @@ function loadLocalNovelChapter(idx) {
   const readingArea = document.getElementById("novelReadingArea");
 
   if (readingArea) readingArea.style.display = "block";
+
+  // 已切換到沉浸閱讀畫面：隱藏右下角垃圾桶（只在立體書架畫面顯示）
+  if (typeof window.updateBookshelfTrashVisibility === "function") {
+    window.updateBookshelfTrashVisibility();
+  }
+
   const titleEl = document.getElementById("novelBookTitle");
   const badgeEl = document.getElementById("novelChapterBadge");
   const headingEl = document.getElementById("novelChapterHeading");
@@ -12901,6 +13128,15 @@ window.saveMangaReadHistory = function (
   }
 };
 
+// 漫畫閱讀歷史列表的封面備援圖（data URI）。原本直接寫在 inline onerror 裡，
+// 裡面未跳脫的單引號會讓瀏覽器編譯事件處理器時丟出 SyntaxError；
+// 改成由函式回傳字串就沒有跳脫問題。
+const MANGA_HISTORY_FALLBACK_COVER =
+  "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='400' viewBox='0 0 300 400'%3E%3Crect fill='%231e293b' width='300' height='400'/%3E%3Cpath d='M150 180c-20-10-50-10-70 0v60c20-10 50-10 70 0m0-60c20-10 50-10 70 0v60c-20-10-50-10-70 0' stroke='%230284c7' stroke-width='6' fill='none'/%3E%3Ctext x='50%25' y='75%25' fill='%2394a3b8' font-family='sans-serif' font-size='14' text-anchor='middle'%3E漫畫書籍%3C/text%3E%3C/svg%3E";
+
+window.getMangaHistoryFallbackCover = function () {
+  return MANGA_HISTORY_FALLBACK_COVER;
+};
 // 在漫畫待命畫面渲染閱讀歷史清單（沒有紀錄就整個隱藏）；idx 是陣列位置，供「閱讀/刪除」按鈕使用
 window.renderMangaHistoryStandby = function () {
   const box = document.getElementById("mangaRecentHistoryBox");
@@ -12930,7 +13166,7 @@ window.renderMangaHistoryStandby = function () {
                       .map(
                         (item, idx) => `
                         <div class="d-flex align-items-center gap-2 p-1 rounded-2 bg-dark bg-opacity-50 border border-secondary border-opacity-25" style="transition: background 0.15s;">
-                            <img src="${escapeHtml(item.cover || "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='400' viewBox='0 0 300 400'%3E%3Crect fill='%231e293b' width='300' height='400'/%3E%3Cpath fill='%230284c7' d='M150 180c-20-10-50-10-70 0v60c20-10 50-10 70 0m0-60c20-10 50-10 70 0v60c-20-10-50-10-70 0' stroke='%230284c7' stroke-width='6' fill='none'/%3E%3Ctext x='50%25' y='75%25' fill='%2394a3b8' font-family='sans-serif' font-size='14' text-anchor='middle'%3E漫畫書籍%3C/text%3E%3C/svg%3E")}" style="width: 38px; height: 50px; object-fit: cover; border-radius: 4px; flex-shrink: 0;" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'400\' viewBox=\'0 0 300 400\'%3E%3Crect fill=\'%231e293b\' width=\'300\' height=\'400\'/%3E%3Cpath fill=\'%230284c7\' d=\'M150 180c-20-10-50-10-70 0v60c20-10 50-10 70 0m0-60c20-10 50-10 70 0v60c-20-10-50-10-70 0\' stroke=\'%230284c7\' stroke-width=\'6\' fill=\'none\'/%3E%3Ctext x=\'50%25\' y=\'75%25\' fill=\'%2394a3b8\' font-family=\'sans-serif\' font-size=\'14\' text-anchor=\'middle\'%3E漫畫書籍%3C/text%3E%3C/svg%3E'">
+                            <img src="${escapeHtml(item.cover || MANGA_HISTORY_FALLBACK_COVER)}" style="width: 38px; height: 50px; object-fit: cover; border-radius: 4px; flex-shrink: 0;" onerror="this.onerror=null;this.src=window.getMangaHistoryFallbackCover()" alt="${escapeHtml(item.title)}">
                             <div class="flex-grow-1 overflow-hidden">
                                 <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
                                 <div class="text-primary small text-truncate" style="font-size: 0.75rem;">${escapeHtml(item.chapterTitle || "第 1 話")}</div>

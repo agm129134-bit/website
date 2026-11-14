@@ -2262,6 +2262,14 @@ body.has-multi-modal .modal-backdrop:last-of-type {
   animation: globalTrashDump 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* 保險機制：只要進入閱讀畫面（條漫瀑布流／小說正文），垃圾桶一律不顯示。
+   JS 會同步在 body 加上 bookshelf-reader-mode，這裡用 !important 蓋掉任何流程
+   不小心寫入的 inline display，確保垃圾桶只出現在「立體書架」畫面。 */
+body.bookshelf-reader-mode .global-bookshelf-trash {
+  display: none !important;
+  pointer-events: none !important;
+}
+
 /* 垃圾桶相關動畫：Pulse = 呼吸提示、Dump = 丟入時的動作、Shake = 抖一下。 */
 
 @keyframes globalTrashPulse {
@@ -5025,6 +5033,17 @@ body.dark-theme .tag-badge {
 /* 對話框開啟時退到遮罩後面，不擋住對話框按鈕 (通知除外) */
 body.modal-open .dynamic-island-container:not(:has(.notifying)) {
   z-index: 1040;
+}
+
+/* 筆電常見寬度（992~1791px）時，導覽列右側的「新增收藏／觀看歷史」等按鈕會被置中的
+   靈動島蓋住，導致點擊被攔截（實測 1024~1680 皆會發生，1920 才正常）。
+   這裡把靈動島移到導覽列下方（導覽列高度 59px + 間距），避免擋住任何按鈕；
+   1920 等大螢幕維持原本置頂置中的設計；手機（<992px，導覽列收合）維持原位置，
+   以免島壓到展開後的搜尋框。 */
+@media (min-width: 992px) and (max-width: 1791.98px) {
+  .dynamic-island-container {
+    top: 68px;
+  }
 }
 
 .dynamic-island,

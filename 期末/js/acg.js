@@ -482,10 +482,18 @@
             if (modal && !modal.dataset.trashBound) {
                 modal.dataset.trashBound = "true";
                 modal.addEventListener('hidden.bs.modal', () => {
-                    const trash = document.getElementById("globalBookshelfTrashBin");
-                    if (trash) trash.style.display = "none";
+                    // 統一由 app.js 的函式處理：隱藏垃圾桶並清掉 body 的閱讀/書架狀態 class
+                    if (typeof window.updateBookshelfTrashVisibility === 'function') {
+                        window.updateBookshelfTrashVisibility();
+                    } else {
+                        const trash = document.getElementById("globalBookshelfTrashBin");
+                        if (trash) trash.style.display = "none";
+                    }
                 });
                 modal.addEventListener('shown.bs.modal', () => {
+                    if (typeof window.ensureBookshelfTrashObserver === 'function') {
+                        window.ensureBookshelfTrashObserver();
+                    }
                     if (typeof window.updateBookshelfTrashVisibility === 'function') {
                         window.updateBookshelfTrashVisibility();
                     }
