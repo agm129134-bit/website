@@ -5563,3 +5563,37 @@ body:has(.batch-action-bar:not(.d-none)) .back-to-top {
 .custom-rules-modal .form-control::placeholder {
   color: #64748b;
 }
+
+/* ============================================================
+   11. 動漫劇院自訂播放控制列在手機版 (<=576px) 的響應式排版
+   控制列換行、進度軸單獨佔滿一整行置頂，操作按鈕縮小間距，防止溢出破版
+   ============================================================ */
+@media (max-width: 576px) {
+  #danmakuTimelineBar {
+    flex-wrap: wrap !important;
+    row-gap: 4px;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  #danmakuTimelineBar .theater-timeline-slider-wrap {
+    flex-basis: 100% !important;
+    order: -1;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    margin-bottom: 2px;
+    width: 100% !important;
+  }
+
+  #danmakuTimelineBar .d-flex {
+    gap: 0.25rem !important;
+  }
+
+  #danmakuTimelineBar .btn {
+    padding-left: 0.35rem !important;
+    padding-right: 0.35rem !important;
+    font-size: 0.75rem !important;
+  }
+}

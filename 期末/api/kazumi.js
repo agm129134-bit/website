@@ -774,6 +774,18 @@ async function fetchDandanplayDanmaku(animeTitle, episodeIndex = 1, appId = '', 
     }
 }
 
+// 解碼常見的 HTML 實體符號，注意 &amp; 必須放在最後解碼以避免二次解碼
+function decodeEntities(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&#039;/g, "'")
+        .replace(/&amp;/g, '&');
+}
+
 // ===== 以下是路由總入口 =====
 // handleKazumiRoute：所有 /api/kazumi/* 請求都先進來這裡，再依 pathname（網址路徑）用 if / else if 分派到對應的處理區塊。
 // 沒有回傳值，結果都是直接寫進 res；每個分支用 return sendJson(...) 結束。
@@ -1302,7 +1314,7 @@ async function handleKazumiRoute(req, res) {
                             list.push({
                                 time: Math.floor(parseFloat(pParts[0]) || 0),
                                 color: '#' + (parseInt(pParts[3], 10) || 16777215).toString(16).padStart(6, '0'),
-                                content: m[2]
+                                content: decodeEntities(m[2]) // 解碼 XML 中的常見 HTML 實體避免字元二次跳脫
                             });
                         }
 

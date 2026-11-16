@@ -973,7 +973,8 @@ ${note}
       }
     });
     if (!rules.length) {
-      msg.innerHTML = `<span class="text-danger">${errors.map(esc).join("<br>")}</span>`;
+      // 匯入空陣列時 errors 為空，顯示專屬提示
+      msg.innerHTML = `<span class="text-danger">${errors.length ? errors.map(esc).join("<br>") : "JSON 裡沒有任何規則"}</span>`;
       return;
     }
     const [added, updated] = upsertRules(rules);

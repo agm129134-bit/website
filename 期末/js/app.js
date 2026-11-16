@@ -471,7 +471,7 @@ function initApp() {
   }
 
   // 啟動時自動背景向伺服器拉取最新跨電腦雲端同步書籤
-  if (state.currentUser && state.currentUser !== "訪客") {
+  if (state.currentUser && state.currentUser !== "訪客" && state.currentUser !== "guest") {
     syncFromServer(state.currentUser);
   }
 
@@ -479,7 +479,7 @@ function initApp() {
   window.addEventListener("focus", () => {
     if (_isLocalMutationActive) return; // 避免刪除彈窗復焦時誤觸發拉取競態
 
-    if (state.currentUser && state.currentUser !== "訪客") {
+    if (state.currentUser && state.currentUser !== "訪客" && state.currentUser !== "guest") {
       syncFromServer(state.currentUser, true);
     }
   });
@@ -575,7 +575,8 @@ window.logoutUser = function () {
 window.confirmDeleteCurrentAccount = async function () {
   const user = state.currentUser;
 
-  if (!user || user === "訪客") {
+  // 訪客（含 guest）帳號僅留在瀏覽器，無需刪除
+  if (!user || user === "訪客" || user === "guest") {
     showToast("訪客帳號無需刪除", "bi-info-circle text-info");
 
     return;
@@ -1256,8 +1257,10 @@ function updateStats() {
   const videoCount = catCounts.video;
   const mangaCount = catCounts.manga;
   const otherCount = catCounts.other;
+  const noteCount = catCounts.note;
   const totalCount = state.bookmarks.length;
-  statWeb.textContent = webCount;
+  // 第一張統計卡：一般網頁 + 筆記（三卡加總應等於總數）
+  statWeb.textContent = webCount + noteCount;
   const statVideo = document.getElementById("statVideoCount");
 
   if (statVideo) statVideo.textContent = videoCount;
@@ -1305,6 +1308,11 @@ function renderTagChips() {
       b.tags.forEach((t) => allTags.add(t.trim()));
     }
   });
+
+  // 若目前篩選標籤已不在現存標籤集合中，重設為全部標籤
+  if (state.activeTag !== "all" && !allTags.has(state.activeTag)) {
+    state.activeTag = "all";
+  }
 
   // 保留 "全部標籤" 按鈕
   container.innerHTML = `
@@ -1356,10 +1364,11 @@ function getFilteredAndSortedBookmarks() {
     result = result.filter((b) => getBookmarkCategory(b) === activeCat);
   }
 
-  // 2. 標籤過濾
+  // 2. 標籤過濾（比對時兩邊皆轉為字串並去空白）
   if (state.activeTag !== "all") {
+    const targetTag = String(state.activeTag).trim();
     result = result.filter(
-      (b) => Array.isArray(b.tags) && b.tags.includes(state.activeTag),
+      (b) => Array.isArray(b.tags) && b.tags.some((t) => String(t).trim() === targetTag),
     );
   }
 
@@ -2046,14 +2055,9 @@ function setupEventListeners() {
     resetBtn.addEventListener("click", async (e) => {
       e.preventDefault();
       const user = state.currentUser;
+      const isGuest = !user || user === "訪客" || user === "guest";
 
-      if (!user || user === "訪客") {
-        showToast("訪客帳號無需重置", "bi-info-circle text-info");
-
-        return;
-      }
-
-      // 清空流程：先上「本地修改鎖」_isLocalMutationActive，再清本機，再 POST /api/user/clear 清伺服器。
+      // 清空流程：先上「本地修改鎖」_isLocalMutationActive，訪客只清本機，登入者同步清伺服器。
       // 鎖的用途：confirm 視窗關閉會觸發 window 的 focus 事件，進而去伺服器拉資料，可能把剛清掉的書籤又拉回來。
       if (
         confirm(
@@ -2061,22 +2065,32 @@ function setupEventListeners() {
         )
       ) {
         _isLocalMutationActive = true;
-        state.bookmarks = [];
-        state.selectedBookmarkIds.clear();
+
+        // 登入者同步向伺服器清空（訪客資料只在 sessionStorage，不要呼叫 API）
+        if (!isGuest) {
+          try {
+            const res = await fetch("/api/user/clear", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ user: user }),
+            });
+            if (!res.ok) {
+              showToast("清空失敗，請稍後再試", "bi-exclamation-triangle-fill text-danger");
+              _isLocalMutationActive = false;
+              return;
+            }
+          } catch (err) {
+            console.warn("向伺服器發送清空指令失敗:", err);
+            showToast("清空失敗，無法連線至伺服器", "bi-exclamation-triangle-fill text-danger");
+            _isLocalMutationActive = false;
+            return;
+          }
+        }
 
         // 1. 本地儲存立即清空
+        state.bookmarks = [];
+        state.selectedBookmarkIds.clear();
         sessionStorage.setItem("web_library_bookmarks", JSON.stringify([]));
-
-        // 2. 伺服器端同步清空
-        try {
-          await fetch("/api/user/clear", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ user: user }),
-          });
-        } catch (err) {
-          console.warn("向伺服器發送清空指令失敗:", err);
-        }
 
         updateUI();
 
@@ -2253,6 +2267,18 @@ function saveBookmarkFromForm() {
   const pinned = document.getElementById("bmPinned").checked;
   const tags = tagsStr ? tagsStr.split(/[,，\s]+/).filter(Boolean) : [];
 
+  // 標題為空檢查
+  if (!title) {
+    showToast("請輸入標題", "bi-exclamation-triangle-fill text-warning");
+    return;
+  }
+
+  // 網址必須以 http:// 或 https:// 開頭
+  if (!/^https?:\/\//i.test(url)) {
+    showToast("網址必須以 http:// 或 https:// 開頭", "bi-exclamation-triangle-fill text-warning");
+    return;
+  }
+
   if (id) {
     // 更新現有項目
     const item = state.bookmarks.find((b) => b.id === id);
@@ -2304,6 +2330,15 @@ function saveBookmarkFromForm() {
 // YouTube 用正規表示式抓出 11 碼影片 ID，組出縮圖網址；GitHub 用 opengraph 服務產生預覽圖。
 // 網址格式錯誤時 new URL() 會丟例外，由 catch 提示使用者。
 function autoDetectUrl(url) {
+  // 網址格式驗證：必須以 http:// 或 https:// 開頭
+  if (!url || !/^https?:\/\//i.test(url)) {
+    showToast(
+      "請輸入有效的完整網址 (例如 https://...)",
+      "bi-exclamation-circle text-danger",
+    );
+    return;
+  }
+
   try {
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase();
@@ -7407,8 +7442,9 @@ window.getMangaBookshelf = function () {
   return Array.isArray(window._mangaBookshelfMemory) ? window._mangaBookshelfMemory : [];
 };
 
-// 防抖 (debounce) 計時器：使用者短時間連續改書架時，只在最後一次改完 350ms 後送一次請求，減少伺服器負擔
-let _bookshelfSyncDebounceTimer = null;
+// 獨立防抖計時器：漫畫與小說分開防抖，避免連續儲存時漫畫變更被小說覆蓋遺失
+let _mangaShelfSyncTimer = null;
+let _novelShelfSyncTimer = null;
 
 // 解析書架同步帳號 (session 登入者 → web_library_user → 預設)；訪客回傳 null
 function resolveBookshelfUser(explicitUser) {
@@ -7428,29 +7464,57 @@ window.syncBookshelfToServer = function(type, list) {
   const user = resolveBookshelfUser();
   if (!user) return;
 
-  clearTimeout(_bookshelfSyncDebounceTimer);
-  _bookshelfSyncDebounceTimer = setTimeout(async () => {
-    try {
-      const payload = { user: user };
-      if (type === 'manga') {
-        payload.manga = list;
-      } else if (type === 'novel') {
-        payload.novel = list;
-      } else {
-        payload.manga = window.getMangaBookshelf ? window.getMangaBookshelf() : [];
-        payload.novel = window.getNovelBookshelf ? window.getNovelBookshelf() : [];
+  if (type === 'manga') {
+    clearTimeout(_mangaShelfSyncTimer);
+    _mangaShelfSyncTimer = setTimeout(async () => {
+      try {
+        const payload = { user: user, manga: list };
+        await fetch('/api/user/bookshelf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        console.log(`[Bookshelf Sync] manga 立體書架已跨裝置持久化至 NeDB 資料庫`);
+      } catch (e) {
+        console.warn('[Bookshelf Sync] 同步至伺服器提示 (離線模式):', e.message);
       }
-      // POST /api/user/bookshelf：把書架（漫畫/小說）與帳號一起送給後端存進 NeDB 資料庫
-      await fetch('/api/user/bookshelf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      console.log(`[Bookshelf Sync] ${type} 立體書架已跨裝置持久化至 NeDB 資料庫`);
-    } catch (e) {
-      console.warn('[Bookshelf Sync] 同步至伺服器提示 (離線模式):', e.message);
-    }
-  }, 350);
+    }, 350);
+  } else if (type === 'novel') {
+    clearTimeout(_novelShelfSyncTimer);
+    _novelShelfSyncTimer = setTimeout(async () => {
+      try {
+        const payload = { user: user, novel: list };
+        await fetch('/api/user/bookshelf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        console.log(`[Bookshelf Sync] novel 立體書架已跨裝置持久化至 NeDB 資料庫`);
+      } catch (e) {
+        console.warn('[Bookshelf Sync] 同步至伺服器提示 (離線模式):', e.message);
+      }
+    }, 350);
+  } else {
+    clearTimeout(_mangaShelfSyncTimer);
+    clearTimeout(_novelShelfSyncTimer);
+    setTimeout(async () => {
+      try {
+        const payload = {
+          user: user,
+          manga: window.getMangaBookshelf ? window.getMangaBookshelf() : [],
+          novel: window.getNovelBookshelf ? window.getNovelBookshelf() : []
+        };
+        await fetch('/api/user/bookshelf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        console.log(`[Bookshelf Sync] 全部立體書架已跨裝置持久化至 NeDB 資料庫`);
+      } catch (e) {
+        console.warn('[Bookshelf Sync] 同步至伺服器提示 (離線模式):', e.message);
+      }
+    }, 350);
+  }
 };
 
 // 跨裝置立體書架同步核心：從 NeDB 伺服器端拉取書架並合併更新至本地記憶體
@@ -7575,8 +7639,10 @@ window.toggleMangaBookshelfItem = function (title, cover, btnEl) {
       btnEl.title = "已在條漫書架中，點擊可移出";
     }
 
+    const isGuest = !resolveBookshelfUser();
+    const guestHint = isGuest ? "（訪客模式不會保存，重新整理後會消失）" : "";
     showToast(
-      `🎉 成功將《${title}》收藏進條漫立體書架！`,
+      `🎉 成功將《${title}》收藏進條漫立體書架！${guestHint}`,
       "bi-star-fill text-warning",
     );
   }
@@ -8343,8 +8409,10 @@ window.toggleNovelBookshelfItem = function (title, cover, btnEl) {
       btnEl.title = "已在小說書房中，點擊可移出";
     }
 
+    const isGuest = !resolveBookshelfUser();
+    const guestHint = isGuest ? "（訪客模式不會保存，重新整理後會消失）" : "";
     showToast(
-      `🎉 成功將《${title}》收藏進小說立體書房！`,
+      `🎉 成功將《${title}》收藏進小說立體書房！${guestHint}`,
       "bi-star-fill text-warning",
     );
   }
@@ -9417,7 +9485,7 @@ function renderNovelSearchResults(novels, q = "", sourceName = "") {
     renderNovelNotice(
       container,
       `【${sourceName || "此書源"}】找不到${q ? `「${q}」` : ""}相關作品`,
-      "請嘗試其他關鍵字（簡體字通常較容易命中），或切換上方其他書源。",
+      "請試試日文原名或關鍵字",
       false,
     );
 
@@ -13535,10 +13603,17 @@ window.handleImportBookmarks = function (event) {
       // 2. 刷新整體 UI、統計數字與分類籤
       updateUI();
 
-      showToast(
-        `🎉 成功匯入書籤！新增 ${addedCount} 筆，更新 ${updatedCount} 筆`,
-        "bi-file-earmark-check-fill text-success",
-      );
+      if (addedCount === 0 && updatedCount === 0) {
+        showToast(
+          "沒有可匯入的書籤（需要 http/https 網址）",
+          "bi-exclamation-triangle-fill text-warning",
+        );
+      } else {
+        showToast(
+          `🎉 成功匯入書籤！新增 ${addedCount} 筆，更新 ${updatedCount} 筆`,
+          "bi-file-earmark-check-fill text-success",
+        );
+      }
     } catch (err) {
       console.error("匯入書籤解析失敗:", err);
 
@@ -14123,7 +14198,9 @@ window.toggleCurrentMangaToBookshelf = function () {
     tag: "已收藏",
   });
   window.saveMangaBookshelf(shelf);
-  showToast(`🎉 成功將《${cur.title}》收藏進條漫立體書架！`, "bi-star-fill text-warning");
+  const isGuest = !resolveBookshelfUser();
+  const guestHint = isGuest ? "（訪客模式不會保存，重新整理後會消失）" : "";
+  showToast(`🎉 成功將《${cur.title}》收藏進條漫立體書架！${guestHint}`, "bi-star-fill text-warning");
 };
 
 // 當前小說一鍵收進書房 (全域通用：支援線上與本機電子書)
@@ -14180,8 +14257,10 @@ window.toggleCurrentNovelToBookshelf = async function () {
     window.saveNovelBookshelf(shelf);
   }
 
+  const isNovelGuest = !resolveBookshelfUser();
+  const novelGuestHint = isNovelGuest ? "（訪客模式不會保存，重新整理後會消失）" : "";
   showToast(
-    `🎉 成功將${isLocal ? "本機小說" : "線上小說"}《${cur.title}》收藏進小說立體書房！`,
+    `🎉 成功將${isLocal ? "本機小說" : "線上小說"}《${cur.title}》收藏進小說立體書房！${novelGuestHint}`,
     "bi-star-fill text-warning",
   );
 };
@@ -14286,12 +14365,15 @@ async function probeHost8090() {
 }
 
 window.checkDockerStatus = async function (isManual = false) {
+  const dropdownWrapper = document.getElementById("dockerDropdownWrapper");
+  // 頁面上無 Docker 選單容器 (例如 ACG 專區) 時直接返回，避免多餘請求
+  if (!dropdownWrapper) return;
+
   const badge = document.getElementById("dockerStatusBadge");
   const navBadge = document.getElementById("navDockerBadge");
-  const dropdownWrapper = document.getElementById("dockerDropdownWrapper");
 
   // 8095 一定是在 Docker 容器內：不等 API（第一次載入可能逾時而卡在完整管理選單），直接換成 In Docker 選單
-  if (window.location.port === "8095" && dropdownWrapper) {
+  if (window.location.port === "8095") {
     renderInDockerMenu(dropdownWrapper, null);
     renderInDockerMenu(dropdownWrapper, await probeHost8090());
     return;
