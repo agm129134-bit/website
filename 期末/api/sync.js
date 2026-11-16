@@ -388,18 +388,31 @@ async function handleSyncRoute(req, res) {
         // 存入資料庫前密碼一定先 hashPassword（scrypt 加鹽雜湊）；回應也不會把密碼傳回去。
         if (pathname === '/api/user/register' && req.method === 'POST') {
             const body = await parseRequestBody(req);
-            const username = sanitizeUsername(body.username || '');
+            const rawUsername = String(body.username || '').trim();
+            const username = sanitizeUsername(rawUsername);
             const password = String(body.password || '').trim();
-            const name = String(body.name || username).trim();
-            const role = String(body.role || '一般會員').trim();
 
-            if (!username || username.length < 2) {
-                return sendJson(res, 400, { success: false, error: '帳號至少需 2 個字元' });
+            // 帳號驗證：原始輸入不可為空，且過濾非白名單字元後不可變成 default（除非原本就是 default），長度至少 2 個字元
+            if (!rawUsername || (username === 'default' && rawUsername.toLowerCase() !== 'default') || username.length < 2) {
+                return sendJson(res, 400, { success: false, error: '帳號只能使用英數字、底線、連字號或中文，至少 2 個字元' });
+            }
+            // 帳號長度上限 32 個字元
+            if (username.length > 32) {
+                return sendJson(res, 400, { success: false, error: '帳號長度不得超過 32 個字元' });
             }
             // guest / 訪客 / default 是訪客身分專用名稱，不能註冊成真帳號
             if (GUEST_NAMES.has(username)) {
                 return sendJson(res, 400, { success: false, error: '此帳號名稱為系統保留，請選擇其他帳號' });
             }
+
+            const name = String(body.name || username).trim();
+            // 暱稱長度上限 50 個字元
+            if (name.length > 50) {
+                return sendJson(res, 400, { success: false, error: '暱稱長度不得超過 50 個字元' });
+            }
+            // 角色權限一律固定為「一般會員」，防止前端越權傳入角色
+            const role = '一般會員';
+
             if (!password || password.length < 3) {
                 return sendJson(res, 400, { success: false, error: '密碼至少需 3 個字元' });
             }
@@ -610,8 +623,22 @@ async function handleSyncRoute(req, res) {
                 }
 
                 // 只更新「有帶進來」的欄位（!== undefined 判斷），沒帶的欄位維持原值，所以前端可以只送想改的部分。
-                if (body.name !== undefined) updates.name = String(body.name).trim();
-                if (body.bio !== undefined) updates.bio = String(body.bio).trim();
+                if (body.name !== undefined) {
+                    const trimmedName = String(body.name).trim();
+                    // 暱稱長度上限 50 個字元
+                    if (trimmedName.length > 50) {
+                        return sendJson(res, 400, { success: false, error: '暱稱長度不得超過 50 個字元' });
+                    }
+                    updates.name = trimmedName;
+                }
+                if (body.bio !== undefined) {
+                    const trimmedBio = String(body.bio).trim();
+                    // 個人簡介長度上限 500 個字元
+                    if (trimmedBio.length > 500) {
+                        return sendJson(res, 400, { success: false, error: '個人簡介長度不得超過 500 個字元' });
+                    }
+                    updates.bio = trimmedBio;
+                }
                 if (body.avatar !== undefined) {
                     // 頭像只接受預設頭像 id 或 data:image 圖片（上限約 3MB），擋掉塞 HTML / 任意網址的值
                     const av = String(body.avatar).trim();

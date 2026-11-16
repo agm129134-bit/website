@@ -201,6 +201,18 @@ const BAOZI_SEARCH_HOSTS = [
     'https://www.baozimh.com'
 ];
 
+// 解碼常見 HTML 實體（注意 &amp; 要最後解碼，避免重複解碼）
+function decodeEntities(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&#039;/g, "'")
+        .replace(/&amp;/g, '&');
+}
+
 // searchBaoziManga(keyword)：搜尋包子漫畫，回傳統一格式的陣列 [{id,title,cover,author,brief,source}]。
 //  依序試每個鏡像：請求失敗 / 逾時（5 秒）/ 沒結果就換下一個；全部失敗回傳空陣列（不丟錯，讓另一個來源仍可使用）。
 async function searchBaoziManga(keyword) {
@@ -232,7 +244,7 @@ async function searchBaoziManga(keyword) {
                     seen.add(id);
                     results.push({
                         id: `baozi_${id}`,
-                        title: title,
+                        title: decodeEntities(title),
                         cover: cover,
                         author: '',
                         brief: '包子漫畫全網穩定源',
