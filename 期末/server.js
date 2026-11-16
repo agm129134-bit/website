@@ -81,7 +81,34 @@ const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;',
 // 每一個 HTTP 請求都會進來這個函式（req=請求、res=回應）。流程：
 //  1. 先看是不是 API 路由，是就轉交給對應模組。
 //  2. 否則當成靜態檔案：整理路徑 -> 檢查白名單 -> 讀檔回傳，找不到回 404。
+// 簡易速率限制：同一個 IP 對登入 / 註冊 / 忘記密碼，10 分鐘內最多 30 次，超過回 429，
+// 防止有人用程式無限次猜密碼。資料只放記憶體，重啟伺服器就歸零（這個規模夠用）。
+const RATE_LIMIT_PATHS = ['/api/user/login', '/api/user/register', '/api/user/reset-password'];
+const RATE_WINDOW_MS = 10 * 60 * 1000;
+const RATE_MAX = 30;
+const rateHits = new Map(); // key: ip|path -> 時間戳陣列
+function isRateLimited(req) {
+    const pathOnly = req.url.split('?')[0];
+    if (req.method !== 'POST' || !RATE_LIMIT_PATHS.includes(pathOnly)) return false;
+    const key = (req.socket.remoteAddress || '') + '|' + pathOnly;
+    const now = Date.now();
+    const hits = (rateHits.get(key) || []).filter(t => now - t < RATE_WINDOW_MS);
+    hits.push(now);
+    rateHits.set(key, hits);
+    if (rateHits.size > 5000) rateHits.clear(); // 避免被大量不同 IP 撐爆記憶體
+    return hits.length > RATE_MAX;
+}
+
 const server = http.createServer((req, res) => {
+    // 安全標頭：nosniff 禁止瀏覽器猜測檔案類型；SAMEORIGIN 禁止別的網站用 iframe 嵌入本站（防點擊劫持）
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+
+    if (isRateLimited(req)) {
+        res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': '600' });
+        return res.end(JSON.stringify({ success: false, error: '嘗試次數過多，請 10 分鐘後再試' }));
+    }
+
     for (const [prefixes, handler] of API_ROUTES) {
         if (prefixes.some(p => req.url.startsWith(p))) {
             // 任何路由丟出的同步例外或 Promise rejection 都在這裡接住，回 500，伺服器不會整個掛掉

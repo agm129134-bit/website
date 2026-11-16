@@ -56,6 +56,15 @@ function isPrivateIp(ip) {
         const mapped = v.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
         if (mapped) return isPrivateIp(mapped[1]);
         if (/^::ffff:[0-9a-f]{1,4}:[0-9a-f]{1,4}$/.test(v)) return true; // 十六進位寫法的 v4-mapped，一律擋
+        // 其他以 :: 開頭的位址（IPv4 相容寫法如 ::127.0.0.1、::7f00:1）沒有正當用途，一律擋
+        if (v.startsWith('::')) return true;
+        // 6to4 (2002::/16) 把 IPv4 藏在第 2、3 組：取出來再檢查，否則 2002:7f00:1:: 可繞到本機
+        const g = v.split(':');
+        if (g[0] === '2002') {
+            const hi = parseInt(g[1] || '0', 16), lo = parseInt(g[2] || '0', 16);
+            return isPrivateIp(`${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`);
+        }
+        if (g[0] === '2001' && (g[1] === '0' || g[1] === '')) return true; // Teredo 2001:0::/32
         const first = parseInt(v.split(':')[0] || '0', 16);
         if ((first & 0xfe00) === 0xfc00) return true; // fc00::/7 ULA
         if ((first & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
