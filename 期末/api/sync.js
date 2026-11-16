@@ -196,7 +196,7 @@ function serveScreenshot(name, res) {
 // 安全純化使用者名稱，避免路徑穿越並統一小寫
 function sanitizeUsername(username) {
     if (!username) return 'default';
-    const clean = username.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '').trim().toLowerCase();
+    const clean = String(username).replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '').trim().toLowerCase();
     return clean || 'default';
 }
 
@@ -354,7 +354,7 @@ async function handleSyncRoute(req, res) {
 
             const acc = await accountsDb.findOne({ username });
             if (!acc) {
-                return sendJson(res, 401, { success: false, error: '帳號不存在或密碼錯誤' });
+                return sendJson(res, 401, { success: false, error: '帳號或密碼不正確' });
             }
 
             const isValid = verifyPassword(password, acc.password);
@@ -507,7 +507,12 @@ async function handleSyncRoute(req, res) {
             }
 
             const acc = await accountsDb.findOne({ username });
+            const resetMsg = '此伺服器未開放自助重設密碼（沒有 Email 驗證，開放會讓任何人改掉別人的密碼）。請登入後到個人設定修改，或聯絡網站管理員。';
             if (!acc) {
+                // 未開放重設時，帳號不存在也回同一個 403，避免被拿來探測帳號是否存在
+                if (!/^(1|true|yes)$/i.test(String(process.env.ALLOW_PASSWORD_RESET || '').trim())) {
+                    return sendJson(res, 403, { success: false, error: resetMsg });
+                }
                 return sendJson(res, 400, { success: false, error: '帳號不存在，請先註冊' });
             }
 
@@ -590,9 +595,12 @@ async function handleSyncRoute(req, res) {
 
                 // POST：只有帶 newPassword 才會改密碼，而且必須先通過舊密碼驗證，防止別人趁你沒登出亂改。
                 // 若要修改密碼，需比對舊密碼
-                if (body.newPassword && body.newPassword.trim()) {
-                    const newPw = body.newPassword.trim();
-                    const oldPw = (body.oldPassword || '').trim();
+                if (body.newPassword && String(body.newPassword).trim()) {
+                    const newPw = String(body.newPassword).trim();
+                    if (newPw.length < 3) {
+                        return sendJson(res, 400, { success: false, error: '新密碼至少需 3 個字元' });
+                    }
+                    const oldPw = String(body.oldPassword || '').trim();
                     if (acc.password && !verifyPassword(oldPw, acc.password)) {
                         return sendJson(res, 400, { success: false, error: '原登入密碼不正確，無法修改密碼！' });
                     }

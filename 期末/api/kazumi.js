@@ -1187,7 +1187,15 @@ async function handleKazumiRoute(req, res) {
                                     // 排除顯而易見的雜訊 (遊戲聯動、導視等)
                                     if (noiseRegex.test(cleanT)) continue;
                                     // 檢查標題是否吻合該集
-                                    if (epRegex.test(cleanT) || epNum === 1) {
+                                    // 第 1 集的影片標題常不標集數，所以放寬；但標題至少要跟動畫名稱有兩個連續字相同，
+                                    // 否則任何搜尋結果（甚至不相干的直播）都會被當成彈幕來源
+                                    const relatedToTitle = (() => {
+                                        const k = cleanKeyword.toLowerCase().replace(/\s+/g, '');
+                                        const t = cleanT.toLowerCase();
+                                        for (let i = 0; i < k.length - 1; i++) if (t.includes(k.slice(i, i + 2))) return true;
+                                        return false;
+                                    })();
+                                    if (epRegex.test(cleanT) || (epNum === 1 && relatedToTitle)) {
                                         matchedCandidates.push({ bvid: it.bvid, title: cleanT, danmaku: dm });
                                     }
                                 }

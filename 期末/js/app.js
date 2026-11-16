@@ -314,6 +314,7 @@ async function seamlessNavigateTo(url, isPopState = false) {
       if (typeof window.loadAcgPageCalendar === "function") window.loadAcgPageCalendar();
       if (typeof window.initAcgGsapAnimations === "function") window.initAcgGsapAnimations();
       if (typeof window.syncBookshelfFromServer === "function") window.syncBookshelfFromServer();
+      if (typeof window.initTheaterControls === "function") window.initTheaterControls();
     } else {
       // 首頁的 DOM 是新換上的，原本綁在舊元素上的事件 (分類、搜尋、排序、視圖切換…) 都已失效，必須重綁
       if (document.getElementById("categoryNav") && typeof setupEventListeners === "function") setupEventListeners();
@@ -686,6 +687,8 @@ let _isLocalMutationActive = false; // 本地主動修改鎖 (避免 confirm 彈
 // immediate=false：用「防抖 (debounce)」延遲 500ms，連續快速修改多次只會送出最後一次，省流量；
 // immediate=true：立刻送出並等待完成（例如刪除操作，避免還沒送出就被別處同步拉回舊資料）。
 // 失敗時只印警告，不影響本機使用（離線模式）。
+// 本機有改動但還沒成功寫到伺服器時為 true；這段期間切回分頁不能拿伺服器資料覆蓋本機
+let _hasPendingLocalSync = false;
 async function syncToServer(immediate = false) {
   const user = state.currentUser;
 
@@ -693,6 +696,7 @@ async function syncToServer(immediate = false) {
   if (!user || user === "訪客" || user === "guest") return;
 
   clearTimeout(_cloudSyncDebounceTimer);
+  _hasPendingLocalSync = true;
 
   const doSync = async () => {
     try {
@@ -707,6 +711,7 @@ async function syncToServer(immediate = false) {
       const data = await res.json();
 
       if (data && data.success) {
+        _hasPendingLocalSync = false;
         console.log(
           `[Cloud Sync] 跨電腦同步：已成功持久化至伺服器 (${data.count} 筆)`,
         );
@@ -758,8 +763,22 @@ async function syncFromServer(username, isFocusSync = false) {
         );
 
         updateUI();
+      } else if (!_hasPendingLocalSync) {
+        // 切回分頁時本機沒有未上傳的改動：以伺服器為準，這樣別台裝置的刪除與編輯也會反映過來，
+        // 不會因為本機留著舊資料、之後整份上傳而讓刪掉的書籤復活
+        const before = JSON.stringify(state.bookmarks);
+        if (before !== JSON.stringify(data.bookmarks)) {
+          const beforeCount = state.bookmarks.length;
+          state.bookmarks = data.bookmarks;
+          sessionStorage.setItem("web_library_bookmarks", JSON.stringify(state.bookmarks));
+          updateUI();
+          const diff = state.bookmarks.length - beforeCount;
+          if (diff > 0) {
+            showToast(`☁️ 跨電腦同步：已從伺服器合併新增 ${diff} 部新收藏！`, "bi-cloud-download-fill text-success");
+          }
+        }
       } else {
-        // 切換分頁無感同步（Alt+B 外部擴充新增）：僅合併伺服器端真正新加入的書籤
+        // 本機還有改動沒上傳：只合併伺服器端真正新加入的書籤（Alt+B 外部擴充新增）
         let added = 0;
 
         const existingUrls = new Set(
@@ -1393,6 +1412,8 @@ function getFilteredAndSortedBookmarks() {
       result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       break;
   }
+  // 置頂的卡片在任何排序下都排最前面（Array.sort 是穩定排序，置頂群組內仍維持上面的排序）
+  result.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
 
   return result;
 }
@@ -6445,8 +6466,22 @@ window.saveDandanplayFromModal = function () {
 // 彈幕按鈕事件綁定
 // 網頁載入完成後一次性綁定：發送彈幕按鈕/Enter、彈幕開關、全螢幕變化、<video> 的各種事件（播放/暫停/跳轉/倍速/結束）、
 // iframe 的 postMessage 回報、鍵盤快速鍵、滑鼠滾輪調音量。目的都是讓「影片」與「彈幕」永遠同步。
-document.addEventListener("DOMContentLoaded", () => {
+// 全域（document / window）監聽器重綁時先移除舊的，避免無縫換頁後重跑初始化造成重複觸發
+function _rebindGlobal(target, type, fn) {
+  const key = "_wlTheater_" + type;
+  if (target[key]) target.removeEventListener(type, target[key]);
+  target[key] = fn;
+  target.addEventListener(type, fn);
+}
+
+// 無縫換頁 (seamlessNavigateTo) 換上新的 acg DOM 後也要重跑，否則彈幕按鈕與 <video> 事件都綁在舊元素上而失效
+window.initTheaterControls = function () {
   const danmakuBtn = document.getElementById("sendDanmakuBtn");
+  // 同一組元素只綁一次
+  if (danmakuBtn) {
+    if (danmakuBtn.dataset.wlBound) return;
+    danmakuBtn.dataset.wlBound = "1";
+  }
   const danmakuInput = document.getElementById("danmakuInput");
   const toggleBtn = document.getElementById("danmakuToggleBtn");
 
@@ -6570,7 +6605,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 支援 iframe 播放器透過 postMessage 進行暫停/播放/時間軸雙向通知 (相容 Tampermonkey Bridge 與通用協議)
   // 這是「接收」方向：iframe 內的播放器（或篡改猴腳本）把狀態丟回來，我們據此暫停/恢復彈幕、更新時間。
   // 外層 try/catch 是因為別人傳來的資料格式不可預期，出錯就忽略，不要中斷頁面。
-  window.addEventListener("message", (event) => {
+  _rebindGlobal(window, "message", (event) => {
     try {
       const data = event.data;
 
@@ -6688,7 +6723,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // 支援劇院快速鍵 (空白鍵暫停/繼續影片與彈幕、左右鍵快退/快進 5 秒，待命狀態僅保留按 F 全螢幕)
-  document.addEventListener("keydown", (e) => {
+  _rebindGlobal(document, "keydown", (e) => {
     const tag =
       e.target && e.target.tagName ? e.target.tagName.toLowerCase() : "";
 
@@ -6808,7 +6843,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (typeof window.applyKazumiVolume === "function") {
     window.applyKazumiVolume(false);
   }
-});
+};
+document.addEventListener("DOMContentLoaded", () => window.initTheaterControls());
 
 // 取得劇院播放器狀態：劇院 Modal 是否開啟、播放容器是否全螢幕
 function getTheaterViewState() {

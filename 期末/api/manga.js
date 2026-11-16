@@ -282,6 +282,18 @@ async function getBaoziChapters(rawId) {
     if (chapters.length === 0) {
         throw new Error('未在包子漫畫中檢索到任何章節');
     }
+    // 頁面上「最新章節」區是倒序、完整目錄是正序，抓在一起順序會亂（第 1 話後面接第 129 話）。
+    // 連結裡有 section_slot / chapter_slot，依它們排序後重新編號；抓不到就維持原順序。
+    const slotOf = (link) => {
+        const q = new URLSearchParams(link.split('?')[1] || '');
+        const sec = parseInt(q.get('section_slot'), 10);
+        const ch = parseInt(q.get('chapter_slot'), 10);
+        return Number.isFinite(ch) ? (Number.isFinite(sec) ? sec : 0) * 1e6 + ch : null;
+    };
+    if (chapters.every(c => slotOf(c.id) !== null)) {
+        chapters.sort((a, b) => slotOf(a.id) - slotOf(b.id));
+        chapters.forEach((c, i) => { c.index = i + 1; });
+    }
     return chapters;
 }
 
