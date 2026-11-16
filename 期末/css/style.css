@@ -5597,3 +5597,23 @@ body:has(.batch-action-bar:not(.d-none)) .back-to-top {
     font-size: 0.75rem !important;
   }
 }
+
+/* 手機窄螢幕：閒置的動態島改成小膠囊、靠右放在漢堡選單左邊，避免蓋住左上角的品牌文字。
+   只在 idle 狀態套用（:has 選擇器），展開播放或通知時仍維持置中的大尺寸。 */
+@media (max-width: 576px) {
+  .dynamic-island-container:has(.dynamic-island.idle) {
+    left: auto;
+    right: 82px;
+    transform: none;
+  }
+  .dynamic-island.idle {
+    width: 44px !important;
+  }
+  .dynamic-island.idle .island-center,
+  .dynamic-island.idle .island-right {
+    display: none !important;
+  }
+  .dynamic-island.idle .island-bar {
+    justify-content: center;
+  }
+}

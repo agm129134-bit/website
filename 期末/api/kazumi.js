@@ -1160,6 +1160,8 @@ async function handleKazumiRoute(req, res) {
                         .replace(/[【】\[\]()（）]/g, ' ')
                         .replace(/第\s*\d+\s*[集話期]/g, '')
                         .replace(/(Season\s*\d+|S\d+)/gi, '')
+                        // 中文季數寫法（第二季、第2期、第三部）也要去掉，否則 B 站搜不到該集
+                        .replace(/第\s*[一二三四五六七八九十\d]+\s*[季期部]/g, '')
                         .trim();
 
                     const epPad = String(epNum).padStart(2, '0');

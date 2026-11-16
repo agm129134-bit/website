@@ -2444,13 +2444,20 @@ function simulateTampermonkeyCollect() {
       desc: "由篡改猴一鍵採集至 Web Library 圖書館。",
     },
   ];
-  const randomPick = mockSites[Math.floor(Math.random() * mockSites.length)];
+  // 優先挑還沒收藏過的範例；都收過了就提示，不重複新增同一個網址
+  const existingUrls = new Set(state.bookmarks.map((b) => b.url));
+  const candidates = mockSites.filter((m) => !existingUrls.has(m.url));
+  if (!candidates.length) {
+    showToast("範例網頁都已經收藏過了，不會重複新增", "bi-info-circle text-info");
+    return;
+  }
+  const randomPick = candidates[Math.floor(Math.random() * candidates.length)];
 
   const newItem = {
     id: "bm_" + Date.now(),
     ...randomPick,
     pinned: false,
-    clicks: 1,
+    clicks: 0,
     createdAt: new Date().toISOString(),
   };
   state.bookmarks.unshift(newItem);
@@ -5433,7 +5440,12 @@ async function startDanmakuStream(animeTitle, cid = null, episodeNo = 1) {
       ) {
         danmakuQueue = data.danmaku;
 
-        if (data.source === "dandanplay") {
+        // 自訂來源無法站內播放時，畫面正顯示「請於新分頁觀看」的提示，不要用彈幕訊息把它蓋掉
+        const blockedCard = document.getElementById("kazumiBlockedFallback");
+        const playbackBlocked = blockedCard && getComputedStyle(blockedCard).display !== "none";
+        if (playbackBlocked) {
+          // 不顯示彈幕載入提示
+        } else if (data.source === "dandanplay") {
           showToast(
             `已載入彈彈play全網聚合彈幕 (${data.count} 則)`,
             "bi-chat-dots-fill text-warning",
