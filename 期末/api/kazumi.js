@@ -785,8 +785,7 @@ async function fetchDandanplayDanmaku(animeTitle, episodeIndex = 1, appId = '', 
  */
 async function handleKazumiRoute(req, res) {
     try {
-        const host = req.headers.host || '127.0.0.1';
-        const parsedUrl = new URL(req.url, `http://${host}`);
+        const parsedUrl = new URL(req.url, 'http://localhost');
         const pathname = parsedUrl.pathname;
 
         // 瀏覽器跨網域呼叫前會先送 OPTIONS「預檢」詢問是否允許，這裡直接回 204（成功但沒內容）並帶上允許的標頭。

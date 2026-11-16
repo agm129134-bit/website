@@ -101,7 +101,7 @@ async function handleDockerRoute(req, res) {
     }
 
     // 用 URL 物件解析請求網址，才能拿到不含 ?query 的 pathname。
-    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const url = new URL(req.url, 'http://localhost');
     const pathname = url.pathname;
 
     // 已知的兩個路由先驗證身分，未通過就到此為止（不會執行任何 docker 指令）。

@@ -76,7 +76,9 @@ function parseRequestBody(req) {
             body += chunk;
             if (body.length > 20 * 1024 * 1024) { // 限制 20MB
                 req.destroy();
-                reject(new Error('請求體過大'));
+                const err = new Error('請求體過大');
+                err.statusCode = 413;
+                reject(err);
             }
         });
         req.on('end', () => {
@@ -84,7 +86,9 @@ function parseRequestBody(req) {
             try {
                 resolve(JSON.parse(body));
             } catch (e) {
-                reject(new Error('JSON 格式解析失敗: ' + e.message));
+                const err = new Error('JSON 格式錯誤');
+                err.statusCode = 400;
+                reject(err);
             }
         });
         req.on('error', reject);
@@ -314,8 +318,8 @@ async function resolveUsernameFromToken(token) {
  * 處理跨電腦同步、NeDB 資料庫與 Bangumi 雙向同步路由
  */
 async function handleSyncRoute(req, res) {
-    const host = req.headers.host || '127.0.0.1';
-    const parsedUrl = new URL(req.url, `http://${host}`);
+    // 用固定 base：Host 標頭可被任意偽造，含空白等字元會讓 new URL 丟例外
+    const parsedUrl = new URL(req.url, 'http://localhost');
     const pathname = parsedUrl.pathname;
     // 把網址 ?a=1&b=2 轉成物件 { a:"1", b:"2" }，後面用 query.user 這樣取值。
     const query = Object.fromEntries(parsedUrl.searchParams.entries());
@@ -600,7 +604,14 @@ async function handleSyncRoute(req, res) {
                 // 只更新「有帶進來」的欄位（!== undefined 判斷），沒帶的欄位維持原值，所以前端可以只送想改的部分。
                 if (body.name !== undefined) updates.name = String(body.name).trim();
                 if (body.bio !== undefined) updates.bio = String(body.bio).trim();
-                if (body.avatar !== undefined) updates.avatar = String(body.avatar).trim();
+                if (body.avatar !== undefined) {
+                    // 頭像只接受預設頭像 id 或 data:image 圖片（上限約 3MB），擋掉塞 HTML / 任意網址的值
+                    const av = String(body.avatar).trim();
+                    const ok = /^[\w-]{1,40}$/.test(av) ||
+                        (/^data:image\/(png|jpe?g|webp|gif|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(av) && av.length < 4 * 1024 * 1024);
+                    if (!ok) return sendJson(res, 400, { success: false, error: '頭像格式不正確' });
+                    updates.avatar = av;
+                }
                 if (body.sortPref !== undefined) updates.sortPref = String(body.sortPref).trim();
                 if (body.themePref !== undefined) updates.themePref = String(body.themePref).trim();
                 // 首頁偏好 (預設排序 / 預設分類 / Spotlight 特效)，跨分頁與重新登入都要保留
@@ -1166,16 +1177,16 @@ async function handleSyncRoute(req, res) {
                 if (Array.isArray(body.bookmarks)) {
                     // 整批模式：逐筆重新整理欄位(補預設值、去空白)，不信任前端傳來的格式。id 沒給就用時間戳自動產生。
                     // 整批覆蓋更新
-                    bookmarksList = body.bookmarks.map((b, idx) => ({
-                        id: b.id || ('bm_' + (Date.now() + idx)),
-                        title: (b.title || '未命名網頁').trim(),
-                        url: (b.url || '').trim(),
-                        category: b.category || 'web',
-                        tags: Array.isArray(b.tags) ? b.tags : (b.tags ? [b.tags] : []),
-                        cover: b.cover || b.coverUrl || '',
-                        desc: b.desc || b.description || '',
+                    bookmarksList = body.bookmarks.filter(b => b && typeof b === 'object').map((b, idx) => ({
+                        id: String(b.id || '').replace(/[^\w-]/g, '') || ('bm_' + (Date.now() + idx)),
+                        title: String(b.title || '未命名網頁').trim().slice(0, 500),
+                        url: String(b.url || '').trim().slice(0, 4000),
+                        category: String(b.category || 'web').slice(0, 40),
+                        tags: (Array.isArray(b.tags) ? b.tags : (b.tags ? [b.tags] : [])).map(t => String(t).trim()).filter(Boolean).slice(0, 50),
+                        cover: String(b.cover || b.coverUrl || ''),
+                        desc: String(b.desc || b.description || ''),
                         pinned: !!b.pinned,
-                        clicks: typeof b.clicks === 'number' ? b.clicks : 0,
+                        clicks: Math.max(0, parseInt(b.clicks, 10) || 0),
                         createdAt: b.createdAt || new Date().toISOString()
                     }));
                 } else {
@@ -1187,13 +1198,13 @@ async function handleSyncRoute(req, res) {
                     }
 
                     const newBm = {
-                        id: bm.id || ('bm_' + Date.now()),
-                        title: (bm.title || '未命名網頁').trim(),
-                        url: (bm.url || '').trim(),
-                        category: bm.category || 'web',
-                        tags: Array.isArray(bm.tags) ? bm.tags : (bm.tags ? [bm.tags] : []),
-                        cover: bm.cover || bm.coverUrl || '',
-                        desc: bm.desc || bm.description || '',
+                        id: String(bm.id || '').replace(/[^\w-]/g, '') || ('bm_' + Date.now()),
+                        title: String(bm.title || '未命名網頁').trim().slice(0, 500),
+                        url: String(bm.url || '').trim().slice(0, 4000),
+                        category: String(bm.category || 'web').slice(0, 40),
+                        tags: (Array.isArray(bm.tags) ? bm.tags : (bm.tags ? [bm.tags] : [])).map(t => String(t).trim()).filter(Boolean).slice(0, 50),
+                        cover: String(bm.cover || bm.coverUrl || ''),
+                        desc: String(bm.desc || bm.description || ''),
                         pinned: !!bm.pinned,
                         clicks: 0,
                         createdAt: bm.createdAt || new Date().toISOString()
@@ -1362,7 +1373,9 @@ async function handleSyncRoute(req, res) {
         }
     } catch (err) {
         console.error('[Sync API Error]:', err.message);
-        return sendJson(res, 500, { success: false, error: err.message });
+        // 用戶端錯誤（壞 JSON、太大）回 4xx 和原訊息；其他一律 500 且不把內部錯誤訊息傳給前端
+        if (err.statusCode) return sendJson(res, err.statusCode, { success: false, error: err.message });
+        return sendJson(res, 500, { success: false, error: '伺服器內部錯誤' });
     }
 }
 

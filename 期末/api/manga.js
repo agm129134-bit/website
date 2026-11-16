@@ -463,7 +463,7 @@ async function getChapterPages(mangaId, chapterId) {
 //  錯誤處理：最外層 try/catch；被 SSRF 防護擋下的錯誤回 403，其他回 500。
 // 主路由處理器 (全面遵循 WHATWG URL 標準，消除 DEP0169 url.parse 棄用警告)
 async function handleMangaRoute(req, res) {
-    const parsedUrl = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
+    const parsedUrl = new URL(req.url, 'http://localhost');
     const pathname = parsedUrl.pathname;
     const query = Object.fromEntries(parsedUrl.searchParams.entries());
 

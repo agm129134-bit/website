@@ -83,7 +83,14 @@ const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;',
 //  2. 否則當成靜態檔案：整理路徑 -> 檢查白名單 -> 讀檔回傳，找不到回 404。
 const server = http.createServer((req, res) => {
     for (const [prefixes, handler] of API_ROUTES) {
-        if (prefixes.some(p => req.url.startsWith(p))) return handler(req, res);
+        if (prefixes.some(p => req.url.startsWith(p))) {
+            // 任何路由丟出的同步例外或 Promise rejection 都在這裡接住，回 500，伺服器不會整個掛掉
+            return Promise.resolve().then(() => handler(req, res)).catch(err => {
+                console.error('[API Error]:', err && err.message);
+                if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+                res.end(JSON.stringify({ success: false, error: '伺服器內部錯誤' }));
+            });
+        }
     }
 
     // （以下是上方說明的補充）decodeURI 把 %E4%B8%AD 之類還原成中文；網址格式錯誤會丟例外，
@@ -157,6 +164,11 @@ const server = http.createServer((req, res) => {
 // 成功後印出網址，並在本機自動開啟預設瀏覽器（Windows 用 start、macOS 用 open、Linux 用 xdg-open）。
 // 若有設 PORT（Docker/雲端）或 RENDER 環境變數就不開瀏覽器，因為伺服器上沒有螢幕。
 // 啟動伺服器函數
+// 最後防線：沒被接住的非同步錯誤只記錄，不讓整個程序退出
+process.on('unhandledRejection', (err) => {
+    console.error('[unhandledRejection]:', err && err.message ? err.message : err);
+});
+
 function startServer(port) {
     server.listen(port, () => {
         const localUrl = `http://localhost:${port}`;

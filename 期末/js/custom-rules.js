@@ -206,7 +206,8 @@
   // 儲存與同步：資料來源有兩份——本機 localStorage 與伺服器，以 updatedAt 較新的為準。
   // ==================== 儲存與同步 ====================
   // store：記憶體中的所有規則 { rules: [...], updatedAt }。
-  let store = { rules: [], updatedAt: null };
+  // owner：這份本機規則屬於哪個帳號（訪客為 ""）。localStorage 不分帳號，換人登入時靠它避免看到或上傳別人的規則。
+  let store = { rules: [], updatedAt: null, owner: "" };
 
   // loadLocal()：從 localStorage 讀入 store；資料壞掉就略過（不讓頁面報錯）。
   function loadLocal() {
@@ -214,7 +215,14 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.rules)) store = { rules: parsed.rules, updatedAt: parsed.updatedAt || null };
+        if (parsed && Array.isArray(parsed.rules)) {
+          const me = currentUser() || "";
+          // 舊版資料沒有 owner：登入者直接沿用；有 owner 但不是目前的人就不載入（不顯示也不上傳）
+          const owner = typeof parsed.owner === "string" ? parsed.owner : me;
+          store = owner === me
+            ? { rules: parsed.rules, updatedAt: parsed.updatedAt || null, owner: me }
+            : { rules: [], updatedAt: null, owner: me };
+        }
       }
     } catch (e) {
       console.warn("[CustomRules] 讀取本機規則失敗", e);
@@ -235,6 +243,7 @@
   let pushTimer = null;
   function save() {
     store.updatedAt = new Date().toISOString();
+    store.owner = currentUser() || "";
     writeLocal();
     const user = currentUser();
     if (!user) return;
@@ -269,7 +278,7 @@
       const remoteAt = data.updatedAt ? Date.parse(data.updatedAt) : 0;
       const localAt = store.updatedAt ? Date.parse(store.updatedAt) : 0;
       if (remoteAt > localAt && Array.isArray(data.rules)) {
-        store = { rules: data.rules, updatedAt: data.updatedAt };
+        store = { rules: data.rules, updatedAt: data.updatedAt, owner: user };
         writeLocal();
         refreshAll();
       } else if (localAt > remoteAt && store.rules.length) {

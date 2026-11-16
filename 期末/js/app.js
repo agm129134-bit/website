@@ -15,6 +15,13 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
+// 產生可安全放進 onclick="fn(...)" 的 JS 字串參數。
+// 注意：onclick="f(${jsArg(x)})" 是錯的——瀏覽器解析屬性時會把 &#039; 還原成 '，字串就被截斷甚至執行注入的程式。
+// 正確做法：JSON.stringify 產生合法的 JS 字串字面值（含引號），再 escapeHtml 讓它能安全放在 HTML 屬性裡。
+function jsArg(value) {
+  return escapeHtml(JSON.stringify(String(value ?? "")));
+}
+
 // ==================== 登入憑證 (session token) ====================
 // 登入 / 註冊成功時伺服器會發一組 token，登入頁把它存在 currentUser（勾「記住我」時也在 rememberedUser）。
 // 伺服器只認 token 不認帳號名稱，所以所有帳號相關 API 都要在 X-WL-Token 標頭帶上它。
@@ -547,6 +554,8 @@ window.logoutUser = function () {
     localStorage.removeItem("rememberedUser");
     localStorage.removeItem("currentUser");
     localStorage.removeItem("web_library_user");
+    // 自訂來源規則存在不分帳號的 localStorage，登出要清掉，否則下一個登入者會看到並上傳到他的帳號
+    localStorage.removeItem("web_library_custom_rules_v1");
 
     showToast(
       "已成功登出帳號，正在返回登入頁面...",
@@ -1501,7 +1510,7 @@ function renderBookmarks(skipAnimation = false) {
     }
 
     // 網站小圖示直接用 Google 的 favicon 服務，依網域取得，不用自己存圖
-    const faviconUrl = `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`;
+    const faviconUrl = escapeHtml(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=32`);
 
     // 標籤 HTML
     const tagsHtml = (item.tags || [])
@@ -1531,14 +1540,14 @@ function renderBookmarks(skipAnimation = false) {
       : "";
 
     const cardClickAttr = state.isBatchMode
-      ? `onclick="toggleSelectBookmark('${item.id}')"`
+      ? `onclick="toggleSelectBookmark(${jsArg(item.id)})"`
       : "";
     const cardCursorStyle = state.isBatchMode ? 'style="cursor: pointer;"' : "";
 
     // 批量模式下封面不開大圖：不綁點擊，讓點擊冒泡到卡片 = 勾選這張
     const coverClickAttr = state.isBatchMode
       ? ""
-      : `onclick="event.stopPropagation(); openImagePreview('${escapeHtml(coverSrc)}', '${escapeHtml(item.title)}')"`;
+      : `onclick="event.stopPropagation(); openImagePreview(${jsArg(coverSrc)}, ${jsArg(item.title)})"`;
 
     // 下面是一張卡片的完整 HTML 模板。按鈕用 onclick="函式('id')" 直接呼叫全域函式
     // （jumpToBookmark、editBookmark、deleteBookmark 等，定義在後面的「使用者互動事件」區塊）。
@@ -1562,7 +1571,7 @@ function renderBookmarks(skipAnimation = false) {
                         <img src="${faviconUrl}" class="site-favicon" alt="icon" onerror="this.style.display='none'">
                         <span>${escapeHtml(hostname)}</span>
                         <span class="ms-auto click-counter-badge" title="累計跳轉次數">
-                            <i class="bi bi-cursor-fill text-primary"></i> ${item.clicks || 0} 次點擊
+                            <i class="bi bi-cursor-fill text-primary"></i> ${Number(item.clicks) || 0} 次點擊
                         </span>
                     </div>
                     <!-- 標題 -->
@@ -1578,13 +1587,13 @@ function renderBookmarks(skipAnimation = false) {
                     <!-- 底部操作列 -->
                     <div class="card-actions-footer" onclick="event.stopPropagation()">
                         <div class="d-flex align-items-center gap-1 flex-wrap">
-                            <button class="btn btn-dark btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="jumpToBookmark('${item.id}')">
+                            <button class="btn btn-dark btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="jumpToBookmark(${jsArg(item.id)})">
                                 <i class="bi bi-box-arrow-up-right"></i> 前往
                             </button>
                             ${
                               isAnimeItem(item)
                                 ? `
-                            <button class="btn btn-outline-danger btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="playAnimeBookmark('${item.id}')" title="透過 Kazumi 全網檢索並開播">
+                            <button class="btn btn-outline-danger btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="playAnimeBookmark(${jsArg(item.id)})" title="透過 Kazumi 全網檢索並開播">
                                 <i class="bi bi-play-circle-fill"></i> Kazumi 播放
                             </button>`
                                 : ""
@@ -1597,7 +1606,7 @@ function renderBookmarks(skipAnimation = false) {
                                     item.url.includes("youtu.be")))) &&
                               !isAnimeItem(item)
                                 ? `
-                            <button class="btn btn-outline-danger btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="playVideoBookmark('${item.id}')">
+                            <button class="btn btn-outline-danger btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="playVideoBookmark(${jsArg(item.id)})">
                                 <i class="bi bi-play-circle-fill"></i> 播放
                             </button>`
                                 : ""
@@ -1608,7 +1617,7 @@ function renderBookmarks(skipAnimation = false) {
                                 (t) => t.includes("漫畫") || t.includes("条漫"),
                               )
                                 ? `
-                            <button class="btn btn-outline-primary btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="readMangaBookmark('${item.id}')">
+                            <button class="btn btn-outline-primary btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="readMangaBookmark(${jsArg(item.id)})">
                                 <i class="bi bi-journal-richtext"></i> 漫畫
                             </button>`
                                 : ""
@@ -1619,7 +1628,7 @@ function renderBookmarks(skipAnimation = false) {
                                 (t) => t.includes("小說") || t.includes("文庫"),
                               )
                                 ? `
-                            <button class="btn btn-outline-success btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="openLegadoWithTitle('${escapeHtml(item.title)}')">
+                            <button class="btn btn-outline-success btn-sm action-jump-btn d-flex align-items-center gap-1" onclick="openLegadoWithTitle(${jsArg(item.title)})">
                                 <i class="bi bi-book-half"></i> 小說
                             </button>`
                                 : ""
@@ -1641,22 +1650,22 @@ function renderBookmarks(skipAnimation = false) {
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-dark shadow-sm" style="font-size: 0.8rem; z-index: 1050;">
                                     <li><h6 class="dropdown-header small" style="color: #38bdf8 !important;">Bangumi 狀態同步</h6></li>
-                                    <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 3); return false;"><i class="bi bi-play-circle text-success me-1"></i> ${isMangaItem(item) ? "已在讀" : "已在看"}</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 1); return false;"><i class="bi bi-heart text-danger me-1"></i> ${isMangaItem(item) ? "想讀" : "想看"}</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus('${item.id}', 2); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> ${isMangaItem(item) ? "已讀過" : "已看過"}</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus(${jsArg(item.id)}, 3); return false;"><i class="bi bi-play-circle text-success me-1"></i> ${isMangaItem(item) ? "已在讀" : "已在看"}</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus(${jsArg(item.id)}, 1); return false;"><i class="bi bi-heart text-danger me-1"></i> ${isMangaItem(item) ? "想讀" : "想看"}</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="updateCardWatchStatus(${jsArg(item.id)}, 2); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> ${isMangaItem(item) ? "已讀過" : "已看過"}</a></li>
                                 </ul>
                             </div>`
                                 : ""
                             }
                         </div>
                         <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-secondary" onclick="togglePinBookmark('${item.id}')" title="${item.pinned ? "取消置頂" : "設為置頂"}">
+                            <button class="btn btn-outline-secondary" onclick="togglePinBookmark(${jsArg(item.id)})" title="${item.pinned ? "取消置頂" : "設為置頂"}">
                                 <i class="bi bi-pin-angle${item.pinned ? "-fill text-warning" : ""}"></i>
                             </button>
-                            <button class="btn btn-outline-secondary" onclick="editBookmark('${item.id}')" title="編輯此收藏">
+                            <button class="btn btn-outline-secondary" onclick="editBookmark(${jsArg(item.id)})" title="編輯此收藏">
                                 <i class="bi bi-pencil-square"></i>
                             </button>
-                            <button class="btn btn-outline-danger" onclick="deleteBookmark('${item.id}')" title="刪除此收藏">
+                            <button class="btn btn-outline-danger" onclick="deleteBookmark(${jsArg(item.id)})" title="刪除此收藏">
                                 <i class="bi bi-trash3"></i>
                             </button>
                         </div>
@@ -3774,18 +3783,18 @@ function renderSourceList() {
                         <span class="fw-semibold text-white small text-truncate" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</span>
                     </div>
                     <div class="d-flex align-items-center gap-1 flex-wrap">
-                        <button class="btn btn-xs btn-outline-success text-truncate" onclick="addAnimeSearchResultToLibrary('${escapeHtml(item.title)}', '${escapeHtml(kazumiState.cover || "")}', '${escapeHtml(item.detailUrl || "")}')" title="收藏作品至個人圖書館">
+                        <button class="btn btn-xs btn-outline-success text-truncate" onclick="addAnimeSearchResultToLibrary(${jsArg(item.title)}, ${jsArg(kazumiState.cover || "")}, ${jsArg(item.detailUrl || "")})" title="收藏作品至個人圖書館">
                             <i class="bi bi-bookmark-plus"></i> +收藏
                         </button>
                         <div class="dropdown d-inline-block">
                             <button class="btn btn-xs btn-outline-info dropdown-toggle d-flex align-items-center gap-1 bookmark-watch-status-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="檢視或更改 Bangumi 狀態">
-                                <i class="bi bi-bookmark-heart"></i> <span id="${statusTagId}">辨識中...</span>
+                                <i class="bi bi-bookmark-heart"></i> <span id="${escapeHtml(statusTagId)}">辨識中...</span>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow-sm" style="font-size: 0.8rem; z-index: 1060;">
                                 <li><h6 class="dropdown-header small" style="color: #38bdf8 !important;">Bangumi 狀態變更</h6></li>
-                                <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 3, false, '${statusTagId}'); return false;"><i class="bi bi-play-circle text-success me-1"></i> 已在看</a></li>
-                                <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 1, false, '${statusTagId}'); return false;"><i class="bi bi-heart text-danger me-1"></i> 想看</a></li>
-                                <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(item.title)}', 2, false, '${statusTagId}'); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> 已看過</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange(${jsArg(item.title)}, 3, false, ${jsArg(statusTagId)}); return false;"><i class="bi bi-play-circle text-success me-1"></i> 已在看</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange(${jsArg(item.title)}, 1, false, ${jsArg(statusTagId)}); return false;"><i class="bi bi-heart text-danger me-1"></i> 想看</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange(${jsArg(item.title)}, 2, false, ${jsArg(statusTagId)}); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> 已看過</a></li>
                             </ul>
                         </div>
                         <button class="btn btn-xs btn-outline-danger" id="epBtn_${source.id}_${rIdx}">
@@ -6147,7 +6156,7 @@ function renderDanmakuList(list, keyword = "") {
                     <span class="rounded-circle flex-shrink-0" style="width: 10px; height: 10px; background-color: ${color}; box-shadow: 0 0 4px ${color};"></span>
                     <span class="small text-white text-truncate" title="${escapeHtml(item.content)}">${escapeHtml(item.content)}</span>
                 </div>
-                <button type="button" class="btn btn-outline-success btn-xs rounded-pill flex-shrink-0 px-2" onclick="window.fireTestDanmaku('${escapeHtml(item.content)}', '${color}')" title="立即在畫面上飄送此條彈幕">
+                <button type="button" class="btn btn-outline-success btn-xs rounded-pill flex-shrink-0 px-2" onclick="window.fireTestDanmaku(${jsArg(item.content)}, ${jsArg(color)})" title="立即在畫面上飄送此條彈幕">
                     <i class="bi bi-play-fill"></i> 試發
                 </button>
             </div>
@@ -8576,22 +8585,22 @@ function renderMangaSearchResults(results, q) {
             </div>
             <div class="d-flex flex-column align-items-end gap-1 flex-shrink-0">
                 <div class="d-flex align-items-center gap-1">
-                    <button class="btn btn-xs ${shelfBtnClass} rounded-pill px-2" onclick="toggleMangaBookshelfItem('${escapeHtml(m.title)}', '${escapeHtml(coverUrl)}', this)" title="${shelfBtnTitle}">
+                    <button class="btn btn-xs ${shelfBtnClass} rounded-pill px-2" onclick="toggleMangaBookshelfItem(${jsArg(m.title)}, ${jsArg(coverUrl)}, this)" title="${shelfBtnTitle}">
                         ${shelfBtnText}
                     </button>
                     <div class="dropdown d-inline-block">
                         <button class="btn btn-xs btn-outline-info dropdown-toggle rounded-pill px-2 bookmark-watch-status-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="檢視或更改 Bangumi 閱讀狀態">
-                            <i class="bi bi-book"></i> <span id="${statusTagId}">辨識中...</span>
+                            <i class="bi bi-book"></i> <span id="${escapeHtml(statusTagId)}">辨識中...</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow-sm" style="font-size: 0.8rem; z-index: 1060;">
                             <li><h6 class="dropdown-header small" style="color: #38bdf8 !important;">Bangumi 閱讀狀態</h6></li>
-                            <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 3, true, '${statusTagId}'); return false;"><i class="bi bi-play-circle text-success me-1"></i> 已在讀</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 1, true, '${statusTagId}'); return false;"><i class="bi bi-heart text-danger me-1"></i> 想讀</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange('${escapeHtml(m.title)}', 2, true, '${statusTagId}'); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> 已讀過</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange(${jsArg(m.title)}, 3, true, ${jsArg(statusTagId)}); return false;"><i class="bi bi-play-circle text-success me-1"></i> 已在讀</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange(${jsArg(m.title)}, 1, true, ${jsArg(statusTagId)}); return false;"><i class="bi bi-heart text-danger me-1"></i> 想讀</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="applyBangumiStatusChange(${jsArg(m.title)}, 2, true, ${jsArg(statusTagId)}); return false;"><i class="bi bi-check2-circle text-primary me-1"></i> 已讀過</a></li>
                         </ul>
                     </div>
                 </div>
-                <button class="btn btn-sm btn-outline-primary text-nowrap rounded-pill px-3 w-100" onclick="selectManga('${escapeHtml(m.id)}', '${escapeHtml(m.title)}', '${escapeHtml(coverUrl)}', '${escapeHtml(m.author || "")}', '${escapeHtml(m.alias || "")}', '${escapeHtml(sourceName)}')">
+                <button class="btn btn-sm btn-outline-primary text-nowrap rounded-pill px-3 w-100" onclick="selectManga(${jsArg(m.id)}, ${jsArg(m.title)}, ${jsArg(coverUrl)}, ${jsArg(m.author || "")}, ${jsArg(m.alias || "")}, ${jsArg(sourceName)})">
                     <i class="bi bi-list-ol"></i> 選集
                 </button>
             </div>
@@ -8832,7 +8841,7 @@ window.loadMangaChapter = async function (
                     <i class="bi bi-exclamation-triangle fs-1 d-block mb-3"></i>
                     <h5 class="fw-bold mb-1">條漫載入失敗</h5>
                     <p class="small text-secondary mb-3">${escapeHtml(err.message)}</p>
-                    <button class="btn btn-outline-light btn-sm rounded-pill px-3" onclick="loadMangaChapter('${escapeHtml(mangaId)}', '${escapeHtml(chapterId)}', '${escapeHtml(chapterTitle)}', ${chapterIndex})">
+                    <button class="btn btn-outline-light btn-sm rounded-pill px-3" onclick="loadMangaChapter(${jsArg(mangaId)}, ${jsArg(chapterId)}, ${jsArg(chapterTitle)}, ${chapterIndex})">
                         <i class="bi bi-arrow-repeat"></i> 重試
                     </button>
                 </div>
@@ -9163,7 +9172,7 @@ let currentNovelSource = (() => {
 // 產生可安全放進 onclick="fn(...)" 的 JS 字串參數 (避免標題含引號時破壞屬性)
 // 做法：JSON.stringify 加上引號並跳脫特殊字元，再 escapeHtml 轉掉 HTML 的 " 符號。
 function novelJsArg(value) {
-  return escapeHtml(JSON.stringify(String(value ?? "")));
+  return jsArg(value);
 }
 
 // 讀取後端錯誤訊息；後端未啟動或回傳非 JSON 時給通用訊息
@@ -12765,10 +12774,10 @@ window.renderAnimeHistoryStandby = function () {
                                 </div>
                             </div>
                             <div class="d-flex align-items-center gap-1 flex-shrink-0 ms-1">
-                                <button class="btn btn-sm btn-danger px-2 text-nowrap rounded-pill py-0 d-flex align-items-center gap-1" style="font-size: 0.72rem; height: 26px;" onclick="resumeWatchHistory('${item.id}'); toggleTheaterFloatingHistory(false);" title="繼續播放此進度">
+                                <button class="btn btn-sm btn-danger px-2 text-nowrap rounded-pill py-0 d-flex align-items-center gap-1" style="font-size: 0.72rem; height: 26px;" onclick="resumeWatchHistory(${jsArg(item.id)}); toggleTheaterFloatingHistory(false);" title="繼續播放此進度">
                                     <i class="bi bi-play-fill"></i> 續播
                                 </button>
-                                <button type="button" class="btn btn-xs btn-outline-secondary border-0 p-1 text-white-50 hover-text-danger" onclick="deleteWatchHistoryItem('${item.id}', event)" title="刪除此紀錄">
+                                <button type="button" class="btn btn-xs btn-outline-secondary border-0 p-1 text-white-50 hover-text-danger" onclick="deleteWatchHistoryItem(${jsArg(item.id)}, event)" title="刪除此紀錄">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
                             </div>
@@ -13430,7 +13439,25 @@ window.handleImportBookmarks = function (event) {
       let updatedCount = 0;
 
       importedList.forEach((item) => {
-        if (!item || !item.url) return;
+        if (!item || typeof item !== "object" || !item.url) return;
+        // 匯入檔可能被竄改：每個欄位都強制轉成正確型別，避免數字標題讓頁面壞掉、或字串塞進 HTML/onclick
+        const str = (v) => (v === undefined || v === null ? "" : String(v));
+        item = {
+          ...item,
+          id: str(item.id).replace(/[^\w-]/g, ""),
+          url: str(item.url).trim(),
+          title: str(item.title || item.name).trim(),
+          tags: Array.isArray(item.tags)
+            ? item.tags.map((t) => str(t).trim()).filter(Boolean)
+            : typeof item.tags === "string"
+              ? item.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean)
+              : [],
+          desc: str(item.desc || item.description),
+          cover: str(item.cover),
+          category: str(item.category),
+          clicks: Math.max(0, parseInt(item.clicks, 10) || 0),
+        };
+        if (!/^https?:\/\//i.test(item.url)) return;
 
         const existingIdx = state.bookmarks.findIndex(
           (b) => (item.id && b.id === item.id) || (b.url && b.url === item.url),
@@ -14471,7 +14498,7 @@ function updateNavUserAvatar(avatar) {
         avatar = sessionStorage.getItem('web_library_custom_avatar_' + effectiveUser) || 'default';
     }
     if (avatar && (avatar.startsWith('data:image/') || avatar.startsWith('http'))) {
-        wrapper.innerHTML = `<img src="${avatar}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; display: block;" alt="avatar">`;
+        wrapper.innerHTML = `<img src="${escapeHtml(avatar)}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; display: block;" alt="avatar">`;
     } else {
         const preset = AVATAR_PRESETS.find(p => p.id === avatar) || AVATAR_PRESETS[0];
         const iconHtml = (preset.icon || '<i class="bi bi-person-fill"></i>').replace(/fs-4/g, 'fs-6');
@@ -14491,7 +14518,7 @@ function updateNavUserAvatar(avatar) {
                     if (serverAvatar && serverAvatar !== 'default' && serverAvatar !== cachedAvatar) {
                         sessionStorage.setItem('web_library_custom_avatar_' + effectiveUser, serverAvatar);
                         if (serverAvatar.startsWith('data:image/') || serverAvatar.startsWith('http')) {
-                            wrapper.innerHTML = `<img src="${serverAvatar}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; display: block;" alt="avatar">`;
+                            wrapper.innerHTML = `<img src="${escapeHtml(serverAvatar)}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; display: block;" alt="avatar">`;
                         } else {
                             const preset = AVATAR_PRESETS.find(p => p.id === serverAvatar) || AVATAR_PRESETS[0];
                             const iconHtml = (preset.icon || '<i class="bi bi-person-fill"></i>').replace(/fs-4/g, 'fs-6');
@@ -14509,7 +14536,7 @@ function updateProfileModalAvatarPreview(avatar) {
     const preview = document.getElementById('profileAvatarPreview');
     if (!preview) return;
     if (avatar && (avatar.startsWith('data:image/') || avatar.startsWith('http'))) {
-        preview.innerHTML = `<img src="${avatar}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+        preview.innerHTML = `<img src="${escapeHtml(avatar)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
         preview.style.backgroundColor = 'transparent';
     } else {
         const preset = AVATAR_PRESETS.find(p => p.id === avatar) || AVATAR_PRESETS[0];
@@ -14569,7 +14596,7 @@ function populateProfileForm(profileData, savedCustomAvatar) {
             customBtn.className = `avatar-choice-item ${profileData.avatar === savedCustomAvatar ? 'selected' : ''}`;
             customBtn.style.overflow = 'hidden';
             customBtn.title = '自訂上傳圖片';
-            customBtn.innerHTML = `<img src="${savedCustomAvatar}" alt="custom avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+            customBtn.innerHTML = `<img src="${escapeHtml(savedCustomAvatar)}" alt="custom avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
             customBtn.onclick = () => {
                 document.querySelectorAll('.avatar-choice-item').forEach(el => el.classList.remove('selected'));
                 customBtn.classList.add('selected');
