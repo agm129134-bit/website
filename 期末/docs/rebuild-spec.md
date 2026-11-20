@@ -279,6 +279,7 @@ node --check js/app.js && node --check js/acg.js && node --check server.js
 | 7sefun 部分集數黑屏 | 舊解析站失效、CDN 防盜鏈 | 改用 dp.no3acg.com 解析＋備援線路＋串流代理 |
 | Girigirilove 搜不到 | acgnx 302 + Cloudflare 403 | 改用 girigirilove 官方 api.php |
 | AGE 音量調不了 | 跨網域 iframe 無法用 JS 控音量 | 能拿到 m3u8 就用自己的 `<video>`＋hls.js 播 |
+| F12 看影片請求延遲高 | 片源 CDN（如 ffzy）在海外，首位元組約 0.5 秒；`rule-play` 每次現場爬播放頁約 0.7 秒 | `rule-play` 結果存記憶體快取（20 分鐘、最多 300 筆）；hls.js 共用設定 `KAZUMI_HLS_CONFIG` 緩衝 60～180 秒、120MB、`startFragPrefetch` |
 | 漫畫歷史備援封面 SyntaxError | inline onerror 字串跳脫錯 | 改用 `window.getMangaHistoryFallbackCover()` |
 | 多層 Modal 按 ESC 全關 | Bootstrap 預設行為 | 記錄開啟順序，只關最上層；開場動畫中按 ESC 等 shown 後再關 |
 | Docker 狀態一直「檢查中」 | `docker` 指令卡住 | 前後端都加逾時 |

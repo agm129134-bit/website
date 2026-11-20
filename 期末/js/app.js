@@ -4176,6 +4176,15 @@ async function playRuleEpisode(sourceId, animeItem, episode, allEpisodes) {
   }
 }
 
+// hls.js 共用設定：片源 CDN 多在海外（首位元組約 0.5 秒），所以多緩衝一點、起播前先抓第一段，減少卡頓。
+const KAZUMI_HLS_CONFIG = {
+  enableWorker: true,
+  maxBufferLength: 60, // 預設 30 秒：至少先緩衝 60 秒
+  maxMaxBufferLength: 180,
+  maxBufferSize: 120 * 1000 * 1000, // 預設 60MB
+  startFragPrefetch: true,
+};
+
 // 開啟「動漫劇院」播放器並開始播放。參數：動畫名、集數名、播放器網址、全部集數、目前集物件、封面。
 // 依網址類型選三種播放方式：
 //  1) isBlocked：站方禁止被 iframe 內嵌 -> 只顯示「新分頁播放」的備用卡片
@@ -4336,7 +4345,7 @@ function openTheaterWithUrl(
             window.kazumiHlsInstance.destroy();
           }
 
-          const hls = new Hls({ enableWorker: true });
+          const hls = new Hls(KAZUMI_HLS_CONFIG);
 
           hls.loadSource(playerUrl);
 
@@ -11766,7 +11775,7 @@ async function playKazumiRuleEpisode(playUrl, epTitle, source) {
                 window.kazumiHlsInstance = null;
               }
 
-              const hls = new Hls({ enableWorker: true });
+              const hls = new Hls(KAZUMI_HLS_CONFIG);
 
               hls.loadSource(data.playerUrl);
 

@@ -41,6 +41,11 @@ const customRules = require('./custom-rules');
 // safe-fetch.js 提供安全工具：讀取 POST 的 JSON、檢查網址是否為公網、安全地串流請求、內網錯誤類別
 const { readJsonBody, assertPublicUrl, safeRequestStream, UnsafeUrlError } = require('./safe-fetch');
 
+// rule-play 解析結果快取：key 是播放頁網址。20 分鐘過期（部分來源的直連網址帶時效簽章），最多 300 筆。
+const playUrlCache = new Map();
+const PLAY_URL_CACHE_TTL = 20 * 60 * 1000;
+const PLAY_URL_CACHE_MAX = 300;
+
 // sendJson：統一的 JSON 回應函式。
 // 參數：res 回應物件、statusCode HTTP 狀態碼、payload 要回傳的物件。
 // 做法：加上 CORS 標頭（允許任何網站呼叫）、設定 Content-Type 為 JSON，再把物件轉成字串送出。
@@ -1516,6 +1521,12 @@ async function handleKazumiRoute(req, res) {
             }
             try { await assertPublicUrl(playUrl); } catch (e) { return sendJson(res, 403, { success: false, error: e.message }); }
 
+            // 解析一次要現場爬對方播放頁（約 0.5~1 秒），同一集短時間內重開直接用快取的結果。
+            const cached = playUrlCache.get(playUrl);
+            if (cached && cached.expires > Date.now()) {
+                return sendJson(res, 200, cached.body);
+            }
+
             try {
                 let playerUrl = null;
                 let isBlockedIframe = false;
@@ -1553,12 +1564,16 @@ async function handleKazumiRoute(req, res) {
                 if (!playerUrl) {
                     return sendJson(res, 404, { success: false, error: '未找到播放器網址' });
                 }
-                return sendJson(res, 200, {
+                const body = {
                     success: true,
                     playerUrl: playerUrl,
                     isBlockedIframe: isBlockedIframe,
                     isDirectStream: isDirectStream
-                });
+                };
+                // 只快取成功結果；超過上限就丟掉最舊的一筆（Map 依插入順序排列）。
+                if (playUrlCache.size >= PLAY_URL_CACHE_MAX) playUrlCache.delete(playUrlCache.keys().next().value);
+                playUrlCache.set(playUrl, { body, expires: Date.now() + PLAY_URL_CACHE_TTL });
+                return sendJson(res, 200, body);
             } catch (err) {
                 console.error('[Kazumi Rule Play Error]:', err.message);
                 return sendJson(res, isUnsafeUrlError(err) ? 403 : 500, { success: false, error: '解析播放器失敗：' + err.message });
